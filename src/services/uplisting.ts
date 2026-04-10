@@ -4,8 +4,6 @@
  * Auth: Bearer token (your API key)
  */
 
-const BASE_URL = 'https://api.uplisting.io/v1';
-
 export interface UplistingProperty {
   id: string;
   name: string;
@@ -39,13 +37,10 @@ export interface UplistingConnectionResult {
   reservations?: UplistingReservation[];
 }
 
-async function apiFetch(path: string, apiKey: string) {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
+async function apiFetch(path: string, apiKey: string, params?: Record<string, string>) {
+  const q = new URLSearchParams({ path, ...params });
+  const res = await fetch(`/api/uplisting-proxy?${q}`, {
+    headers: { 'x-uplisting-key': apiKey },
   });
 
   if (!res.ok) {
@@ -58,7 +53,7 @@ async function apiFetch(path: string, apiKey: string) {
 
 export async function testConnection(apiKey: string): Promise<UplistingConnectionResult> {
   try {
-    const data = await apiFetch('/listings', apiKey);
+    const data = await apiFetch('listings', apiKey);
     const properties: UplistingProperty[] = (data?.data ?? data ?? []).map(normalizeProperty);
     return { ok: true, properties };
   } catch (err) {
@@ -67,7 +62,7 @@ export async function testConnection(apiKey: string): Promise<UplistingConnectio
 }
 
 export async function fetchProperties(apiKey: string): Promise<UplistingProperty[]> {
-  const data = await apiFetch('/listings', apiKey);
+  const data = await apiFetch('listings', apiKey);
   return (data?.data ?? data ?? []).map(normalizeProperty);
 }
 
@@ -76,11 +71,10 @@ export async function fetchReservations(
   from?: string,
   to?: string
 ): Promise<UplistingReservation[]> {
-  const params = new URLSearchParams();
-  if (from) params.set('start_date', from);
-  if (to) params.set('end_date', to);
-  const query = params.toString() ? `?${params}` : '';
-  const data = await apiFetch(`/reservations${query}`, apiKey);
+  const params: Record<string, string> = {};
+  if (from) params.start_date = from;
+  if (to) params.end_date = to;
+  const data = await apiFetch('reservations', apiKey, params);
   return (data?.data ?? data ?? []).map(normalizeReservation);
 }
 
