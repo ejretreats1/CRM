@@ -21,14 +21,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const query = params.toString() ? `?${params}` : '';
 
-  const upstream = await fetch(`${BASE_URL}/${path}${query}`, {
+  const cleanKey = apiKey.trim();
+  const encoded = Buffer.from(cleanKey).toString('base64');
+  const authHeader = `Basic ${encoded}`;
+  const upstreamUrl = `${BASE_URL}/${path}${query}`;
+
+  const upstream = await fetch(upstreamUrl, {
     headers: {
-      Authorization: `Basic ${Buffer.from(apiKey.trim()).toString('base64')}`,
+      Authorization: authHeader,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
   });
 
   const body = await upstream.text();
+
+  if (!upstream.ok) {
+    return res.status(upstream.status).json({
+      error: body,
+      _debug: {
+        url: upstreamUrl,
+        keyLength: cleanKey.length,
+        authHeaderPreview: `Basic ${encoded.slice(0, 10)}...`,
+      },
+    });
+  }
+
   res.status(upstream.status).setHeader('Content-Type', 'application/json').send(body);
 }
