@@ -12,7 +12,7 @@ const supabase = createClient(
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { ownerId, ownerName, documentUrl, documentName, sentToEmail, appUrl } = req.body;
+  const { ownerId, ownerName, documentUrl, documentName, sentToEmail, appUrl, sigX, sigY, dateX, dateY } = req.body;
 
   const token = randomUUID();
   const id = `sig_${Date.now()}`;
@@ -28,6 +28,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     sent_to_email: sentToEmail,
     sent_at: new Date().toISOString(),
     expires_at: expiresAt,
+    sig_x: sigX ?? 0.08,
+    sig_y: sigY ?? 0.78,
+    date_x: dateX ?? 0.55,
+    date_y: dateY ?? 0.78,
   });
 
   if (error) return res.status(500).json({ error: error.message });

@@ -49,5 +49,9 @@ function rowToSignatureRequest(r: any): SignatureRequest {
     sentAt: r.sent_at,
     signedAt: r.signed_at ?? undefined,
     expiresAt: r.expires_at,
+    sigX: r.sig_x ?? undefined,
+    sigY: r.sig_y ?? undefined,
+    dateX: r.date_x ?? undefined,
+    dateY: r.date_y ?? undefined,
   };
 }

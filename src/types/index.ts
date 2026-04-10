@@ -77,4 +77,8 @@ export interface SignatureRequest {
   sentAt: string;
   signedAt?: string;
   expiresAt: string;
+  sigX?: number;
+  sigY?: number;
+  dateX?: number;
+  dateY?: number;
 }
