@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const upstream = await fetch(`${BASE_URL}/${path}${query}`, {
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Token token=${apiKey}`,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
