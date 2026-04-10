@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Mail, Phone, Home, TrendingUp, Plus, Edit2, Trash2, Wifi, FileSignature, Download, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Home, TrendingUp, Plus, Edit2, Trash2, Wifi, FileSignature, FileText, Download, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import type { Owner, Property, OutreachEntry, SignatureRequest } from '../types';
 import { fetchSignatureRequests } from '../services/signatures';
 import SignatureRequestModal from './modals/SignatureRequestModal';
@@ -207,31 +207,41 @@ export default function OwnerDetail({
           {sigRequests.map(req => {
             const s = SIG_STATUS[req.status];
             return (
-              <div key={req.id} className="flex items-center gap-4 px-5 py-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">{req.documentName}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Sent to {req.sentToEmail} · {new Date(req.sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                  {req.signedAt && (
-                    <p className="text-xs text-emerald-600 mt-0.5">
-                      Signed {new Date(req.signedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              <div key={req.id} className="px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate">{req.documentName}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Sent to {req.sentToEmail} · {new Date(req.sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
-                  )}
+                    {req.signedAt && (
+                      <p className="text-xs text-emerald-600 mt-0.5">
+                        Signed {new Date(req.signedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    )}
+                  </div>
+                  <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${s.cls}`}>
+                    {s.icon} {s.label}
+                  </span>
                 </div>
-                <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${s.cls}`}>
-                  {s.icon} {s.label}
-                </span>
                 {req.signedDocumentUrl && (
-                  <a
-                    href={req.signedDocumentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-slate-400 hover:text-teal-600 transition-colors"
-                    title="Download signed document"
-                  >
-                    <Download size={15} />
-                  </a>
+                  <div className="flex items-center gap-3 mt-2.5">
+                    <a
+                      href={req.signedDocumentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-400 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      <FileText size={12} /> View Signed Document
+                    </a>
+                    <a
+                      href={req.signedDocumentUrl}
+                      download
+                      className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 hover:border-slate-300 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      <Download size={12} /> Download
+                    </a>
+                  </div>
                 )}
               </div>
             );
