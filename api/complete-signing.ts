@@ -1,11 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { PDFDocument, rgb } from 'pdf-lib';
+import { Resend } from 'resend';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL!,
   process.env.VITE_SUPABASE_ANON_KEY!
 );
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -98,6 +100,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     signed_at: new Date().toISOString(),
     signed_document_url: publicUrl,
   }).eq('id', sigReq.id);
+
+  // Notify E&J Retreats that the document was signed
+  const { data: owner } = await supabase
+    .from('owners')
+    .select('name')
+    .eq('id', sigReq.owner_id)
+    .single();
+
+  const signedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  await resend.emails.send({
+    from: 'E&J Retreats <onboarding@resend.dev>',
+    to: 'ejretreats1@gmail.com',
+    subject: `✅ Signed: ${sigReq.document_name}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+        <h2 style="color:#0f766e">Document Signed</h2>
+        <p><strong>${owner?.name ?? sigReq.sent_to_email}</strong> has signed <strong>${sigReq.document_name}</strong> on ${signedDate}.</p>
+        <p style="margin:24px 0">
+          <a href="${publicUrl}"
+            style="background:#0d9488;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+            Download Signed Document
+          </a>
+        </p>
+        <p style="color:#64748b;font-size:13px">Signed by: ${sigReq.sent_to_email}</p>
+      </div>
+    `,
+  });
 
   return res.status(200).json({ signedDocumentUrl: publicUrl });
 }
