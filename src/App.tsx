@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Pipeline from './components/Pipeline';
@@ -11,7 +11,12 @@ import OwnerModal from './components/modals/OwnerModal';
 import PropertyModal from './components/modals/PropertyModal';
 import OutreachModal from './components/modals/OutreachModal';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { mockLeads, mockOwners, mockOutreach } from './data/mockData';
+import {
+  fetchLeads, upsertLead, deleteLead,
+  fetchOwners, upsertOwner,
+  upsertProperty, deleteProperty,
+  fetchOutreach, upsertOutreach, deleteOutreach,
+} from './services/db';
 import { fetchProperties, fetchReservations } from './services/uplisting';
 import type { Lead, Owner, Property, OutreachEntry, View } from './types';
 import type { UplistingProperty, UplistingReservation } from './services/uplisting';
@@ -24,11 +29,13 @@ type Modal =
   | null;
 
 export default function App() {
-  const [leads, setLeads] = useLocalStorage<Lead[]>('ej_leads', mockLeads);
-  const [owners, setOwners] = useLocalStorage<Owner[]>('ej_owners', mockOwners);
-  const [outreach, setOutreach] = useLocalStorage<OutreachEntry[]>('ej_outreach', mockOutreach);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [outreach, setOutreach] = useState<OutreachEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Uplisting integration
+  // Uplisting integration (still in localStorage — no sensitive data)
   const [uplistingApiKey, setUplistingApiKey] = useLocalStorage<string>('ej_uplisting_key', '');
   const [uplistingProperties, setUplistingProperties] = useLocalStorage<UplistingProperty[]>('ej_uplisting_properties', []);
   const [uplistingReservations, setUplistingReservations] = useLocalStorage<UplistingReservation[]>('ej_uplisting_reservations', []);
@@ -38,12 +45,30 @@ export default function App() {
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
   const [modal, setModal] = useState<Modal>(null);
 
+  // ── Load all data from Supabase on mount ───────────────────────────────────
+  useEffect(() => {
+    async function loadAll() {
+      try {
+        const [l, o, out] = await Promise.all([fetchLeads(), fetchOwners(), fetchOutreach()]);
+        setLeads(l);
+        setOwners(o);
+        setOutreach(out);
+      } catch (e) {
+        setError('Failed to load data. Check your Supabase connection.');
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadAll();
+  }, []);
+
   const navigate = (v: View, extra?: string) => {
     setView(v);
     if (v === 'owner-detail' && extra) setSelectedOwnerId(extra);
   };
 
-  // Uplisting sync
+  // ── Uplisting sync ─────────────────────────────────────────────────────────
   const handleSync = useCallback(async () => {
     if (!uplistingApiKey) return;
     try {
@@ -52,7 +77,6 @@ export default function App() {
       thirtyDaysAgo.setDate(today.getDate() - 30);
       const ninetyDaysAhead = new Date(today);
       ninetyDaysAhead.setDate(today.getDate() + 90);
-
       const [props, res] = await Promise.all([
         fetchProperties(uplistingApiKey),
         fetchReservations(
@@ -65,40 +89,34 @@ export default function App() {
       setUplistingReservations(res);
       setLastSync(new Date().toISOString());
     } catch {
-      // Sync errors shown in Settings; don't crash
+      // Sync errors shown in Settings
     }
   }, [uplistingApiKey, setUplistingProperties, setUplistingReservations, setLastSync]);
 
-  const handleSaveApiKey = (key: string) => {
-    setUplistingApiKey(key);
-  };
-
-  const handleClearUplistingData = () => {
-    setUplistingProperties([]);
-    setUplistingReservations([]);
-    setLastSync(null);
-  };
-
-  // Lead CRUD
-  const saveLeadHandler = (lead: Lead) => {
+  // ── Lead CRUD ──────────────────────────────────────────────────────────────
+  const saveLeadHandler = async (lead: Lead) => {
+    await upsertLead(lead);
     setLeads(prev => {
       const exists = prev.find(l => l.id === lead.id);
-      return exists ? prev.map(l => l.id === lead.id ? lead : l) : [...prev, lead];
+      return exists ? prev.map(l => l.id === lead.id ? lead : l) : [lead, ...prev];
     });
     setModal(null);
   };
 
-  // Owner CRUD
-  const saveOwnerHandler = (owner: Owner) => {
+
+  // ── Owner CRUD ─────────────────────────────────────────────────────────────
+  const saveOwnerHandler = async (owner: Owner) => {
+    await upsertOwner(owner);
     setOwners(prev => {
       const exists = prev.find(o => o.id === owner.id);
-      return exists ? prev.map(o => o.id === owner.id ? owner : o) : [...prev, owner];
+      return exists ? prev.map(o => o.id === owner.id ? owner : o) : [owner, ...prev];
     });
     setModal(null);
   };
 
-  // Property CRUD
-  const savePropertyHandler = (ownerId: string, property: Property) => {
+  // ── Property CRUD ──────────────────────────────────────────────────────────
+  const savePropertyHandler = async (ownerId: string, property: Property) => {
+    await upsertProperty(ownerId, property);
     setOwners(prev => prev.map(o => {
       if (o.id !== ownerId) return o;
       const exists = o.properties.find(p => p.id === property.id);
@@ -112,23 +130,63 @@ export default function App() {
     setModal(null);
   };
 
-  const deletePropertyHandler = (ownerId: string, propertyId: string) => {
+  const deletePropertyHandler = async (ownerId: string, propertyId: string) => {
+    await deleteProperty(propertyId);
     setOwners(prev => prev.map(o =>
       o.id === ownerId ? { ...o, properties: o.properties.filter(p => p.id !== propertyId) } : o
     ));
   };
 
-  // Outreach CRUD
-  const saveOutreachHandler = (entry: OutreachEntry) => {
+  // ── Outreach CRUD ──────────────────────────────────────────────────────────
+  const saveOutreachHandler = async (entry: OutreachEntry) => {
+    await upsertOutreach(entry);
     setOutreach(prev => {
       const exists = prev.find(e => e.id === entry.id);
-      return exists ? prev.map(e => e.id === entry.id ? entry : e) : [...prev, entry];
+      return exists ? prev.map(e => e.id === entry.id ? entry : e) : [entry, ...prev];
     });
     setModal(null);
   };
 
+  // ── Bulk handlers (Pipeline drag-drop, OutreachLog delete) ─────────────────
+  const updateLeadsHandler = async (updated: Lead[]) => {
+    const deleted = leads.filter(l => !updated.find(u => u.id === l.id));
+    const changed = updated.filter(l => {
+      const orig = leads.find(o => o.id === l.id);
+      return !orig || l.stage !== orig.stage || l.updatedAt !== orig.updatedAt;
+    });
+    setLeads(updated);
+    await Promise.all([
+      ...deleted.map(l => deleteLead(l.id)),
+      ...changed.map(upsertLead),
+    ]);
+  };
+
+  const updateOutreachHandler = async (updated: OutreachEntry[]) => {
+    const removed = outreach.filter(e => !updated.find(u => u.id === e.id));
+    setOutreach(updated);
+    await Promise.all(removed.map(e => deleteOutreach(e.id)));
+  };
+
   const selectedOwner = owners.find(o => o.id === selectedOwnerId);
   const uplistingConnected = !!uplistingApiKey;
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="text-slate-500 text-sm">Loading CRM data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl text-sm max-w-md text-center">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Layout currentView={view} onNavigate={navigate}>
@@ -149,7 +207,7 @@ export default function App() {
       {view === 'pipeline' && (
         <Pipeline
           leads={leads}
-          onUpdateLeads={setLeads}
+          onUpdateLeads={updateLeadsHandler}
           onOpenLeadModal={(lead) => setModal({ type: 'lead', lead })}
         />
       )}
@@ -178,7 +236,7 @@ export default function App() {
       {view === 'outreach' && (
         <OutreachLog
           outreach={outreach}
-          onUpdateOutreach={setOutreach}
+          onUpdateOutreach={updateOutreachHandler}
           onOpenOutreachModal={(entry) => setModal({ type: 'outreach', entry })}
         />
       )}
@@ -186,32 +244,25 @@ export default function App() {
       {view === 'settings' && (
         <Settings
           apiKey={uplistingApiKey}
-          onSaveApiKey={handleSaveApiKey}
+          onSaveApiKey={setUplistingApiKey}
           lastSync={lastSync}
           properties={uplistingProperties}
           reservations={uplistingReservations}
           onSync={handleSync}
-          onClearData={handleClearUplistingData}
+          onClearData={() => {
+            setUplistingProperties([]);
+            setUplistingReservations([]);
+            setLastSync(null);
+          }}
         />
       )}
 
-      {/* Modals */}
       {modal?.type === 'lead' && (
-        <LeadModal
-          lead={modal.lead}
-          onSave={saveLeadHandler}
-          onClose={() => setModal(null)}
-        />
+        <LeadModal lead={modal.lead} onSave={saveLeadHandler} onClose={() => setModal(null)} />
       )}
-
       {modal?.type === 'owner' && (
-        <OwnerModal
-          owner={modal.owner}
-          onSave={saveOwnerHandler}
-          onClose={() => setModal(null)}
-        />
+        <OwnerModal owner={modal.owner} onSave={saveOwnerHandler} onClose={() => setModal(null)} />
       )}
-
       {modal?.type === 'property' && (
         <PropertyModal
           property={modal.property}
@@ -219,7 +270,6 @@ export default function App() {
           onClose={() => setModal(null)}
         />
       )}
-
       {modal?.type === 'outreach' && (
         <OutreachModal
           entry={modal.entry}
