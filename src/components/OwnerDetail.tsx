@@ -1,5 +1,8 @@
-import { ArrowLeft, Mail, Phone, Home, TrendingUp, Plus, Edit2, Trash2, Wifi } from 'lucide-react';
-import type { Owner, Property, OutreachEntry } from '../types';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Mail, Phone, Home, TrendingUp, Plus, Edit2, Trash2, Wifi, FileSignature, Download, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import type { Owner, Property, OutreachEntry, SignatureRequest } from '../types';
+import { fetchSignatureRequests } from '../services/signatures';
+import SignatureRequestModal from './modals/SignatureRequestModal';
 
 interface OwnerDetailProps {
   owner: Owner;
@@ -29,9 +32,18 @@ const OUTCOME_STYLES: Record<string, string> = {
   no_response: 'bg-slate-100 text-slate-400',
 };
 
+const SIG_STATUS: Record<string, { icon: React.ReactNode; label: string; cls: string }> = {
+  pending: { icon: <Clock size={12} />, label: 'Pending', cls: 'bg-amber-100 text-amber-700' },
+  signed:  { icon: <CheckCircle2 size={12} />, label: 'Signed',   cls: 'bg-emerald-100 text-emerald-700' },
+  expired: { icon: <XCircle size={12} />, label: 'Expired',  cls: 'bg-slate-100 text-slate-500' },
+};
+
 export default function OwnerDetail({
   owner, outreach, onBack, onEdit, onAddProperty, onEditProperty, onDeleteProperty, onAddOutreach,
 }: OwnerDetailProps) {
+  const [sigRequests, setSigRequests] = useState<SignatureRequest[]>([]);
+  const [showSigModal, setShowSigModal] = useState(false);
+
   const ownerOutreach = outreach.filter(e => e.ownerId === owner.id);
   const totalRevenue = owner.properties.reduce((s, p) => s + p.monthlyRevenue, 0);
   const activeProps = owner.properties.filter(p => p.status === 'active');
@@ -39,7 +51,12 @@ export default function OwnerDetail({
     ? Math.round(activeProps.reduce((s, p) => s + p.occupancyRate, 0) / activeProps.length)
     : 0;
 
+  useEffect(() => {
+    fetchSignatureRequests(owner.id).then(setSigRequests).catch(() => {});
+  }, [owner.id]);
+
   return (
+    <>
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Back + header */}
       <div>
@@ -172,6 +189,56 @@ export default function OwnerDetail({
         </div>
       </div>
 
+      {/* Documents / Signatures */}
+      <div className="bg-white rounded-xl border border-slate-200">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-800">Documents</h2>
+          <button
+            onClick={() => setShowSigModal(true)}
+            className="flex items-center gap-1.5 text-xs text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-400 px-3 py-1.5 rounded-lg transition-colors font-medium"
+          >
+            <FileSignature size={13} /> Send for Signature
+          </button>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {sigRequests.length === 0 && (
+            <p className="text-sm text-slate-400 text-center py-8">No documents sent yet.</p>
+          )}
+          {sigRequests.map(req => {
+            const s = SIG_STATUS[req.status];
+            return (
+              <div key={req.id} className="flex items-center gap-4 px-5 py-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 truncate">{req.documentName}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Sent to {req.sentToEmail} · {new Date(req.sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                  {req.signedAt && (
+                    <p className="text-xs text-emerald-600 mt-0.5">
+                      Signed {new Date(req.signedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  )}
+                </div>
+                <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${s.cls}`}>
+                  {s.icon} {s.label}
+                </span>
+                {req.signedDocumentUrl && (
+                  <a
+                    href={req.signedDocumentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-slate-400 hover:text-teal-600 transition-colors"
+                    title="Download signed document"
+                  >
+                    <Download size={15} />
+                  </a>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Outreach history */}
       <div className="bg-white rounded-xl border border-slate-200">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -212,5 +279,13 @@ export default function OwnerDetail({
         </div>
       </div>
     </div>
+    {showSigModal && (
+      <SignatureRequestModal
+        owner={owner}
+        onSent={() => fetchSignatureRequests(owner.id).then(setSigRequests).catch(() => {})}
+        onClose={() => setShowSigModal(false)}
+      />
+    )}
+    </>
   );
 }

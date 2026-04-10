@@ -62,3 +62,19 @@ export interface OutreachEntry {
 }
 
 export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings';
+
+export type SignatureRequestStatus = 'pending' | 'signed' | 'expired';
+
+export interface SignatureRequest {
+  id: string;
+  ownerId: string;
+  documentName: string;
+  documentUrl: string;
+  signedDocumentUrl?: string;
+  status: SignatureRequestStatus;
+  token: string;
+  sentToEmail: string;
+  sentAt: string;
+  signedAt?: string;
+  expiresAt: string;
+}
