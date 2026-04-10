@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const signingUrl = `${appUrl}/sign/${token}`;
 
   const { error: emailError } = await resend.emails.send({
-    from: 'E&J Retreats <onboarding@resend.dev>',
+    from: 'E&J Retreats <signatures@ejretreats.com>',
     to: sentToEmail,
     subject: `Please sign: ${documentName}`,
     html: `

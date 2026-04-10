@@ -110,7 +110,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const signedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   await resend.emails.send({
-    from: 'E&J Retreats <onboarding@resend.dev>',
+    from: 'E&J Retreats <signatures@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
     subject: `✅ Signed: ${sigReq.document_name}`,
     html: `
