@@ -24,6 +24,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
   const [step, setStep] = useState<Step>('form');
   const [errorMsg, setErrorMsg] = useState('');
   const [pdfBlobUrl, setPdfBlobUrl] = useState('');
+  const [scrollMode, setScrollMode] = useState(true); // true = scroll PDF, false = place fields
 
   // Drag positions (fraction 0–1 from top-left of page)
   const [sigPos, setSigPos] = useState<FieldPos>({ x: 0.08, y: 0.78 });
@@ -142,10 +143,29 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
     return (
       <Modal title="Place Signature Fields" onClose={onClose} size="lg">
         <div className="space-y-3">
-          <p className="text-sm text-slate-500">
-            Drag the <span className="font-medium text-teal-700">Signature</span> and{' '}
-            <span className="font-medium text-blue-600">Date</span> boxes to where you want
-            them on the <strong>last page</strong> of the document.
+          {/* Mode toggle */}
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setScrollMode(true)}
+              className={`flex-1 py-2 transition-colors ${scrollMode ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              Scroll PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => setScrollMode(false)}
+              className={`flex-1 py-2 transition-colors ${!scrollMode ? 'bg-teal-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              Place Fields
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            {scrollMode
+              ? 'Scroll to the signature page, then click "Place Fields" to drag the boxes.'
+              : <>Drag the <span className="font-medium text-teal-700">Signature</span> and <span className="font-medium text-blue-600">Date</span> boxes to where you want them.</>
+            }
           </p>
 
           {/* Page preview: PDF iframe behind + drag overlay in front */}
@@ -156,9 +176,9 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
             >
               {pdfBlobUrl && (
                 <iframe
-                  src={`${pdfBlobUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                  src={`${pdfBlobUrl}#toolbar=0&navpanes=0`}
                   className="absolute inset-0 w-full h-full border-none"
-                  style={{ pointerEvents: 'none' }}
+                  style={{ pointerEvents: scrollMode ? 'auto' : 'none' }}
                   title="PDF preview"
                 />
               )}
@@ -167,17 +187,14 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
               <div
                 ref={pageRef}
                 className="absolute inset-0"
+                style={{ pointerEvents: scrollMode ? 'none' : 'auto' }}
                 onDragStart={e => e.preventDefault()}
               >
-                <DragBox label="✍ Signature" color="teal" pos={sigPos} onMouseDown={startDrag('sig')} />
-                <DragBox label="📅 Date"      color="blue" pos={datePos} onMouseDown={startDrag('date')} />
+                <DragBox label="✍ Signature" color="teal" pos={sigPos} onMouseDown={startDrag('sig')} dimmed={scrollMode} />
+                <DragBox label="📅 Date"      color="blue" pos={datePos} onMouseDown={startDrag('date')} dimmed={scrollMode} />
               </div>
             </div>
           </div>
-
-          <p className="text-xs text-slate-400 text-center">
-            The preview shows the first page — placement applies to the last page.
-          </p>
 
           {(step === 'error' && errorMsg) && (
             <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{errorMsg}</p>
@@ -284,12 +301,13 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
 }
 
 function DragBox({
-  label, color, pos, onMouseDown,
+  label, color, pos, onMouseDown, dimmed,
 }: {
   label: string;
   color: 'teal' | 'blue';
   pos: FieldPos;
   onMouseDown: (e: React.MouseEvent) => void;
+  dimmed?: boolean;
 }) {
   const cls = color === 'teal'
     ? 'bg-teal-500/90 border-teal-600 text-white'
@@ -303,9 +321,11 @@ function DragBox({
         left: `${pos.x * 100}%`,
         top: `${pos.y * 100}%`,
         transform: 'translate(-50%, -50%)',
-        cursor: 'grab',
+        cursor: dimmed ? 'default' : 'grab',
         userSelect: 'none',
         touchAction: 'none',
+        opacity: dimmed ? 0.45 : 1,
+        transition: 'opacity 0.15s',
       }}
       className={`${cls} border text-xs font-semibold px-3 py-1.5 rounded-md shadow-lg whitespace-nowrap`}
     >
