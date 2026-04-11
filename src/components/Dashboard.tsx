@@ -34,12 +34,9 @@ interface DashboardProps {
 }
 
 const STAGE_LABELS: Record<string, string> = {
-  new: 'New Lead',
-  contacted: 'Contacted',
-  proposal: 'Proposal Sent',
-  negotiating: 'Negotiating',
-  won: 'Won',
-  lost: 'Lost',
+  new:  'New Lead',
+  cold: 'Old / Cold Lead',
+  won:  'Won',
 };
 
 const OUTREACH_TYPE_ICONS: Record<string, string> = {
@@ -108,7 +105,7 @@ export default function Dashboard({
     ? uplistingProperties.filter(p => p.status !== 'inactive').length
     : activeProperties.length;
 
-  const pipelineLeads = leads.filter(l => l.stage !== 'won' && l.stage !== 'lost');
+  const pipelineLeads = leads.filter(l => l.stage !== 'won');
   const recentOutreach = [...outreach].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   const recentLeads = [...leads].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 4);
 
@@ -434,8 +431,7 @@ export default function Dashboard({
                 <span className={`
                   text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0
                   ${lead.stage === 'won' ? 'bg-emerald-100 text-emerald-700' :
-                    lead.stage === 'lost' ? 'bg-red-100 text-red-600' :
-                    lead.stage === 'negotiating' ? 'bg-amber-100 text-amber-700' :
+                    lead.stage === 'cold' ? 'bg-blue-100 text-blue-700' :
                     'bg-teal-100 text-teal-700'}
                 `}>
                   {STAGE_LABELS[lead.stage]}
