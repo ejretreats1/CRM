@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   TrendingUp, Users, Home, Phone, ArrowRight, Star, Wifi, WifiOff,
-  RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus,
+  RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash,
 } from 'lucide-react';
 import type { Lead, Owner, OutreachEntry, Todo } from '../types';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
@@ -17,12 +17,21 @@ interface CalEvent {
   isCrmCall?: boolean;
 }
 
+interface SlackMessage {
+  ts: string;
+  text: string;
+  username: string;
+  attachmentText: string;
+}
+
 interface DashboardProps {
   leads: Lead[];
   owners: Owner[];
   outreach: OutreachEntry[];
   todos: Todo[];
   calendarUrl: string;
+  slackToken: string;
+  slackChannelId: string;
   onNavigate: (view: 'pipeline' | 'owners' | 'outreach' | 'owner-detail' | 'settings' | 'va-hub', extra?: string) => void;
   onToggleTodo: (todo: Todo) => void;
   onAddTodo: (todo: Todo) => void;
@@ -63,14 +72,27 @@ function formatEventDate(start: string): { day: string; time: string; isToday: b
   return { day, time, isToday, isTomorrow };
 }
 
+function timeAgoShort(ts: string): string {
+  const diff = Date.now() - parseFloat(ts) * 1000;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 export default function Dashboard({
-  leads, owners, outreach, todos, calendarUrl,
+  leads, owners, outreach, todos, calendarUrl, slackToken, slackChannelId,
   onNavigate, onToggleTodo, onAddTodo,
   uplistingConnected, uplistingProperties, uplistingReservations, lastSync, onSync,
 }: DashboardProps) {
   const [calEvents, setCalEvents] = useState<CalEvent[]>([]);
   const [calLoading, setCalLoading] = useState(false);
   const [newTodoText, setNewTodoText] = useState('');
+  const [slackMessages, setSlackMessages] = useState<SlackMessage[]>([]);
+  const [slackLoading, setSlackLoading] = useState(false);
+  const [slackError, setSlackError] = useState('');
 
   // Fetch calendar events when calendarUrl is set
   useEffect(() => {
@@ -82,6 +104,30 @@ export default function Dashboard({
       .catch(() => {})
       .finally(() => setCalLoading(false));
   }, [calendarUrl]);
+
+  // Fetch Slack messages and poll every 60s
+  useEffect(() => {
+    if (!slackToken || !slackChannelId) { setSlackMessages([]); return; }
+
+    function load() {
+      fetch(`/api/slack-feed?channelId=${encodeURIComponent(slackChannelId)}`, {
+        headers: { 'x-slack-token': slackToken },
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.error) { setSlackError(d.error); return; }
+          setSlackError('');
+          setSlackMessages(d.messages ?? []);
+        })
+        .catch(() => setSlackError('Could not reach Slack.'))
+        .finally(() => setSlackLoading(false));
+    }
+
+    setSlackLoading(true);
+    load();
+    const interval = setInterval(load, 60_000);
+    return () => clearInterval(interval);
+  }, [slackToken, slackChannelId]);
 
   // Prefer live Uplisting data when connected, fall back to manual data
   const allProperties = owners.flatMap(o => o.properties);
@@ -558,6 +604,57 @@ export default function Dashboard({
           })}
         </div>
       </div>
+
+      {/* Slack Feed */}
+      {(slackToken && slackChannelId) ? (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+            <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+              <Hash size={16} className="text-purple-500" /> Slack Notifications
+            </h2>
+            <span className="text-xs text-slate-400 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+              Live · refreshes every 60s
+            </span>
+          </div>
+
+          {slackError ? (
+            <div className="px-5 py-4 text-sm text-red-500">{slackError}</div>
+          ) : slackLoading && slackMessages.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-400">Loading messages...</div>
+          ) : slackMessages.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-400">No recent messages.</div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {slackMessages.map(msg => {
+                const body = msg.text || msg.attachmentText;
+                if (!body) return null;
+                return (
+                  <div key={msg.ts} className="flex items-start gap-3 px-5 py-3.5">
+                    <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-purple-600">
+                        {msg.username.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xs font-semibold text-slate-700">{msg.username}</span>
+                        <span className="text-xs text-slate-400">{timeAgoShort(msg.ts)}</span>
+                      </div>
+                      <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap break-words">
+                        {body}
+                      </p>
+                      {msg.text && msg.attachmentText && msg.text !== msg.attachmentText && (
+                        <p className="text-xs text-slate-400 mt-1 italic truncate">{msg.attachmentText}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

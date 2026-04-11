@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Key, CheckCircle, XCircle, Loader, Eye, EyeOff, RefreshCw, Trash2, CalendarDays, Save } from 'lucide-react';
+import { Key, CheckCircle, XCircle, Loader, Eye, EyeOff, RefreshCw, Trash2, CalendarDays, Save, Hash } from 'lucide-react';
 import { testConnection } from '../services/uplisting';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
 
@@ -8,6 +8,10 @@ interface SettingsProps {
   onSaveApiKey: (key: string) => void;
   calendarUrl: string;
   onSaveCalendarUrl: (url: string) => void;
+  slackToken: string;
+  onSaveSlackToken: (token: string) => void;
+  slackChannelId: string;
+  onSaveSlackChannelId: (id: string) => void;
   lastSync: string | null;
   properties: UplistingProperty[];
   reservations: UplistingReservation[];
@@ -20,6 +24,8 @@ type Status = 'idle' | 'testing' | 'success' | 'error';
 export default function Settings({
   apiKey, onSaveApiKey,
   calendarUrl, onSaveCalendarUrl,
+  slackToken, onSaveSlackToken,
+  slackChannelId, onSaveSlackChannelId,
   lastSync, properties, reservations, onSync, onClearData,
 }: SettingsProps) {
   const [inputKey, setInputKey] = useState(apiKey);
@@ -30,6 +36,11 @@ export default function Settings({
 
   const [icalInput, setIcalInput] = useState(calendarUrl);
   const [calSaved, setCalSaved] = useState(false);
+
+  const [slackTokenInput, setSlackTokenInput] = useState(slackToken);
+  const [slackChannelInput, setSlackChannelInput] = useState(slackChannelId);
+  const [showSlackToken, setShowSlackToken] = useState(false);
+  const [slackSaved, setSlackSaved] = useState(false);
 
   const handleTest = async () => {
     if (!inputKey.trim()) return;
@@ -59,6 +70,13 @@ export default function Settings({
     onSaveCalendarUrl(icalInput.trim());
     setCalSaved(true);
     setTimeout(() => setCalSaved(false), 2000);
+  };
+
+  const handleSaveSlack = () => {
+    onSaveSlackToken(slackTokenInput.trim());
+    onSaveSlackChannelId(slackChannelInput.trim());
+    setSlackSaved(true);
+    setTimeout(() => setSlackSaved(false), 2000);
   };
 
   return (
@@ -109,6 +127,86 @@ export default function Settings({
               Remove
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Slack Integration */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Hash size={18} className="text-purple-500" />
+          <h2 className="font-semibold text-slate-800">Slack Feed</h2>
+          {slackToken && slackChannelId && (
+            <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
+              Connected
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-slate-500">
+          Show a live feed of your Zapier Slack notifications on the dashboard.
+        </p>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Bot Token</label>
+          <div className="relative">
+            <input
+              type={showSlackToken ? 'text' : 'password'}
+              value={slackTokenInput}
+              onChange={e => { setSlackTokenInput(e.target.value); setSlackSaved(false); }}
+              placeholder="xoxb-..."
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+            <button
+              type="button"
+              onClick={() => setShowSlackToken(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              {showSlackToken ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Channel ID</label>
+          <input
+            type="text"
+            value={slackChannelInput}
+            onChange={e => { setSlackChannelInput(e.target.value); setSlackSaved(false); }}
+            placeholder="C0123456789"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
+          />
+          <p className="text-xs text-slate-400 mt-1">
+            Right-click your channel in Slack → View channel details → scroll to bottom for Channel ID.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSaveSlack}
+            disabled={!slackTokenInput.trim() || !slackChannelInput.trim()}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            {slackSaved ? <CheckCircle size={14} /> : <Save size={14} />}
+            {slackSaved ? 'Saved!' : 'Save Slack Settings'}
+          </button>
+          {slackToken && (
+            <button
+              onClick={() => { setSlackTokenInput(''); setSlackChannelInput(''); onSaveSlackToken(''); onSaveSlackChannelId(''); }}
+              className="text-sm text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-2 rounded-lg transition-colors"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-xs text-purple-700 space-y-1">
+          <p className="font-semibold">How to set up</p>
+          <ol className="list-decimal list-inside space-y-0.5 text-purple-600">
+            <li>Go to api.slack.com/apps → Create New App → From scratch</li>
+            <li>OAuth & Permissions → Add scope: <code className="bg-purple-100 px-1 rounded">channels:history</code></li>
+            <li>Install App to Workspace → copy the Bot User OAuth Token</li>
+            <li>Invite the bot to your Zapier channel: <code className="bg-purple-100 px-1 rounded">/invite @your-app-name</code></li>
+            <li>Paste the token and channel ID above</li>
+          </ol>
         </div>
       </div>
 

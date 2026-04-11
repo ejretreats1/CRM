@@ -51,6 +51,10 @@ export default function App() {
   // Google Calendar iCal URL (localStorage)
   const [calendarUrl, setCalendarUrl] = useLocalStorage<string>('ej_calendar_url', '');
 
+  // Slack integration (localStorage)
+  const [slackToken, setSlackToken] = useLocalStorage<string>('ej_slack_token', '');
+  const [slackChannelId, setSlackChannelId] = useLocalStorage<string>('ej_slack_channel', '');
+
   const [view, setView] = useState<View>('dashboard');
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
   const [modal, setModal] = useState<Modal>(null);
@@ -246,6 +250,8 @@ export default function App() {
           outreach={outreach}
           todos={todos}
           calendarUrl={calendarUrl}
+          slackToken={slackToken}
+          slackChannelId={slackChannelId}
           onNavigate={navigate}
           onToggleTodo={handleToggleTodo}
           onAddTodo={handleAddTodo}
@@ -300,6 +306,10 @@ export default function App() {
           onSaveApiKey={setUplistingApiKey}
           calendarUrl={calendarUrl}
           onSaveCalendarUrl={setCalendarUrl}
+          slackToken={slackToken}
+          onSaveSlackToken={setSlackToken}
+          slackChannelId={slackChannelId}
+          onSaveSlackChannelId={setSlackChannelId}
           lastSync={lastSync}
           properties={uplistingProperties}
           reservations={uplistingReservations}
