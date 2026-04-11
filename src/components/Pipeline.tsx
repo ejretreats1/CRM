@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, Phone, Mail, MapPin, DollarSign, MoreVertical, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Phone, Mail, MapPin, DollarSign, MoreVertical, Trash2, Edit2, Clock } from 'lucide-react';
 import type { Lead, LeadStage } from '../types';
 
 interface PipelineProps {
@@ -9,12 +9,9 @@ interface PipelineProps {
 }
 
 const STAGES: { id: LeadStage; label: string; color: string; dot: string }[] = [
-  { id: 'new', label: 'New Lead', color: 'bg-slate-100', dot: 'bg-slate-400' },
-  { id: 'contacted', label: 'Contacted', color: 'bg-blue-50', dot: 'bg-blue-400' },
-  { id: 'proposal', label: 'Proposal Sent', color: 'bg-purple-50', dot: 'bg-purple-400' },
-  { id: 'negotiating', label: 'Negotiating', color: 'bg-amber-50', dot: 'bg-amber-400' },
-  { id: 'won', label: 'Won', color: 'bg-emerald-50', dot: 'bg-emerald-500' },
-  { id: 'lost', label: 'Lost', color: 'bg-red-50', dot: 'bg-red-400' },
+  { id: 'new',  label: 'New Lead',        color: 'bg-slate-50',   dot: 'bg-slate-400' },
+  { id: 'cold', label: 'Old / Cold Lead', color: 'bg-blue-50',    dot: 'bg-blue-400' },
+  { id: 'won',  label: 'Won',             color: 'bg-emerald-50', dot: 'bg-emerald-500' },
 ];
 
 function formatCurrency(n: number) {
@@ -30,6 +27,19 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
+function formatCallTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const todayStr = now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === todayStr) return `Today ${time}`;
+  if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow ${time}`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + time;
+}
+
 interface LeadCardProps {
   lead: Lead;
   onEdit: () => void;
@@ -41,11 +51,12 @@ function LeadCard({ lead, onEdit, onDelete, onDragStart }: LeadCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const hasUpcomingCall = lead.scheduledCallAt && new Date(lead.scheduledCallAt) >= new Date();
+
   return (
     <div
       draggable
       onDragStart={onDragStart}
-      onDragEnd={() => { /* reset handled by parent */ }}
       className="bg-white rounded-lg border border-slate-200 p-3.5 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow select-none"
     >
       <div className="flex items-start justify-between gap-2">
@@ -81,6 +92,16 @@ function LeadCard({ lead, onEdit, onDelete, onDragStart }: LeadCardProps) {
         <MapPin size={11} className="text-slate-400 flex-shrink-0" />
         <span className="text-xs text-slate-500 truncate">{lead.propertyAddress}</span>
       </div>
+
+      {/* Scheduled call badge */}
+      {hasUpcomingCall && (
+        <div className="flex items-center gap-1.5 mt-2 bg-teal-50 border border-teal-200 rounded-md px-2 py-1">
+          <Clock size={11} className="text-teal-600 flex-shrink-0" />
+          <span className="text-xs text-teal-700 font-medium truncate">
+            {formatCallTime(lead.scheduledCallAt!)}
+          </span>
+        </div>
+      )}
 
       <div className="flex items-center justify-between mt-2.5">
         <div className="flex items-center gap-1 text-xs text-teal-700 font-medium">
@@ -144,9 +165,8 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal }: Pipe
     }
   };
 
-  const totalPipelineValue = leads
-    .filter(l => l.stage !== 'lost')
-    .reduce((s, l) => s + l.estimatedRevenue, 0);
+  const activeLeads = leads.filter(l => l.stage !== 'won');
+  const totalPipelineValue = activeLeads.reduce((s, l) => s + l.estimatedRevenue, 0);
 
   return (
     <div className="h-full flex flex-col">
@@ -155,8 +175,7 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal }: Pipe
         <div>
           <h1 className="text-xl font-bold text-slate-900">Lead Pipeline</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            {leads.filter(l => l.stage !== 'won' && l.stage !== 'lost').length} active leads
-            · {formatCurrency(totalPipelineValue)}/mo pipeline value
+            {activeLeads.length} active leads · {formatCurrency(totalPipelineValue)}/mo pipeline value
           </p>
         </div>
         <button
@@ -182,7 +201,7 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal }: Pipe
                 onDrop={(e) => handleDrop(e, stage.id)}
                 onDragLeave={() => setDragOverStage(null)}
                 className={`
-                  kanban-column flex flex-col w-64 rounded-xl border transition-all duration-150
+                  flex flex-col w-72 rounded-xl border transition-all duration-150
                   ${isOver ? 'ring-2 ring-teal-400 border-teal-300 bg-teal-50' : `${stage.color} border-slate-200`}
                 `}
               >

@@ -9,22 +9,28 @@ interface LeadModalProps {
 }
 
 const STAGES: { value: LeadStage; label: string }[] = [
-  { value: 'new', label: 'New Lead' },
-  { value: 'contacted', label: 'Contacted' },
-  { value: 'proposal', label: 'Proposal Sent' },
-  { value: 'negotiating', label: 'Negotiating' },
-  { value: 'won', label: 'Won' },
-  { value: 'lost', label: 'Lost' },
+  { value: 'new',  label: 'New Lead' },
+  { value: 'cold', label: 'Old / Cold Lead' },
+  { value: 'won',  label: 'Won' },
 ];
 
 const SOURCES: { value: LeadSource; label: string }[] = [
-  { value: 'referral', label: 'Referral' },
-  { value: 'website', label: 'Website' },
-  { value: 'social', label: 'Social Media' },
+  { value: 'referral',      label: 'Referral' },
+  { value: 'website',       label: 'Website' },
+  { value: 'social',        label: 'Social Media' },
   { value: 'cold_outreach', label: 'Cold Outreach' },
-  { value: 'event', label: 'Event' },
-  { value: 'other', label: 'Other' },
+  { value: 'event',         label: 'Event' },
+  { value: 'other',         label: 'Other' },
 ];
+
+// Convert ISO string → datetime-local input value (YYYY-MM-DDTHH:MM)
+function toDatetimeLocal(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  // Adjust for local timezone
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+}
 
 export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
   const [form, setForm] = useState({
@@ -38,6 +44,7 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
     stage: (lead?.stage ?? 'new') as LeadStage,
     source: (lead?.source ?? 'referral') as LeadSource,
     notes: lead?.notes ?? '',
+    scheduledCallAt: toDatetimeLocal(lead?.scheduledCallAt),
   });
 
   const set = (k: keyof typeof form, v: unknown) => setForm(f => ({ ...f, [k]: v }));
@@ -47,7 +54,17 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
     const now = new Date().toISOString();
     onSave({
       id: lead?.id ?? `l_${Date.now()}`,
-      ...form,
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      propertyAddress: form.propertyAddress,
+      propertyType: form.propertyType,
+      bedrooms: form.bedrooms,
+      estimatedRevenue: form.estimatedRevenue,
+      stage: form.stage,
+      source: form.source,
+      notes: form.notes,
+      scheduledCallAt: form.scheduledCallAt ? new Date(form.scheduledCallAt).toISOString() : undefined,
       createdAt: lead?.createdAt ?? now,
       updatedAt: now,
     });
@@ -120,6 +137,29 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
               {SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
+        </div>
+
+        {/* Scheduled Call */}
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Schedule Call
+            <span className="ml-1 font-normal text-slate-400">— shows on dashboard calendar</span>
+          </label>
+          <input
+            type="datetime-local"
+            value={form.scheduledCallAt}
+            onChange={e => set('scheduledCallAt', e.target.value)}
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          {form.scheduledCallAt && (
+            <button
+              type="button"
+              onClick={() => set('scheduledCallAt', '')}
+              className="mt-1 text-xs text-red-400 hover:text-red-500"
+            >
+              Clear call time
+            </button>
+          )}
         </div>
 
         <div>

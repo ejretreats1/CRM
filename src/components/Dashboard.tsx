@@ -14,6 +14,7 @@ interface CalEvent {
   end: string;
   description: string;
   location: string;
+  isCrmCall?: boolean;
 }
 
 interface DashboardProps {
@@ -158,8 +159,24 @@ export default function Dashboard({
     },
   ];
 
+  // Merge Google Calendar events with CRM scheduled calls
+  const now = new Date().toISOString();
+  const crmCalls: CalEvent[] = leads
+    .filter(l => l.scheduledCallAt && l.scheduledCallAt >= now)
+    .map(l => ({
+      id: `call_${l.id}`,
+      title: `Call: ${l.name}`,
+      start: l.scheduledCallAt!,
+      end: l.scheduledCallAt!,
+      description: l.notes,
+      location: l.phone ?? '',
+      isCrmCall: true,
+    }));
+
+  const allEvents = [...calEvents, ...crmCalls].sort((a, b) => a.start.localeCompare(b.start));
+
   // Next upcoming event (first one)
-  const nextEvent = calEvents[0] ?? null;
+  const nextEvent = allEvents[0] ?? null;
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -244,7 +261,7 @@ export default function Dashboard({
             <div className="px-5 py-8 text-center">
               <p className="text-sm text-slate-400">Loading events...</p>
             </div>
-          ) : calEvents.length === 0 ? (
+          ) : allEvents.length === 0 ? (
             <div className="px-5 py-8 text-center">
               <p className="text-sm text-slate-400">No upcoming events.</p>
             </div>
@@ -253,14 +270,16 @@ export default function Dashboard({
               {/* Next event — featured */}
               {nextEvent && (() => {
                 const { day, time, isToday, isTomorrow } = formatEventDate(nextEvent.start);
+                const eventDate = new Date(nextEvent.start.length === 10 ? nextEvent.start + 'T00:00:00' : nextEvent.start);
                 return (
-                  <div className="px-5 py-4 bg-teal-50/40">
+                  <div className={`px-5 py-4 ${nextEvent.isCrmCall ? 'bg-blue-50/50' : 'bg-teal-50/40'}`}>
                     <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm ${
-                        isToday ? 'bg-teal-600 text-white' : 'bg-teal-100 text-teal-700'
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-sm ${
+                        nextEvent.isCrmCall
+                          ? 'bg-blue-100 text-blue-700 text-base'
+                          : `font-bold ${isToday ? 'bg-teal-600 text-white' : 'bg-teal-100 text-teal-700'}`
                       }`}>
-                        {new Date(nextEvent.start.length === 10 ? nextEvent.start + 'T00:00:00' : nextEvent.start)
-                          .getDate()}
+                        {nextEvent.isCrmCall ? '📞' : eventDate.getDate()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -272,9 +291,19 @@ export default function Dashboard({
                               {isToday ? 'Today' : 'Tomorrow'}
                             </span>
                           )}
+                          {nextEvent.isCrmCall && (
+                            <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700">
+                              Scheduled Call
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-slate-500 mt-0.5">{day} · {time}</p>
-                        {nextEvent.location && (
+                        {nextEvent.isCrmCall && nextEvent.location && (
+                          <a href={`tel:${nextEvent.location}`} className="text-xs text-teal-600 mt-0.5 flex items-center gap-1 hover:underline">
+                            <Phone size={10} /> {nextEvent.location}
+                          </a>
+                        )}
+                        {!nextEvent.isCrmCall && nextEvent.location && (
                           <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                             <MapPin size={10} /> {nextEvent.location}
                           </p>
@@ -286,17 +315,23 @@ export default function Dashboard({
               })()}
 
               {/* Remaining events (up to 4 more) */}
-              {calEvents.slice(1, 5).map(event => {
+              {allEvents.slice(1, 5).map(event => {
                 const { day, time } = formatEventDate(event.start);
+                const eventDate = new Date(event.start.length === 10 ? event.start + 'T00:00:00' : event.start);
                 return (
                   <div key={event.id} className="flex items-center gap-3 px-5 py-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-slate-500">
-                      {new Date(event.start.length === 10 ? event.start + 'T00:00:00' : event.start).getDate()}
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs ${
+                      event.isCrmCall ? 'bg-blue-50 text-blue-500 text-sm' : 'bg-slate-100 text-slate-500 font-bold'
+                    }`}>
+                      {event.isCrmCall ? '📞' : eventDate.getDate()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-slate-700 truncate font-medium">{event.title}</p>
                       <p className="text-xs text-slate-400">{day} · {time}</p>
                     </div>
+                    {event.isCrmCall && (
+                      <span className="text-xs text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full flex-shrink-0">Call</span>
+                    )}
                   </div>
                 );
               })}
