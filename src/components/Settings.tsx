@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Key, CheckCircle, XCircle, Loader, Eye, EyeOff, RefreshCw, Trash2 } from 'lucide-react';
+import { Key, CheckCircle, XCircle, Loader, Eye, EyeOff, RefreshCw, Trash2, CalendarDays, Save } from 'lucide-react';
 import { testConnection } from '../services/uplisting';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
 
 interface SettingsProps {
   apiKey: string;
   onSaveApiKey: (key: string) => void;
+  calendarUrl: string;
+  onSaveCalendarUrl: (url: string) => void;
   lastSync: string | null;
   properties: UplistingProperty[];
   reservations: UplistingReservation[];
@@ -16,19 +18,18 @@ interface SettingsProps {
 type Status = 'idle' | 'testing' | 'success' | 'error';
 
 export default function Settings({
-  apiKey,
-  onSaveApiKey,
-  lastSync,
-  properties,
-  reservations,
-  onSync,
-  onClearData,
+  apiKey, onSaveApiKey,
+  calendarUrl, onSaveCalendarUrl,
+  lastSync, properties, reservations, onSync, onClearData,
 }: SettingsProps) {
   const [inputKey, setInputKey] = useState(apiKey);
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
   const [statusMsg, setStatusMsg] = useState('');
   const [syncing, setSyncing] = useState(false);
+
+  const [icalInput, setIcalInput] = useState(calendarUrl);
+  const [calSaved, setCalSaved] = useState(false);
 
   const handleTest = async () => {
     if (!inputKey.trim()) return;
@@ -54,14 +55,64 @@ export default function Settings({
     }
   };
 
+  const handleSaveCalendar = () => {
+    onSaveCalendarUrl(icalInput.trim());
+    setCalSaved(true);
+    setTimeout(() => setCalSaved(false), 2000);
+  };
+
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-bold text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Connect your Uplisting account to sync live property and booking data.</p>
+        <p className="text-sm text-slate-500 mt-0.5">Manage your integrations and connected services.</p>
       </div>
 
-      {/* API Key card */}
+      {/* Google Calendar */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <CalendarDays size={18} className="text-teal-600" />
+          <h2 className="font-semibold text-slate-800">Google Calendar</h2>
+          {calendarUrl && (
+            <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
+              Connected
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-slate-500">
+          Connect your Google Calendar to display upcoming meetings on the dashboard.
+        </p>
+        <input
+          type="text"
+          value={icalInput}
+          onChange={e => { setIcalInput(e.target.value); setCalSaved(false); }}
+          placeholder="https://calendar.google.com/calendar/ical/..."
+          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500"
+        />
+        <p className="text-xs text-slate-400">
+          In Google Calendar: Settings → Your calendar → "Secret address in iCal format". This URL gives read-only access to your events.
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSaveCalendar}
+            disabled={!icalInput.trim() && !calendarUrl}
+            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            {calSaved ? <CheckCircle size={14} /> : <Save size={14} />}
+            {calSaved ? 'Saved!' : 'Save Calendar URL'}
+          </button>
+          {calendarUrl && (
+            <button
+              onClick={() => { setIcalInput(''); onSaveCalendarUrl(''); }}
+              className="text-sm text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-2 rounded-lg transition-colors"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Uplisting API Key */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Key size={18} className="text-teal-600" />
@@ -89,7 +140,6 @@ export default function Settings({
           Find your API key in Uplisting → Settings → API. Keep it private — never share it publicly.
         </p>
 
-        {/* Status message */}
         {status !== 'idle' && (
           <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg
             ${status === 'success' ? 'bg-emerald-50 text-emerald-700' :
@@ -115,7 +165,7 @@ export default function Settings({
       {/* Sync status */}
       {apiKey && (
         <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
-          <h2 className="font-semibold text-slate-800">Data Sync</h2>
+          <h2 className="font-semibold text-slate-800">Uplisting Data Sync</h2>
 
           <div className="grid grid-cols-3 gap-3">
             {[
@@ -157,7 +207,7 @@ export default function Settings({
 
       {/* Help */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700 space-y-1">
-        <p className="font-semibold">How to find your API key</p>
+        <p className="font-semibold">How to find your Uplisting API key</p>
         <ol className="list-decimal list-inside space-y-0.5 text-blue-600">
           <li>Log in to Uplisting at app.uplisting.io</li>
           <li>Go to Settings → Integrations or API</li>

@@ -61,7 +61,33 @@ export interface OutreachEntry {
   followUpDate?: string;
 }
 
-export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings';
+export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings' | 'va-hub';
+
+export type ProjectStatus = 'pending' | 'in_progress' | 'approved' | 'completed';
+export type Priority = 'low' | 'medium' | 'high';
+
+export interface Project {
+  id: string;
+  title: string;
+  description: string;
+  status: ProjectStatus;
+  priority: Priority;
+  assignedTo: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Todo {
+  id: string;
+  text: string;
+  completed: boolean;
+  projectId?: string;
+  priority: Priority;
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export type SignatureRequestStatus = 'pending' | 'signed' | 'expired';
 

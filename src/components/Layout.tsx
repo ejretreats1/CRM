@@ -8,6 +8,7 @@ import {
   X,
   Building2,
   Settings,
+  FolderKanban,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -22,6 +23,7 @@ const navItems = [
   { id: 'pipeline' as View, label: 'Pipeline', icon: Columns3 },
   { id: 'owners' as View, label: 'Owners', icon: Users },
   { id: 'outreach' as View, label: 'Outreach Log', icon: MessageSquare },
+  { id: 'va-hub' as View, label: 'VA Hub', icon: FolderKanban },
 ];
 
 const bottomNavItems = [

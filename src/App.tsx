@@ -6,6 +6,7 @@ import Owners from './components/Owners';
 import OwnerDetail from './components/OwnerDetail';
 import OutreachLog from './components/OutreachLog';
 import Settings from './components/Settings';
+import VAHub from './components/VAHub';
 import LeadModal from './components/modals/LeadModal';
 import OwnerModal from './components/modals/OwnerModal';
 import PropertyModal from './components/modals/PropertyModal';
@@ -17,8 +18,12 @@ import {
   upsertProperty, deleteProperty,
   fetchOutreach, upsertOutreach, deleteOutreach,
 } from './services/db';
+import {
+  fetchProjects, upsertProject, deleteProject as deleteProjectDb,
+  fetchTodos, upsertTodo, deleteTodo,
+} from './services/projects';
 import { fetchProperties, fetchReservations } from './services/uplisting';
-import type { Lead, Owner, Property, OutreachEntry, View } from './types';
+import type { Lead, Owner, Property, OutreachEntry, View, Project, Todo } from './types';
 import type { UplistingProperty, UplistingReservation } from './services/uplisting';
 
 type Modal =
@@ -32,14 +37,19 @@ export default function App() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
   const [outreach, setOutreach] = useState<OutreachEntry[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Uplisting integration (still in localStorage — no sensitive data)
+  // Uplisting integration (localStorage)
   const [uplistingApiKey, setUplistingApiKey] = useLocalStorage<string>('ej_uplisting_key', '');
   const [uplistingProperties, setUplistingProperties] = useLocalStorage<UplistingProperty[]>('ej_uplisting_properties', []);
   const [uplistingReservations, setUplistingReservations] = useLocalStorage<UplistingReservation[]>('ej_uplisting_reservations', []);
   const [lastSync, setLastSync] = useLocalStorage<string | null>('ej_uplisting_last_sync', null);
+
+  // Google Calendar iCal URL (localStorage)
+  const [calendarUrl, setCalendarUrl] = useLocalStorage<string>('ej_calendar_url', '');
 
   const [view, setView] = useState<View>('dashboard');
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
@@ -49,10 +59,18 @@ export default function App() {
   useEffect(() => {
     async function loadAll() {
       try {
-        const [l, o, out] = await Promise.all([fetchLeads(), fetchOwners(), fetchOutreach()]);
+        const [l, o, out, proj, td] = await Promise.all([
+          fetchLeads(),
+          fetchOwners(),
+          fetchOutreach(),
+          fetchProjects(),
+          fetchTodos(),
+        ]);
         setLeads(l);
         setOwners(o);
         setOutreach(out);
+        setProjects(proj);
+        setTodos(td);
       } catch (e) {
         setError('Failed to load data. Check your Supabase connection.');
         console.error(e);
@@ -103,7 +121,6 @@ export default function App() {
     setModal(null);
   };
 
-
   // ── Owner CRUD ─────────────────────────────────────────────────────────────
   const saveOwnerHandler = async (owner: Owner) => {
     await upsertOwner(owner);
@@ -147,7 +164,39 @@ export default function App() {
     setModal(null);
   };
 
-  // ── Bulk handlers (Pipeline drag-drop, OutreachLog delete) ─────────────────
+  // ── Project CRUD ──────────────────────────────────────────────────────────
+  const handleAddProject = async (project: Project) => {
+    await upsertProject(project);
+    setProjects(prev => [project, ...prev]);
+  };
+
+  const handleUpdateProject = async (project: Project) => {
+    await upsertProject(project);
+    setProjects(prev => prev.map(p => p.id === project.id ? project : p));
+  };
+
+  const handleDeleteProject = async (id: string) => {
+    await deleteProjectDb(id);
+    setProjects(prev => prev.filter(p => p.id !== id));
+  };
+
+  // ── Todo CRUD ─────────────────────────────────────────────────────────────
+  const handleAddTodo = async (todo: Todo) => {
+    await upsertTodo(todo);
+    setTodos(prev => [todo, ...prev]);
+  };
+
+  const handleToggleTodo = async (todo: Todo) => {
+    await upsertTodo(todo);
+    setTodos(prev => prev.map(t => t.id === todo.id ? todo : t));
+  };
+
+  const handleDeleteTodo = async (id: string) => {
+    await deleteTodo(id);
+    setTodos(prev => prev.filter(t => t.id !== id));
+  };
+
+  // ── Bulk handlers ──────────────────────────────────────────────────────────
   const updateLeadsHandler = async (updated: Lead[]) => {
     const deleted = leads.filter(l => !updated.find(u => u.id === l.id));
     const changed = updated.filter(l => {
@@ -195,7 +244,11 @@ export default function App() {
           leads={leads}
           owners={owners}
           outreach={outreach}
+          todos={todos}
+          calendarUrl={calendarUrl}
           onNavigate={navigate}
+          onToggleTodo={handleToggleTodo}
+          onAddTodo={handleAddTodo}
           uplistingConnected={uplistingConnected}
           uplistingProperties={uplistingProperties}
           uplistingReservations={uplistingReservations}
@@ -245,6 +298,8 @@ export default function App() {
         <Settings
           apiKey={uplistingApiKey}
           onSaveApiKey={setUplistingApiKey}
+          calendarUrl={calendarUrl}
+          onSaveCalendarUrl={setCalendarUrl}
           lastSync={lastSync}
           properties={uplistingProperties}
           reservations={uplistingReservations}
@@ -254,6 +309,19 @@ export default function App() {
             setUplistingReservations([]);
             setLastSync(null);
           }}
+        />
+      )}
+
+      {view === 'va-hub' && (
+        <VAHub
+          projects={projects}
+          todos={todos}
+          onAddProject={handleAddProject}
+          onUpdateProject={handleUpdateProject}
+          onDeleteProject={handleDeleteProject}
+          onAddTodo={handleAddTodo}
+          onToggleTodo={handleToggleTodo}
+          onDeleteTodo={handleDeleteTodo}
         />
       )}
 
