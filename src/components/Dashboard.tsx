@@ -99,6 +99,7 @@ export default function Dashboard({
   const [slackMessages, setSlackMessages] = useState<SlackMessage[]>([]);
   const [slackLoading, setSlackLoading] = useState(false);
   const [slackError, setSlackError] = useState('');
+  const [slackExpanded, setSlackExpanded] = useState(false);
 
   // Fetch calendar events when calendarUrl is set
   useEffect(() => {
@@ -651,7 +652,7 @@ export default function Dashboard({
             <div className="px-5 py-8 text-center text-sm text-slate-400">No recent messages.</div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {slackMessages.map(msg => {
+              {(slackExpanded ? slackMessages : slackMessages.slice(0, 5)).map(msg => {
                 const body = msg.text || msg.attachmentText;
                 if (!body) return null;
                 return (
@@ -681,6 +682,14 @@ export default function Dashboard({
                   </div>
                 );
               })}
+              {slackMessages.length > 5 && (
+                <button
+                  onClick={() => setSlackExpanded(v => !v)}
+                  className="w-full py-3 text-xs font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors"
+                >
+                  {slackExpanded ? 'Show less' : `Show ${slackMessages.length - 5} more messages`}
+                </button>
+              )}
             </div>
           )}
         </div>
