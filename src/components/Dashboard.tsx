@@ -290,68 +290,6 @@ export default function Dashboard({
         ))}
       </div>
 
-      {/* Slack Feed */}
-      {(slackToken && slackChannels.length > 0) && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-slate-100 flex-wrap">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Hash size={16} className="text-purple-500 flex-shrink-0" />
-              <h2 className="font-semibold text-slate-800">Slack Notifications</h2>
-              {slackChannels.map(ch => (
-                <span key={ch.id} className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium">
-                  #{ch.name || ch.id}
-                </span>
-              ))}
-            </div>
-            <span className="text-xs text-slate-400 flex items-center gap-1.5 flex-shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-              Live · 60s
-            </span>
-          </div>
-
-          {slackError ? (
-            <div className="px-5 py-4 text-sm text-red-500">{slackError}</div>
-          ) : slackLoading && slackMessages.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm text-slate-400">Loading messages...</div>
-          ) : slackMessages.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm text-slate-400">No recent messages.</div>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {slackMessages.map(msg => {
-                const body = msg.text || msg.attachmentText;
-                if (!body) return null;
-                return (
-                  <div key={`${msg.channelName}-${msg.ts}`} className="flex items-start gap-3 px-5 py-3.5">
-                    <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-xs font-bold text-purple-600">
-                        {msg.username.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-700">{msg.username}</span>
-                        {slackChannels.length > 1 && (
-                          <span className="text-xs bg-purple-50 text-purple-500 px-1.5 py-0.5 rounded-full">
-                            #{msg.channelName}
-                          </span>
-                        )}
-                        <span className="text-xs text-slate-400">{timeAgoShort(msg.ts)}</span>
-                      </div>
-                      <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap break-words">
-                        {body}
-                      </p>
-                      {msg.text && msg.attachmentText && msg.text !== msg.attachmentText && (
-                        <p className="text-xs text-slate-400 mt-1 italic truncate">{msg.attachmentText}</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Calendar + Todos row */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Google Calendar Widget */}
@@ -686,6 +624,67 @@ export default function Dashboard({
         </div>
       </div>
 
+      {/* Slack Feed */}
+      {(slackToken && slackChannels.length > 0) && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-slate-100 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Hash size={16} className="text-purple-500 flex-shrink-0" />
+              <h2 className="font-semibold text-slate-800">Slack Notifications</h2>
+              {slackChannels.map(ch => (
+                <span key={ch.id} className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium">
+                  #{ch.name || ch.id}
+                </span>
+              ))}
+            </div>
+            <span className="text-xs text-slate-400 flex items-center gap-1.5 flex-shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+              Live · 60s
+            </span>
+          </div>
+
+          {slackError ? (
+            <div className="px-5 py-4 text-sm text-red-500">{slackError}</div>
+          ) : slackLoading && slackMessages.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-400">Loading messages...</div>
+          ) : slackMessages.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-400">No recent messages.</div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {slackMessages.map(msg => {
+                const body = msg.text || msg.attachmentText;
+                if (!body) return null;
+                return (
+                  <div key={`${msg.channelName}-${msg.ts}`} className="flex items-start gap-3 px-5 py-3.5">
+                    <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-purple-600">
+                        {msg.username.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-slate-700">{msg.username}</span>
+                        {slackChannels.length > 1 && (
+                          <span className="text-xs bg-purple-50 text-purple-500 px-1.5 py-0.5 rounded-full">
+                            #{msg.channelName}
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-400">{timeAgoShort(msg.ts)}</span>
+                      </div>
+                      <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap break-words">
+                        {body}
+                      </p>
+                      {msg.text && msg.attachmentText && msg.text !== msg.attachmentText && (
+                        <p className="text-xs text-slate-400 mt-1 italic truncate">{msg.attachmentText}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
