@@ -352,6 +352,8 @@ export default function App() {
         <VAHub
           projects={projects}
           todos={todos}
+          slackToken={slackToken}
+          slackChannels={slackChannels}
           onAddProject={handleAddProject}
           onUpdateProject={handleUpdateProject}
           onDeleteProject={handleDeleteProject}
