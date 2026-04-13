@@ -45,6 +45,7 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
     source: (lead?.source ?? 'referral') as LeadSource,
     notes: lead?.notes ?? '',
     scheduledCallAt: toDatetimeLocal(lead?.scheduledCallAt),
+    scheduledCallLink: lead?.scheduledCallLink ?? '',
   });
 
   const set = (k: keyof typeof form, v: unknown) => setForm(f => ({ ...f, [k]: v }));
@@ -65,6 +66,7 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
       source: form.source,
       notes: form.notes,
       scheduledCallAt: form.scheduledCallAt ? new Date(form.scheduledCallAt).toISOString() : undefined,
+      scheduledCallLink: form.scheduledCallLink.trim() || undefined,
       createdAt: lead?.createdAt ?? now,
       updatedAt: now,
     });
@@ -140,8 +142,8 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
         </div>
 
         {/* Scheduled Call */}
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">
+        <div className="space-y-2">
+          <label className="block text-xs font-medium text-slate-600">
             Schedule Call
             <span className="ml-1 font-normal text-slate-400">— shows on dashboard calendar</span>
           </label>
@@ -151,13 +153,20 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
             onChange={e => set('scheduledCallAt', e.target.value)}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
-          {form.scheduledCallAt && (
+          <input
+            type="url"
+            value={form.scheduledCallLink}
+            onChange={e => set('scheduledCallLink', e.target.value)}
+            placeholder="Google Meet / Zoom link (optional)"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          {(form.scheduledCallAt || form.scheduledCallLink) && (
             <button
               type="button"
-              onClick={() => set('scheduledCallAt', '')}
-              className="mt-1 text-xs text-red-400 hover:text-red-500"
+              onClick={() => { set('scheduledCallAt', ''); set('scheduledCallLink', ''); }}
+              className="text-xs text-red-400 hover:text-red-500"
             >
-              Clear call time
+              Clear scheduled call
             </button>
           )}
         </div>

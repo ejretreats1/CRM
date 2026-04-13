@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, Phone, Mail, MapPin, DollarSign, MoreVertical, Trash2, Edit2, Clock } from 'lucide-react';
+import { Plus, Phone, Mail, MapPin, DollarSign, MoreVertical, Trash2, Edit2, Clock, Video } from 'lucide-react';
 import type { Lead, LeadStage } from '../types';
 
 interface PipelineProps {
@@ -95,11 +95,24 @@ function LeadCard({ lead, onEdit, onDelete, onDragStart }: LeadCardProps) {
 
       {/* Scheduled call badge */}
       {hasUpcomingCall && (
-        <div className="flex items-center gap-1.5 mt-2 bg-teal-50 border border-teal-200 rounded-md px-2 py-1">
-          <Clock size={11} className="text-teal-600 flex-shrink-0" />
-          <span className="text-xs text-teal-700 font-medium truncate">
-            {formatCallTime(lead.scheduledCallAt!)}
-          </span>
+        <div className="mt-2 bg-teal-50 border border-teal-200 rounded-md px-2 py-1.5 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <Clock size={11} className="text-teal-600 flex-shrink-0" />
+            <span className="text-xs text-teal-700 font-medium truncate">
+              {formatCallTime(lead.scheduledCallAt!)}
+            </span>
+          </div>
+          {lead.scheduledCallLink && (
+            <a
+              href={lead.scheduledCallLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-800 hover:underline truncate"
+            >
+              <Video size={11} className="flex-shrink-0" /> Join Meeting
+            </a>
+          )}
         </div>
       )}
 

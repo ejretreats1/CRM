@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   TrendingUp, Users, Home, Phone, ArrowRight, Star, Wifi, WifiOff,
-  RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash,
+  RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash, Video,
 } from 'lucide-react';
 import type { Lead, Owner, OutreachEntry, Todo } from '../types';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
@@ -15,6 +15,7 @@ interface CalEvent {
   description: string;
   location: string;
   isCrmCall?: boolean;
+  meetLink?: string;
 }
 
 interface SlackMessage {
@@ -234,6 +235,7 @@ export default function Dashboard({
       description: l.notes,
       location: l.phone ?? '',
       isCrmCall: true,
+      meetLink: l.scheduledCallLink,
     }));
 
   const allEvents = [...calEvents, ...crmCalls].sort((a, b) => a.start.localeCompare(b.start));
@@ -364,6 +366,11 @@ export default function Dashboard({
                         {nextEvent.isCrmCall && nextEvent.location && (
                           <a href={`tel:${nextEvent.location}`} className="text-xs text-teal-600 mt-0.5 flex items-center gap-1 hover:underline">
                             <Phone size={10} /> {nextEvent.location}
+                          </a>
+                        )}
+                        {nextEvent.isCrmCall && nextEvent.meetLink && (
+                          <a href={nextEvent.meetLink} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 mt-0.5 flex items-center gap-1 hover:underline font-medium">
+                            <Video size={10} /> Join Meeting
                           </a>
                         )}
                         {!nextEvent.isCrmCall && nextEvent.location && (

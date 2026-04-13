@@ -112,6 +112,7 @@ function rowToLead(r: any): Lead {
     notes: r.notes ?? '',
     source: r.source,
     scheduledCallAt: r.scheduled_call_at ?? undefined,
+    scheduledCallLink: r.scheduled_call_link ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -131,6 +132,7 @@ function leadToRow(l: Lead) {
     notes: l.notes,
     source: l.source,
     scheduled_call_at: l.scheduledCallAt ?? null,
+    scheduled_call_link: l.scheduledCallLink ?? null,
     created_at: l.createdAt,
     updated_at: l.updatedAt,
   };
