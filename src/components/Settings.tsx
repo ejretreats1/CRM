@@ -1,7 +1,12 @@
 import { useState } from 'react';
-import { Key, CheckCircle, XCircle, Loader, Eye, EyeOff, RefreshCw, Trash2, CalendarDays, Save, Hash } from 'lucide-react';
+import { Key, CheckCircle, XCircle, Loader, Eye, EyeOff, RefreshCw, Trash2, CalendarDays, Save, Hash, Plus, X } from 'lucide-react';
 import { testConnection } from '../services/uplisting';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
+
+interface SlackChannel {
+  id: string;
+  name: string;
+}
 
 interface SettingsProps {
   apiKey: string;
@@ -10,8 +15,8 @@ interface SettingsProps {
   onSaveCalendarUrl: (url: string) => void;
   slackToken: string;
   onSaveSlackToken: (token: string) => void;
-  slackChannelId: string;
-  onSaveSlackChannelId: (id: string) => void;
+  slackChannels: SlackChannel[];
+  onSaveSlackChannels: (channels: SlackChannel[]) => void;
   lastSync: string | null;
   properties: UplistingProperty[];
   reservations: UplistingReservation[];
@@ -25,7 +30,7 @@ export default function Settings({
   apiKey, onSaveApiKey,
   calendarUrl, onSaveCalendarUrl,
   slackToken, onSaveSlackToken,
-  slackChannelId, onSaveSlackChannelId,
+  slackChannels, onSaveSlackChannels,
   lastSync, properties, reservations, onSync, onClearData,
 }: SettingsProps) {
   const [inputKey, setInputKey] = useState(apiKey);
@@ -38,7 +43,9 @@ export default function Settings({
   const [calSaved, setCalSaved] = useState(false);
 
   const [slackTokenInput, setSlackTokenInput] = useState(slackToken);
-  const [slackChannelInput, setSlackChannelInput] = useState(slackChannelId);
+  const [channelList, setChannelList] = useState<SlackChannel[]>(slackChannels);
+  const [newChannelName, setNewChannelName] = useState('');
+  const [newChannelId, setNewChannelId] = useState('');
   const [showSlackToken, setShowSlackToken] = useState(false);
   const [slackSaved, setSlackSaved] = useState(false);
 
@@ -72,9 +79,24 @@ export default function Settings({
     setTimeout(() => setCalSaved(false), 2000);
   };
 
+  const handleAddChannel = () => {
+    const id = newChannelId.trim();
+    if (!id) return;
+    if (channelList.find(c => c.id === id)) return; // dedupe
+    setChannelList(prev => [...prev, { id, name: newChannelName.trim() || id }]);
+    setNewChannelName('');
+    setNewChannelId('');
+    setSlackSaved(false);
+  };
+
+  const handleRemoveChannel = (id: string) => {
+    setChannelList(prev => prev.filter(c => c.id !== id));
+    setSlackSaved(false);
+  };
+
   const handleSaveSlack = () => {
     onSaveSlackToken(slackTokenInput.trim());
-    onSaveSlackChannelId(slackChannelInput.trim());
+    onSaveSlackChannels(channelList);
     setSlackSaved(true);
     setTimeout(() => setSlackSaved(false), 2000);
   };
@@ -135,14 +157,14 @@ export default function Settings({
         <div className="flex items-center gap-2">
           <Hash size={18} className="text-purple-500" />
           <h2 className="font-semibold text-slate-800">Slack Feed</h2>
-          {slackToken && slackChannelId && (
+          {slackToken && channelList.length > 0 && (
             <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
-              Connected
+              {channelList.length} channel{channelList.length > 1 ? 's' : ''} connected
             </span>
           )}
         </div>
         <p className="text-sm text-slate-500">
-          Show a live feed of your Zapier Slack notifications on the dashboard.
+          Show a live feed of your Zapier Slack notifications on the dashboard. Add one or more channels.
         </p>
 
         <div>
@@ -163,26 +185,68 @@ export default function Settings({
               {showSlackToken ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
+          <p className="text-xs text-slate-400 mt-1">One bot token works for all channels — just invite the bot to each channel.</p>
         </div>
 
+        {/* Channel list */}
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Channel ID</label>
-          <input
-            type="text"
-            value={slackChannelInput}
-            onChange={e => { setSlackChannelInput(e.target.value); setSlackSaved(false); }}
-            placeholder="C0123456789"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
-          />
-          <p className="text-xs text-slate-400 mt-1">
-            Right-click your channel in Slack → View channel details → scroll to bottom for Channel ID.
+          <label className="block text-xs font-medium text-slate-600 mb-2">Channels</label>
+          {channelList.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {channelList.map(ch => (
+                <div key={ch.id} className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                  <Hash size={13} className="text-purple-400 flex-shrink-0" />
+                  <span className="text-sm font-medium text-purple-800 flex-1">{ch.name}</span>
+                  <span className="text-xs text-purple-500 font-mono">{ch.id}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveChannel(ch.id)}
+                    className="text-purple-400 hover:text-red-500 transition-colors flex-shrink-0"
+                    title="Remove channel"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add channel row */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newChannelName}
+              onChange={e => setNewChannelName(e.target.value)}
+              placeholder="Name (e.g. zapier-leads)"
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+            <input
+              type="text"
+              value={newChannelId}
+              onChange={e => setNewChannelId(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddChannel(); }}
+              placeholder="Channel ID (C...)"
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+            <button
+              type="button"
+              onClick={handleAddChannel}
+              disabled={!newChannelId.trim()}
+              className="bg-purple-100 hover:bg-purple-200 disabled:opacity-40 text-purple-700 px-3 py-2 rounded-lg transition-colors flex-shrink-0"
+              title="Add channel"
+            >
+              <Plus size={15} />
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-1.5">
+            Right-click a channel in Slack → View channel details → scroll to bottom for Channel ID.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={handleSaveSlack}
-            disabled={!slackTokenInput.trim() || !slackChannelInput.trim()}
+            disabled={!slackTokenInput.trim() || channelList.length === 0}
             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
             {slackSaved ? <CheckCircle size={14} /> : <Save size={14} />}
@@ -190,10 +254,10 @@ export default function Settings({
           </button>
           {slackToken && (
             <button
-              onClick={() => { setSlackTokenInput(''); setSlackChannelInput(''); onSaveSlackToken(''); onSaveSlackChannelId(''); }}
+              onClick={() => { setSlackTokenInput(''); setChannelList([]); onSaveSlackToken(''); onSaveSlackChannels([]); }}
               className="text-sm text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-2 rounded-lg transition-colors"
             >
-              Remove
+              Remove All
             </button>
           )}
         </div>
@@ -204,8 +268,8 @@ export default function Settings({
             <li>Go to api.slack.com/apps → Create New App → From scratch</li>
             <li>OAuth & Permissions → Add scope: <code className="bg-purple-100 px-1 rounded">channels:history</code></li>
             <li>Install App to Workspace → copy the Bot User OAuth Token</li>
-            <li>Invite the bot to your Zapier channel: <code className="bg-purple-100 px-1 rounded">/invite @your-app-name</code></li>
-            <li>Paste the token and channel ID above</li>
+            <li>Invite the bot to each channel: <code className="bg-purple-100 px-1 rounded">/invite @your-app-name</code></li>
+            <li>Add each channel by name + ID above, then save</li>
           </ol>
         </div>
       </div>

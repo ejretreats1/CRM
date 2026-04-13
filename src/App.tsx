@@ -53,7 +53,7 @@ export default function App() {
 
   // Slack integration (localStorage)
   const [slackToken, setSlackToken] = useLocalStorage<string>('ej_slack_token', '');
-  const [slackChannelId, setSlackChannelId] = useLocalStorage<string>('ej_slack_channel', '');
+  const [slackChannels, setSlackChannels] = useLocalStorage<{ id: string; name: string }[]>('ej_slack_channels', []);
 
   const [view, setView] = useState<View>('dashboard');
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
@@ -251,7 +251,7 @@ export default function App() {
           todos={todos}
           calendarUrl={calendarUrl}
           slackToken={slackToken}
-          slackChannelId={slackChannelId}
+          slackChannels={slackChannels}
           onNavigate={navigate}
           onToggleTodo={handleToggleTodo}
           onAddTodo={handleAddTodo}
@@ -308,8 +308,8 @@ export default function App() {
           onSaveCalendarUrl={setCalendarUrl}
           slackToken={slackToken}
           onSaveSlackToken={setSlackToken}
-          slackChannelId={slackChannelId}
-          onSaveSlackChannelId={setSlackChannelId}
+          slackChannels={slackChannels}
+          onSaveSlackChannels={setSlackChannels}
           lastSync={lastSync}
           properties={uplistingProperties}
           reservations={uplistingReservations}

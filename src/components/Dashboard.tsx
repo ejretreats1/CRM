@@ -22,6 +22,12 @@ interface SlackMessage {
   text: string;
   username: string;
   attachmentText: string;
+  channelName: string;
+}
+
+interface SlackChannel {
+  id: string;
+  name: string;
 }
 
 interface DashboardProps {
@@ -31,7 +37,7 @@ interface DashboardProps {
   todos: Todo[];
   calendarUrl: string;
   slackToken: string;
-  slackChannelId: string;
+  slackChannels: SlackChannel[];
   onNavigate: (view: 'pipeline' | 'owners' | 'outreach' | 'owner-detail' | 'settings' | 'va-hub', extra?: string) => void;
   onToggleTodo: (todo: Todo) => void;
   onAddTodo: (todo: Todo) => void;
@@ -83,7 +89,7 @@ function timeAgoShort(ts: string): string {
 }
 
 export default function Dashboard({
-  leads, owners, outreach, todos, calendarUrl, slackToken, slackChannelId,
+  leads, owners, outreach, todos, calendarUrl, slackToken, slackChannels,
   onNavigate, onToggleTodo, onAddTodo,
   uplistingConnected, uplistingProperties, uplistingReservations, lastSync, onSync,
 }: DashboardProps) {
@@ -105,29 +111,42 @@ export default function Dashboard({
       .finally(() => setCalLoading(false));
   }, [calendarUrl]);
 
-  // Fetch Slack messages and poll every 60s
+  // Fetch Slack messages from all channels and poll every 60s
   useEffect(() => {
-    if (!slackToken || !slackChannelId) { setSlackMessages([]); return; }
+    if (!slackToken || slackChannels.length === 0) { setSlackMessages([]); return; }
 
-    function load() {
-      fetch(`/api/slack-feed?channelId=${encodeURIComponent(slackChannelId)}`, {
-        headers: { 'x-slack-token': slackToken },
-      })
-        .then(r => r.json())
-        .then(d => {
-          if (d.error) { setSlackError(d.error); return; }
-          setSlackError('');
-          setSlackMessages(d.messages ?? []);
-        })
-        .catch(() => setSlackError('Could not reach Slack.'))
-        .finally(() => setSlackLoading(false));
+    async function load() {
+      try {
+        const results = await Promise.all(
+          slackChannels.map(async (ch) => {
+            const r = await fetch(`/api/slack-feed?channelId=${encodeURIComponent(ch.id)}`, {
+              headers: { 'x-slack-token': slackToken },
+            });
+            const d = await r.json();
+            if (d.error) throw new Error(d.error);
+            return (d.messages ?? []).map((m: Omit<SlackMessage, 'channelName'>) => ({
+              ...m,
+              channelName: ch.name || ch.id,
+            }));
+          })
+        );
+        const merged = (results.flat() as SlackMessage[])
+          .sort((a, b) => parseFloat(b.ts) - parseFloat(a.ts));
+        setSlackMessages(merged);
+        setSlackError('');
+      } catch (err) {
+        setSlackError(err instanceof Error ? err.message : 'Could not reach Slack.');
+      } finally {
+        setSlackLoading(false);
+      }
     }
 
     setSlackLoading(true);
     load();
     const interval = setInterval(load, 60_000);
     return () => clearInterval(interval);
-  }, [slackToken, slackChannelId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slackToken, JSON.stringify(slackChannels)]);
 
   // Prefer live Uplisting data when connected, fall back to manual data
   const allProperties = owners.flatMap(o => o.properties);
@@ -606,15 +625,23 @@ export default function Dashboard({
       </div>
 
       {/* Slack Feed */}
-      {(slackToken && slackChannelId) ? (
+      {(slackToken && slackChannels.length > 0) ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-            <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-              <Hash size={16} className="text-purple-500" /> Slack Notifications
-            </h2>
+            <div className="flex items-center gap-2">
+              <Hash size={16} className="text-purple-500" />
+              <h2 className="font-semibold text-slate-800">Slack Notifications</h2>
+              <div className="flex gap-1 ml-1">
+                {slackChannels.map(ch => (
+                  <span key={ch.id} className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium">
+                    #{ch.name || ch.id}
+                  </span>
+                ))}
+              </div>
+            </div>
             <span className="text-xs text-slate-400 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-              Live · refreshes every 60s
+              Live · 60s
             </span>
           </div>
 
@@ -630,15 +657,20 @@ export default function Dashboard({
                 const body = msg.text || msg.attachmentText;
                 if (!body) return null;
                 return (
-                  <div key={msg.ts} className="flex items-start gap-3 px-5 py-3.5">
+                  <div key={`${msg.channelName}-${msg.ts}`} className="flex items-start gap-3 px-5 py-3.5">
                     <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <span className="text-xs font-bold text-purple-600">
                         {msg.username.charAt(0).toUpperCase()}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
+                      <div className="flex items-baseline gap-2 flex-wrap">
                         <span className="text-xs font-semibold text-slate-700">{msg.username}</span>
+                        {slackChannels.length > 1 && (
+                          <span className="text-xs bg-purple-50 text-purple-500 px-1.5 py-0.5 rounded-full">
+                            #{msg.channelName}
+                          </span>
+                        )}
                         <span className="text-xs text-slate-400">{timeAgoShort(msg.ts)}</span>
                       </div>
                       <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap break-words">
