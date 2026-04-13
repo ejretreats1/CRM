@@ -419,7 +419,7 @@ export default function Dashboard({
               onClick={() => onNavigate('va-hub')}
               className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
             >
-              VA Hub <ArrowRight size={13} />
+              See completed <ArrowRight size={13} />
             </button>
           </div>
 
