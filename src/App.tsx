@@ -23,8 +23,10 @@ import {
   fetchTodos, upsertTodo, deleteTodo,
 } from './services/projects';
 import { fetchProperties, fetchReservations } from './services/uplisting';
+import { fetchSettings, saveSettings } from './services/settings';
 import type { Lead, Owner, Property, OutreachEntry, View, Project, Todo } from './types';
 import type { UplistingProperty, UplistingReservation } from './services/uplisting';
+import type { SlackChannel } from './services/settings';
 
 type Modal =
   | { type: 'lead'; lead?: Lead }
@@ -42,18 +44,16 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Uplisting integration (localStorage)
-  const [uplistingApiKey, setUplistingApiKey] = useLocalStorage<string>('ej_uplisting_key', '');
+  // Settings stored in Supabase (shared across devices)
+  const [uplistingApiKey, setUplistingApiKey] = useState('');
+  const [calendarUrl, setCalendarUrl] = useState('');
+  const [slackToken, setSlackToken] = useState('');
+  const [slackChannels, setSlackChannels] = useState<SlackChannel[]>([]);
+
+  // Uplisting cached data stays in localStorage (device-local cache)
   const [uplistingProperties, setUplistingProperties] = useLocalStorage<UplistingProperty[]>('ej_uplisting_properties', []);
   const [uplistingReservations, setUplistingReservations] = useLocalStorage<UplistingReservation[]>('ej_uplisting_reservations', []);
   const [lastSync, setLastSync] = useLocalStorage<string | null>('ej_uplisting_last_sync', null);
-
-  // Google Calendar iCal URL (localStorage)
-  const [calendarUrl, setCalendarUrl] = useLocalStorage<string>('ej_calendar_url', '');
-
-  // Slack integration (localStorage)
-  const [slackToken, setSlackToken] = useLocalStorage<string>('ej_slack_token', '');
-  const [slackChannels, setSlackChannels] = useLocalStorage<{ id: string; name: string }[]>('ej_slack_channels', []);
 
   const [view, setView] = useState<View>('dashboard');
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
@@ -63,18 +63,23 @@ export default function App() {
   useEffect(() => {
     async function loadAll() {
       try {
-        const [l, o, out, proj, td] = await Promise.all([
+        const [l, o, out, proj, td, settings] = await Promise.all([
           fetchLeads(),
           fetchOwners(),
           fetchOutreach(),
           fetchProjects(),
           fetchTodos(),
+          fetchSettings(),
         ]);
         setLeads(l);
         setOwners(o);
         setOutreach(out);
         setProjects(proj);
         setTodos(td);
+        setUplistingApiKey(settings.uplistingApiKey);
+        setCalendarUrl(settings.calendarUrl);
+        setSlackToken(settings.slackToken);
+        setSlackChannels(settings.slackChannels);
       } catch (e) {
         setError('Failed to load data. Check your Supabase connection.');
         console.error(e);
@@ -114,6 +119,27 @@ export default function App() {
       // Sync errors shown in Settings
     }
   }, [uplistingApiKey, setUplistingProperties, setUplistingReservations, setLastSync]);
+
+  // ── Settings handlers (save to Supabase + update local state) ─────────────
+  const handleSaveApiKey = async (key: string) => {
+    setUplistingApiKey(key);
+    await saveSettings({ uplistingApiKey: key });
+  };
+
+  const handleSaveCalendarUrl = async (url: string) => {
+    setCalendarUrl(url);
+    await saveSettings({ calendarUrl: url });
+  };
+
+  const handleSaveSlackToken = async (token: string) => {
+    setSlackToken(token);
+    await saveSettings({ slackToken: token });
+  };
+
+  const handleSaveSlackChannels = async (channels: SlackChannel[]) => {
+    setSlackChannels(channels);
+    await saveSettings({ slackChannels: channels });
+  };
 
   // ── Lead CRUD ──────────────────────────────────────────────────────────────
   const saveLeadHandler = async (lead: Lead) => {
@@ -303,13 +329,13 @@ export default function App() {
       {view === 'settings' && (
         <Settings
           apiKey={uplistingApiKey}
-          onSaveApiKey={setUplistingApiKey}
+          onSaveApiKey={handleSaveApiKey}
           calendarUrl={calendarUrl}
-          onSaveCalendarUrl={setCalendarUrl}
+          onSaveCalendarUrl={handleSaveCalendarUrl}
           slackToken={slackToken}
-          onSaveSlackToken={setSlackToken}
+          onSaveSlackToken={handleSaveSlackToken}
           slackChannels={slackChannels}
-          onSaveSlackChannels={setSlackChannels}
+          onSaveSlackChannels={handleSaveSlackChannels}
           lastSync={lastSync}
           properties={uplistingProperties}
           reservations={uplistingReservations}
