@@ -18,9 +18,11 @@ const SOURCES: { value: LeadSource; label: string }[] = [
   { value: 'referral',      label: 'Referral' },
   { value: 'website',       label: 'Website' },
   { value: 'social',        label: 'Social Media' },
-  { value: 'cold_outreach', label: 'Cold Outreach' },
-  { value: 'event',         label: 'Event' },
-  { value: 'other',         label: 'Other' },
+  { value: 'cold_outreach',    label: 'Cold Outreach' },
+  { value: 'facebook_outreach', label: 'Facebook Outreach' },
+  { value: 'airbnb_outreach',   label: 'Airbnb Outreach' },
+  { value: 'event',             label: 'Event' },
+  { value: 'other',             label: 'Other' },
 ];
 
 // Convert ISO string → datetime-local input value (YYYY-MM-DDTHH:MM)

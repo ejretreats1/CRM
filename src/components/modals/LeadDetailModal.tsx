@@ -15,8 +15,10 @@ const SOURCE_LABELS: Record<string, string> = {
   referral:      'Referral',
   website:       'Website',
   social:        'Social Media',
-  cold_outreach: 'Cold Outreach',
-  event:         'Event',
+  cold_outreach:    'Cold Outreach',
+  facebook_outreach: 'Facebook Outreach',
+  airbnb_outreach:   'Airbnb Outreach',
+  event:            'Event',
   other:         'Other',
 };
 

@@ -2,7 +2,7 @@ export type LeadStage = 'new' | 'cold' | 'won';
 export type OutreachType = 'call' | 'email' | 'text' | 'meeting' | 'other';
 export type OutreachOutcome = 'positive' | 'neutral' | 'negative' | 'no_response';
 export type PropertyStatus = 'active' | 'inactive' | 'onboarding';
-export type LeadSource = 'referral' | 'website' | 'social' | 'cold_outreach' | 'event' | 'other';
+export type LeadSource = 'referral' | 'website' | 'social' | 'cold_outreach' | 'facebook_outreach' | 'airbnb_outreach' | 'event' | 'other';
 
 export interface Lead {
   id: string;
