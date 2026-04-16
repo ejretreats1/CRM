@@ -8,6 +8,7 @@ import OutreachLog from './components/OutreachLog';
 import Settings from './components/Settings';
 import VAHub from './components/VAHub';
 import LeadModal from './components/modals/LeadModal';
+import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
 import PropertyModal from './components/modals/PropertyModal';
 import OutreachModal from './components/modals/OutreachModal';
@@ -30,6 +31,7 @@ import type { SlackChannel } from './services/settings';
 
 type Modal =
   | { type: 'lead'; lead?: Lead }
+  | { type: 'lead-detail'; lead: Lead }
   | { type: 'owner'; owner?: Owner }
   | { type: 'property'; ownerId: string; property?: Property }
   | { type: 'outreach'; entry?: OutreachEntry; preselectedOwnerId?: string }
@@ -281,6 +283,7 @@ export default function App() {
           onNavigate={navigate}
           onToggleTodo={handleToggleTodo}
           onAddTodo={handleAddTodo}
+          onOpenLeadDetail={(lead) => setModal({ type: 'lead-detail', lead })}
           uplistingConnected={uplistingConnected}
           uplistingProperties={uplistingProperties}
           uplistingReservations={uplistingReservations}
@@ -294,6 +297,7 @@ export default function App() {
           leads={leads}
           onUpdateLeads={updateLeadsHandler}
           onOpenLeadModal={(lead) => setModal({ type: 'lead', lead })}
+          onOpenLeadDetail={(lead) => setModal({ type: 'lead-detail', lead })}
         />
       )}
 
@@ -363,6 +367,13 @@ export default function App() {
         />
       )}
 
+      {modal?.type === 'lead-detail' && (
+        <LeadDetailModal
+          lead={modal.lead}
+          onEdit={() => setModal({ type: 'lead', lead: modal.lead })}
+          onClose={() => setModal(null)}
+        />
+      )}
       {modal?.type === 'lead' && (
         <LeadModal lead={modal.lead} onSave={saveLeadHandler} onClose={() => setModal(null)} />
       )}

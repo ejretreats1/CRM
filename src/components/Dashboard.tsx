@@ -16,6 +16,7 @@ interface CalEvent {
   location: string;
   isCrmCall?: boolean;
   meetLink?: string;
+  leadId?: string;
 }
 
 interface SlackMessage {
@@ -42,6 +43,7 @@ interface DashboardProps {
   onNavigate: (view: 'pipeline' | 'owners' | 'outreach' | 'owner-detail' | 'settings' | 'va-hub', extra?: string) => void;
   onToggleTodo: (todo: Todo) => void;
   onAddTodo: (todo: Todo) => void;
+  onOpenLeadDetail: (lead: Lead) => void;
   uplistingConnected: boolean;
   uplistingProperties: UplistingProperty[];
   uplistingReservations: UplistingReservation[];
@@ -91,7 +93,7 @@ function timeAgoShort(ts: string): string {
 
 export default function Dashboard({
   leads, owners, outreach, todos, calendarUrl, slackToken, slackChannels,
-  onNavigate, onToggleTodo, onAddTodo,
+  onNavigate, onToggleTodo, onAddTodo, onOpenLeadDetail,
   uplistingConnected, uplistingProperties, uplistingReservations, lastSync, onSync,
 }: DashboardProps) {
   const [calEvents, setCalEvents] = useState<CalEvent[]>([]);
@@ -236,6 +238,7 @@ export default function Dashboard({
       location: l.phone ?? '',
       isCrmCall: true,
       meetLink: l.scheduledCallLink,
+      leadId: l.id,
     }));
 
   const allEvents = [...calEvents, ...crmCalls].sort((a, b) => a.start.localeCompare(b.start));
@@ -337,7 +340,15 @@ export default function Dashboard({
                 const { day, time, isToday, isTomorrow } = formatEventDate(nextEvent.start);
                 const eventDate = new Date(nextEvent.start.length === 10 ? nextEvent.start + 'T00:00:00' : nextEvent.start);
                 return (
-                  <div className={`px-5 py-4 ${nextEvent.isCrmCall ? 'bg-blue-50/50' : 'bg-teal-50/40'}`}>
+                  <div
+                    className={`px-5 py-4 ${nextEvent.isCrmCall ? 'bg-blue-50/50 cursor-pointer hover:bg-blue-100/50' : 'bg-teal-50/40'} transition-colors`}
+                    onClick={() => {
+                      if (nextEvent.isCrmCall && nextEvent.leadId) {
+                        const lead = leads.find(l => l.id === nextEvent.leadId);
+                        if (lead) onOpenLeadDetail(lead);
+                      }
+                    }}
+                  >
                     <div className="flex items-start gap-3">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-sm ${
                         nextEvent.isCrmCall
@@ -389,7 +400,16 @@ export default function Dashboard({
                 const { day, time } = formatEventDate(event.start);
                 const eventDate = new Date(event.start.length === 10 ? event.start + 'T00:00:00' : event.start);
                 return (
-                  <div key={event.id} className="flex items-center gap-3 px-5 py-3">
+                  <div
+                    key={event.id}
+                    className={`flex items-center gap-3 px-5 py-3 ${event.isCrmCall ? 'cursor-pointer hover:bg-slate-50' : ''} transition-colors`}
+                    onClick={() => {
+                      if (event.isCrmCall && event.leadId) {
+                        const lead = leads.find(l => l.id === event.leadId);
+                        if (lead) onOpenLeadDetail(lead);
+                      }
+                    }}
+                  >
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs ${
                       event.isCrmCall ? 'bg-blue-50 text-blue-500 text-sm' : 'bg-slate-100 text-slate-500 font-bold'
                     }`}>

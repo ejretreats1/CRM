@@ -6,6 +6,7 @@ interface PipelineProps {
   leads: Lead[];
   onUpdateLeads: (leads: Lead[]) => void;
   onOpenLeadModal: (lead?: Lead) => void;
+  onOpenLeadDetail: (lead: Lead) => void;
 }
 
 const STAGES: { id: LeadStage; label: string; color: string; dot: string }[] = [
@@ -42,12 +43,13 @@ function formatCallTime(iso: string): string {
 
 interface LeadCardProps {
   lead: Lead;
+  onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onDragStart: (e: React.DragEvent) => void;
 }
 
-function LeadCard({ lead, onEdit, onDelete, onDragStart }: LeadCardProps) {
+function LeadCard({ lead, onView, onEdit, onDelete, onDragStart }: LeadCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -57,13 +59,14 @@ function LeadCard({ lead, onEdit, onDelete, onDragStart }: LeadCardProps) {
     <div
       draggable
       onDragStart={onDragStart}
-      className="bg-white rounded-lg border border-slate-200 p-3.5 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow select-none"
+      onClick={onView}
+      className="bg-white rounded-lg border border-slate-200 p-3.5 cursor-pointer shadow-sm hover:shadow-md hover:border-teal-300 transition-all select-none"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold text-slate-800 leading-tight">{lead.name}</p>
         <div className="relative flex-shrink-0" ref={menuRef}>
           <button
-            onClick={() => setMenuOpen(v => !v)}
+            onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
             onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
             className="p-0.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100"
           >
@@ -72,13 +75,13 @@ function LeadCard({ lead, onEdit, onDelete, onDragStart }: LeadCardProps) {
           {menuOpen && (
             <div className="absolute right-0 top-6 bg-white border border-slate-200 rounded-lg shadow-lg z-10 py-1 min-w-[120px]">
               <button
-                onClick={() => { setMenuOpen(false); onEdit(); }}
+                onClick={e => { e.stopPropagation(); setMenuOpen(false); onEdit(); }}
                 className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 w-full"
               >
                 <Edit2 size={12} /> Edit
               </button>
               <button
-                onClick={() => { setMenuOpen(false); onDelete(); }}
+                onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete(); }}
                 className="flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 w-full"
               >
                 <Trash2 size={12} /> Delete
@@ -135,12 +138,12 @@ function LeadCard({ lead, onEdit, onDelete, onDragStart }: LeadCardProps) {
 
       <div className="flex gap-2 mt-2.5">
         {lead.phone && (
-          <a href={`tel:${lead.phone}`} className="flex items-center gap-1 text-xs text-teal-600 hover:underline">
+          <a href={`tel:${lead.phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1 text-xs text-teal-600 hover:underline">
             <Phone size={11} />{lead.phone}
           </a>
         )}
         {lead.email && !lead.phone && (
-          <a href={`mailto:${lead.email}`} className="flex items-center gap-1 text-xs text-teal-600 hover:underline">
+          <a href={`mailto:${lead.email}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1 text-xs text-teal-600 hover:underline">
             <Mail size={11} />{lead.email}
           </a>
         )}
@@ -149,7 +152,7 @@ function LeadCard({ lead, onEdit, onDelete, onDragStart }: LeadCardProps) {
   );
 }
 
-export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal }: PipelineProps) {
+export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpenLeadDetail }: PipelineProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<LeadStage | null>(null);
 
@@ -238,6 +241,7 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal }: Pipe
                     <LeadCard
                       key={lead.id}
                       lead={lead}
+                      onView={() => onOpenLeadDetail(lead)}
                       onEdit={() => onOpenLeadModal(lead)}
                       onDelete={() => handleDelete(lead.id)}
                       onDragStart={(e) => handleDragStart(e, lead.id)}
