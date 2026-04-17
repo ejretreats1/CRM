@@ -27,7 +27,7 @@ const navItems = [
   { id: 'outreach' as View, label: 'Outreach Log', icon: MessageSquare },
   { id: 'va-hub' as View, label: 'VA Hub', icon: FolderKanban },
   { id: 'drive' as View, label: 'Google Drive', icon: HardDrive },
-  { id: 'revenue-reports' as View, label: 'Revenue Reports', icon: FileBarChart2 },
+  { id: 'revenue-reports' as View, label: 'AI Rev Projection Reports', icon: FileBarChart2 },
 ];
 
 const bottomNavItems = [
