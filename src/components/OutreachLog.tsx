@@ -130,7 +130,7 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
         >
           <option value="all">All Contacts</option>
           <option value="lead">Leads</option>
-          <option value="owner">Owners</option>
+          <option value="owner">Clients</option>
         </select>
       </div>
 
