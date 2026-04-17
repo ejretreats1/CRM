@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
   TrendingUp, Users, Home, Phone, ArrowRight, Star, Wifi, WifiOff,
-  RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash, Video,
+  RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash, Video, CalendarRange,
 } from 'lucide-react';
 import type { Lead, Owner, OutreachEntry, Todo } from '../types';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
 import { estimateMonthlyRevenue, estimateOccupancy } from '../services/uplisting';
+import WeeklyCalendarModal from './WeeklyCalendarModal';
 
 interface CalEvent {
   id: string;
@@ -103,6 +104,7 @@ export default function Dashboard({
   const [slackLoading, setSlackLoading] = useState(false);
   const [slackError, setSlackError] = useState('');
   const [slackExpanded, setSlackExpanded] = useState(false);
+  const [showWeekly, setShowWeekly] = useState(false);
 
   // Fetch calendar events when calendarUrl is set
   useEffect(() => {
@@ -304,14 +306,24 @@ export default function Dashboard({
             <h2 className="font-semibold text-slate-800 flex items-center gap-2">
               <CalendarDays size={16} className="text-teal-600" /> Upcoming Events
             </h2>
-            {!calendarUrl && (
-              <button
-                onClick={() => onNavigate('settings')}
-                className="text-xs text-teal-600 hover:text-teal-700 font-medium"
-              >
-                Connect Calendar
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {allEvents.length > 0 && (
+                <button
+                  onClick={() => setShowWeekly(true)}
+                  className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
+                >
+                  <CalendarRange size={13} /> View week
+                </button>
+              )}
+              {!calendarUrl && (
+                <button
+                  onClick={() => onNavigate('settings')}
+                  className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+                >
+                  Connect Calendar
+                </button>
+              )}
+            </div>
           </div>
 
           {!calendarUrl ? (
@@ -720,6 +732,15 @@ export default function Dashboard({
             </div>
           )}
         </div>
+      )}
+
+      {showWeekly && (
+        <WeeklyCalendarModal
+          events={allEvents}
+          leads={leads}
+          onOpenLeadDetail={onOpenLeadDetail}
+          onClose={() => setShowWeekly(false)}
+        />
       )}
     </div>
   );
