@@ -23,7 +23,7 @@ interface LayoutProps {
 const navItems = [
   { id: 'dashboard' as View, label: 'Dashboard', icon: LayoutDashboard },
   { id: 'pipeline' as View, label: 'Pipeline', icon: Columns3 },
-  { id: 'owners' as View, label: 'Owners', icon: Users },
+  { id: 'owners' as View, label: 'Clients', icon: Users },
   { id: 'outreach' as View, label: 'Outreach Log', icon: MessageSquare },
   { id: 'va-hub' as View, label: 'VA Hub', icon: FolderKanban },
   { id: 'drive' as View, label: 'Google Drive', icon: HardDrive },

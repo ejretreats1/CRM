@@ -32,23 +32,23 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: Owners
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Owners</h1>
+          <h1 className="text-xl font-bold text-slate-900">Clients</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            {owners.length} owners · {totalProperties} properties · ${totalRevenue.toLocaleString()}/mo revenue
+            {owners.length} clients · {totalProperties} properties · ${totalRevenue.toLocaleString()}/mo revenue
           </p>
         </div>
         <button
           onClick={() => onOpenOwnerModal()}
           className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
-          <Plus size={16} /> Add Owner
+          <Plus size={16} /> Add Client
         </button>
       </div>
 
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Total Owners', value: owners.length, icon: '👤' },
+          { label: 'Total Clients', value: owners.length, icon: '👤' },
           { label: 'Active Properties', value: activeProperties, icon: '🏠' },
           { label: 'Monthly Revenue', value: `$${totalRevenue.toLocaleString()}`, icon: '💰' },
         ].map(s => (
@@ -65,7 +65,7 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: Owners
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
-          placeholder="Search owners, properties..."
+          placeholder="Search clients, properties..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
@@ -75,7 +75,7 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: Owners
       {/* Owner cards */}
       <div className="space-y-3">
         {filtered.length === 0 && (
-          <div className="text-center py-12 text-slate-400 text-sm">No owners found.</div>
+          <div className="text-center py-12 text-slate-400 text-sm">No clients found.</div>
         )}
         {filtered.map(owner => {
           const rev = owner.properties.reduce((s, p) => s + p.monthlyRevenue, 0);

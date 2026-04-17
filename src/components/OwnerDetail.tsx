@@ -118,7 +118,7 @@ export default function OwnerDetail({
           onClick={onBack}
           className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-600 mb-4 transition-colors"
         >
-          <ArrowLeft size={16} /> Back to Owners
+          <ArrowLeft size={16} /> Back to Clients
         </button>
 
         <div className="flex items-start gap-4">
