@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, ChevronRight, Home, Loader, AlertCircle, X } from 'lucide-react';
+import { Folder, ChevronRight, Home, Loader, AlertCircle, X, Check } from 'lucide-react';
 
 interface DriveFile {
   id: string;
@@ -24,7 +24,7 @@ export interface PickedDriveFile {
 }
 
 interface DrivePickerModalProps {
-  onSelect: (file: PickedDriveFile) => void;
+  onSelect: (files: PickedDriveFile[]) => void;
   onClose: () => void;
 }
 
@@ -45,6 +45,7 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: null, name: 'My Drive' }]);
+  const [selected, setSelected] = useState<Map<string, PickedDriveFile>>(new Map());
 
   const currentFolder = crumbs[crumbs.length - 1];
 
@@ -79,8 +80,21 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
     }
   }
 
+  function toggleFile(f: DriveFile) {
+    setSelected(prev => {
+      const next = new Map(prev);
+      if (next.has(f.id)) {
+        next.delete(f.id);
+      } else {
+        next.set(f.id, { id: f.id, name: f.name, mimeType: f.mimeType, webViewLink: f.webViewLink });
+      }
+      return next;
+    });
+  }
+
   const folders = files.filter(f => f.isFolder);
   const docs = files.filter(f => !f.isFolder);
+  const selectedCount = selected.size;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -89,7 +103,11 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0">
           <div>
             <h2 className="font-semibold text-slate-900">Link from Google Drive</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Browse and click a file to add it to this client's documents</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {selectedCount === 0
+                ? 'Select one or more files to add to this client\'s documents'
+                : `${selectedCount} file${selectedCount !== 1 ? 's' : ''} selected`}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -153,25 +171,34 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
 
               {docs.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                    Files — click to link
-                  </p>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Files</p>
                   <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
-                    {docs.map(f => (
-                      <button
-                        key={f.id}
-                        onClick={() => onSelect({ id: f.id, name: f.name, mimeType: f.mimeType, webViewLink: f.webViewLink })}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-teal-50 transition-colors text-left group"
-                      >
-                        <span className="text-lg flex-shrink-0">{fileIcon(f.mimeType)}</span>
-                        <span className="flex-1 min-w-0 text-sm font-medium text-slate-700 group-hover:text-teal-700 truncate">
-                          {f.name}
-                        </span>
-                        <span className="text-xs text-teal-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 font-medium">
-                          + Link
-                        </span>
-                      </button>
-                    ))}
+                    {docs.map(f => {
+                      const isSelected = selected.has(f.id);
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => toggleFile(f)}
+                          className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left ${
+                            isSelected ? 'bg-teal-50' : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
+                            isSelected
+                              ? 'bg-teal-600 border-teal-600'
+                              : 'border-slate-300 bg-white'
+                          }`}>
+                            {isSelected && <Check size={11} className="text-white" strokeWidth={3} />}
+                          </div>
+                          <span className="text-lg flex-shrink-0">{fileIcon(f.mimeType)}</span>
+                          <span className={`flex-1 min-w-0 text-sm font-medium truncate transition-colors ${
+                            isSelected ? 'text-teal-700' : 'text-slate-700'
+                          }`}>
+                            {f.name}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -181,6 +208,23 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
               )}
             </div>
           )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-slate-200 flex-shrink-0">
+          <button
+            onClick={onClose}
+            className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSelect(Array.from(selected.values()))}
+            disabled={selectedCount === 0}
+            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+          >
+            {selectedCount === 0 ? 'Select files to link' : `Link ${selectedCount} file${selectedCount !== 1 ? 's' : ''}`}
+          </button>
         </div>
       </div>
     </div>

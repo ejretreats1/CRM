@@ -116,23 +116,24 @@ export default function OwnerDetail({
     }
   }
 
-  async function handleLinkDriveFile(picked: PickedDriveFile) {
+  async function handleLinkDriveFiles(picked: PickedDriveFile[]) {
     setShowDrivePicker(false);
-    const alreadyLinked = driveLinks.some(l => l.fileId === picked.id);
-    if (alreadyLinked) return;
-    const link: Omit<OwnerDriveLink, 'createdAt'> = {
-      id: `dl_${Date.now()}`,
-      ownerId: owner.id,
-      fileId: picked.id,
-      fileName: picked.name,
-      mimeType: picked.mimeType,
-      webViewLink: picked.webViewLink,
-    };
-    try {
-      const saved = await saveOwnerDriveLink(link);
-      setDriveLinks(prev => [saved, ...prev]);
-    } catch {
-      // silent — user can retry
+    const toAdd = picked.filter(p => !driveLinks.some(l => l.fileId === p.id));
+    for (const file of toAdd) {
+      const link: Omit<OwnerDriveLink, 'createdAt'> = {
+        id: `dl_${Date.now()}_${file.id}`,
+        ownerId: owner.id,
+        fileId: file.id,
+        fileName: file.name,
+        mimeType: file.mimeType,
+        webViewLink: file.webViewLink,
+      };
+      try {
+        const saved = await saveOwnerDriveLink(link);
+        setDriveLinks(prev => [saved, ...prev]);
+      } catch {
+        // silent — continue with remaining files
+      }
     }
   }
 
@@ -533,7 +534,7 @@ export default function OwnerDetail({
     )}
     {showDrivePicker && (
       <DrivePickerModal
-        onSelect={handleLinkDriveFile}
+        onSelect={handleLinkDriveFiles}
         onClose={() => setShowDrivePicker(false)}
       />
     )}
