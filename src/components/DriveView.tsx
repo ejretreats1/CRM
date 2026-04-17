@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Folder, ChevronRight, Home, ExternalLink, RefreshCw, AlertCircle, Loader } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Folder, ChevronRight, Home, ExternalLink, RefreshCw, AlertCircle, Loader, Plus, ChevronDown } from 'lucide-react';
 
 interface DriveFile {
   id: string;
@@ -15,6 +15,13 @@ interface Crumb {
   id: string | null;
   name: string;
 }
+
+const NEW_TYPES = [
+  { label: 'Google Doc',    emoji: '📝', mimeType: 'application/vnd.google-apps.document' },
+  { label: 'Google Sheet',  emoji: '📊', mimeType: 'application/vnd.google-apps.spreadsheet' },
+  { label: 'Google Slides', emoji: '📑', mimeType: 'application/vnd.google-apps.presentation' },
+  { label: 'New Folder',    emoji: '📁', mimeType: 'application/vnd.google-apps.folder' },
+];
 
 function formatSize(bytes: number | null): string {
   if (!bytes) return '';
@@ -45,8 +52,12 @@ export default function DriveView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: null, name: 'My Drive' }]);
+  const [creating, setCreating] = useState(false);
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
+  const newMenuRef = useRef<HTMLDivElement>(null);
 
   const currentFolder = crumbs[crumbs.length - 1];
+  const ROOT_FOLDER_NAME = 'E&J Retreats CRM';
 
   useEffect(() => {
     const isRoot = crumbs.length === 1 && crumbs[0].id === null;
@@ -54,7 +65,16 @@ export default function DriveView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFolder.id]);
 
-  const ROOT_FOLDER_NAME = 'E&J Retreats CRM';
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (newMenuRef.current && !newMenuRef.current.contains(e.target as Node)) {
+        setNewMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   async function load(folderId: string | null, autoNavigate = false) {
     setLoading(true);
@@ -82,6 +102,37 @@ export default function DriveView() {
     }
   }
 
+  async function createFile(mimeType: string) {
+    if (!currentFolder.id) return;
+    setNewMenuOpen(false);
+    setCreating(true);
+
+    const isFolder = mimeType === 'application/vnd.google-apps.folder';
+    const defaultName = isFolder ? 'New Folder' : 'Untitled';
+
+    try {
+      const res = await fetch('/api/drive-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId: currentFolder.id, mimeType, name: defaultName }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      // Open the new file in a new tab (folders don't need opening)
+      if (!isFolder && data.file?.webViewLink) {
+        window.open(data.file.webViewLink, '_blank', 'noopener,noreferrer');
+      }
+
+      // Refresh to show the new file
+      await load(currentFolder.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create file.');
+    } finally {
+      setCreating(false);
+    }
+  }
+
   function openFolder(file: DriveFile) {
     setCrumbs(prev => [...prev, { id: file.id, name: file.name }]);
   }
@@ -92,6 +143,7 @@ export default function DriveView() {
 
   const folders = files.filter(f => f.isFolder);
   const docs = files.filter(f => !f.isFolder);
+  const insideFolder = currentFolder.id !== null;
 
   return (
     <div className="h-full flex flex-col">
@@ -104,14 +156,44 @@ export default function DriveView() {
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">Browse your shared Drive files</p>
           </div>
-          <button
-            onClick={() => load(currentFolder.id)}
-            disabled={loading}
-            className="p-2 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors disabled:opacity-40"
-            title="Refresh"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* New button — only inside a folder */}
+            {insideFolder && (
+              <div className="relative" ref={newMenuRef}>
+                <button
+                  onClick={() => setNewMenuOpen(o => !o)}
+                  disabled={creating}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {creating ? <Loader size={14} className="animate-spin" /> : <Plus size={14} />}
+                  New
+                  <ChevronDown size={13} />
+                </button>
+                {newMenuOpen && (
+                  <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl border border-slate-200 shadow-lg z-10 overflow-hidden">
+                    {NEW_TYPES.map(({ label, emoji, mimeType }) => (
+                      <button
+                        key={mimeType}
+                        onClick={() => createFile(mimeType)}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        <span>{emoji}</span> {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={() => load(currentFolder.id)}
+              disabled={loading}
+              className="p-2 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors disabled:opacity-40"
+              title="Refresh"
+            >
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
 
         {/* Breadcrumbs */}
