@@ -289,12 +289,11 @@ export default function ListingOptimizer() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Nightly Price ($)</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Avg. Nightly Rate <span className="text-slate-400 font-normal">(optional)</span></label>
               <input
-                type="number"
                 value={form.price}
                 onChange={e => set('price', e.target.value)}
-                placeholder="e.g. 195"
+                placeholder="e.g. $150–$300 or skip"
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
