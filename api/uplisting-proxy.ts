@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const query = params.toString() ? `?${params}` : '';
 
   const cleanKey = apiKey.trim();
-  const encoded = Buffer.from(`${cleanKey}:`).toString('base64');
+  const encoded = Buffer.from(cleanKey).toString('base64');
   const authHeader = `Basic ${encoded}`;
   const upstreamUrl = `${BASE_URL}/${path}${query}`;
 
