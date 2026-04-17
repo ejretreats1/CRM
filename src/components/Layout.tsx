@@ -11,6 +11,7 @@ import {
   FolderKanban,
   HardDrive,
   FileBarChart2,
+  Sparkles,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -28,6 +29,7 @@ const navItems = [
   { id: 'va-hub' as View, label: 'VA Hub', icon: FolderKanban },
   { id: 'drive' as View, label: 'Google Drive', icon: HardDrive },
   { id: 'revenue-reports' as View, label: 'AI Rev Projection Reports', icon: FileBarChart2 },
+  { id: 'listing-optimizer' as View, label: 'Listing Optimizer', icon: Sparkles },
 ];
 
 const bottomNavItems = [

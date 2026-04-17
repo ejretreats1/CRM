@@ -63,7 +63,7 @@ export interface OutreachEntry {
   followUpDate?: string;
 }
 
-export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings' | 'va-hub' | 'drive' | 'revenue-reports';
+export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings' | 'va-hub' | 'drive' | 'revenue-reports' | 'listing-optimizer';
 
 export interface RevenueReport {
   id: string;

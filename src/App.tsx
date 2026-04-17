@@ -9,6 +9,7 @@ import Settings from './components/Settings';
 import VAHub from './components/VAHub';
 import DriveView from './components/DriveView';
 import RevenueReports from './components/RevenueReports';
+import ListingOptimizer from './components/ListingOptimizer';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -405,6 +406,8 @@ export default function App() {
       {view === 'revenue-reports' && (
         <RevenueReports leads={leads} />
       )}
+
+      {view === 'listing-optimizer' && <ListingOptimizer />}
 
       {modal?.type === 'lead-detail' && (
         <LeadDetailModal
