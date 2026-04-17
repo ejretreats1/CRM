@@ -63,7 +63,7 @@ export interface OutreachEntry {
   followUpDate?: string;
 }
 
-export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings' | 'va-hub';
+export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings' | 'va-hub' | 'drive';
 
 export type ProjectStatus = 'pending' | 'in_progress' | 'approved' | 'completed';
 export type Priority = 'low' | 'medium' | 'high';

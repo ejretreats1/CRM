@@ -7,6 +7,7 @@ import OwnerDetail from './components/OwnerDetail';
 import OutreachLog from './components/OutreachLog';
 import Settings from './components/Settings';
 import VAHub from './components/VAHub';
+import DriveView from './components/DriveView';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -366,6 +367,8 @@ export default function App() {
           onDeleteTodo={handleDeleteTodo}
         />
       )}
+
+      {view === 'drive' && <DriveView />}
 
       {modal?.type === 'lead-detail' && (
         <LeadDetailModal
