@@ -49,11 +49,14 @@ export default function DriveView() {
   const currentFolder = crumbs[crumbs.length - 1];
 
   useEffect(() => {
-    load(currentFolder.id);
+    const isRoot = crumbs.length === 1 && crumbs[0].id === null;
+    load(currentFolder.id, isRoot);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFolder.id]);
 
-  async function load(folderId: string | null) {
+  const ROOT_FOLDER_NAME = 'E&J Retreats CRM';
+
+  async function load(folderId: string | null, autoNavigate = false) {
     setLoading(true);
     setError('');
     try {
@@ -61,7 +64,17 @@ export default function DriveView() {
       const res = await fetch(url);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setFiles(data.files ?? []);
+      const loaded: DriveFile[] = data.files ?? [];
+
+      if (autoNavigate) {
+        const root = loaded.find(f => f.isFolder && f.name === ROOT_FOLDER_NAME);
+        if (root) {
+          setCrumbs([{ id: null, name: 'My Drive' }, { id: root.id, name: root.name }]);
+          return;
+        }
+      }
+
+      setFiles(loaded);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load Drive files.');
     } finally {
