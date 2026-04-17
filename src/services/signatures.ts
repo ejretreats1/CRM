@@ -35,6 +35,14 @@ export async function uploadDocument(
   return data.publicUrl;
 }
 
+export async function deleteSignatureRequest(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('signature_requests')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToSignatureRequest(r: any): SignatureRequest {
   return {

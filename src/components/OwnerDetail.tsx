@@ -5,7 +5,7 @@ import {
   UploadCloud, File, Loader,
 } from 'lucide-react';
 import type { Owner, Property, OutreachEntry, SignatureRequest } from '../types';
-import { fetchSignatureRequests } from '../services/signatures';
+import { fetchSignatureRequests, deleteSignatureRequest } from '../services/signatures';
 import { fetchOwnerDocuments, uploadOwnerDocument, deleteOwnerDocument } from '../services/ownerDocuments';
 import type { OwnerDocument } from '../services/ownerDocuments';
 import SignatureRequestModal from './modals/SignatureRequestModal';
@@ -96,6 +96,16 @@ export default function OwnerDetail({
       setOwnerDocs(prev => prev.filter(d => d.id !== doc.id));
     } catch {
       // silent — doc stays in list if delete fails
+    }
+  }
+
+  async function handleDeleteSigRequest(id: string, name: string) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    try {
+      await deleteSignatureRequest(id);
+      setSigRequests(prev => prev.filter(r => r.id !== id));
+    } catch {
+      // silent
     }
   }
 
@@ -362,25 +372,33 @@ export default function OwnerDetail({
                     {s.icon} {s.label}
                   </span>
                 </div>
-                {req.signedDocumentUrl && (
-                  <div className="flex items-center gap-3 mt-2.5">
-                    <a
-                      href={req.signedDocumentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-400 px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      <FileText size={12} /> View Signed Document
-                    </a>
-                    <a
-                      href={req.signedDocumentUrl}
-                      download
-                      className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 hover:border-slate-300 px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      <Download size={12} /> Download
-                    </a>
-                  </div>
-                )}
+                <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+                  {req.signedDocumentUrl && (
+                    <>
+                      <a
+                        href={req.signedDocumentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-400 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <FileText size={12} /> View Signed Document
+                      </a>
+                      <a
+                        href={req.signedDocumentUrl}
+                        download
+                        className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 hover:border-slate-300 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <Download size={12} /> Download
+                      </a>
+                    </>
+                  )}
+                  <button
+                    onClick={() => handleDeleteSigRequest(req.id, req.documentName)}
+                    className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                  >
+                    <Trash2 size={11} /> Delete
+                  </button>
+                </div>
               </div>
             );
           })}
