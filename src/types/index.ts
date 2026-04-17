@@ -63,7 +63,24 @@ export interface OutreachEntry {
   followUpDate?: string;
 }
 
-export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings' | 'va-hub' | 'drive';
+export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings' | 'va-hub' | 'drive' | 'revenue-reports';
+
+export interface RevenueReport {
+  id: string;
+  createdAt: string;
+  propertyAddress: string;
+  leadId?: string;
+  airdnaProjectedRevenue?: number;
+  airdnaOccupancyRate?: number;
+  airdnaAdr?: number;
+  airdnaRevpar?: number;
+  ownerActualRevenue?: number;
+  ownerNotes?: string;
+  claudeNarrative?: string;
+  keyFindings?: string[];
+  opportunityScore?: number;
+  reportTitle?: string;
+}
 
 export type ProjectStatus = 'pending' | 'in_progress' | 'approved' | 'completed';
 export type Priority = 'low' | 'medium' | 'high';
