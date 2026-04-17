@@ -2,13 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Mail, Phone, Home, TrendingUp, Plus, Edit2, Trash2, Wifi,
   FileSignature, FileText, Download, Clock, CheckCircle2, XCircle,
-  UploadCloud, File, Loader,
+  UploadCloud, File, Loader, ExternalLink,
 } from 'lucide-react';
 import type { Owner, Property, OutreachEntry, SignatureRequest } from '../types';
 import { fetchSignatureRequests, deleteSignatureRequest } from '../services/signatures';
 import { fetchOwnerDocuments, uploadOwnerDocument, deleteOwnerDocument } from '../services/ownerDocuments';
 import type { OwnerDocument } from '../services/ownerDocuments';
+import { fetchOwnerDriveLinks, saveOwnerDriveLink, deleteOwnerDriveLink } from '../services/ownerDriveLinks';
+import type { OwnerDriveLink } from '../services/ownerDriveLinks';
 import SignatureRequestModal from './modals/SignatureRequestModal';
+import DrivePickerModal from './modals/DrivePickerModal';
+import type { PickedDriveFile } from './modals/DrivePickerModal';
 
 interface OwnerDetailProps {
   owner: Owner;
@@ -57,7 +61,9 @@ export default function OwnerDetail({
   const [showSigModal, setShowSigModal] = useState(false);
 
   const [ownerDocs, setOwnerDocs] = useState<OwnerDocument[]>([]);
+  const [driveLinks, setDriveLinks] = useState<OwnerDriveLink[]>([]);
   const [showUpload, setShowUpload] = useState(false);
+  const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -73,6 +79,7 @@ export default function OwnerDetail({
   useEffect(() => {
     fetchSignatureRequests(owner.id).then(setSigRequests).catch(() => {});
     fetchOwnerDocuments(owner.id).then(setOwnerDocs).catch(() => {});
+    fetchOwnerDriveLinks(owner.id).then(setDriveLinks).catch(() => {});
   }, [owner.id]);
 
   async function handleUpload(file: File) {
@@ -104,6 +111,36 @@ export default function OwnerDetail({
     try {
       await deleteSignatureRequest(id);
       setSigRequests(prev => prev.filter(r => r.id !== id));
+    } catch {
+      // silent
+    }
+  }
+
+  async function handleLinkDriveFile(picked: PickedDriveFile) {
+    setShowDrivePicker(false);
+    const alreadyLinked = driveLinks.some(l => l.fileId === picked.id);
+    if (alreadyLinked) return;
+    const link: Omit<OwnerDriveLink, 'createdAt'> = {
+      id: `dl_${Date.now()}`,
+      ownerId: owner.id,
+      fileId: picked.id,
+      fileName: picked.name,
+      mimeType: picked.mimeType,
+      webViewLink: picked.webViewLink,
+    };
+    try {
+      const saved = await saveOwnerDriveLink(link);
+      setDriveLinks(prev => [saved, ...prev]);
+    } catch {
+      // silent — user can retry
+    }
+  }
+
+  async function handleDeleteDriveLink(link: OwnerDriveLink) {
+    if (!confirm(`Remove link to "${link.fileName}"?`)) return;
+    try {
+      await deleteOwnerDriveLink(link.id);
+      setDriveLinks(prev => prev.filter(l => l.id !== link.id));
     } catch {
       // silent
     }
@@ -247,12 +284,18 @@ export default function OwnerDetail({
       <div className="bg-white rounded-xl border border-slate-200">
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-slate-100 flex-wrap">
           <h2 className="font-semibold text-slate-800">Documents</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => { setShowUpload(v => !v); setUploadError(''); }}
+              onClick={() => { setShowUpload(v => !v); setUploadError(''); setShowDrivePicker(false); }}
               className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 px-3 py-1.5 rounded-lg transition-colors font-medium"
             >
-              <UploadCloud size={13} /> Add Document
+              <UploadCloud size={13} /> Upload File
+            </button>
+            <button
+              onClick={() => { setShowDrivePicker(true); setShowUpload(false); }}
+              className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 px-3 py-1.5 rounded-lg transition-colors font-medium"
+            >
+              <span className="text-xs">📁</span> Link from Drive
             </button>
             <button
               onClick={() => setShowSigModal(true)}
@@ -316,7 +359,7 @@ export default function OwnerDetail({
         )}
 
         <div className="divide-y divide-slate-100">
-          {ownerDocs.length === 0 && sigRequests.length === 0 && (
+          {ownerDocs.length === 0 && driveLinks.length === 0 && sigRequests.length === 0 && (
             <p className="text-sm text-slate-400 text-center py-8">No documents yet.</p>
           )}
 
@@ -346,6 +389,42 @@ export default function OwnerDetail({
                   className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
                 >
                   <Trash2 size={11} /> Delete
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Drive linked files */}
+          {driveLinks.map(link => (
+            <div key={link.id} className="flex items-center gap-3 px-5 py-3.5">
+              <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 text-base">
+                {link.mimeType.includes('spreadsheet') || link.mimeType.includes('excel') ? '📊'
+                  : link.mimeType.includes('presentation') ? '📑'
+                  : link.mimeType.includes('document') || link.mimeType.includes('word') ? '📝'
+                  : link.mimeType.includes('pdf') ? '📄'
+                  : link.mimeType.includes('image') ? '🖼️'
+                  : '📄'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-800 truncate">{link.fileName}</p>
+                <p className="text-xs text-blue-500 flex items-center gap-1 mt-0.5">
+                  <span>📁</span> Google Drive · {new Date(link.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <a
+                  href={link.webViewLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-400 px-2.5 py-1.5 rounded-lg transition-colors"
+                >
+                  <ExternalLink size={11} /> Open
+                </a>
+                <button
+                  onClick={() => handleDeleteDriveLink(link)}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                >
+                  <Trash2 size={11} /> Remove
                 </button>
               </div>
             </div>
@@ -450,6 +529,12 @@ export default function OwnerDetail({
         owner={owner}
         onSent={() => fetchSignatureRequests(owner.id).then(setSigRequests).catch(() => {})}
         onClose={() => setShowSigModal(false)}
+      />
+    )}
+    {showDrivePicker && (
+      <DrivePickerModal
+        onSelect={handleLinkDriveFile}
+        onClose={() => setShowDrivePicker(false)}
       />
     )}
     </>
