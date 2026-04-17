@@ -25,6 +25,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
   const [errorMsg, setErrorMsg] = useState('');
   const [pdfBlobUrl, setPdfBlobUrl] = useState('');
   const [scrollMode, setScrollMode] = useState(true); // true = scroll PDF, false = place fields
+  const [dragOver, setDragOver] = useState(false);
 
   // Drag positions (fraction 0–1 from top-left of page)
   const [sigPos, setSigPos] = useState<FieldPos>({ x: 0.08, y: 0.78 });
@@ -44,13 +45,17 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    acceptFile(f);
+  };
+
+  function acceptFile(f: File) {
     if (f.type !== 'application/pdf') { setErrorMsg('Please upload a PDF file.'); return; }
     setFile(f);
     setErrorMsg('');
     if (!documentName || documentName === 'Management Agreement') {
       setDocumentName(f.name.replace('.pdf', ''));
     }
-  };
+  }
 
   const handleNextToPlacement = (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,7 +236,19 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
           <label className="block text-xs font-medium text-slate-600 mb-1.5">Document (PDF) *</label>
           <div
             onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50 transition-colors"
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => {
+              e.preventDefault();
+              setDragOver(false);
+              const f = e.dataTransfer.files[0];
+              if (f) acceptFile(f);
+            }}
+            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+              dragOver
+                ? 'border-teal-400 bg-teal-50'
+                : 'border-slate-200 hover:border-teal-400 hover:bg-teal-50'
+            }`}
           >
             {file ? (
               <div className="flex items-center justify-center gap-2 text-teal-700">
@@ -247,8 +264,8 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
               </div>
             ) : (
               <div className="text-slate-400">
-                <Upload size={24} className="mx-auto mb-2" />
-                <p className="text-sm">Click to upload PDF</p>
+                <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-teal-500' : ''}`} />
+                <p className="text-sm">{dragOver ? 'Drop PDF here' : 'Drag & drop or click to upload PDF'}</p>
               </div>
             )}
             <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleFileChange} />
