@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 
@@ -58,9 +59,13 @@ The attached PDF is an AirDNA Rentalizer report for this property. Please:
 
 Write in a confident, professional tone suitable for presenting to a property owner.`;
 
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'Missing ANTHROPIC_API_KEY — add it to Vercel environment variables.' });
+
   try {
+    const anthropic = createAnthropic({ apiKey });
     const { output } = await generateText({
-      model: 'anthropic/claude-sonnet-4.6',
+      model: anthropic('claude-sonnet-4-6'),
       output: Output.object({ schema: ReportSchema }),
       messages: [
         {
