@@ -205,9 +205,9 @@ export default function Dashboard({
       color: 'bg-teal-600',
     },
     {
-      label: 'Active Clients',
-      value: uplistingConnected && uplistingProperties.length > 0 ? uplistingProperties.length : activeOwners.length,
-      sub: uplistingConnected ? 'from Uplisting' : `${owners.length} total in portfolio`,
+      label: 'Total Clients',
+      value: owners.length,
+      sub: `${activeOwners.length} with active properties`,
       icon: Users,
       color: 'bg-indigo-500',
     },
