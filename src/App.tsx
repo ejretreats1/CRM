@@ -145,13 +145,37 @@ export default function App() {
     await saveSettings({ slackChannels: channels });
   };
 
+  // ── Auto-create client from won lead ──────────────────────────────────────
+  const autoCreateClientFromLead = async (lead: Lead, currentOwners: Owner[]) => {
+    const alreadyExists = currentOwners.some(
+      o => o.email && lead.email && o.email.toLowerCase() === lead.email.toLowerCase()
+    );
+    if (alreadyExists) return;
+    const newOwner: Owner = {
+      id: `o_${Date.now()}`,
+      name: lead.name,
+      email: lead.email ?? '',
+      phone: lead.phone ?? '',
+      source: lead.source,
+      notes: lead.notes ?? '',
+      properties: [],
+      createdAt: new Date().toISOString(),
+    };
+    await upsertOwner(newOwner);
+    setOwners(prev => [newOwner, ...prev]);
+  };
+
   // ── Lead CRUD ──────────────────────────────────────────────────────────────
   const saveLeadHandler = async (lead: Lead) => {
+    const prevLead = leads.find(l => l.id === lead.id);
     await upsertLead(lead);
     setLeads(prev => {
       const exists = prev.find(l => l.id === lead.id);
       return exists ? prev.map(l => l.id === lead.id ? lead : l) : [lead, ...prev];
     });
+    if (lead.stage === 'won' && prevLead?.stage !== 'won') {
+      await autoCreateClientFromLead(lead, owners);
+    }
     setModal(null);
   };
 
@@ -237,11 +261,18 @@ export default function App() {
       const orig = leads.find(o => o.id === l.id);
       return !orig || l.stage !== orig.stage || l.updatedAt !== orig.updatedAt;
     });
+    const newlyWon = updated.filter(l => {
+      const orig = leads.find(o => o.id === l.id);
+      return l.stage === 'won' && orig?.stage !== 'won';
+    });
     setLeads(updated);
     await Promise.all([
       ...deleted.map(l => deleteLead(l.id)),
       ...changed.map(upsertLead),
     ]);
+    for (const lead of newlyWon) {
+      await autoCreateClientFromLead(lead, owners);
+    }
   };
 
   const updateOutreachHandler = async (updated: OutreachEntry[]) => {

@@ -39,7 +39,7 @@ export default function OwnerModal({ owner, onSave, onClose }: OwnerModalProps) 
   };
 
   return (
-    <Modal title={owner ? 'Edit Owner' : 'Add New Owner'} onClose={onClose}>
+    <Modal title={owner ? 'Edit Client' : 'Add New Client'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Full Name *</label>
@@ -85,7 +85,7 @@ export default function OwnerModal({ owner, onSave, onClose }: OwnerModalProps) 
           </button>
           <button type="submit"
             className="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
-            {owner ? 'Save Changes' : 'Add Owner'}
+            {owner ? 'Save Changes' : 'Add Client'}
           </button>
         </div>
       </form>
