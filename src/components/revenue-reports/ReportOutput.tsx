@@ -114,6 +114,13 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
   return (
     <div className="max-w-3xl mx-auto">
+      <style>{`
+        @media print {
+          @page { margin: 0.6in 0.5in; size: letter; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .print-section { break-inside: avoid; page-break-inside: avoid; }
+        }
+      `}</style>
       {/* Action bar */}
       <div className="flex items-center justify-between px-6 py-4 print:hidden">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-600 transition-colors">
@@ -136,7 +143,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
         </div>
       </div>
 
-      <div className="bg-white mx-6 mb-6 rounded-2xl border border-slate-200 overflow-hidden print:border-none print:rounded-none print:mx-0 print:mb-0">
+      <div className="bg-white mx-6 mb-6 rounded-2xl border border-slate-200 overflow-hidden print:overflow-visible print:border-none print:rounded-none print:mx-0 print:mb-0">
 
         {/* Header */}
         <div className={`text-white px-8 py-6 ${isMtr ? 'bg-indigo-700' : 'bg-teal-700'}`}>
@@ -159,7 +166,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* ── STR stat cards ── */}
           {!isMtr && data.extracted && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="print-section grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { label: 'Projected Annual', value: fmt(data.extracted.projectedAnnualRevenue), sub: 'per AirDNA' },
                 { label: 'Occupancy Rate',   value: fmtPct(data.extracted.occupancyRate),        sub: 'per AirDNA' },
@@ -177,7 +184,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* ── MTR stat cards ── */}
           {isMtr && data.mtrProjected && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="print-section grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
                 { label: 'Est. Monthly Rent',    value: fmt(data.mtrProjected.monthlyRent),   sub: 'MTR projection', accent: true },
                 { label: 'Est. Annual Revenue',  value: fmt(data.mtrProjected.annualRevenue),  sub: 'MTR projection', accent: true },
@@ -194,7 +201,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* ── MTR details ── */}
           {isMtr && data.mtrProjected && (
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="print-section grid sm:grid-cols-2 gap-4">
               <div className="bg-slate-50 rounded-xl p-4">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Lease & Tenant</p>
                 <p className="text-sm font-semibold text-slate-800">{data.mtrProjected.recommendedLeaseLength} stays</p>
@@ -215,7 +222,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* ── STR vs MTR comparison ── */}
           {isMtr && data.strVsMtr && (
-            <div className="bg-slate-50 rounded-xl p-5 space-y-4">
+            <div className="print-section bg-slate-50 rounded-xl p-5 space-y-4">
               <h3 className="text-sm font-bold text-slate-800">STR vs. MTR Comparison</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white rounded-lg p-3 text-center border border-slate-200">
@@ -238,7 +245,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* ── Owner comparison (STR) ── */}
           {!isMtr && ownerActualRevenue != null && data.extracted && (
-            <div className="bg-slate-50 rounded-xl p-5 space-y-3">
+            <div className="print-section bg-slate-50 rounded-xl p-5 space-y-3">
               <h3 className="text-sm font-bold text-slate-800">Owner vs. Market</h3>
               <div className="flex items-center gap-6 flex-wrap">
                 <div>
@@ -259,7 +266,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* ── Owner comparison (MTR) ── */}
           {isMtr && ownerActualRevenue != null && data.mtrProjected && (
-            <div className="bg-slate-50 rounded-xl p-5 space-y-3">
+            <div className="print-section bg-slate-50 rounded-xl p-5 space-y-3">
               <h3 className="text-sm font-bold text-slate-800">Owner vs. MTR Projection</h3>
               <div className="flex items-center gap-6 flex-wrap">
                 <div>
@@ -279,7 +286,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           )}
 
           {/* Score + Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="print-section grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-1">
               <ScoreArc score={data.opportunityScore} />
             </div>
@@ -291,7 +298,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* Key findings */}
           {data.keyFindings.length > 0 && (
-            <div>
+            <div className="print-section">
               <h3 className="text-sm font-bold text-slate-800 mb-3">Key Findings</h3>
               <ul className="space-y-2">
                 {data.keyFindings.map((f, i) => (
@@ -322,7 +329,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* Recommendations */}
           {data.recommendations.length > 0 && (
-            <div>
+            <div className="print-section">
               <h3 className="text-sm font-bold text-slate-800 mb-3">Recommendations</h3>
               <ol className="space-y-3">
                 {data.recommendations.map((r, i) => (
@@ -340,7 +347,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* STR revenue projections */}
           {!isMtr && data.revenueProjections && (
-            <div>
+            <div className="print-section">
               <h3 className="text-sm font-bold text-slate-800 mb-3">Revenue Projections with E&J Retreats</h3>
               <div className="grid grid-cols-3 gap-3">
                 {[
