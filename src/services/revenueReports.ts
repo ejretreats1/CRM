@@ -8,6 +8,8 @@ function rowToReport(r: any): RevenueReport {
     createdAt: r.created_at,
     propertyAddress: r.property_address,
     leadId: r.lead_id ?? undefined,
+    reportType: r.report_type ?? 'str',
+    reportData: r.report_data ?? undefined,
     airdnaProjectedRevenue: r.airdna_projected_revenue ?? undefined,
     airdnaOccupancyRate: r.airdna_occupancy_rate ?? undefined,
     airdnaAdr: r.airdna_adr ?? undefined,
@@ -36,6 +38,8 @@ export async function saveRevenueReport(report: Omit<RevenueReport, 'id' | 'crea
     .insert({
       property_address: report.propertyAddress,
       lead_id: report.leadId ?? null,
+      report_type: report.reportType ?? 'str',
+      report_data: report.reportData ?? null,
       airdna_projected_revenue: report.airdnaProjectedRevenue ?? null,
       airdna_occupancy_rate: report.airdnaOccupancyRate ?? null,
       airdna_adr: report.airdnaAdr ?? null,

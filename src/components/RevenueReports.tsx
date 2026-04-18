@@ -71,6 +71,8 @@ export default function RevenueReports({ leads }: RevenueReportsProps) {
     try {
       const saved = await saveRevenueReport({
         propertyAddress: pending.address,
+        reportType: pending.data.reportType ?? 'str',
+        reportData: pending.data as Record<string, unknown>,
         airdnaProjectedRevenue: pending.data.extracted?.projectedAnnualRevenue ?? pending.data.strExtracted?.projectedAnnualRevenue ?? undefined,
         airdnaOccupancyRate: pending.data.extracted?.occupancyRate ?? pending.data.strExtracted?.occupancyRate ?? undefined,
         airdnaAdr: pending.data.extracted?.adr ?? pending.data.strExtracted?.adr ?? undefined,
@@ -133,26 +135,29 @@ export default function RevenueReports({ leads }: RevenueReportsProps) {
   }
 
   if (pageView === 'output' && viewingReport) {
-    const fakeData = {
-      extracted: {
-        projectedAnnualRevenue: viewingReport.airdnaProjectedRevenue ?? null,
-        occupancyRate: viewingReport.airdnaOccupancyRate ?? null,
-        adr: viewingReport.airdnaAdr ?? null,
-        revpar: viewingReport.airdnaRevpar ?? null,
-      },
-      reportTitle: viewingReport.reportTitle ?? viewingReport.propertyAddress,
-      executiveSummary: viewingReport.claudeNarrative ?? '',
-      marketOpportunity: '',
-      performanceGap: null,
-      recommendations: [],
-      revenueProjections: { conservative: 0, realistic: 0, optimistic: 0 },
-      keyFindings: viewingReport.keyFindings ?? [],
-      opportunityScore: viewingReport.opportunityScore ?? 5,
-    };
+    const reportData: PendingReport['data'] = viewingReport.reportData
+      ? viewingReport.reportData as PendingReport['data']
+      : {
+          reportType: viewingReport.reportType ?? 'str',
+          extracted: {
+            projectedAnnualRevenue: viewingReport.airdnaProjectedRevenue ?? null,
+            occupancyRate: viewingReport.airdnaOccupancyRate ?? null,
+            adr: viewingReport.airdnaAdr ?? null,
+            revpar: viewingReport.airdnaRevpar ?? null,
+          },
+          reportTitle: viewingReport.reportTitle ?? viewingReport.propertyAddress,
+          executiveSummary: viewingReport.claudeNarrative ?? '',
+          marketOpportunity: '',
+          performanceGap: null,
+          recommendations: [],
+          revenueProjections: { conservative: 0, realistic: 0, optimistic: 0 },
+          keyFindings: viewingReport.keyFindings ?? [],
+          opportunityScore: viewingReport.opportunityScore ?? 5,
+        };
     return (
       <ReportOutput
         address={viewingReport.propertyAddress}
-        data={fakeData}
+        data={reportData}
         ownerActualRevenue={viewingReport.ownerActualRevenue}
         saving={false}
         saved={true}
