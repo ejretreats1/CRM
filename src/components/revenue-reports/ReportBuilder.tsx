@@ -3,18 +3,40 @@ import { Upload, FileText, X, Loader, ChevronRight, DollarSign, AlertCircle } fr
 import type { Lead } from '../../types';
 
 interface GeneratedReport {
-  extracted: {
+  reportType: 'str' | 'mtr';
+  // STR fields
+  extracted?: {
     projectedAnnualRevenue: number | null;
     occupancyRate: number | null;
     adr: number | null;
     revpar: number | null;
   };
+  // MTR fields
+  strExtracted?: {
+    projectedAnnualRevenue: number | null;
+    occupancyRate: number | null;
+    adr: number | null;
+  };
+  mtrProjected?: {
+    monthlyRent: number;
+    annualRevenue: number;
+    occupancyRate: number;
+    recommendedLeaseLength: string;
+    targetTenantProfile: string;
+  };
+  strVsMtr?: {
+    recommendation: 'str' | 'mtr' | 'hybrid';
+    strAnnualEstimate: number | null;
+    mtrAnnualEstimate: number;
+    reasoning: string;
+  };
+  recommendedPlatforms?: string[];
   reportTitle: string;
   executiveSummary: string;
   marketOpportunity: string;
   performanceGap: string | null;
   recommendations: { title: string; description: string }[];
-  revenueProjections: { conservative: number; realistic: number; optimistic: number };
+  revenueProjections?: { conservative: number; realistic: number; optimistic: number };
   keyFindings: string[];
   opportunityScore: number;
 }
@@ -26,6 +48,7 @@ interface ReportBuilderProps {
 }
 
 export default function ReportBuilder({ leads, onReportGenerated, onCancel }: ReportBuilderProps) {
+  const [reportType, setReportType] = useState<'str' | 'mtr'>('str');
   const [address, setAddress] = useState('');
   const [selectedLeadId, setSelectedLeadId] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -68,6 +91,7 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
         body: JSON.stringify({
           address: address.trim(),
           pdfBase64,
+          reportType,
           ownerActualRevenue: ownerActualRevenue || undefined,
           ownerNotes: ownerNotes.trim() || undefined,
         }),
@@ -91,10 +115,34 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
       </button>
 
       <h2 className="text-xl font-bold text-slate-900 mb-1">New Revenue Report</h2>
-      <p className="text-sm text-slate-500 mb-6">Upload an AirDNA Rentalizer PDF and Claude will extract the data and generate a full analysis.</p>
+      <p className="text-sm text-slate-500 mb-5">Upload an AirDNA Rentalizer PDF and Claude will generate a full analysis.</p>
+
+      {/* STR / MTR toggle */}
+      <div className="flex gap-2 mb-6 p-1 bg-slate-100 rounded-xl w-fit">
+        {(['str', 'mtr'] as const).map(type => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => setReportType(type)}
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+              reportType === type
+                ? 'bg-white text-teal-700 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {type === 'str' ? '🏠 Short-Term Rental' : '📅 Mid-Term Rental'}
+          </button>
+        ))}
+      </div>
+
+      {reportType === 'mtr' && (
+        <div className="mb-5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-700">
+          <p className="font-semibold mb-0.5">Mid-Term Rental Analysis</p>
+          <p className="text-xs text-blue-600">Upload the same AirDNA PDF — Claude will extract the STR market data and project what this property could earn as a furnished 30+ day rental, then compare both strategies.</p>
+        </div>
+      )}
 
       <form onSubmit={handleGenerate} className="space-y-5">
-        {/* Lead picker */}
         {leads.length > 0 && (
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Pull from existing lead (optional)</label>
@@ -111,7 +159,6 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
           </div>
         )}
 
-        {/* Address */}
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">Property Address *</label>
           <input
@@ -122,7 +169,6 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
           />
         </div>
 
-        {/* PDF upload */}
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">AirDNA Rentalizer PDF *</label>
           <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) acceptFile(f); e.target.value = ''; }} />
@@ -155,7 +201,6 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
           </div>
         </div>
 
-        {/* Owner revenue (optional) */}
         <div className="bg-slate-50 rounded-xl p-4 space-y-3">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Owner Comparison (Optional)</p>
           <p className="text-xs text-slate-400">If the owner told you their actual revenue, add it here for a gap analysis.</p>
@@ -202,7 +247,7 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
             {generating ? (
               <><Loader size={14} className="animate-spin" /> Analyzing PDF...</>
             ) : (
-              <>Generate Report <ChevronRight size={14} /></>
+              <>Generate {reportType.toUpperCase()} Report <ChevronRight size={14} /></>
             )}
           </button>
         </div>
@@ -216,7 +261,6 @@ function fileToBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      // Strip data URL prefix — send raw base64
       resolve(result.split(',')[1]);
     };
     reader.onerror = reject;

@@ -1,18 +1,43 @@
 import { Printer, Save, ArrowLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
+interface StrExtracted {
+  projectedAnnualRevenue: number | null;
+  occupancyRate: number | null;
+  adr: number | null;
+  revpar: number | null;
+}
+
+interface MtrProjected {
+  monthlyRent: number;
+  annualRevenue: number;
+  occupancyRate: number;
+  recommendedLeaseLength: string;
+  targetTenantProfile: string;
+}
+
+interface StrVsMtr {
+  recommendation: 'str' | 'mtr' | 'hybrid';
+  strAnnualEstimate: number | null;
+  mtrAnnualEstimate: number;
+  reasoning: string;
+}
+
 interface ReportData {
-  extracted: {
-    projectedAnnualRevenue: number | null;
-    occupancyRate: number | null;
-    adr: number | null;
-    revpar: number | null;
-  };
+  reportType?: 'str' | 'mtr';
+  // STR
+  extracted?: StrExtracted;
+  revenueProjections?: { conservative: number; realistic: number; optimistic: number };
+  // MTR
+  strExtracted?: { projectedAnnualRevenue: number | null; occupancyRate: number | null; adr: number | null };
+  mtrProjected?: MtrProjected;
+  strVsMtr?: StrVsMtr;
+  recommendedPlatforms?: string[];
+  // Shared
   reportTitle: string;
   executiveSummary: string;
   marketOpportunity: string;
   performanceGap: string | null;
   recommendations: { title: string; description: string }[];
-  revenueProjections: { conservative: number; realistic: number; optimistic: number };
   keyFindings: string[];
   opportunityScore: number;
 }
@@ -77,12 +102,19 @@ function GapBadge({ projected, actual }: { projected: number | null; actual: num
   );
 }
 
+const RECOMMENDATION_LABELS: Record<string, { label: string; color: string }> = {
+  str:    { label: '🏠 Stick with Short-Term Rental', color: 'bg-blue-50 text-blue-800 border-blue-200' },
+  mtr:    { label: '📅 Switch to Mid-Term Rental',    color: 'bg-teal-50 text-teal-800 border-teal-200' },
+  hybrid: { label: '⚖️ Hybrid STR + MTR Strategy',    color: 'bg-amber-50 text-amber-800 border-amber-200' },
+};
+
 export default function ReportOutput({ address, data, ownerActualRevenue, onSave, onBack, saving, saved }: ReportOutputProps) {
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const isMtr = data.reportType === 'mtr';
 
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Action bar — hidden on print */}
+      {/* Action bar */}
       <div className="flex items-center justify-between px-6 py-4 print:hidden">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-600 transition-colors">
           <ArrowLeft size={15} /> Back
@@ -104,43 +136,108 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
         </div>
       </div>
 
-      {/* Report body */}
       <div className="bg-white mx-6 mb-6 rounded-2xl border border-slate-200 overflow-hidden print:border-none print:rounded-none print:mx-0 print:mb-0">
 
         {/* Header */}
-        <div className="bg-teal-700 text-white px-8 py-6 print:px-8 print:py-6">
+        <div className={`text-white px-8 py-6 ${isMtr ? 'bg-indigo-700' : 'bg-teal-700'}`}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-teal-200 text-xs font-semibold uppercase tracking-widest mb-1">E&J Retreats · Revenue Analysis</div>
+              <div className={`text-xs font-semibold uppercase tracking-widest mb-1 ${isMtr ? 'text-indigo-200' : 'text-teal-200'}`}>
+                E&J Retreats · {isMtr ? 'Mid-Term Rental Analysis' : 'Revenue Analysis'}
+              </div>
               <h1 className="text-2xl font-bold leading-tight">{data.reportTitle}</h1>
-              <p className="text-teal-200 text-sm mt-1">{address}</p>
+              <p className={`text-sm mt-1 ${isMtr ? 'text-indigo-200' : 'text-teal-200'}`}>{address}</p>
             </div>
             <div className="text-right flex-shrink-0">
-              <div className="text-teal-200 text-xs">{date}</div>
+              <div className={`text-xs ${isMtr ? 'text-indigo-200' : 'text-teal-200'}`}>{date}</div>
+              {isMtr && <div className="text-xs font-bold mt-1 bg-white/20 px-2 py-0.5 rounded-full">MTR Report</div>}
             </div>
           </div>
         </div>
 
         <div className="p-8 space-y-8">
 
-          {/* Stat cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: 'Projected Annual', value: fmt(data.extracted.projectedAnnualRevenue), sub: 'per AirDNA' },
-              { label: 'Occupancy Rate', value: fmtPct(data.extracted.occupancyRate), sub: 'per AirDNA' },
-              { label: 'Avg Daily Rate', value: fmt(data.extracted.adr), sub: 'per AirDNA' },
-              { label: 'RevPAR', value: fmt(data.extracted.revpar), sub: 'per AirDNA' },
-            ].map(s => (
-              <div key={s.label} className="bg-slate-50 rounded-xl p-4">
-                <div className="text-xl font-black text-teal-700">{s.value}</div>
-                <div className="text-xs font-semibold text-slate-700 mt-0.5">{s.label}</div>
-                <div className="text-xs text-slate-400">{s.sub}</div>
-              </div>
-            ))}
-          </div>
+          {/* ── STR stat cards ── */}
+          {!isMtr && data.extracted && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Projected Annual', value: fmt(data.extracted.projectedAnnualRevenue), sub: 'per AirDNA' },
+                { label: 'Occupancy Rate',   value: fmtPct(data.extracted.occupancyRate),        sub: 'per AirDNA' },
+                { label: 'Avg Daily Rate',   value: fmt(data.extracted.adr),                     sub: 'per AirDNA' },
+                { label: 'RevPAR',           value: fmt(data.extracted.revpar),                  sub: 'per AirDNA' },
+              ].map(s => (
+                <div key={s.label} className="bg-slate-50 rounded-xl p-4">
+                  <div className="text-xl font-black text-teal-700">{s.value}</div>
+                  <div className="text-xs font-semibold text-slate-700 mt-0.5">{s.label}</div>
+                  <div className="text-xs text-slate-400">{s.sub}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
-          {/* Owner comparison */}
-          {ownerActualRevenue != null && (
+          {/* ── MTR stat cards ── */}
+          {isMtr && data.mtrProjected && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label: 'Est. Monthly Rent',    value: fmt(data.mtrProjected.monthlyRent),   sub: 'MTR projection', accent: true },
+                { label: 'Est. Annual Revenue',  value: fmt(data.mtrProjected.annualRevenue),  sub: 'MTR projection', accent: true },
+                { label: 'Expected Occupancy',   value: fmtPct(data.mtrProjected.occupancyRate), sub: 'MTR typical',  accent: false },
+              ].map(s => (
+                <div key={s.label} className={`rounded-xl p-4 ${s.accent ? 'bg-indigo-50' : 'bg-slate-50'}`}>
+                  <div className={`text-xl font-black ${s.accent ? 'text-indigo-700' : 'text-slate-700'}`}>{s.value}</div>
+                  <div className="text-xs font-semibold text-slate-700 mt-0.5">{s.label}</div>
+                  <div className="text-xs text-slate-400">{s.sub}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── MTR details ── */}
+          {isMtr && data.mtrProjected && (
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="bg-slate-50 rounded-xl p-4">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Lease & Tenant</p>
+                <p className="text-sm font-semibold text-slate-800">{data.mtrProjected.recommendedLeaseLength} stays</p>
+                <p className="text-xs text-slate-500 mt-1">{data.mtrProjected.targetTenantProfile}</p>
+              </div>
+              {data.recommendedPlatforms && data.recommendedPlatforms.length > 0 && (
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Recommended Platforms</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {data.recommendedPlatforms.map(p => (
+                      <span key={p} className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">{p}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── STR vs MTR comparison ── */}
+          {isMtr && data.strVsMtr && (
+            <div className="bg-slate-50 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-slate-800">STR vs. MTR Comparison</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white rounded-lg p-3 text-center border border-slate-200">
+                  <p className="text-xs text-slate-500 mb-1">STR Annual (AirDNA)</p>
+                  <p className="text-2xl font-black text-blue-700">{fmt(data.strVsMtr.strAnnualEstimate)}</p>
+                  <p className="text-xs text-slate-400">short-term rental</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-center border border-indigo-200">
+                  <p className="text-xs text-slate-500 mb-1">MTR Annual (projected)</p>
+                  <p className="text-2xl font-black text-indigo-700">{fmt(data.strVsMtr.mtrAnnualEstimate)}</p>
+                  <p className="text-xs text-slate-400">mid-term rental</p>
+                </div>
+              </div>
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold ${RECOMMENDATION_LABELS[data.strVsMtr.recommendation].color}`}>
+                {RECOMMENDATION_LABELS[data.strVsMtr.recommendation].label}
+              </div>
+              <p className="text-sm text-slate-600 leading-relaxed">{data.strVsMtr.reasoning}</p>
+            </div>
+          )}
+
+          {/* ── Owner comparison (STR) ── */}
+          {!isMtr && ownerActualRevenue != null && data.extracted && (
             <div className="bg-slate-50 rounded-xl p-5 space-y-3">
               <h3 className="text-sm font-bold text-slate-800">Owner vs. Market</h3>
               <div className="flex items-center gap-6 flex-wrap">
@@ -160,7 +257,28 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
           )}
 
-          {/* Score + Summary side-by-side */}
+          {/* ── Owner comparison (MTR) ── */}
+          {isMtr && ownerActualRevenue != null && data.mtrProjected && (
+            <div className="bg-slate-50 rounded-xl p-5 space-y-3">
+              <h3 className="text-sm font-bold text-slate-800">Owner vs. MTR Projection</h3>
+              <div className="flex items-center gap-6 flex-wrap">
+                <div>
+                  <div className="text-xs text-slate-500">Owner Reported (STR)</div>
+                  <div className="text-2xl font-black text-slate-800">{fmt(ownerActualRevenue)}</div>
+                  <div className="text-xs text-slate-400">last 12 months</div>
+                </div>
+                <div className="text-slate-300 text-2xl font-light">vs</div>
+                <div>
+                  <div className="text-xs text-slate-500">MTR Projected</div>
+                  <div className="text-2xl font-black text-indigo-700">{fmt(data.mtrProjected.annualRevenue)}</div>
+                  <div className="text-xs text-slate-400">annual MTR potential</div>
+                </div>
+              </div>
+              <GapBadge projected={data.mtrProjected.annualRevenue} actual={ownerActualRevenue} />
+            </div>
+          )}
+
+          {/* Score + Summary */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-1">
               <ScoreArc score={data.opportunityScore} />
@@ -187,10 +305,12 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           )}
 
           {/* Market opportunity */}
-          <div>
-            <h3 className="text-sm font-bold text-slate-800 mb-2">Market Opportunity</h3>
-            <p className="text-sm text-slate-600 leading-relaxed">{data.marketOpportunity}</p>
-          </div>
+          {data.marketOpportunity && (
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 mb-2">Market Opportunity</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">{data.marketOpportunity}</p>
+            </div>
+          )}
 
           {/* Performance gap */}
           {data.performanceGap && (
@@ -207,7 +327,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               <ol className="space-y-3">
                 {data.recommendations.map((r, i) => (
                   <li key={i} className="flex gap-3">
-                    <span className="w-7 h-7 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                    <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5 ${isMtr ? 'bg-indigo-600' : 'bg-teal-600'}`}>{i + 1}</span>
                     <div>
                       <p className="text-sm font-semibold text-slate-800">{r.title}</p>
                       <p className="text-sm text-slate-500 mt-0.5">{r.description}</p>
@@ -218,24 +338,25 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
           )}
 
-          {/* Revenue projections */}
-          <div>
-            <h3 className="text-sm font-bold text-slate-800 mb-3">Revenue Projections with E&J Retreats</h3>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: 'Conservative', value: data.revenueProjections.conservative, color: 'bg-slate-100 text-slate-700' },
-                { label: 'Realistic', value: data.revenueProjections.realistic, color: 'bg-teal-50 text-teal-800 ring-2 ring-teal-200' },
-                { label: 'Optimistic', value: data.revenueProjections.optimistic, color: 'bg-emerald-50 text-emerald-800' },
-              ].map(p => (
-                <div key={p.label} className={`rounded-xl p-4 text-center ${p.color}`}>
-                  <div className="text-lg font-black">{fmt(p.value)}</div>
-                  <div className="text-xs font-semibold mt-0.5 opacity-70">{p.label}</div>
-                </div>
-              ))}
+          {/* STR revenue projections */}
+          {!isMtr && data.revenueProjections && (
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 mb-3">Revenue Projections with E&J Retreats</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Conservative', value: data.revenueProjections.conservative, color: 'bg-slate-100 text-slate-700' },
+                  { label: 'Realistic',    value: data.revenueProjections.realistic,    color: 'bg-teal-50 text-teal-800 ring-2 ring-teal-200' },
+                  { label: 'Optimistic',   value: data.revenueProjections.optimistic,   color: 'bg-emerald-50 text-emerald-800' },
+                ].map(p => (
+                  <div key={p.label} className={`rounded-xl p-4 text-center ${p.color}`}>
+                    <div className="text-lg font-black">{fmt(p.value)}</div>
+                    <div className="text-xs font-semibold mt-0.5 opacity-70">{p.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Footer */}
           <div className="border-t border-slate-100 pt-4 text-xs text-slate-400 text-center">
             Generated by E&J Retreats · Powered by AirDNA market data · Projections are estimates and not guaranteed.
           </div>

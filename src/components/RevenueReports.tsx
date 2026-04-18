@@ -16,13 +16,18 @@ interface PendingReport {
   ownerActualRevenue?: number;
   ownerNotes?: string;
   data: {
-    extracted: { projectedAnnualRevenue: number | null; occupancyRate: number | null; adr: number | null; revpar: number | null };
+    reportType?: 'str' | 'mtr';
+    extracted?: { projectedAnnualRevenue: number | null; occupancyRate: number | null; adr: number | null; revpar: number | null };
+    strExtracted?: { projectedAnnualRevenue: number | null; occupancyRate: number | null; adr: number | null };
+    mtrProjected?: { monthlyRent: number; annualRevenue: number; occupancyRate: number; recommendedLeaseLength: string; targetTenantProfile: string };
+    strVsMtr?: { recommendation: 'str' | 'mtr' | 'hybrid'; strAnnualEstimate: number | null; mtrAnnualEstimate: number; reasoning: string };
+    recommendedPlatforms?: string[];
     reportTitle: string;
     executiveSummary: string;
     marketOpportunity: string;
     performanceGap: string | null;
     recommendations: { title: string; description: string }[];
-    revenueProjections: { conservative: number; realistic: number; optimistic: number };
+    revenueProjections?: { conservative: number; realistic: number; optimistic: number };
     keyFindings: string[];
     opportunityScore: number;
   };
