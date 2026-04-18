@@ -55,6 +55,7 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
   const [dragOver, setDragOver] = useState(false);
   const [ownerRevenue, setOwnerRevenue] = useState('');
   const [ownerNotes, setOwnerNotes] = useState('');
+  const [additionalContext, setAdditionalContext] = useState('');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -94,6 +95,7 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
           reportType,
           ownerActualRevenue: ownerActualRevenue || undefined,
           ownerNotes: ownerNotes.trim() || undefined,
+          additionalContext: additionalContext.trim() || undefined,
         }),
       });
 
@@ -226,6 +228,19 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
             />
           </div>
+        </div>
+
+        {/* Additional context for AI */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Tell the AI anything else it should know</p>
+          <p className="text-xs text-amber-600">Existing amenities, property quirks, recent renovations, owner goals, local market context — anything that should shape the analysis.</p>
+          <textarea
+            value={additionalContext}
+            onChange={e => setAdditionalContext(e.target.value)}
+            rows={4}
+            placeholder="e.g. Property has a private pool and hot tub. Owner recently renovated the kitchen. Located 5 min from the beach. Owner wants to focus on family groups..."
+            className="w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+          />
         </div>
 
         {error && (

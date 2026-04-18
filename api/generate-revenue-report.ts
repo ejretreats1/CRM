@@ -61,11 +61,12 @@ const MtrReportSchema = z.object({
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { address, pdfBase64, ownerActualRevenue, ownerNotes, reportType = 'str' } = req.body as {
+  const { address, pdfBase64, ownerActualRevenue, ownerNotes, additionalContext, reportType = 'str' } = req.body as {
     address: string;
     pdfBase64: string;
     ownerActualRevenue?: number;
     ownerNotes?: string;
+    additionalContext?: string;
     reportType?: 'str' | 'mtr';
   };
 
@@ -77,17 +78,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ? `Owner-reported actual revenue (last 12 months): $${ownerActualRevenue.toLocaleString()}${ownerNotes ? `\nOwner context: ${ownerNotes}` : ''}`
     : 'Owner actual revenue: not provided.';
 
+  const contextSection = additionalContext?.trim()
+    ? `\nIMPORTANT ADDITIONAL CONTEXT — read carefully and factor into the entire analysis:\n${additionalContext.trim()}\n`
+    : '';
+
+  const globalRules = `
+RULES (apply to all sections of the report):
+- If this property already has an amenity mentioned in the additional context, do NOT recommend adding it — acknowledge it as a strength instead.
+- When referencing property management software or a PMS, refer to Uplisting only. Do not mention any other PMS platforms.
+- Do NOT include operating expenses, net operating income (NOI), or cap rate in any part of the analysis. AirDNA uses placeholder figures for these that are not reliable. Focus purely on gross revenue metrics.`;
+
   const strPrompt = `You are a short-term rental revenue consultant for E&J Retreats, a property management company.
 
 Property address: ${address}
 ${ownerSection}
-
+${contextSection}
 The attached PDF is an AirDNA Rentalizer report for this property. Please:
-1. Extract the key financial metrics from the PDF.
+1. Extract the key financial metrics from the PDF (gross revenue, occupancy, ADR, RevPAR only).
 2. Generate a professional revenue analysis.
 3. If owner actual revenue IS provided, include a performance gap analysis comparing actual vs projected.
-4. Write 3–5 specific recommendations to maximize revenue (pricing, listing optimization, amenities, seasonality).
+4. Write 3–5 specific recommendations to maximize revenue (pricing, listing optimization, amenities, seasonality). Do not recommend amenities the owner already has.
 5. Assign an opportunity score 1–10 (10 = massive untapped potential).
+${globalRules}
 
 Write in a confident, professional tone suitable for presenting to a property owner.`;
 
@@ -95,11 +107,11 @@ Write in a confident, professional tone suitable for presenting to a property ow
 
 Property address: ${address}
 ${ownerSection}
-
+${contextSection}
 The attached PDF is an AirDNA Rentalizer report containing short-term rental (STR) market data for this property.
 
 Your task is to:
-1. Extract the STR metrics from the AirDNA PDF (projected annual revenue, occupancy rate, ADR).
+1. Extract the STR metrics from the AirDNA PDF (projected annual revenue, occupancy rate, ADR — gross revenue only).
 2. Using those STR figures and your expert knowledge of mid-term rental market dynamics, project realistic MTR revenue for this property.
 
 MTR estimation guidelines:
@@ -110,10 +122,11 @@ MTR estimation guidelines:
 - Net MTR income is often comparable or superior to STR after accounting for costs.
 
 3. Compare STR vs MTR total annual revenue and recommend the better strategy (or a hybrid approach).
-4. Identify the ideal tenant profile, recommended lease lengths, and best platforms (Furnished Finder, Airbnb monthly 28+ days, VRBO, etc.).
-5. Write 3–5 specific recommendations for maximizing MTR performance.
+4. Identify the ideal tenant profile, recommended lease lengths, and best booking platforms.
+5. Write 3–5 specific recommendations for maximizing MTR performance. Do not recommend amenities the owner already has.
 6. ${ownerActualRevenue != null ? 'Include a gap analysis comparing the owner\'s actual revenue to both STR projected and MTR projected.' : 'Focus on the MTR opportunity.'}
 7. Assign an opportunity score 1–10 for the MTR opportunity specifically (10 = massive MTR potential).
+${globalRules}
 
 Write in a confident, professional tone suitable for presenting to a property owner considering switching to or adding mid-term rentals.`;
 
