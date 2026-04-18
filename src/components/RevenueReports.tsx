@@ -71,10 +71,10 @@ export default function RevenueReports({ leads }: RevenueReportsProps) {
     try {
       const saved = await saveRevenueReport({
         propertyAddress: pending.address,
-        airdnaProjectedRevenue: pending.data.extracted.projectedAnnualRevenue ?? undefined,
-        airdnaOccupancyRate: pending.data.extracted.occupancyRate ?? undefined,
-        airdnaAdr: pending.data.extracted.adr ?? undefined,
-        airdnaRevpar: pending.data.extracted.revpar ?? undefined,
+        airdnaProjectedRevenue: pending.data.extracted?.projectedAnnualRevenue ?? pending.data.strExtracted?.projectedAnnualRevenue ?? undefined,
+        airdnaOccupancyRate: pending.data.extracted?.occupancyRate ?? pending.data.strExtracted?.occupancyRate ?? undefined,
+        airdnaAdr: pending.data.extracted?.adr ?? pending.data.strExtracted?.adr ?? undefined,
+        airdnaRevpar: pending.data.extracted?.revpar ?? undefined,
         ownerActualRevenue: pending.ownerActualRevenue,
         ownerNotes: pending.ownerNotes,
         claudeNarrative: pending.data.executiveSummary,
