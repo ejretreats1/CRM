@@ -42,7 +42,7 @@ export default function Layout({ currentView, onNavigate, children }: LayoutProp
   const activeView = currentView === 'owner-detail' ? 'owners' : currentView;
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 overflow-hidden print:block print:h-auto print:overflow-visible">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -55,7 +55,7 @@ export default function Layout({ currentView, onNavigate, children }: LayoutProp
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200
-          flex flex-col transform transition-transform duration-200 ease-in-out
+          flex flex-col transform transition-transform duration-200 ease-in-out print:hidden
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
@@ -111,7 +111,7 @@ export default function Layout({ currentView, onNavigate, children }: LayoutProp
       </aside>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible print:h-auto">
         {/* Top bar (mobile) */}
         <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-200">
           <button
@@ -124,7 +124,7 @@ export default function Layout({ currentView, onNavigate, children }: LayoutProp
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto print:overflow-visible print:h-auto">
           {children}
         </main>
       </div>
