@@ -51,11 +51,12 @@ const MtrReportSchema = z.object({
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { address, reportType = 'str', existingReport, refinementMessage } = req.body as {
+  const { address, reportType = 'str', existingReport, refinementMessage, additionalContext } = req.body as {
     address: string;
     reportType?: 'str' | 'mtr';
     existingReport: Record<string, unknown>;
     refinementMessage: string;
+    additionalContext?: string;
   };
 
   if (!address || !existingReport || !refinementMessage?.trim()) {
@@ -68,17 +69,21 @@ RULES:
 - When referencing property management software, refer to Uplisting only.
 - Do NOT include operating expenses, net operating income (NOI), or cap rate. Focus on gross revenue metrics only.`;
 
+  const originalContextSection = additionalContext?.trim()
+    ? `\nORIGINAL CONTEXT (provided when the report was first generated — treat this as established facts about the property):\n${additionalContext.trim()}\n`
+    : '';
+
   const prompt = `You are a ${reportType === 'mtr' ? 'mid-term' : 'short-term'} rental revenue consultant for E&J Retreats.
 
 Property: ${address}
-
+${originalContextSection}
 Here is the existing revenue analysis report (JSON):
 ${JSON.stringify(existingReport, null, 2)}
 
-The user has provided the following correction or additional context that should change the report:
+The user has provided the following new correction or additional context:
 "${refinementMessage.trim()}"
 
-Please revise the report to fully incorporate this new information. Update any affected sections — title, executive summary, recommendations, key findings, opportunity score, projections, etc. Keep any sections that are not affected by the new information. Return the complete updated report.
+Please revise the report to fully incorporate both the original context above and this new information. Update any affected sections — title, executive summary, recommendations, key findings, opportunity score, projections, etc. Keep sections that are unaffected. Return the complete updated report.
 ${globalRules}`;
 
   try {

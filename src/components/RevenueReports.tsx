@@ -18,6 +18,7 @@ interface PendingReport {
   ownerId?: string;
   ownerActualRevenue?: number;
   ownerNotes?: string;
+  additionalContext?: string;
   data: {
     reportType?: 'str' | 'mtr';
     extracted?: { projectedAnnualRevenue: number | null; occupancyRate: number | null; adr: number | null; revpar: number | null };
@@ -64,8 +65,9 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
     ownerNotes?: string,
     leadId?: string,
     ownerId?: string,
+    additionalContext?: string,
   ) {
-    setPending({ address, data, ownerActualRevenue, ownerNotes, leadId, ownerId });
+    setPending({ address, data, ownerActualRevenue, ownerNotes, leadId, ownerId, additionalContext });
     setSaved(false);
     setPageView('output');
   }
@@ -79,7 +81,7 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
         leadId: pending.leadId,
         ownerId: pending.ownerId,
         reportType: pending.data.reportType ?? 'str',
-        reportData: pending.data as Record<string, unknown>,
+        reportData: { ...pending.data, _additionalContext: pending.additionalContext } as Record<string, unknown>,
         airdnaProjectedRevenue: pending.data.extracted?.projectedAnnualRevenue ?? pending.data.strExtracted?.projectedAnnualRevenue ?? undefined,
         airdnaOccupancyRate: pending.data.extracted?.occupancyRate ?? pending.data.strExtracted?.occupancyRate ?? undefined,
         airdnaAdr: pending.data.extracted?.adr ?? pending.data.strExtracted?.adr ?? undefined,
@@ -133,7 +135,7 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
       const res = await fetch('/api/refine-revenue-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: pending.address, reportType: pending.data.reportType ?? 'str', existingReport: pending.data, refinementMessage: message }),
+        body: JSON.stringify({ address: pending.address, reportType: pending.data.reportType ?? 'str', existingReport: pending.data, refinementMessage: message, additionalContext: pending.additionalContext }),
       });
       const refined = await res.json();
       if (refined.error) throw new Error(refined.error);
@@ -181,7 +183,7 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
       const res = await fetch('/api/refine-revenue-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: report.propertyAddress, reportType: report.reportType ?? 'str', existingReport: reportData, refinementMessage: message }),
+        body: JSON.stringify({ address: report.propertyAddress, reportType: report.reportType ?? 'str', existingReport: reportData, refinementMessage: message, additionalContext: (report.reportData as Record<string, unknown>)?._additionalContext as string | undefined }),
       });
       const refined = await res.json();
       if (refined.error) throw new Error(refined.error);

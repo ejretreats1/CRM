@@ -44,7 +44,7 @@ interface GeneratedReport {
 interface ReportBuilderProps {
   leads: Lead[];
   owners: Owner[];
-  onReportGenerated: (address: string, data: GeneratedReport, ownerActualRevenue?: number, ownerNotes?: string, leadId?: string, ownerId?: string) => void;
+  onReportGenerated: (address: string, data: GeneratedReport, ownerActualRevenue?: number, ownerNotes?: string, leadId?: string, ownerId?: string, additionalContext?: string) => void;
   onCancel: () => void;
 }
 
@@ -115,7 +115,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      onReportGenerated(address.trim(), data, ownerActualRevenue, ownerNotes.trim() || undefined, selectedLeadId || undefined, selectedOwnerId || undefined);
+      onReportGenerated(address.trim(), data, ownerActualRevenue, ownerNotes.trim() || undefined, selectedLeadId || undefined, selectedOwnerId || undefined, additionalContext.trim() || undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate report. Please try again.');
     } finally {
