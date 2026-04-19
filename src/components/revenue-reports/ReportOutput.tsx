@@ -390,7 +390,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* Refine with AI */}
           {onRefine && (
-            <div className="print-section border border-purple-200 rounded-xl overflow-hidden">
+            <div className="print:hidden border border-purple-200 rounded-xl overflow-hidden">
               <button
                 type="button"
                 onClick={() => { setRefineOpen(o => !o); setRefineError(''); setRefineSuccess(false); }}
