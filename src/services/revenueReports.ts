@@ -79,6 +79,27 @@ export async function saveRevenueReport(report: Omit<RevenueReport, 'id' | 'crea
   return rowToReport(data);
 }
 
+export async function updateRevenueReport(id: string, updates: Partial<Omit<RevenueReport, 'id' | 'createdAt'>>): Promise<RevenueReport> {
+  const { data, error } = await supabase
+    .from('revenue_reports')
+    .update({
+      report_data: updates.reportData ?? undefined,
+      claude_narrative: updates.claudeNarrative ?? undefined,
+      key_findings: updates.keyFindings ?? undefined,
+      opportunity_score: updates.opportunityScore ?? undefined,
+      report_title: updates.reportTitle ?? undefined,
+      airdna_projected_revenue: updates.airdnaProjectedRevenue ?? undefined,
+      airdna_occupancy_rate: updates.airdnaOccupancyRate ?? undefined,
+      airdna_adr: updates.airdnaAdr ?? undefined,
+      airdna_revpar: updates.airdnaRevpar ?? undefined,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToReport(data);
+}
+
 export async function deleteRevenueReport(id: string): Promise<void> {
   const { error } = await supabase.from('revenue_reports').delete().eq('id', id);
   if (error) throw error;

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, FileBarChart2, Trash2, Calendar, TrendingUp, Loader } from 'lucide-react';
 import ReportBuilder from './revenue-reports/ReportBuilder';
 import ReportOutput from './revenue-reports/ReportOutput';
-import { fetchRevenueReports, saveRevenueReport, deleteRevenueReport } from '../services/revenueReports';
+import { fetchRevenueReports, saveRevenueReport, deleteRevenueReport, updateRevenueReport } from '../services/revenueReports';
 import type { Lead, Owner, RevenueReport } from '../types';
 
 interface RevenueReportsProps {
@@ -128,6 +128,19 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
   }
 
   if (pageView === 'output' && pending) {
+    async function handleRefinePending(message: string) {
+      if (!pending) return;
+      const res = await fetch('/api/refine-revenue-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: pending.address, reportType: pending.data.reportType ?? 'str', existingReport: pending.data, refinementMessage: message }),
+      });
+      const refined = await res.json();
+      if (refined.error) throw new Error(refined.error);
+      setPending(prev => prev ? { ...prev, data: refined } : prev);
+      setSaved(false);
+    }
+
     return (
       <ReportOutput
         address={pending.address}
@@ -138,39 +151,65 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
         saved={saved}
         onSave={handleSave}
         onBack={() => { setPageView('list'); setPending(null); }}
+        onRefine={handleRefinePending}
       />
     );
   }
 
   if (pageView === 'output' && viewingReport) {
-    const reportData: PendingReport['data'] = viewingReport.reportData
-      ? viewingReport.reportData as PendingReport['data']
+    const report = viewingReport;
+    const reportData: PendingReport['data'] = report.reportData
+      ? report.reportData as PendingReport['data']
       : {
-          reportType: viewingReport.reportType ?? 'str',
+          reportType: report.reportType ?? 'str',
           extracted: {
-            projectedAnnualRevenue: viewingReport.airdnaProjectedRevenue ?? null,
-            occupancyRate: viewingReport.airdnaOccupancyRate ?? null,
-            adr: viewingReport.airdnaAdr ?? null,
-            revpar: viewingReport.airdnaRevpar ?? null,
+            projectedAnnualRevenue: report.airdnaProjectedRevenue ?? null,
+            occupancyRate: report.airdnaOccupancyRate ?? null,
+            adr: report.airdnaAdr ?? null,
+            revpar: report.airdnaRevpar ?? null,
           },
-          reportTitle: viewingReport.reportTitle ?? viewingReport.propertyAddress,
-          executiveSummary: viewingReport.claudeNarrative ?? '',
+          reportTitle: report.reportTitle ?? report.propertyAddress,
+          executiveSummary: report.claudeNarrative ?? '',
           marketOpportunity: '',
           performanceGap: null,
           recommendations: [],
           revenueProjections: { conservative: 0, realistic: 0, optimistic: 0 },
-          keyFindings: viewingReport.keyFindings ?? [],
-          opportunityScore: viewingReport.opportunityScore ?? 5,
+          keyFindings: report.keyFindings ?? [],
+          opportunityScore: report.opportunityScore ?? 5,
         };
+    async function handleRefineSaved(message: string) {
+      const res = await fetch('/api/refine-revenue-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: report.propertyAddress, reportType: report.reportType ?? 'str', existingReport: reportData, refinementMessage: message }),
+      });
+      const refined = await res.json();
+      if (refined.error) throw new Error(refined.error);
+      const updated = await updateRevenueReport(report.id, {
+        reportData: refined,
+        claudeNarrative: refined.executiveSummary,
+        keyFindings: refined.keyFindings,
+        opportunityScore: refined.opportunityScore,
+        reportTitle: refined.reportTitle,
+        airdnaProjectedRevenue: refined.extracted?.projectedAnnualRevenue ?? refined.strExtracted?.projectedAnnualRevenue ?? undefined,
+        airdnaOccupancyRate: refined.extracted?.occupancyRate ?? refined.strExtracted?.occupancyRate ?? undefined,
+        airdnaAdr: refined.extracted?.adr ?? refined.strExtracted?.adr ?? undefined,
+        airdnaRevpar: refined.extracted?.revpar ?? undefined,
+      });
+      setViewingReport(updated);
+      setReports(prev => prev.map(r => r.id === updated.id ? updated : r));
+    }
+
     return (
       <ReportOutput
-        address={viewingReport.propertyAddress}
+        address={report.propertyAddress}
         data={reportData}
-        ownerActualRevenue={viewingReport.ownerActualRevenue}
+        ownerActualRevenue={report.ownerActualRevenue}
         saving={false}
         saved={true}
         onSave={() => {}}
         onBack={() => { setPageView('list'); setViewingReport(null); }}
+        onRefine={handleRefineSaved}
       />
     );
   }
