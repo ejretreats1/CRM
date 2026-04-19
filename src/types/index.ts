@@ -70,6 +70,7 @@ export interface RevenueReport {
   createdAt: string;
   propertyAddress: string;
   leadId?: string;
+  ownerId?: string;
   reportType?: 'str' | 'mtr';
   reportData?: Record<string, unknown>;
   airdnaProjectedRevenue?: number;

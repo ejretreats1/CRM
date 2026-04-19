@@ -2,14 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Mail, Phone, Home, TrendingUp, Plus, Edit2, Trash2, Wifi,
   FileSignature, FileText, Download, Clock, CheckCircle2, XCircle,
-  UploadCloud, File, Loader, ExternalLink,
+  UploadCloud, File, Loader, ExternalLink, FileBarChart2,
 } from 'lucide-react';
-import type { Owner, Property, OutreachEntry, SignatureRequest } from '../types';
+import type { Owner, Property, OutreachEntry, SignatureRequest, RevenueReport } from '../types';
 import { fetchSignatureRequests, deleteSignatureRequest } from '../services/signatures';
 import { fetchOwnerDocuments, uploadOwnerDocument, deleteOwnerDocument } from '../services/ownerDocuments';
 import type { OwnerDocument } from '../services/ownerDocuments';
 import { fetchOwnerDriveLinks, saveOwnerDriveLink, deleteOwnerDriveLink } from '../services/ownerDriveLinks';
 import type { OwnerDriveLink } from '../services/ownerDriveLinks';
+import { fetchRevenueReportsByOwner } from '../services/revenueReports';
 import SignatureRequestModal from './modals/SignatureRequestModal';
 import DrivePickerModal from './modals/DrivePickerModal';
 import type { PickedDriveFile } from './modals/DrivePickerModal';
@@ -62,6 +63,7 @@ export default function OwnerDetail({
 
   const [ownerDocs, setOwnerDocs] = useState<OwnerDocument[]>([]);
   const [driveLinks, setDriveLinks] = useState<OwnerDriveLink[]>([]);
+  const [revenueReports, setRevenueReports] = useState<RevenueReport[]>([]);
   const [showUpload, setShowUpload] = useState(false);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -80,6 +82,7 @@ export default function OwnerDetail({
     fetchSignatureRequests(owner.id).then(setSigRequests).catch(() => {});
     fetchOwnerDocuments(owner.id).then(setOwnerDocs).catch(() => {});
     fetchOwnerDriveLinks(owner.id).then(setDriveLinks).catch(() => {});
+    fetchRevenueReportsByOwner(owner.id).then(setRevenueReports).catch(() => {});
   }, [owner.id]);
 
   async function handleUpload(file: File) {
@@ -280,6 +283,42 @@ export default function OwnerDetail({
           })}
         </div>
       </div>
+
+      {/* Revenue Reports */}
+      {revenueReports.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200">
+          <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
+            <FileBarChart2 size={16} className="text-teal-600" />
+            <h2 className="font-semibold text-slate-800">Revenue Reports</h2>
+            <span className="text-xs text-slate-400 ml-1">({revenueReports.length})</span>
+          </div>
+          <div className="p-5 space-y-2">
+            {revenueReports.map(r => (
+              <div key={r.id} className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-lg px-4 py-3">
+                <FileBarChart2 size={15} className="text-teal-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 truncate">{r.reportTitle ?? r.propertyAddress}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {r.reportType?.toUpperCase() ?? 'STR'} · {r.propertyAddress} · {new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+                {r.airdnaProjectedRevenue != null && (
+                  <span className="text-sm font-bold text-teal-700 flex-shrink-0">
+                    ${Math.round(r.airdnaProjectedRevenue).toLocaleString()}/yr
+                  </span>
+                )}
+                {r.opportunityScore != null && (
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                    r.opportunityScore >= 7 ? 'bg-emerald-100 text-emerald-700' :
+                    r.opportunityScore >= 4 ? 'bg-amber-100 text-amber-700' :
+                    'bg-slate-100 text-slate-500'
+                  }`}>{r.opportunityScore}/10</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Documents / Signatures */}
       <div className="bg-white rounded-xl border border-slate-200">

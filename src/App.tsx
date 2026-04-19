@@ -405,7 +405,7 @@ export default function App() {
       {view === 'drive' && <DriveView />}
 
       {view === 'revenue-reports' && (
-        <RevenueReports leads={leads} />
+        <RevenueReports leads={leads} owners={owners} />
       )}
 
       {view === 'listing-optimizer' && <ListingOptimizer />}

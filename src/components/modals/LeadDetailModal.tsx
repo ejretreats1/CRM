@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
-import type { Lead } from '../../types';
-import { MapPin, Phone, Mail, DollarSign, Clock, Video, FileText, Home, UploadCloud, File, Loader, Trash2, ExternalLink } from 'lucide-react';
+import type { Lead, RevenueReport } from '../../types';
+import { MapPin, Phone, Mail, DollarSign, Clock, Video, FileText, Home, UploadCloud, File, Loader, Trash2, ExternalLink, FileBarChart2, TrendingUp } from 'lucide-react';
 import { fetchLeadDocuments, uploadLeadDocument, deleteLeadDocument } from '../../services/leadDocuments';
 import type { LeadDocument } from '../../services/leadDocuments';
+import { fetchRevenueReportsByLead } from '../../services/revenueReports';
 
 const STAGE_LABELS: Record<string, string> = {
   new:  'New Lead',
@@ -50,10 +51,12 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [reports, setReports] = useState<RevenueReport[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchLeadDocuments(lead.id).then(setDocs).catch(() => {});
+    fetchRevenueReportsByLead(lead.id).then(setReports).catch(() => {});
   }, [lead.id]);
 
   async function handleUpload(file: File) {
@@ -170,6 +173,42 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
             <p className="text-sm text-slate-700 bg-slate-50 rounded-lg p-3.5 whitespace-pre-wrap leading-relaxed">
               {lead.notes}
             </p>
+          </div>
+        )}
+
+        {/* Revenue Reports */}
+        {reports.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <FileBarChart2 size={13} className="text-teal-600" />
+              <span className="text-xs font-medium text-slate-600">Revenue Reports</span>
+              <span className="text-xs text-slate-400">({reports.length})</span>
+            </div>
+            <div className="space-y-1.5">
+              {reports.map(r => (
+                <div key={r.id} className="flex items-center gap-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
+                  <FileBarChart2 size={13} className="text-teal-500 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-slate-700 truncate">{r.reportTitle ?? r.propertyAddress}</p>
+                    <p className="text-xs text-slate-400">
+                      {r.reportType?.toUpperCase() ?? 'STR'} · {new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                  {r.airdnaProjectedRevenue != null && (
+                    <span className="flex items-center gap-0.5 text-xs font-semibold text-teal-700 flex-shrink-0">
+                      <TrendingUp size={11} /> ${Math.round(r.airdnaProjectedRevenue).toLocaleString()}/yr
+                    </span>
+                  )}
+                  {r.opportunityScore != null && (
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                      r.opportunityScore >= 7 ? 'bg-emerald-100 text-emerald-700' :
+                      r.opportunityScore >= 4 ? 'bg-amber-100 text-amber-700' :
+                      'bg-slate-100 text-slate-500'
+                    }`}>{r.opportunityScore}/10</span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

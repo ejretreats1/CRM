@@ -3,16 +3,19 @@ import { Plus, FileBarChart2, Trash2, Calendar, TrendingUp, Loader } from 'lucid
 import ReportBuilder from './revenue-reports/ReportBuilder';
 import ReportOutput from './revenue-reports/ReportOutput';
 import { fetchRevenueReports, saveRevenueReport, deleteRevenueReport } from '../services/revenueReports';
-import type { Lead, RevenueReport } from '../types';
+import type { Lead, Owner, RevenueReport } from '../types';
 
 interface RevenueReportsProps {
   leads: Lead[];
+  owners: Owner[];
 }
 
 type PageView = 'list' | 'builder' | 'output';
 
 interface PendingReport {
   address: string;
+  leadId?: string;
+  ownerId?: string;
   ownerActualRevenue?: number;
   ownerNotes?: string;
   data: {
@@ -38,7 +41,7 @@ function fmt(n: number | undefined) {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
-export default function RevenueReports({ leads }: RevenueReportsProps) {
+export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
   const [pageView, setPageView] = useState<PageView>('list');
   const [reports, setReports] = useState<RevenueReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
@@ -59,8 +62,10 @@ export default function RevenueReports({ leads }: RevenueReportsProps) {
     data: PendingReport['data'],
     ownerActualRevenue?: number,
     ownerNotes?: string,
+    leadId?: string,
+    ownerId?: string,
   ) {
-    setPending({ address, data, ownerActualRevenue, ownerNotes });
+    setPending({ address, data, ownerActualRevenue, ownerNotes, leadId, ownerId });
     setSaved(false);
     setPageView('output');
   }
@@ -71,6 +76,8 @@ export default function RevenueReports({ leads }: RevenueReportsProps) {
     try {
       const saved = await saveRevenueReport({
         propertyAddress: pending.address,
+        leadId: pending.leadId,
+        ownerId: pending.ownerId,
         reportType: pending.data.reportType ?? 'str',
         reportData: pending.data as Record<string, unknown>,
         airdnaProjectedRevenue: pending.data.extracted?.projectedAnnualRevenue ?? pending.data.strExtracted?.projectedAnnualRevenue ?? undefined,
@@ -113,6 +120,7 @@ export default function RevenueReports({ leads }: RevenueReportsProps) {
     return (
       <ReportBuilder
         leads={leads}
+        owners={owners}
         onReportGenerated={handleReportGenerated}
         onCancel={() => setPageView('list')}
       />

@@ -8,6 +8,7 @@ function rowToReport(r: any): RevenueReport {
     createdAt: r.created_at,
     propertyAddress: r.property_address,
     leadId: r.lead_id ?? undefined,
+    ownerId: r.owner_id ?? undefined,
     reportType: r.report_type ?? 'str',
     reportData: r.report_data ?? undefined,
     airdnaProjectedRevenue: r.airdna_projected_revenue ?? undefined,
@@ -32,12 +33,33 @@ export async function fetchRevenueReports(): Promise<RevenueReport[]> {
   return (data ?? []).map(rowToReport);
 }
 
+export async function fetchRevenueReportsByLead(leadId: string): Promise<RevenueReport[]> {
+  const { data, error } = await supabase
+    .from('revenue_reports')
+    .select('*')
+    .eq('lead_id', leadId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToReport);
+}
+
+export async function fetchRevenueReportsByOwner(ownerId: string): Promise<RevenueReport[]> {
+  const { data, error } = await supabase
+    .from('revenue_reports')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToReport);
+}
+
 export async function saveRevenueReport(report: Omit<RevenueReport, 'id' | 'createdAt'>): Promise<RevenueReport> {
   const { data, error } = await supabase
     .from('revenue_reports')
     .insert({
       property_address: report.propertyAddress,
       lead_id: report.leadId ?? null,
+      owner_id: report.ownerId ?? null,
       report_type: report.reportType ?? 'str',
       report_data: report.reportData ?? null,
       airdna_projected_revenue: report.airdnaProjectedRevenue ?? null,

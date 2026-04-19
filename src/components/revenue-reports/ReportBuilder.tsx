@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Upload, FileText, X, Loader, ChevronRight, DollarSign, AlertCircle } from 'lucide-react';
-import type { Lead } from '../../types';
+import type { Lead, Owner } from '../../types';
 
 interface GeneratedReport {
   reportType: 'str' | 'mtr';
@@ -43,14 +43,16 @@ interface GeneratedReport {
 
 interface ReportBuilderProps {
   leads: Lead[];
-  onReportGenerated: (address: string, data: GeneratedReport, ownerActualRevenue?: number, ownerNotes?: string) => void;
+  owners: Owner[];
+  onReportGenerated: (address: string, data: GeneratedReport, ownerActualRevenue?: number, ownerNotes?: string, leadId?: string, ownerId?: string) => void;
   onCancel: () => void;
 }
 
-export default function ReportBuilder({ leads, onReportGenerated, onCancel }: ReportBuilderProps) {
+export default function ReportBuilder({ leads, owners, onReportGenerated, onCancel }: ReportBuilderProps) {
   const [reportType, setReportType] = useState<'str' | 'mtr'>('str');
   const [address, setAddress] = useState('');
   const [selectedLeadId, setSelectedLeadId] = useState('');
+  const [selectedOwnerId, setSelectedOwnerId] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [ownerRevenue, setOwnerRevenue] = useState('');
@@ -62,9 +64,20 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
 
   function handleLeadSelect(leadId: string) {
     setSelectedLeadId(leadId);
+    setSelectedOwnerId('');
     if (leadId) {
       const lead = leads.find(l => l.id === leadId);
       if (lead?.propertyAddress) setAddress(lead.propertyAddress);
+    }
+  }
+
+  function handleOwnerSelect(ownerId: string) {
+    setSelectedOwnerId(ownerId);
+    setSelectedLeadId('');
+    if (ownerId) {
+      const owner = owners.find(o => o.id === ownerId);
+      const firstAddress = owner?.properties?.[0]?.address;
+      if (firstAddress) setAddress(firstAddress);
     }
   }
 
@@ -102,7 +115,7 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      onReportGenerated(address.trim(), data, ownerActualRevenue, ownerNotes.trim() || undefined);
+      onReportGenerated(address.trim(), data, ownerActualRevenue, ownerNotes.trim() || undefined, selectedLeadId || undefined, selectedOwnerId || undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate report. Please try again.');
     } finally {
@@ -145,21 +158,38 @@ export default function ReportBuilder({ leads, onReportGenerated, onCancel }: Re
       )}
 
       <form onSubmit={handleGenerate} className="space-y-5">
-        {leads.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Pull from existing lead (optional)</label>
-            <select
-              value={selectedLeadId}
-              onChange={e => handleLeadSelect(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="">— Select a lead —</option>
-              {leads.filter(l => l.propertyAddress).map(l => (
-                <option key={l.id} value={l.id}>{l.name} — {l.propertyAddress}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="grid sm:grid-cols-2 gap-3">
+          {leads.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Link to lead (optional)</label>
+              <select
+                value={selectedLeadId}
+                onChange={e => handleLeadSelect(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">— Select a lead —</option>
+                {leads.filter(l => l.propertyAddress).map(l => (
+                  <option key={l.id} value={l.id}>{l.name} — {l.propertyAddress}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {owners.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Link to client (optional)</label>
+              <select
+                value={selectedOwnerId}
+                onChange={e => handleOwnerSelect(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">— Select a client —</option>
+                {owners.map(o => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
 
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">Property Address *</label>
