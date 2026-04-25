@@ -28,15 +28,8 @@ const StrReportSchema = z.object({
   executiveSummary: z.string(),
   marketOpportunity: z.string(),
   performanceGap: z.string().nullable(),
-  recommendations: z.array(z.object({
-    title: z.string(),
-    description: z.string(),
-  })),
-  revenueProjections: z.object({
-    conservative: z.number(),
-    realistic: z.number(),
-    optimistic: z.number(),
-  }),
+  recommendations: z.array(z.object({ title: z.string(), description: z.string() })),
+  revenueProjections: z.object({ conservative: z.number(), realistic: z.number(), optimistic: z.number() }),
   keyFindings: z.array(z.string()),
   opportunityScore: z.number().int().min(1).max(10),
 });
@@ -68,126 +61,145 @@ const MtrReportSchema = z.object({
   }),
   recommendedPlatforms: z.array(z.string()),
   keyFindings: z.array(z.string()),
-  recommendations: z.array(z.object({
-    title: z.string(),
-    description: z.string(),
-  })),
+  recommendations: z.array(z.object({ title: z.string(), description: z.string() })),
   opportunityScore: z.number().int().min(1).max(10),
 });
+
+const globalRules = `
+RULES (apply to all sections):
+- If the property already has an amenity mentioned in the context, do NOT recommend adding it — acknowledge it as a strength.
+- When referencing property management software, refer to Uplisting only.
+- Do NOT include operating expenses, net operating income (NOI), or cap rate. Focus on gross revenue metrics only.`;
+
+const seasonalityInstructions = `
+SEASONALITY & COMPARABLES (extract carefully from the PDF visuals):
+- monthlySeasonality: Read the monthly seasonality chart. Extract all 12 months (Jan–Dec) with projected revenue and occupancy rate for each month.
+- comparables: Read the comparable properties section. Extract each comp with bedrooms, annual revenue, occupancy rate, and ADR.`;
+
+async function runGenerate(reportType: 'str' | 'mtr', prompt: string, pdfBase64: string) {
+  const schema = reportType === 'mtr' ? MtrReportSchema : StrReportSchema;
+  const { output } = await generateText({
+    model: 'anthropic/claude-sonnet-4.6',
+    output: Output.object({ schema }),
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'file', data: pdfBase64, mediaType: 'application/pdf' },
+        { type: 'text', text: prompt },
+      ],
+    }],
+  });
+  return { ...output, reportType };
+}
+
+async function runRefine(reportType: 'str' | 'mtr', prompt: string) {
+  const schema = reportType === 'mtr' ? MtrReportSchema : StrReportSchema;
+  const { output } = await generateText({
+    model: 'anthropic/claude-sonnet-4.6',
+    output: Output.object({ schema }),
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return { ...output, reportType };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { address, pdfBase64, ownerActualRevenue, ownerNotes, additionalContext, reportType = 'str' } = req.body as {
+  const body = req.body as {
     address: string;
-    pdfBase64: string;
+    reportType?: 'str' | 'mtr';
+    // generate mode
+    pdfBase64?: string;
     ownerActualRevenue?: number;
     ownerNotes?: string;
     additionalContext?: string;
-    reportType?: 'str' | 'mtr';
+    // refine mode
+    existingReport?: Record<string, unknown>;
+    refinementMessage?: string;
   };
 
-  if (!address || !pdfBase64) {
-    return res.status(400).json({ error: 'address and pdfBase64 are required' });
-  }
+  const { address, reportType = 'str' } = body;
+  if (!address) return res.status(400).json({ error: 'address is required' });
 
-  const ownerSection = ownerActualRevenue != null
-    ? `Owner-reported actual revenue (last 12 months): $${ownerActualRevenue.toLocaleString()}${ownerNotes ? `\nOwner context: ${ownerNotes}` : ''}`
-    : 'Owner actual revenue: not provided.';
+  try {
+    // ── REFINE MODE ──────────────────────────────────────────────────────────
+    if (body.existingReport && body.refinementMessage?.trim()) {
+      const { existingReport, refinementMessage, additionalContext } = body;
+      const originalCtx = additionalContext?.trim()
+        ? `\nORIGINAL CONTEXT (established facts about the property):\n${additionalContext.trim()}\n`
+        : '';
+      const prompt = `You are a ${reportType === 'mtr' ? 'mid-term' : 'short-term'} rental revenue consultant for E&J Retreats.
 
-  const contextSection = additionalContext?.trim()
-    ? `\nIMPORTANT ADDITIONAL CONTEXT — read carefully and factor into the entire analysis:\n${additionalContext.trim()}\n`
-    : '';
+Property: ${address}
+${originalCtx}
+Existing report (JSON):
+${JSON.stringify(existingReport, null, 2)}
 
-  const globalRules = `
-RULES (apply to all sections of the report):
-- If this property already has an amenity mentioned in the additional context, do NOT recommend adding it — acknowledge it as a strength instead.
-- When referencing property management software or a PMS, refer to Uplisting only. Do not mention any other PMS platforms.
-- Do NOT include operating expenses, net operating income (NOI), or cap rate in any part of the analysis. AirDNA uses placeholder figures for these that are not reliable. Focus purely on gross revenue metrics.`;
+New correction/context from user:
+"${refinementMessage.trim()}"
 
-  const seasonalityInstructions = `
-SEASONALITY & COMPARABLES (extract carefully from the PDF visuals):
-- monthlySeasonality: Read the monthly seasonality chart in the PDF. Extract all 12 months (Jan–Dec) with projected revenue and occupancy rate for each month. Use the bar heights and axis labels to estimate values as accurately as possible.
-- comparables: Read the comparable properties section/map in the PDF. Extract each comp with bedrooms, annual revenue, occupancy rate, and ADR. Include as many comps as are shown (typically 5–10).`;
+Revise the report to incorporate this. Update affected sections; keep unaffected ones. Return the complete updated report.
+${globalRules}`;
 
-  const strPrompt = `You are a short-term rental revenue consultant for E&J Retreats, a property management company.
+      const output = await runRefine(reportType, prompt);
+      return res.status(200).json(output);
+    }
+
+    // ── GENERATE MODE ────────────────────────────────────────────────────────
+    if (!body.pdfBase64) return res.status(400).json({ error: 'pdfBase64 is required for report generation' });
+
+    const { pdfBase64, ownerActualRevenue, ownerNotes, additionalContext } = body;
+    const ownerSection = ownerActualRevenue != null
+      ? `Owner-reported actual revenue (last 12 months): $${ownerActualRevenue.toLocaleString()}${ownerNotes ? `\nOwner context: ${ownerNotes}` : ''}`
+      : 'Owner actual revenue: not provided.';
+    const contextSection = additionalContext?.trim()
+      ? `\nIMPORTANT ADDITIONAL CONTEXT:\n${additionalContext.trim()}\n`
+      : '';
+
+    const strPrompt = `You are a short-term rental revenue consultant for E&J Retreats.
 
 Property address: ${address}
 ${ownerSection}
 ${contextSection}
-The attached PDF is an AirDNA Rentalizer report for this property. Please:
-1. Extract the key financial metrics from the PDF (gross revenue, occupancy, ADR, RevPAR only).
-2. Extract the monthly seasonality chart data (all 12 months of projected revenue and occupancy).
-3. Extract the comparable properties data from the comps section of the PDF.
+The attached PDF is an AirDNA Rentalizer report. Please:
+1. Extract key financial metrics (gross revenue, occupancy, ADR, RevPAR only).
+2. Extract the monthly seasonality chart data (all 12 months).
+3. Extract comparable properties data from the comps section.
 4. Generate a professional revenue analysis.
-5. If owner actual revenue IS provided, include a performance gap analysis comparing actual vs projected.
-6. Write 3–5 specific recommendations to maximize revenue (pricing, listing optimization, amenities, seasonality). Do not recommend amenities the owner already has.
-7. Assign an opportunity score 1–10 (10 = massive untapped potential).
+5. If owner revenue is provided, include a performance gap analysis.
+6. Write 3–5 specific recommendations. Do not recommend amenities the owner already has.
+7. Assign an opportunity score 1–10.
 ${seasonalityInstructions}
 ${globalRules}
 
 Write in a confident, professional tone suitable for presenting to a property owner.`;
 
-  const mtrPrompt = `You are a mid-term rental (MTR) revenue consultant for E&J Retreats, a property management company.
+    const mtrPrompt = `You are a mid-term rental (MTR) revenue consultant for E&J Retreats.
 
 Property address: ${address}
 ${ownerSection}
 ${contextSection}
-The attached PDF is an AirDNA Rentalizer report containing short-term rental (STR) market data for this property.
+The attached PDF is an AirDNA Rentalizer report with STR market data.
 
-Your task is to:
-1. Extract the STR metrics from the AirDNA PDF (projected annual revenue, occupancy rate, ADR — gross revenue only).
+1. Extract STR metrics (projected annual revenue, occupancy rate, ADR — gross revenue only).
 2. Extract the monthly seasonality chart data (all 12 months).
-3. Extract the comparable properties data from the comps section.
-4. Using those STR figures and your expert knowledge of mid-term rental market dynamics, project realistic MTR revenue for this property.
-
-MTR estimation guidelines:
-- Mid-term rentals are furnished stays of 30+ days targeting traveling nurses, remote workers, corporate relocations, insurance housing, and seasonal workers.
-- MTR monthly rent is typically 65–80% of what the property would earn per month at full STR occupancy (i.e. ADR × 30).
-- MTR occupancy is typically 85–95% annually due to longer stays and less seasonality.
-- MTR has significantly lower operating costs: fewer turnovers, less cleaning, less management overhead.
-- Net MTR income is often comparable or superior to STR after accounting for costs.
-
-5. Compare STR vs MTR total annual revenue and recommend the better strategy (or a hybrid approach).
-6. Identify the ideal tenant profile, recommended lease lengths, and best booking platforms.
-7. Write 3–5 specific recommendations for maximizing MTR performance. Do not recommend amenities the owner already has.
-8. ${ownerActualRevenue != null ? 'Include a gap analysis comparing the owner\'s actual revenue to both STR projected and MTR projected.' : 'Focus on the MTR opportunity.'}
-9. Assign an opportunity score 1–10 for the MTR opportunity specifically (10 = massive MTR potential).
+3. Extract comparable properties data.
+4. Project realistic MTR revenue (MTR rent = 65–80% of ADR×30; occupancy 85–95%).
+5. Compare STR vs MTR and recommend the better strategy.
+6. Identify ideal tenant profile, lease lengths, and booking platforms.
+7. Write 3–5 specific MTR recommendations. Do not recommend amenities the owner already has.
+8. ${ownerActualRevenue != null ? "Include gap analysis vs both STR and MTR projected." : "Focus on the MTR opportunity."}
+9. Assign an opportunity score 1–10 for MTR specifically.
 ${seasonalityInstructions}
 ${globalRules}
 
-Write in a confident, professional tone suitable for presenting to a property owner considering switching to or adding mid-term rentals.`;
+Write in a confident, professional tone for a property owner considering mid-term rentals.`;
 
-  try {
-    if (reportType === 'mtr') {
-      const { output } = await generateText({
-        model: 'anthropic/claude-sonnet-4.6',
-        output: Output.object({ schema: MtrReportSchema }),
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'file', data: pdfBase64, mediaType: 'application/pdf' },
-            { type: 'text', text: mtrPrompt },
-          ],
-        }],
-      });
-      return res.status(200).json({ ...output, reportType: 'mtr' });
-    } else {
-      const { output } = await generateText({
-        model: 'anthropic/claude-sonnet-4.6',
-        output: Output.object({ schema: StrReportSchema }),
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'file', data: pdfBase64, mediaType: 'application/pdf' },
-            { type: 'text', text: strPrompt },
-          ],
-        }],
-      });
-      return res.status(200).json({ ...output, reportType: 'str' });
-    }
+    const output = await runGenerate(reportType, reportType === 'mtr' ? mtrPrompt : strPrompt, pdfBase64);
+    return res.status(200).json(output);
+
   } catch (err) {
     console.error('generate-revenue-report error:', err);
-    return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to generate report' });
+    return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to process report' });
   }
 }

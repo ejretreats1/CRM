@@ -134,7 +134,7 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
   if (pageView === 'output' && pending) {
     async function handleRefinePending(message: string) {
       if (!pending) return;
-      const res = await fetch('/api/refine-revenue-report', {
+      const res = await fetch('/api/generate-revenue-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: pending.address, reportType: pending.data.reportType ?? 'str', existingReport: pending.data, refinementMessage: message, additionalContext: pending.additionalContext }),
@@ -182,7 +182,7 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
           opportunityScore: report.opportunityScore ?? 5,
         };
     async function handleRefineSaved(message: string) {
-      const res = await fetch('/api/refine-revenue-report', {
+      const res = await fetch('/api/generate-revenue-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: report.propertyAddress, reportType: report.reportType ?? 'str', existingReport: reportData, refinementMessage: message, additionalContext: (report.reportData as Record<string, unknown>)?._additionalContext as string | undefined }),
