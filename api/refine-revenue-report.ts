@@ -2,6 +2,19 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 
+const MonthSchema = z.object({
+  month: z.string(),
+  revenue: z.number().nullable(),
+  occupancy: z.number().nullable(),
+});
+
+const CompSchema = z.object({
+  bedrooms: z.number().nullable(),
+  annualRevenue: z.number().nullable(),
+  occupancyRate: z.number().nullable(),
+  adr: z.number().nullable(),
+});
+
 const StrReportSchema = z.object({
   extracted: z.object({
     projectedAnnualRevenue: z.number().nullable(),
@@ -9,6 +22,8 @@ const StrReportSchema = z.object({
     adr: z.number().nullable(),
     revpar: z.number().nullable(),
   }),
+  monthlySeasonality: z.array(MonthSchema).optional(),
+  comparables: z.array(CompSchema).optional(),
   reportTitle: z.string(),
   executiveSummary: z.string(),
   marketOpportunity: z.string(),
@@ -29,6 +44,8 @@ const MtrReportSchema = z.object({
     occupancyRate: z.number().nullable(),
     adr: z.number().nullable(),
   }),
+  monthlySeasonality: z.array(MonthSchema).optional(),
+  comparables: z.array(CompSchema).optional(),
   mtrProjected: z.object({
     monthlyRent: z.number(),
     annualRevenue: z.number(),

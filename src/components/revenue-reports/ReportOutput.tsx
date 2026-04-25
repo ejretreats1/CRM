@@ -23,6 +23,19 @@ interface StrVsMtr {
   reasoning: string;
 }
 
+interface MonthData {
+  month: string;
+  revenue: number | null;
+  occupancy: number | null;
+}
+
+interface CompData {
+  bedrooms: number | null;
+  annualRevenue: number | null;
+  occupancyRate: number | null;
+  adr: number | null;
+}
+
 interface ReportData {
   reportType?: 'str' | 'mtr';
   // STR
@@ -34,6 +47,8 @@ interface ReportData {
   strVsMtr?: StrVsMtr;
   recommendedPlatforms?: string[];
   // Shared
+  monthlySeasonality?: MonthData[];
+  comparables?: CompData[];
   reportTitle: string;
   executiveSummary: string;
   marketOpportunity: string;
@@ -100,6 +115,93 @@ function GapBadge({ projected, actual }: { projected: number | null; actual: num
     <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
       <Minus size={14} className="text-slate-500" />
       <span className="text-sm font-semibold text-slate-600">At market rate</span>
+    </div>
+  );
+}
+
+function SeasonalityChart({ months, isMtr }: { months: MonthData[]; isMtr: boolean }) {
+  const maxRevenue = Math.max(...months.map(m => m.revenue ?? 0), 1);
+  const barColor = isMtr ? '#4f46e5' : '#0f766e';
+  const barColorLight = isMtr ? '#e0e7ff' : '#ccfbf1';
+  const W = 560, H = 160, PAD_LEFT = 48, PAD_BOTTOM = 28, PAD_TOP = 16, PAD_RIGHT = 8;
+  const chartW = W - PAD_LEFT - PAD_RIGHT;
+  const chartH = H - PAD_BOTTOM - PAD_TOP;
+  const barW = Math.floor(chartW / months.length) - 4;
+
+  return (
+    <div className="print-section">
+      <h3 className="text-sm font-bold text-slate-800 mb-3">Monthly Seasonality</h3>
+      <div className="bg-slate-50 rounded-xl p-4 overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 320 }}>
+          {/* Y-axis gridlines + labels */}
+          {[0, 0.25, 0.5, 0.75, 1].map(pct => {
+            const y = PAD_TOP + chartH * (1 - pct);
+            const val = Math.round(maxRevenue * pct);
+            return (
+              <g key={pct}>
+                <line x1={PAD_LEFT} x2={W - PAD_RIGHT} y1={y} y2={y} stroke="#e2e8f0" strokeWidth="1" />
+                <text x={PAD_LEFT - 4} y={y + 4} textAnchor="end" fontSize="9" fill="#94a3b8">
+                  {val >= 1000 ? `$${Math.round(val / 1000)}k` : `$${val}`}
+                </text>
+              </g>
+            );
+          })}
+          {/* Bars */}
+          {months.map((m, i) => {
+            const x = PAD_LEFT + i * (chartW / months.length) + 2;
+            const rev = m.revenue ?? 0;
+            const barH = Math.max(2, (rev / maxRevenue) * chartH);
+            const y = PAD_TOP + chartH - barH;
+            const occ = m.occupancy != null ? `${Math.round(m.occupancy)}%` : '';
+            return (
+              <g key={m.month}>
+                <rect x={x} y={PAD_TOP} width={barW} height={chartH} fill={barColorLight} rx="3" />
+                <rect x={x} y={y} width={barW} height={barH} fill={barColor} rx="3" />
+                {occ && (
+                  <text x={x + barW / 2} y={y - 3} textAnchor="middle" fontSize="8" fill={barColor} fontWeight="600">
+                    {occ}
+                  </text>
+                )}
+                <text x={x + barW / 2} y={H - 6} textAnchor="middle" fontSize="9" fill="#64748b">
+                  {m.month.slice(0, 3)}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+        <p className="text-xs text-slate-400 mt-1 text-right">Occupancy % shown above bars · Revenue per month</p>
+      </div>
+    </div>
+  );
+}
+
+function ComparablesTable({ comps }: { comps: CompData[] }) {
+  return (
+    <div className="print-section">
+      <h3 className="text-sm font-bold text-slate-800 mb-3">Comparable Properties</h3>
+      <div className="bg-slate-50 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <th className="px-4 py-2.5 text-left">Beds</th>
+              <th className="px-4 py-2.5 text-right">Annual Revenue</th>
+              <th className="px-4 py-2.5 text-right">Occupancy</th>
+              <th className="px-4 py-2.5 text-right">ADR</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {comps.map((c, i) => (
+              <tr key={i} className="bg-white">
+                <td className="px-4 py-2.5 text-slate-700 font-medium">{c.bedrooms != null ? `${c.bedrooms} BR` : '—'}</td>
+                <td className="px-4 py-2.5 text-right font-semibold text-teal-700">{c.annualRevenue != null ? `$${Math.round(c.annualRevenue).toLocaleString()}` : '—'}</td>
+                <td className="px-4 py-2.5 text-right text-slate-600">{c.occupancyRate != null ? `${Math.round(c.occupancyRate)}%` : '—'}</td>
+                <td className="px-4 py-2.5 text-right text-slate-600">{c.adr != null ? `$${Math.round(c.adr)}` : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="text-xs text-slate-400 px-4 py-2 text-right">Source: AirDNA comparable listings</p>
+      </div>
     </div>
   );
 }
@@ -333,6 +435,16 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                 ))}
               </ul>
             </div>
+          )}
+
+          {/* Seasonality chart */}
+          {data.monthlySeasonality && data.monthlySeasonality.length > 0 && (
+            <SeasonalityChart months={data.monthlySeasonality} isMtr={isMtr} />
+          )}
+
+          {/* Comparable properties */}
+          {data.comparables && data.comparables.length > 0 && (
+            <ComparablesTable comps={data.comparables} />
           )}
 
           {/* Market opportunity */}

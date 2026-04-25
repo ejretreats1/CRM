@@ -26,6 +26,8 @@ interface PendingReport {
     mtrProjected?: { monthlyRent: number; annualRevenue: number; occupancyRate: number; recommendedLeaseLength: string; targetTenantProfile: string };
     strVsMtr?: { recommendation: 'str' | 'mtr' | 'hybrid'; strAnnualEstimate: number | null; mtrAnnualEstimate: number; reasoning: string };
     recommendedPlatforms?: string[];
+    monthlySeasonality?: { month: string; revenue: number | null; occupancy: number | null }[];
+    comparables?: { bedrooms: number | null; annualRevenue: number | null; occupancyRate: number | null; adr: number | null }[];
     reportTitle: string;
     executiveSummary: string;
     marketOpportunity: string;

@@ -2,6 +2,19 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 
+const MonthSchema = z.object({
+  month: z.string(),
+  revenue: z.number().nullable(),
+  occupancy: z.number().nullable(),
+});
+
+const CompSchema = z.object({
+  bedrooms: z.number().nullable(),
+  annualRevenue: z.number().nullable(),
+  occupancyRate: z.number().nullable(),
+  adr: z.number().nullable(),
+});
+
 const StrReportSchema = z.object({
   extracted: z.object({
     projectedAnnualRevenue: z.number().nullable(),
@@ -9,6 +22,8 @@ const StrReportSchema = z.object({
     adr: z.number().nullable(),
     revpar: z.number().nullable(),
   }),
+  monthlySeasonality: z.array(MonthSchema).optional(),
+  comparables: z.array(CompSchema).optional(),
   reportTitle: z.string(),
   executiveSummary: z.string(),
   marketOpportunity: z.string(),
@@ -36,6 +51,8 @@ const MtrReportSchema = z.object({
     occupancyRate: z.number().nullable(),
     adr: z.number().nullable(),
   }),
+  monthlySeasonality: z.array(MonthSchema).optional(),
+  comparables: z.array(CompSchema).optional(),
   mtrProjected: z.object({
     monthlyRent: z.number(),
     annualRevenue: z.number(),
@@ -88,6 +105,11 @@ RULES (apply to all sections of the report):
 - When referencing property management software or a PMS, refer to Uplisting only. Do not mention any other PMS platforms.
 - Do NOT include operating expenses, net operating income (NOI), or cap rate in any part of the analysis. AirDNA uses placeholder figures for these that are not reliable. Focus purely on gross revenue metrics.`;
 
+  const seasonalityInstructions = `
+SEASONALITY & COMPARABLES (extract carefully from the PDF visuals):
+- monthlySeasonality: Read the monthly seasonality chart in the PDF. Extract all 12 months (Jan–Dec) with projected revenue and occupancy rate for each month. Use the bar heights and axis labels to estimate values as accurately as possible.
+- comparables: Read the comparable properties section/map in the PDF. Extract each comp with bedrooms, annual revenue, occupancy rate, and ADR. Include as many comps as are shown (typically 5–10).`;
+
   const strPrompt = `You are a short-term rental revenue consultant for E&J Retreats, a property management company.
 
 Property address: ${address}
@@ -95,10 +117,13 @@ ${ownerSection}
 ${contextSection}
 The attached PDF is an AirDNA Rentalizer report for this property. Please:
 1. Extract the key financial metrics from the PDF (gross revenue, occupancy, ADR, RevPAR only).
-2. Generate a professional revenue analysis.
-3. If owner actual revenue IS provided, include a performance gap analysis comparing actual vs projected.
-4. Write 3–5 specific recommendations to maximize revenue (pricing, listing optimization, amenities, seasonality). Do not recommend amenities the owner already has.
-5. Assign an opportunity score 1–10 (10 = massive untapped potential).
+2. Extract the monthly seasonality chart data (all 12 months of projected revenue and occupancy).
+3. Extract the comparable properties data from the comps section of the PDF.
+4. Generate a professional revenue analysis.
+5. If owner actual revenue IS provided, include a performance gap analysis comparing actual vs projected.
+6. Write 3–5 specific recommendations to maximize revenue (pricing, listing optimization, amenities, seasonality). Do not recommend amenities the owner already has.
+7. Assign an opportunity score 1–10 (10 = massive untapped potential).
+${seasonalityInstructions}
 ${globalRules}
 
 Write in a confident, professional tone suitable for presenting to a property owner.`;
@@ -112,7 +137,9 @@ The attached PDF is an AirDNA Rentalizer report containing short-term rental (ST
 
 Your task is to:
 1. Extract the STR metrics from the AirDNA PDF (projected annual revenue, occupancy rate, ADR — gross revenue only).
-2. Using those STR figures and your expert knowledge of mid-term rental market dynamics, project realistic MTR revenue for this property.
+2. Extract the monthly seasonality chart data (all 12 months).
+3. Extract the comparable properties data from the comps section.
+4. Using those STR figures and your expert knowledge of mid-term rental market dynamics, project realistic MTR revenue for this property.
 
 MTR estimation guidelines:
 - Mid-term rentals are furnished stays of 30+ days targeting traveling nurses, remote workers, corporate relocations, insurance housing, and seasonal workers.
@@ -121,11 +148,12 @@ MTR estimation guidelines:
 - MTR has significantly lower operating costs: fewer turnovers, less cleaning, less management overhead.
 - Net MTR income is often comparable or superior to STR after accounting for costs.
 
-3. Compare STR vs MTR total annual revenue and recommend the better strategy (or a hybrid approach).
-4. Identify the ideal tenant profile, recommended lease lengths, and best booking platforms.
-5. Write 3–5 specific recommendations for maximizing MTR performance. Do not recommend amenities the owner already has.
-6. ${ownerActualRevenue != null ? 'Include a gap analysis comparing the owner\'s actual revenue to both STR projected and MTR projected.' : 'Focus on the MTR opportunity.'}
-7. Assign an opportunity score 1–10 for the MTR opportunity specifically (10 = massive MTR potential).
+5. Compare STR vs MTR total annual revenue and recommend the better strategy (or a hybrid approach).
+6. Identify the ideal tenant profile, recommended lease lengths, and best booking platforms.
+7. Write 3–5 specific recommendations for maximizing MTR performance. Do not recommend amenities the owner already has.
+8. ${ownerActualRevenue != null ? 'Include a gap analysis comparing the owner\'s actual revenue to both STR projected and MTR projected.' : 'Focus on the MTR opportunity.'}
+9. Assign an opportunity score 1–10 for the MTR opportunity specifically (10 = massive MTR potential).
+${seasonalityInstructions}
 ${globalRules}
 
 Write in a confident, professional tone suitable for presenting to a property owner considering switching to or adding mid-term rentals.`;
