@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 
+export const config = { maxDuration: 60 };
+
 const MonthSchema = z.object({
   month: z.string(),
   revenue: z.number().nullable(),
