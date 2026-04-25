@@ -20,6 +20,7 @@ const SOURCES: { value: LeadSource; label: string }[] = [
   { value: 'social',        label: 'Social Media' },
   { value: 'cold_outreach',    label: 'Cold Outreach' },
   { value: 'facebook_outreach', label: 'Facebook Outreach' },
+  { value: 'meta_ads',          label: 'Meta Ads' },
   { value: 'airbnb_outreach',   label: 'Airbnb Outreach' },
   { value: 'event',             label: 'Event' },
   { value: 'other',             label: 'Other' },
