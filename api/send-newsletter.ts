@@ -19,7 +19,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     reportHtml?: string;
   };
 
-  const fromAddress = process.env.NEWSLETTER_FROM_EMAIL ?? 'E&J Retreats <hello@ejretreats.com>';
+  const newsletterFrom = process.env.NEWSLETTER_FROM_EMAIL ?? 'E&J Retreats <hello@ejretreats.com>';
+  const reportFrom = process.env.REPORT_FROM_EMAIL ?? newsletterFrom;
   const replyTo = process.env.REPLY_TO_EMAIL;
 
   // ── SINGLE REPORT EMAIL ──────────────────────────────────────────────────
@@ -30,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     try {
       await resend.emails.send({
-        from: fromAddress,
+        from: reportFrom,
         to,
         subject: reportSubject,
         html: reportHtml,
@@ -60,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   for (const chunk of chunks) {
     const batch = chunk.map(r => ({
-      from: fromAddress,
+      from: newsletterFrom,
       to: r.email,
       subject,
       html,
