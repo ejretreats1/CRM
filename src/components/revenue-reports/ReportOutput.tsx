@@ -72,7 +72,7 @@ interface ReportOutputProps {
   recipientName?: string;
 }
 
-function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?: number, personalNote?: string, firstName?: string): string {
+function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?: number, personalNote?: string): string {
   const isMtr = data.reportType === 'mtr';
   const headerBg = isMtr ? '#3730a3' : '#0f766e';
   const accentColor = isMtr ? '#4f46e5' : '#0f766e';
@@ -216,10 +216,9 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
       </div>
       <!-- Body -->
       <div style="background:#ffffff;border-radius:0 0 12px 12px;padding:28px;">
-        ${(personalNote?.trim() || firstName) ? `
+        ${personalNote?.trim() ? `
         <div style="margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #e2e8f0;">
-          ${firstName ? `<div style="font-size:14px;color:#1e293b;margin-bottom:8px;">Hi ${firstName},</div>` : ''}
-          ${personalNote?.trim() ? `<div style="font-size:14px;color:#475569;line-height:1.6;white-space:pre-wrap;">${personalNote.trim()}</div>` : ''}
+          <div style="font-size:14px;color:#475569;line-height:1.8;white-space:pre-wrap;">${personalNote.trim()}</div>
         </div>` : ''}
         ${metricsHtml}
         ${ownerHtml}
@@ -373,6 +372,28 @@ function ComparablesTable({ comps }: { comps: CompData[] }) {
   );
 }
 
+function defaultEmailNote(firstName: string, address: string): string {
+  return `Hi ${firstName || '{{First Name}}'},
+
+Your revenue analysis for ${address} is attached. It covers your property's market potential, an opportunity score, and a few specific recommendations.
+
+Every property is a little different though, so I'd love to hear more about yours if you have a sec:
+
+- Are you currently renting it out or still exploring the idea?
+- If so, are you managing it yourself or working with someone?
+- What's been the biggest challenge so far?
+
+The reason I ask is that most of the owners we work with are already doing a good job on their own. The stuff that usually gets left on the table is pricing strategy, promotions, repeat guest capture, and calendar optimization. Those pieces change constantly and just take a lot of time to stay on top of.
+
+We work with 15+ listings right now and it looks different for every owner. Some just want help on the backend and revenue side while they keep running everything else. Others prefer to hand it all off. It really just depends on what makes sense for you.
+
+No pressure at all. I'm just happy to walk through the report and answer any questions. Reply here or text me at 8136990509, whatever's easier.
+
+Talk soon,
+Ethan & Jess
+E&J Retreats`;
+}
+
 const RECOMMENDATION_LABELS: Record<string, { label: string; color: string }> = {
   str:    { label: '🏠 Stick with Short-Term Rental', color: 'bg-blue-50 text-blue-800 border-blue-200' },
   mtr:    { label: '📅 Switch to Mid-Term Rental',    color: 'bg-teal-50 text-teal-800 border-teal-200' },
@@ -396,14 +417,15 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState('');
 
-  const firstName = emailName.trim().split(' ')[0] || undefined;
-  const previewHtml = buildReportEmail(address, data, ownerActualRevenue, personalNote, firstName);
+  const previewHtml = buildReportEmail(address, data, ownerActualRevenue, personalNote);
 
   function openEmailModal() {
+    const name = recipientName ?? '';
+    const first = name.trim().split(' ')[0] || '';
     setEmailTo(recipientEmail ?? '');
-    setEmailName(recipientName ?? '');
+    setEmailName(name);
     setEmailSubject(`Your Revenue Analysis: ${data.reportTitle}`);
-    setPersonalNote('');
+    setPersonalNote(defaultEmailNote(first, address));
     setEmailSent(false);
     setEmailError('');
     setEmailOpen(true);
@@ -520,9 +542,8 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                   <textarea
                     value={personalNote}
                     onChange={e => setPersonalNote(e.target.value)}
-                    rows={5}
-                    placeholder={`Hi ${firstName ?? '[Name]'},\n\nBased on our conversation, here is your personalized revenue analysis...`}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                    rows={14}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y"
                   />
                   <p className="text-xs text-slate-400 mt-1">The full report follows automatically below your note.</p>
                 </div>
