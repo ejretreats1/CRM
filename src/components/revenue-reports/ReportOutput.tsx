@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Printer, Save, ArrowLeft, TrendingUp, TrendingDown, Minus, Sparkles, Loader, ChevronDown, ChevronUp } from 'lucide-react';
+import { Printer, Save, ArrowLeft, TrendingUp, TrendingDown, Minus, Sparkles, Loader, ChevronDown, ChevronUp, Mail, X, Send } from 'lucide-react';
 
 interface StrExtracted {
   projectedAnnualRevenue: number | null;
@@ -68,6 +68,168 @@ interface ReportOutputProps {
   onSave: () => void;
   onBack: () => void;
   onRefine?: (message: string) => Promise<void>;
+  recipientEmail?: string;
+  recipientName?: string;
+}
+
+function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?: number): string {
+  const isMtr = data.reportType === 'mtr';
+  const headerBg = isMtr ? '#3730a3' : '#0f766e';
+  const accentColor = isMtr ? '#4f46e5' : '#0f766e';
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  const fmtN = (n: number | null | undefined) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`;
+  const fmtP = (n: number | null | undefined) => n == null ? '—' : `${Math.round(n)}%`;
+
+  const scoreColor = data.opportunityScore >= 7 ? '#059669' : data.opportunityScore >= 4 ? '#d97706' : '#dc2626';
+
+  let metricsHtml = '';
+  if (!isMtr && data.extracted) {
+    metricsHtml = `
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
+        <tr>
+          ${[
+            ['Projected Annual', fmtN(data.extracted.projectedAnnualRevenue)],
+            ['Occupancy Rate', fmtP(data.extracted.occupancyRate)],
+            ['Avg Daily Rate', fmtN(data.extracted.adr)],
+            ['RevPAR', fmtN(data.extracted.revpar)],
+          ].map(([label, val]) => `
+            <td width="25%" style="padding:4px;">
+              <div style="background:#f8fafc;border-radius:8px;padding:14px;text-align:center;">
+                <div style="font-size:20px;font-weight:900;color:${accentColor};">${val}</div>
+                <div style="font-size:11px;font-weight:600;color:#334155;margin-top:2px;">${label}</div>
+                <div style="font-size:10px;color:#94a3b8;">per AirDNA</div>
+              </div>
+            </td>`).join('')}
+        </tr>
+      </table>`;
+  } else if (isMtr && data.mtrProjected) {
+    metricsHtml = `
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
+        <tr>
+          ${[
+            ['Est. Monthly Rent', fmtN(data.mtrProjected.monthlyRent), true],
+            ['Est. Annual Revenue', fmtN(data.mtrProjected.annualRevenue), true],
+            ['Expected Occupancy', fmtP(data.mtrProjected.occupancyRate), false],
+          ].map(([label, val, accent]) => `
+            <td width="33%" style="padding:4px;">
+              <div style="background:${accent ? '#eef2ff' : '#f8fafc'};border-radius:8px;padding:14px;text-align:center;">
+                <div style="font-size:20px;font-weight:900;color:${accent ? '#4338ca' : '#334155'};">${val}</div>
+                <div style="font-size:11px;font-weight:600;color:#334155;margin-top:2px;">${label}</div>
+              </div>
+            </td>`).join('')}
+        </tr>
+      </table>`;
+  }
+
+  const scoreHtml = `
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
+      <tr>
+        <td width="30%" valign="top" style="padding-right:12px;">
+          <div style="background:#f8fafc;border-radius:8px;padding:16px;text-align:center;">
+            <div style="font-size:36px;font-weight:900;color:${scoreColor};">${data.opportunityScore}<span style="font-size:16px;color:#94a3b8;">/10</span></div>
+            <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Opportunity Score</div>
+          </div>
+        </td>
+        <td width="70%" valign="top">
+          <div style="background:#f8fafc;border-radius:8px;padding:16px;">
+            <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:6px;">Executive Summary</div>
+            <div style="font-size:13px;color:#475569;line-height:1.6;">${data.executiveSummary}</div>
+          </div>
+        </td>
+      </tr>
+    </table>`;
+
+  const findingsHtml = data.keyFindings.length > 0 ? `
+    <div style="margin-bottom:24px;">
+      <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">Key Findings</div>
+      ${data.keyFindings.map((f, i) => `
+        <div style="display:flex;gap:10px;margin-bottom:8px;font-size:13px;color:#475569;">
+          <span style="min-width:22px;height:22px;background:${accentColor}1a;color:${accentColor};border-radius:50%;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${i + 1}</span>
+          <span>${f}</span>
+        </div>`).join('')}
+    </div>` : '';
+
+  const recsHtml = data.recommendations.length > 0 ? `
+    <div style="margin-bottom:24px;">
+      <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">Recommendations</div>
+      ${data.recommendations.map((r, i) => `
+        <div style="margin-bottom:10px;padding:12px;background:#f8fafc;border-radius:8px;">
+          <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:3px;">${i + 1}. ${r.title}</div>
+          <div style="font-size:12px;color:#64748b;line-height:1.5;">${r.description}</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  const projectionsHtml = !isMtr && data.revenueProjections ? `
+    <div style="margin-bottom:24px;">
+      <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">Revenue Projections with E&amp;J Retreats</div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <tr>
+          ${[
+            ['Conservative', data.revenueProjections.conservative, '#f8fafc', '#334155'],
+            ['Realistic', data.revenueProjections.realistic, '#f0fdfa', '#0f766e'],
+            ['Optimistic', data.revenueProjections.optimistic, '#f0fdf4', '#166534'],
+          ].map(([label, val, bg, color]) => `
+            <td width="33%" style="padding:4px;">
+              <div style="background:${bg};border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:18px;font-weight:900;color:${color};">${fmtN(val as number)}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">${label}</div>
+              </div>
+            </td>`).join('')}
+        </tr>
+      </table>
+    </div>` : '';
+
+  const ownerHtml = ownerActualRevenue != null ? (() => {
+    const projected = !isMtr ? data.extracted?.projectedAnnualRevenue : data.mtrProjected?.annualRevenue;
+    if (!projected) return '';
+    const gap = projected - ownerActualRevenue;
+    const pct = Math.abs(Math.round((gap / projected) * 100));
+    const isBelow = gap > 0;
+    return `
+      <div style="margin-bottom:24px;background:#f8fafc;border-radius:8px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">Owner vs. Market</div>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="text-align:center;"><div style="font-size:11px;color:#64748b;">Owner Reported</div><div style="font-size:22px;font-weight:900;color:#1e293b;">${fmtN(ownerActualRevenue)}</div></td>
+            <td style="text-align:center;color:#cbd5e1;font-size:20px;">vs</td>
+            <td style="text-align:center;"><div style="font-size:11px;color:#64748b;">${isMtr ? 'MTR' : 'AirDNA'} Projected</div><div style="font-size:22px;font-weight:900;color:${accentColor};">${fmtN(projected)}</div></td>
+          </tr>
+        </table>
+        <div style="margin-top:10px;padding:8px 12px;background:${isBelow ? '#fef2f2' : '#f0fdf4'};border-radius:6px;font-size:12px;font-weight:700;color:${isBelow ? '#b91c1c' : '#166534'};">
+          ${isBelow ? `$${Math.round(gap).toLocaleString()} below market (${pct}% gap)` : `$${Math.round(Math.abs(gap)).toLocaleString()} above market — outperforming!`}
+        </div>
+      </div>`;
+  })() : '';
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:20px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;margin:0 auto;">
+    <tr><td>
+      <!-- Header -->
+      <div style="background:${headerBg};border-radius:12px 12px 0 0;padding:32px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.6);margin-bottom:8px;">E&amp;J Retreats · ${isMtr ? 'Mid-Term Rental Analysis' : 'Revenue Analysis'}</div>
+        <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">${data.reportTitle}</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.7);">${address}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;">${date}</div>
+      </div>
+      <!-- Body -->
+      <div style="background:#ffffff;border-radius:0 0 12px 12px;padding:28px;">
+        ${metricsHtml}
+        ${ownerHtml}
+        ${scoreHtml}
+        ${findingsHtml}
+        ${recsHtml}
+        ${projectionsHtml}
+        <!-- Footer -->
+        <div style="border-top:1px solid #e2e8f0;padding-top:16px;text-align:center;font-size:11px;color:#94a3b8;">
+          Generated by E&amp;J Retreats · Powered by AirDNA market data<br>Projections are estimates and not guaranteed.
+        </div>
+      </div>
+    </td></tr>
+  </table>
+</body></html>`;
 }
 
 function fmt(n: number | null | undefined) {
@@ -212,7 +374,7 @@ const RECOMMENDATION_LABELS: Record<string, { label: string; color: string }> = 
   hybrid: { label: '⚖️ Hybrid STR + MTR Strategy',    color: 'bg-amber-50 text-amber-800 border-amber-200' },
 };
 
-export default function ReportOutput({ address, data, ownerActualRevenue, onSave, onBack, saving, saved, onRefine }: ReportOutputProps) {
+export default function ReportOutput({ address, data, ownerActualRevenue, onSave, onBack, saving, saved, onRefine, recipientEmail, recipientName }: ReportOutputProps) {
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const isMtr = data.reportType === 'mtr';
   const [refineOpen, setRefineOpen] = useState(false);
@@ -220,6 +382,38 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
   const [refining, setRefining] = useState(false);
   const [refineError, setRefineError] = useState('');
   const [refineSuccess, setRefineSuccess] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState(recipientEmail ?? '');
+  const [emailName, setEmailName] = useState(recipientName ?? '');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState('');
+
+  async function handleEmailReport() {
+    if (!emailTo.trim()) return;
+    setEmailSending(true);
+    setEmailError('');
+    try {
+      const res = await fetch('/api/send-newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'report',
+          to: emailTo.trim(),
+          toName: emailName.trim() || undefined,
+          reportSubject: `Your Revenue Analysis: ${data.reportTitle}`,
+          reportHtml: buildReportEmail(address, data, ownerActualRevenue),
+        }),
+      });
+      const result = await res.json();
+      if (result.error) throw new Error(result.error);
+      setEmailSent(true);
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : 'Failed to send email. Please try again.');
+    } finally {
+      setEmailSending(false);
+    }
+  }
 
   async function handleRefine() {
     if (!refineMsg.trim() || !onRefine) return;
@@ -247,12 +441,76 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           .print-section { break-inside: avoid; page-break-inside: avoid; }
         }
       `}</style>
+
+      {/* Email modal */}
+      {emailOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Mail size={16} className="text-teal-600" />
+                <h3 className="text-sm font-bold text-slate-900">Email Report</h3>
+              </div>
+              <button onClick={() => { setEmailOpen(false); setEmailSent(false); setEmailError(''); }} className="text-slate-400 hover:text-slate-600">
+                <X size={16} />
+              </button>
+            </div>
+            {emailSent ? (
+              <div className="text-center py-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
+                  <Send size={20} className="text-emerald-600" />
+                </div>
+                <p className="text-sm font-semibold text-slate-800">Report sent!</p>
+                <p className="text-xs text-slate-500 mt-1">Delivered to {emailTo}</p>
+                <button onClick={() => { setEmailOpen(false); setEmailSent(false); }} className="mt-4 text-sm text-teal-600 hover:underline">Close</button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Recipient Name</label>
+                  <input
+                    value={emailName}
+                    onChange={e => setEmailName(e.target.value)}
+                    placeholder="Jane Smith"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Email Address *</label>
+                  <input
+                    value={emailTo}
+                    onChange={e => setEmailTo(e.target.value)}
+                    placeholder="jane@example.com"
+                    type="email"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                {emailError && <p className="text-xs text-red-500">{emailError}</p>}
+                <button
+                  onClick={handleEmailReport}
+                  disabled={!emailTo.trim() || emailSending}
+                  className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+                >
+                  {emailSending ? <><Loader size={13} className="animate-spin" /> Sending...</> : <><Send size={13} /> Send Report</>}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Action bar */}
       <div className="flex items-center justify-between px-6 py-4 print:hidden">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-600 transition-colors">
           <ArrowLeft size={15} /> Back
         </button>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setEmailOpen(true); setEmailSent(false); setEmailError(''); setEmailTo(recipientEmail ?? ''); setEmailName(recipientName ?? ''); }}
+            className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors"
+          >
+            <Mail size={14} /> Email Report
+          </button>
           <button
             onClick={() => window.print()}
             className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors"

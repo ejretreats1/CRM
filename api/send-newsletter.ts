@@ -6,19 +6,47 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { subject, html, recipients } = req.body as {
-    subject: string;
-    html: string;
-    recipients: { email: string; name: string }[];
+  const body = req.body as {
+    action?: 'newsletter' | 'report';
+    // newsletter fields
+    subject?: string;
+    html?: string;
+    recipients?: { email: string; name: string }[];
+    // report email fields
+    to?: string;
+    toName?: string;
+    reportSubject?: string;
+    reportHtml?: string;
   };
 
+  const fromAddress = process.env.NEWSLETTER_FROM_EMAIL ?? 'E&J Retreats <hello@ejretreats.com>';
+
+  // ── SINGLE REPORT EMAIL ──────────────────────────────────────────────────
+  if (body.action === 'report') {
+    const { to, toName, reportSubject, reportHtml } = body;
+    if (!to || !reportSubject || !reportHtml) {
+      return res.status(400).json({ error: 'to, reportSubject, and reportHtml are required' });
+    }
+    try {
+      await resend.emails.send({
+        from: fromAddress,
+        to,
+        subject: reportSubject,
+        html: reportHtml,
+      });
+      return res.status(200).json({ sent: 1 });
+    } catch (err) {
+      console.error('Resend report email error:', err);
+      return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to send email' });
+    }
+  }
+
+  // ── NEWSLETTER BATCH ─────────────────────────────────────────────────────
+  const { subject, html, recipients } = body;
   if (!subject || !html || !recipients?.length) {
     return res.status(400).json({ error: 'subject, html, and recipients are required' });
   }
 
-  const fromAddress = process.env.NEWSLETTER_FROM_EMAIL ?? 'E&J Retreats <newsletter@ejretreats.com>';
-
-  // Resend batch limit is 100 per call — chunk if needed
   const chunkSize = 100;
   const chunks: typeof recipients[] = [];
   for (let i = 0; i < recipients.length; i += chunkSize) {
@@ -35,7 +63,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       subject,
       html,
     }));
-
     try {
       await resend.batch.send(batch);
       sent += chunk.length;

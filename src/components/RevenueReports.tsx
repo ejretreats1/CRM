@@ -145,6 +145,11 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
       setSaved(false);
     }
 
+    const pendingLead = pending.leadId ? leads.find(l => l.id === pending.leadId) : undefined;
+    const pendingOwner = pending.ownerId ? owners.find(o => o.id === pending.ownerId) : undefined;
+    const recipientEmail = pendingLead?.email || pendingOwner?.email;
+    const recipientName = pendingLead?.name || pendingOwner?.name;
+
     return (
       <ReportOutput
         address={pending.address}
@@ -156,6 +161,8 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
         onSave={handleSave}
         onBack={() => { setPageView('list'); setPending(null); }}
         onRefine={handleRefinePending}
+        recipientEmail={recipientEmail}
+        recipientName={recipientName}
       />
     );
   }
@@ -204,6 +211,9 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
       setReports(prev => prev.map(r => r.id === updated.id ? updated : r));
     }
 
+    const savedLead = report.leadId ? leads.find(l => l.id === report.leadId) : undefined;
+    const savedOwner = report.ownerId ? owners.find(o => o.id === report.ownerId) : undefined;
+
     return (
       <ReportOutput
         address={report.propertyAddress}
@@ -214,6 +224,8 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
         onSave={() => {}}
         onBack={() => { setPageView('list'); setViewingReport(null); }}
         onRefine={handleRefineSaved}
+        recipientEmail={savedLead?.email || savedOwner?.email}
+        recipientName={savedLead?.name || savedOwner?.name}
       />
     );
   }
