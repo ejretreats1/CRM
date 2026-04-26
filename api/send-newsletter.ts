@@ -20,6 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   const fromAddress = process.env.NEWSLETTER_FROM_EMAIL ?? 'E&J Retreats <hello@ejretreats.com>';
+  const replyTo = process.env.REPLY_TO_EMAIL;
 
   // ── SINGLE REPORT EMAIL ──────────────────────────────────────────────────
   if (body.action === 'report') {
@@ -33,6 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         to,
         subject: reportSubject,
         html: reportHtml,
+        ...(replyTo && { reply_to: replyTo }),
       });
       return res.status(200).json({ sent: 1 });
     } catch (err) {
@@ -62,6 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       to: r.email,
       subject,
       html,
+      ...(replyTo && { reply_to: replyTo }),
     }));
     try {
       await resend.batch.send(batch);
