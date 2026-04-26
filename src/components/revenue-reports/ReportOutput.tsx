@@ -72,7 +72,7 @@ interface ReportOutputProps {
   recipientName?: string;
 }
 
-function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?: number): string {
+function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?: number, personalNote?: string, firstName?: string): string {
   const isMtr = data.reportType === 'mtr';
   const headerBg = isMtr ? '#3730a3' : '#0f766e';
   const accentColor = isMtr ? '#4f46e5' : '#0f766e';
@@ -216,6 +216,11 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
       </div>
       <!-- Body -->
       <div style="background:#ffffff;border-radius:0 0 12px 12px;padding:28px;">
+        ${(personalNote?.trim() || firstName) ? `
+        <div style="margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #e2e8f0;">
+          ${firstName ? `<div style="font-size:14px;color:#1e293b;margin-bottom:8px;">Hi ${firstName},</div>` : ''}
+          ${personalNote?.trim() ? `<div style="font-size:14px;color:#475569;line-height:1.6;white-space:pre-wrap;">${personalNote.trim()}</div>` : ''}
+        </div>` : ''}
         ${metricsHtml}
         ${ownerHtml}
         ${scoreHtml}
@@ -385,9 +390,24 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailTo, setEmailTo] = useState(recipientEmail ?? '');
   const [emailName, setEmailName] = useState(recipientName ?? '');
+  const [emailSubject, setEmailSubject] = useState(`Your Revenue Analysis: ${data.reportTitle}`);
+  const [personalNote, setPersonalNote] = useState('');
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState('');
+
+  const firstName = emailName.trim().split(' ')[0] || undefined;
+  const previewHtml = buildReportEmail(address, data, ownerActualRevenue, personalNote, firstName);
+
+  function openEmailModal() {
+    setEmailTo(recipientEmail ?? '');
+    setEmailName(recipientName ?? '');
+    setEmailSubject(`Your Revenue Analysis: ${data.reportTitle}`);
+    setPersonalNote('');
+    setEmailSent(false);
+    setEmailError('');
+    setEmailOpen(true);
+  }
 
   async function handleEmailReport() {
     if (!emailTo.trim()) return;
@@ -401,8 +421,8 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           action: 'report',
           to: emailTo.trim(),
           toName: emailName.trim() || undefined,
-          reportSubject: `Your Revenue Analysis: ${data.reportTitle}`,
-          reportHtml: buildReportEmail(address, data, ownerActualRevenue),
+          reportSubject: emailSubject.trim() || `Your Revenue Analysis: ${data.reportTitle}`,
+          reportHtml: previewHtml,
         }),
       });
       const result = await res.json();
@@ -442,32 +462,34 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
         }
       `}</style>
 
-      {/* Email modal */}
+      {/* Email modal — two-panel: compose left, live preview right */}
       {emailOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 print:hidden">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
+        <div className="fixed inset-0 z-50 flex bg-black/50 print:hidden">
+          {/* Left: compose */}
+          <div className="w-80 flex-shrink-0 bg-white flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <Mail size={16} className="text-teal-600" />
+                <Mail size={15} className="text-teal-600" />
                 <h3 className="text-sm font-bold text-slate-900">Email Report</h3>
               </div>
-              <button onClick={() => { setEmailOpen(false); setEmailSent(false); setEmailError(''); }} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setEmailOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={16} />
               </button>
             </div>
+
             {emailSent ? (
-              <div className="text-center py-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
-                  <Send size={20} className="text-emerald-600" />
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
+                  <Send size={22} className="text-emerald-600" />
                 </div>
-                <p className="text-sm font-semibold text-slate-800">Report sent!</p>
+                <p className="text-sm font-bold text-slate-800">Sent!</p>
                 <p className="text-xs text-slate-500 mt-1">Delivered to {emailTo}</p>
-                <button onClick={() => { setEmailOpen(false); setEmailSent(false); }} className="mt-4 text-sm text-teal-600 hover:underline">Close</button>
+                <button onClick={() => setEmailOpen(false)} className="mt-5 text-sm bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors">Close</button>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Recipient Name</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Recipient Name</label>
                   <input
                     value={emailName}
                     onChange={e => setEmailName(e.target.value)}
@@ -476,7 +498,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Email Address *</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Email Address *</label>
                   <input
                     value={emailTo}
                     onChange={e => setEmailTo(e.target.value)}
@@ -485,16 +507,54 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Subject</label>
+                  <input
+                    value={emailSubject}
+                    onChange={e => setEmailSubject(e.target.value)}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Personal Note <span className="text-slate-400 font-normal">(appears at top of email)</span></label>
+                  <textarea
+                    value={personalNote}
+                    onChange={e => setPersonalNote(e.target.value)}
+                    rows={5}
+                    placeholder={`Hi ${firstName ?? '[Name]'},\n\nBased on our conversation, here is your personalized revenue analysis...`}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">The full report follows automatically below your note.</p>
+                </div>
                 {emailError && <p className="text-xs text-red-500">{emailError}</p>}
+              </div>
+            )}
+
+            {!emailSent && (
+              <div className="p-5 border-t border-slate-100">
                 <button
                   onClick={handleEmailReport}
                   disabled={!emailTo.trim() || emailSending}
-                  className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+                  className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
                 >
                   {emailSending ? <><Loader size={13} className="animate-spin" /> Sending...</> : <><Send size={13} /> Send Report</>}
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Right: live preview */}
+          <div className="flex-1 flex flex-col bg-slate-100">
+            <div className="px-4 py-3 bg-slate-200 border-b border-slate-300 flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Preview</span>
+              <span className="text-xs text-slate-400">— updates as you type</span>
+            </div>
+            <iframe
+              srcDoc={previewHtml}
+              sandbox="allow-same-origin"
+              className="flex-1 w-full border-none"
+              title="Email preview"
+            />
           </div>
         </div>
       )}
@@ -506,7 +566,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
         </button>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => { setEmailOpen(true); setEmailSent(false); setEmailError(''); setEmailTo(recipientEmail ?? ''); setEmailName(recipientName ?? ''); }}
+            onClick={openEmailModal}
             className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors"
           >
             <Mail size={14} /> Email Report
