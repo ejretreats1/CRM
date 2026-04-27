@@ -639,11 +639,11 @@ export default function OwnerDetail({
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Revenue Report */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <OwnerRevenueReport owner={owner} reservations={reservations} />
-        </div>
+      {/* Revenue Report */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <OwnerRevenueReport owner={owner} reservations={reservations} />
       </div>
     </div>
     {showSigModal && (

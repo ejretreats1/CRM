@@ -149,7 +149,7 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
   const hasUplisting = ownerListingIds.size > 0;
 
   return (
-    <div className="mt-6">
+    <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold text-slate-800">Revenue Report</h2>
         {filtered.length > 0 && (
