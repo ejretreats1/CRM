@@ -27,6 +27,8 @@ export interface UplistingReservation {
   check_in: string;
   check_out: string;
   total_price: number;
+  accommodation_total?: number;
+  cleaning_fee?: number;
   status: string;
   channel?: string;
   nights?: number;
@@ -115,16 +117,21 @@ function normalizeProperty(p: any): UplistingProperty {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeReservation(r: any): UplistingReservation {
+  const a = r.attributes ?? r; // handle JSON:API format
   return {
-    id: String(r.id ?? ''),
-    listing_id: String(r.property_id ?? r.listing_id ?? ''),
-    guest_name: r.guest_name ?? 'Guest',
-    check_in: r.check_in ?? '',
-    check_out: r.check_out ?? '',
-    total_price: Number(r.total_payout ?? r.accomodation_total ?? r.total_price ?? 0),
-    status: r.status ?? 'confirmed',
-    channel: r.channel ?? '',
-    nights: Number(r.number_of_nights ?? r.nights ?? 0),
+    id: String(r.id ?? a.id ?? ''),
+    listing_id: String(a.property_id ?? a.listing_id ?? r.property_id ?? ''),
+    guest_name: a.guest_name ?? a.guest?.name ?? 'Guest',
+    check_in: a.check_in ?? a.start_date ?? '',
+    check_out: a.check_out ?? a.end_date ?? '',
+    total_price: Number(a.total_payout ?? a.host_payout ?? a.total_price ?? 0),
+    accommodation_total: a.accommodation_total ?? a.accomodation_total != null
+      ? Number(a.accommodation_total ?? a.accomodation_total)
+      : undefined,
+    cleaning_fee: a.cleaning_fee != null ? Number(a.cleaning_fee) : undefined,
+    status: a.status ?? 'confirmed',
+    channel: a.channel ?? a.source ?? '',
+    nights: Number(a.number_of_nights ?? a.nights ?? 0),
   };
 }
 

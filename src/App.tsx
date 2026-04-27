@@ -390,6 +390,7 @@ export default function App() {
           onAddOutreach={() => setModal({ type: 'outreach', preselectedOwnerId: selectedOwner.id })}
           uplistingApiKey={uplistingApiKey || undefined}
           onImportProperties={(properties) => importPropertiesHandler(selectedOwner.id, properties)}
+          reservations={uplistingReservations}
         />
       )}
 

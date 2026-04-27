@@ -13,6 +13,7 @@ import type { OwnerDocument } from '../services/ownerDocuments';
 import { fetchOwnerDriveLinks, saveOwnerDriveLink, deleteOwnerDriveLink } from '../services/ownerDriveLinks';
 import type { OwnerDriveLink } from '../services/ownerDriveLinks';
 import { fetchRevenueReportsByOwner } from '../services/revenueReports';
+import OwnerRevenueReport from './OwnerRevenueReport';
 import SignatureRequestModal from './modals/SignatureRequestModal';
 import DrivePickerModal from './modals/DrivePickerModal';
 import type { PickedDriveFile } from './modals/DrivePickerModal';
@@ -28,6 +29,7 @@ interface OwnerDetailProps {
   onAddOutreach: () => void;
   uplistingApiKey?: string;
   onImportProperties: (properties: Property[]) => Promise<void>;
+  reservations?: import('../services/uplisting').UplistingReservation[];
 }
 
 const CHANNEL_MAP: Record<string, string> = {
@@ -68,7 +70,7 @@ function formatBytes(bytes: number): string {
 
 export default function OwnerDetail({
   owner, outreach, onBack, onEdit, onAddProperty, onEditProperty, onDeleteProperty, onAddOutreach,
-  uplistingApiKey, onImportProperties,
+  uplistingApiKey, onImportProperties, reservations = [],
 }: OwnerDetailProps) {
   const [sigRequests, setSigRequests] = useState<SignatureRequest[]>([]);
   const [showSigModal, setShowSigModal] = useState(false);
@@ -636,6 +638,11 @@ export default function OwnerDetail({
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Revenue Report */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <OwnerRevenueReport owner={owner} reservations={reservations} />
         </div>
       </div>
     </div>
