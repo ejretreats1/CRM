@@ -140,14 +140,16 @@ export function estimateMonthlyRevenue(
   propertyId: string,
   reservations: UplistingReservation[]
 ): number {
+  const today = new Date();
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 30);
+  cutoff.setDate(today.getDate() - 30);
   return reservations
     .filter(
       (r) =>
         r.listing_id === propertyId &&
         r.status !== 'cancelled' &&
-        new Date(r.check_out) >= cutoff
+        new Date(r.check_out) >= cutoff &&
+        new Date(r.check_in) <= today
     )
     .reduce((sum, r) => sum + r.total_price, 0);
 }
@@ -157,14 +159,16 @@ export function estimateOccupancy(
   propertyId: string,
   reservations: UplistingReservation[]
 ): number {
+  const today = new Date();
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 30);
+  cutoff.setDate(today.getDate() - 30);
   const bookedNights = reservations
     .filter(
       (r) =>
         r.listing_id === propertyId &&
         r.status !== 'cancelled' &&
-        new Date(r.check_out) >= cutoff
+        new Date(r.check_out) >= cutoff &&
+        new Date(r.check_in) <= today
     )
     .reduce((sum, r) => sum + (r.nights || 1), 0);
   return Math.min(100, Math.round((bookedNights / 30) * 100));
