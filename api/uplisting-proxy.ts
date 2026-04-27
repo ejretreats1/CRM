@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const BASE_URL = 'https://api.uplisting.io/v1';
+const BASE_URL = 'https://connect.uplisting.io';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -22,7 +22,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const query = params.toString() ? `?${params}` : '';
 
   const cleanKey = apiKey.trim();
-  const authHeader = `Bearer ${cleanKey}`;
+  const encoded = Buffer.from(cleanKey).toString('base64');
+  const authHeader = `Basic ${encoded}`;
   const upstreamUrl = `${BASE_URL}/${path}${query}`;
 
   const upstream = await fetch(upstreamUrl, {
@@ -41,10 +42,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       _debug: {
         url: upstreamUrl,
         keyLength: cleanKey.length,
-        authHeaderPreview: `Bearer ${cleanKey.slice(0, 6)}...`,
+        authHeaderPreview: `Basic base64(${cleanKey.slice(0, 6)}...)`,
       },
     });
   }
 
   res.status(upstream.status).setHeader('Content-Type', 'application/json').send(body);
 }
+

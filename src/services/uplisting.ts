@@ -53,8 +53,8 @@ async function apiFetch(path: string, apiKey: string, params?: Record<string, st
 
 export async function testConnection(apiKey: string): Promise<UplistingConnectionResult> {
   try {
-    const data = await apiFetch('listings', apiKey);
-    const properties: UplistingProperty[] = (data?.data ?? data ?? []).map(normalizeProperty);
+    const data = await apiFetch('properties', apiKey);
+    const properties: UplistingProperty[] = (data?.properties ?? data?.data ?? data ?? []).map(normalizeProperty);
     return { ok: true, properties };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -62,8 +62,8 @@ export async function testConnection(apiKey: string): Promise<UplistingConnectio
 }
 
 export async function fetchProperties(apiKey: string): Promise<UplistingProperty[]> {
-  const data = await apiFetch('listings', apiKey);
-  return (data?.data ?? data ?? []).map(normalizeProperty);
+  const data = await apiFetch('properties', apiKey);
+  return (data?.properties ?? data?.data ?? data ?? []).map(normalizeProperty);
 }
 
 export async function fetchReservations(
@@ -72,10 +72,21 @@ export async function fetchReservations(
   to?: string
 ): Promise<UplistingReservation[]> {
   const params: Record<string, string> = {};
-  if (from) params.start_date = from;
-  if (to) params.end_date = to;
-  const data = await apiFetch('reservations', apiKey, params);
-  return (data?.data ?? data ?? []).map(normalizeReservation);
+  if (from) params.from = from;
+  if (to) params.to = to;
+  // bookings endpoint requires a listing_id; fetch all properties first and aggregate
+  const properties = await fetchProperties(apiKey);
+  const allBookings: UplistingReservation[] = [];
+  for (const prop of properties) {
+    try {
+      const data = await apiFetch(`bookings/${prop.id}`, apiKey, params);
+      const bookings = (data?.bookings ?? data?.data ?? data ?? []).map(normalizeReservation);
+      allBookings.push(...bookings);
+    } catch {
+      // skip properties that fail
+    }
+  }
+  return allBookings;
 }
 
 // Normalise Uplisting response shapes into our expected structure
@@ -99,15 +110,15 @@ function normalizeProperty(p: any): UplistingProperty {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeReservation(r: any): UplistingReservation {
   return {
-    id: String(r.id ?? r.reservation_id ?? ''),
-    listing_id: String(r.listing_id ?? r.property_id ?? ''),
-    guest_name: r.guest_name ?? r.guest?.name ?? r.guest?.full_name ?? 'Guest',
-    check_in: r.check_in ?? r.arrival ?? r.start_date ?? '',
-    check_out: r.check_out ?? r.departure ?? r.end_date ?? '',
-    total_price: Number(r.total_price ?? r.price ?? r.amount ?? 0),
+    id: String(r.id ?? ''),
+    listing_id: String(r.property_id ?? r.listing_id ?? ''),
+    guest_name: r.guest_name ?? 'Guest',
+    check_in: r.check_in ?? '',
+    check_out: r.check_out ?? '',
+    total_price: Number(r.total_payout ?? r.accomodation_total ?? r.total_price ?? 0),
     status: r.status ?? 'confirmed',
-    channel: r.channel ?? r.source ?? '',
-    nights: Number(r.nights ?? r.duration ?? 0),
+    channel: r.channel ?? '',
+    nights: Number(r.number_of_nights ?? r.nights ?? 0),
   };
 }
 
