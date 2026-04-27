@@ -126,6 +126,11 @@ export default function App() {
     }
   }, [uplistingApiKey, setUplistingProperties, setUplistingReservations, setLastSync]);
 
+  useEffect(() => {
+    if (!uplistingApiKey) return;
+    handleSync();
+  }, [uplistingApiKey, handleSync]);
+
   // ── Settings handlers (save to Supabase + update local state) ─────────────
   const handleSaveApiKey = async (key: string) => {
     setUplistingApiKey(key);
