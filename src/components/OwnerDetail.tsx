@@ -177,7 +177,7 @@ export default function OwnerDetail({
     try {
       const props = await fetchProperties(uplistingApiKey);
       setUplistingProps(props);
-      setSelectedIds(new Set(props.map(p => p.id)));
+      setSelectedIds(new Set());
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Failed to fetch Uplisting properties');
     } finally {
