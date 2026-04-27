@@ -79,8 +79,8 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
   const barColor = isMtr ? '#4f46e5' : '#0f766e';
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-  const fmtN = (n: number | null | undefined) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`;
-  const fmtP = (n: number | null | undefined) => n == null ? '—' : `${Math.round(n)}%`;
+  const fmtN = (n: number | null | undefined) => n == null ? '' : `$${Math.round(n).toLocaleString()}`;
+  const fmtP = (n: number | null | undefined) => n == null ? '' : `${Math.round(n)}%`;
   const scoreColor = data.opportunityScore >= 7 ? '#059669' : data.opportunityScore >= 4 ? '#d97706' : '#dc2626';
 
   const sectionTitle = (t: string) => `<div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">${t}</div>`;
@@ -123,7 +123,7 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
         <td style="text-align:center;"><div style="font-size:10px;color:#64748b;">${isMtr?'MTR':'AirDNA'} Projected</div><div style="font-size:20px;font-weight:900;color:${accentColor};">${fmtN(projected)}</div></td>
       </tr></table>
       <div style="margin-top:10px;padding:8px 12px;background:${isBelow?'#fef2f2':'#f0fdf4'};border-radius:6px;font-size:12px;font-weight:700;color:${isBelow?'#b91c1c':'#166534'};">
-        ${isBelow?`$${Math.round(gap).toLocaleString()} below market (${pct}% gap)`:`$${Math.round(Math.abs(gap)).toLocaleString()} above market — outperforming!`}
+        ${isBelow?`$${Math.round(gap).toLocaleString()} below market (${pct}% gap)`:`$${Math.round(Math.abs(gap)).toLocaleString()} above market - outperforming!`}
       </div></div>`;
   })() : '';
 
@@ -193,10 +193,10 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
         </tr>
         ${data.comparables.map((c,i)=>`
           <tr style="background:${i%2===0?'#ffffff':'#f8fafc'};">
-            <td style="padding:8px 12px;font-size:12px;color:#334155;font-weight:600;">${c.bedrooms!=null?`${c.bedrooms} BR`:'—'}</td>
-            <td style="padding:8px 12px;font-size:12px;color:${accentColor};font-weight:700;text-align:right;">${c.annualRevenue!=null?`$${Math.round(c.annualRevenue).toLocaleString()}`:'—'}</td>
-            <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:right;">${c.occupancyRate!=null?`${Math.round(c.occupancyRate)}%`:'—'}</td>
-            <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:right;">${c.adr!=null?`$${Math.round(c.adr)}`:'—'}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#334155;font-weight:600;">${c.bedrooms!=null?`${c.bedrooms} BR`:''}</td>
+            <td style="padding:8px 12px;font-size:12px;color:${accentColor};font-weight:700;text-align:right;">${c.annualRevenue!=null?`$${Math.round(c.annualRevenue).toLocaleString()}`:''}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:right;">${c.occupancyRate!=null?`${Math.round(c.occupancyRate)}%`:''}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:right;">${c.adr!=null?`$${Math.round(c.adr)}`:''}</td>
           </tr>`).join('')}
       </table>
       <div style="font-size:9px;color:#94a3b8;text-align:right;margin-top:4px;">Source: AirDNA comparable listings</div>
@@ -315,12 +315,12 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
 
 
 function fmt(n: number | null | undefined) {
-  if (n == null) return '—';
+  if (n == null) return '';
   return `$${Math.round(n).toLocaleString()}`;
 }
 
 function fmtPct(n: number | null | undefined) {
-  if (n == null) return '—';
+  if (n == null) return '';
   return `${Math.round(n)}%`;
 }
 
@@ -352,7 +352,7 @@ function GapBadge({ projected, actual }: { projected: number | null; actual: num
   if (gap < 0) return (
     <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
       <TrendingUp size={14} className="text-emerald-600" />
-      <span className="text-sm font-semibold text-emerald-700">${Math.round(Math.abs(gap)).toLocaleString()} above market — outperforming!</span>
+      <span className="text-sm font-semibold text-emerald-700">${Math.round(Math.abs(gap)).toLocaleString()} above market - outperforming!</span>
     </div>
   );
   return (
@@ -436,10 +436,10 @@ function ComparablesTable({ comps }: { comps: CompData[] }) {
           <tbody className="divide-y divide-slate-100">
             {comps.map((c, i) => (
               <tr key={i} className="bg-white">
-                <td className="px-4 py-2.5 text-slate-700 font-medium">{c.bedrooms != null ? `${c.bedrooms} BR` : '—'}</td>
-                <td className="px-4 py-2.5 text-right font-semibold text-teal-700">{c.annualRevenue != null ? `$${Math.round(c.annualRevenue).toLocaleString()}` : '—'}</td>
-                <td className="px-4 py-2.5 text-right text-slate-600">{c.occupancyRate != null ? `${Math.round(c.occupancyRate)}%` : '—'}</td>
-                <td className="px-4 py-2.5 text-right text-slate-600">{c.adr != null ? `$${Math.round(c.adr)}` : '—'}</td>
+                <td className="px-4 py-2.5 text-slate-700 font-medium">{c.bedrooms != null ? `${c.bedrooms} BR` : ''}</td>
+                <td className="px-4 py-2.5 text-right font-semibold text-teal-700">{c.annualRevenue != null ? `$${Math.round(c.annualRevenue).toLocaleString()}` : ''}</td>
+                <td className="px-4 py-2.5 text-right text-slate-600">{c.occupancyRate != null ? `${Math.round(c.occupancyRate)}%` : ''}</td>
+                <td className="px-4 py-2.5 text-right text-slate-600">{c.adr != null ? `$${Math.round(c.adr)}` : ''}</td>
               </tr>
             ))}
           </tbody>
