@@ -76,165 +76,243 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
   const isMtr = data.reportType === 'mtr';
   const headerBg = isMtr ? '#3730a3' : '#0f766e';
   const accentColor = isMtr ? '#4f46e5' : '#0f766e';
+  const barColor = isMtr ? '#4f46e5' : '#0f766e';
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const fmtN = (n: number | null | undefined) => n == null ? '—' : `$${Math.round(n).toLocaleString()}`;
   const fmtP = (n: number | null | undefined) => n == null ? '—' : `${Math.round(n)}%`;
-
   const scoreColor = data.opportunityScore >= 7 ? '#059669' : data.opportunityScore >= 4 ? '#d97706' : '#dc2626';
 
+  const sectionTitle = (t: string) => `<div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">${t}</div>`;
+
+  // ── Metrics ──────────────────────────────────────────────────────────────
   let metricsHtml = '';
   if (!isMtr && data.extracted) {
     metricsHtml = `
-      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
-        <tr>
-          ${[
-            ['Projected Annual', fmtN(data.extracted.projectedAnnualRevenue)],
-            ['Occupancy Rate', fmtP(data.extracted.occupancyRate)],
-            ['Avg Daily Rate', fmtN(data.extracted.adr)],
-            ['RevPAR', fmtN(data.extracted.revpar)],
-          ].map(([label, val]) => `
-            <td width="25%" style="padding:4px;">
-              <div style="background:#f8fafc;border-radius:8px;padding:14px;text-align:center;">
-                <div style="font-size:20px;font-weight:900;color:${accentColor};">${val}</div>
-                <div style="font-size:11px;font-weight:600;color:#334155;margin-top:2px;">${label}</div>
-                <div style="font-size:10px;color:#94a3b8;">per AirDNA</div>
-              </div>
-            </td>`).join('')}
-        </tr>
-      </table>`;
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;"><tr>
+        ${[['Projected Annual', fmtN(data.extracted.projectedAnnualRevenue)],['Occupancy Rate', fmtP(data.extracted.occupancyRate)],['Avg Daily Rate', fmtN(data.extracted.adr)],['RevPAR', fmtN(data.extracted.revpar)]].map(([l,v])=>`
+          <td width="25%" style="padding:4px;"><div style="background:#f8fafc;border-radius:8px;padding:12px;text-align:center;">
+            <div style="font-size:18px;font-weight:900;color:${accentColor};">${v}</div>
+            <div style="font-size:10px;font-weight:600;color:#334155;margin-top:2px;">${l}</div>
+            <div style="font-size:9px;color:#94a3b8;">per AirDNA</div>
+          </div></td>`).join('')}
+      </tr></table>`;
   } else if (isMtr && data.mtrProjected) {
     metricsHtml = `
-      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
-        <tr>
-          ${[
-            ['Est. Monthly Rent', fmtN(data.mtrProjected.monthlyRent), true],
-            ['Est. Annual Revenue', fmtN(data.mtrProjected.annualRevenue), true],
-            ['Expected Occupancy', fmtP(data.mtrProjected.occupancyRate), false],
-          ].map(([label, val, accent]) => `
-            <td width="33%" style="padding:4px;">
-              <div style="background:${accent ? '#eef2ff' : '#f8fafc'};border-radius:8px;padding:14px;text-align:center;">
-                <div style="font-size:20px;font-weight:900;color:${accent ? '#4338ca' : '#334155'};">${val}</div>
-                <div style="font-size:11px;font-weight:600;color:#334155;margin-top:2px;">${label}</div>
-              </div>
-            </td>`).join('')}
-        </tr>
-      </table>`;
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;"><tr>
+        ${[['Est. Monthly Rent', fmtN(data.mtrProjected.monthlyRent), true],['Est. Annual Revenue', fmtN(data.mtrProjected.annualRevenue), true],['Expected Occupancy', fmtP(data.mtrProjected.occupancyRate), false]].map(([l,v,a])=>`
+          <td width="33%" style="padding:4px;"><div style="background:${a?'#eef2ff':'#f8fafc'};border-radius:8px;padding:12px;text-align:center;">
+            <div style="font-size:18px;font-weight:900;color:${a?'#4338ca':'#334155'};">${v}</div>
+            <div style="font-size:10px;font-weight:600;color:#334155;margin-top:2px;">${l}</div>
+          </div></td>`).join('')}
+      </tr></table>`;
   }
 
-  const scoreHtml = `
-    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
-      <tr>
-        <td width="30%" valign="top" style="padding-right:12px;">
-          <div style="background:#f8fafc;border-radius:8px;padding:16px;text-align:center;">
-            <div style="font-size:36px;font-weight:900;color:${scoreColor};">${data.opportunityScore}<span style="font-size:16px;color:#94a3b8;">/10</span></div>
-            <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Opportunity Score</div>
-          </div>
-        </td>
-        <td width="70%" valign="top">
-          <div style="background:#f8fafc;border-radius:8px;padding:16px;">
-            <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:6px;">Executive Summary</div>
-            <div style="font-size:13px;color:#475569;line-height:1.6;">${data.executiveSummary}</div>
-          </div>
-        </td>
-      </tr>
-    </table>`;
-
-  const findingsHtml = data.keyFindings.length > 0 ? `
-    <div style="margin-bottom:24px;">
-      <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">Key Findings</div>
-      ${data.keyFindings.map((f, i) => `
-        <div style="display:flex;gap:10px;margin-bottom:8px;font-size:13px;color:#475569;">
-          <span style="min-width:22px;height:22px;background:${accentColor}1a;color:${accentColor};border-radius:50%;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${i + 1}</span>
-          <span>${f}</span>
-        </div>`).join('')}
-    </div>` : '';
-
-  const recsHtml = data.recommendations.length > 0 ? `
-    <div style="margin-bottom:24px;">
-      <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">Recommendations</div>
-      ${data.recommendations.map((r, i) => `
-        <div style="margin-bottom:10px;padding:12px;background:#f8fafc;border-radius:8px;">
-          <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:3px;">${i + 1}. ${r.title}</div>
-          <div style="font-size:12px;color:#64748b;line-height:1.5;">${r.description}</div>
-        </div>`).join('')}
-    </div>` : '';
-
-  const projectionsHtml = !isMtr && data.revenueProjections ? `
-    <div style="margin-bottom:24px;">
-      <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">Revenue Projections with E&amp;J Retreats</div>
-      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-        <tr>
-          ${[
-            ['Conservative', data.revenueProjections.conservative, '#f8fafc', '#334155'],
-            ['Realistic', data.revenueProjections.realistic, '#f0fdfa', '#0f766e'],
-            ['Optimistic', data.revenueProjections.optimistic, '#f0fdf4', '#166534'],
-          ].map(([label, val, bg, color]) => `
-            <td width="33%" style="padding:4px;">
-              <div style="background:${bg};border-radius:8px;padding:12px;text-align:center;">
-                <div style="font-size:18px;font-weight:900;color:${color};">${fmtN(val as number)}</div>
-                <div style="font-size:11px;color:#64748b;margin-top:2px;">${label}</div>
-              </div>
-            </td>`).join('')}
-        </tr>
-      </table>
-    </div>` : '';
-
+  // ── Owner vs Market ───────────────────────────────────────────────────────
   const ownerHtml = ownerActualRevenue != null ? (() => {
     const projected = !isMtr ? data.extracted?.projectedAnnualRevenue : data.mtrProjected?.annualRevenue;
     if (!projected) return '';
     const gap = projected - ownerActualRevenue;
     const pct = Math.abs(Math.round((gap / projected) * 100));
     const isBelow = gap > 0;
-    return `
-      <div style="margin-bottom:24px;background:#f8fafc;border-radius:8px;padding:16px;">
-        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">Owner vs. Market</div>
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td style="text-align:center;"><div style="font-size:11px;color:#64748b;">Owner Reported</div><div style="font-size:22px;font-weight:900;color:#1e293b;">${fmtN(ownerActualRevenue)}</div></td>
-            <td style="text-align:center;color:#cbd5e1;font-size:20px;">vs</td>
-            <td style="text-align:center;"><div style="font-size:11px;color:#64748b;">${isMtr ? 'MTR' : 'AirDNA'} Projected</div><div style="font-size:22px;font-weight:900;color:${accentColor};">${fmtN(projected)}</div></td>
-          </tr>
-        </table>
-        <div style="margin-top:10px;padding:8px 12px;background:${isBelow ? '#fef2f2' : '#f0fdf4'};border-radius:6px;font-size:12px;font-weight:700;color:${isBelow ? '#b91c1c' : '#166534'};">
-          ${isBelow ? `$${Math.round(gap).toLocaleString()} below market (${pct}% gap)` : `$${Math.round(Math.abs(gap)).toLocaleString()} above market — outperforming!`}
-        </div>
-      </div>`;
+    return `<div style="margin-bottom:24px;background:#f8fafc;border-radius:8px;padding:16px;">
+      ${sectionTitle('Owner vs. Market')}
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="text-align:center;"><div style="font-size:10px;color:#64748b;">Owner Reported</div><div style="font-size:20px;font-weight:900;color:#1e293b;">${fmtN(ownerActualRevenue)}</div></td>
+        <td style="text-align:center;color:#cbd5e1;font-size:18px;">vs</td>
+        <td style="text-align:center;"><div style="font-size:10px;color:#64748b;">${isMtr?'MTR':'AirDNA'} Projected</div><div style="font-size:20px;font-weight:900;color:${accentColor};">${fmtN(projected)}</div></td>
+      </tr></table>
+      <div style="margin-top:10px;padding:8px 12px;background:${isBelow?'#fef2f2':'#f0fdf4'};border-radius:6px;font-size:12px;font-weight:700;color:${isBelow?'#b91c1c':'#166534'};">
+        ${isBelow?`$${Math.round(gap).toLocaleString()} below market (${pct}% gap)`:`$${Math.round(Math.abs(gap)).toLocaleString()} above market — outperforming!`}
+      </div></div>`;
   })() : '';
+
+  // ── Score + Summary ───────────────────────────────────────────────────────
+  const scoreHtml = `
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;"><tr>
+      <td width="28%" valign="top" style="padding-right:12px;">
+        <div style="background:#f8fafc;border-radius:8px;padding:16px;text-align:center;">
+          <div style="font-size:34px;font-weight:900;color:${scoreColor};">${data.opportunityScore}<span style="font-size:14px;color:#94a3b8;">/10</span></div>
+          <div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">Opportunity Score</div>
+        </div>
+      </td>
+      <td width="72%" valign="top">
+        <div style="background:#f8fafc;border-radius:8px;padding:16px;">
+          <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:6px;">Executive Summary</div>
+          <div style="font-size:12px;color:#475569;line-height:1.6;">${data.executiveSummary}</div>
+        </div>
+      </td>
+    </tr></table>`;
+
+  // ── Key Findings ──────────────────────────────────────────────────────────
+  const findingsHtml = data.keyFindings.length > 0 ? `
+    <div style="margin-bottom:24px;">
+      ${sectionTitle('Key Findings')}
+      ${data.keyFindings.map((f,i)=>`
+        <table cellpadding="0" cellspacing="0" style="margin-bottom:8px;width:100%;"><tr>
+          <td width="24" valign="top"><div style="width:20px;height:20px;background:${accentColor}22;border-radius:50%;text-align:center;font-size:10px;font-weight:700;color:${accentColor};line-height:20px;">${i+1}</div></td>
+          <td style="font-size:12px;color:#475569;line-height:1.5;padding-left:8px;">${f}</td>
+        </tr></table>`).join('')}
+    </div>` : '';
+
+  // ── Seasonality Chart (HTML table bars — email-safe, no SVG) ─────────────
+  const seasonalityHtml = data.monthlySeasonality && data.monthlySeasonality.length > 0 ? (() => {
+    const months = data.monthlySeasonality!;
+    const maxRev = Math.max(...months.map(m => m.revenue ?? 0), 1);
+    const CHART_H = 80;
+    return `<div style="margin-bottom:24px;">
+      ${sectionTitle('Monthly Seasonality')}
+      <div style="background:#f8fafc;border-radius:8px;padding:12px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+          <tr>${months.map(m => {
+            const barH = Math.max(4, Math.round(((m.revenue ?? 0) / maxRev) * CHART_H));
+            const emptyH = CHART_H - barH;
+            const occ = m.occupancy != null ? `${Math.round(m.occupancy)}%` : '';
+            return `<td style="text-align:center;vertical-align:bottom;padding:0 1px;">
+              <div style="font-size:8px;color:${barColor};font-weight:700;margin-bottom:2px;">${occ}</div>
+              <div style="height:${emptyH}px;"></div>
+              <div style="height:${barH}px;background:${barColor};border-radius:2px 2px 0 0;"></div>
+              <div style="font-size:9px;color:#64748b;margin-top:3px;">${m.month.slice(0,3)}</div>
+            </td>`;
+          }).join('')}</tr>
+        </table>
+        <div style="font-size:9px;color:#94a3b8;text-align:right;margin-top:4px;">Occupancy % shown above bars · Revenue per month</div>
+      </div></div>`;
+  })() : '';
+
+  // ── Comparable Properties ─────────────────────────────────────────────────
+  const comparablesHtml = data.comparables && data.comparables.length > 0 ? `
+    <div style="margin-bottom:24px;">
+      ${sectionTitle('Comparable Properties')}
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;">
+        <tr style="background:#f1f5f9;">
+          <td style="padding:8px 12px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Beds</td>
+          <td style="padding:8px 12px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;text-align:right;">Annual Rev</td>
+          <td style="padding:8px 12px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;text-align:right;">Occupancy</td>
+          <td style="padding:8px 12px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;text-align:right;">ADR</td>
+        </tr>
+        ${data.comparables.map((c,i)=>`
+          <tr style="background:${i%2===0?'#ffffff':'#f8fafc'};">
+            <td style="padding:8px 12px;font-size:12px;color:#334155;font-weight:600;">${c.bedrooms!=null?`${c.bedrooms} BR`:'—'}</td>
+            <td style="padding:8px 12px;font-size:12px;color:${accentColor};font-weight:700;text-align:right;">${c.annualRevenue!=null?`$${Math.round(c.annualRevenue).toLocaleString()}`:'—'}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:right;">${c.occupancyRate!=null?`${Math.round(c.occupancyRate)}%`:'—'}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:right;">${c.adr!=null?`$${Math.round(c.adr)}`:'—'}</td>
+          </tr>`).join('')}
+      </table>
+      <div style="font-size:9px;color:#94a3b8;text-align:right;margin-top:4px;">Source: AirDNA comparable listings</div>
+    </div>` : '';
+
+  // ── Market Opportunity ────────────────────────────────────────────────────
+  const marketHtml = data.marketOpportunity ? `
+    <div style="margin-bottom:24px;">
+      ${sectionTitle('Market Opportunity')}
+      <div style="font-size:12px;color:#475569;line-height:1.6;">${data.marketOpportunity}</div>
+    </div>` : '';
+
+  // ── Performance Gap ───────────────────────────────────────────────────────
+  const gapHtml = data.performanceGap ? `
+    <div style="margin-bottom:24px;">
+      ${sectionTitle('Performance Gap Analysis')}
+      <div style="font-size:12px;color:#475569;line-height:1.6;">${data.performanceGap}</div>
+    </div>` : '';
+
+  // ── MTR Details ───────────────────────────────────────────────────────────
+  const mtrDetailsHtml = isMtr && data.mtrProjected ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;"><tr>
+      <td width="50%" style="padding-right:6px;">
+        <div style="background:#f8fafc;border-radius:8px;padding:14px;">
+          <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Lease &amp; Tenant</div>
+          <div style="font-size:12px;font-weight:700;color:#1e293b;">${data.mtrProjected.recommendedLeaseLength} stays</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px;">${data.mtrProjected.targetTenantProfile}</div>
+        </div>
+      </td>
+      ${data.recommendedPlatforms?.length ? `<td width="50%" style="padding-left:6px;">
+        <div style="background:#f8fafc;border-radius:8px;padding:14px;">
+          <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Recommended Platforms</div>
+          ${data.recommendedPlatforms.map(p=>`<span style="display:inline-block;background:#eef2ff;color:#4338ca;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;margin:2px;">${p}</span>`).join('')}
+        </div>
+      </td>` : ''}
+    </tr></table>` : '';
+
+  // ── STR vs MTR ────────────────────────────────────────────────────────────
+  const strVsMtrHtml = isMtr && data.strVsMtr ? `
+    <div style="margin-bottom:24px;background:#f8fafc;border-radius:8px;padding:16px;">
+      ${sectionTitle('STR vs. MTR Comparison')}
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:12px;"><tr>
+        <td width="50%" style="padding-right:6px;">
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center;">
+            <div style="font-size:10px;color:#64748b;margin-bottom:4px;">STR Annual (AirDNA)</div>
+            <div style="font-size:22px;font-weight:900;color:#1d4ed8;">${fmtN(data.strVsMtr.strAnnualEstimate)}</div>
+          </div>
+        </td>
+        <td width="50%" style="padding-left:6px;">
+          <div style="background:#fff;border:1px solid #c7d2fe;border-radius:8px;padding:12px;text-align:center;">
+            <div style="font-size:10px;color:#64748b;margin-bottom:4px;">MTR Annual (projected)</div>
+            <div style="font-size:22px;font-weight:900;color:#4338ca;">${fmtN(data.strVsMtr.mtrAnnualEstimate)}</div>
+          </div>
+        </td>
+      </tr></table>
+      <div style="font-size:12px;color:#475569;line-height:1.5;">${data.strVsMtr.reasoning}</div>
+    </div>` : '';
+
+  // ── Recommendations ───────────────────────────────────────────────────────
+  const recsHtml = data.recommendations.length > 0 ? `
+    <div style="margin-bottom:24px;">
+      ${sectionTitle('Recommendations')}
+      ${data.recommendations.map((r,i)=>`
+        <div style="margin-bottom:10px;padding:12px;background:#f8fafc;border-radius:8px;">
+          <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:3px;">${i+1}. ${r.title}</div>
+          <div style="font-size:12px;color:#64748b;line-height:1.5;">${r.description}</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  // ── Revenue Projections ───────────────────────────────────────────────────
+  const projectionsHtml = !isMtr && data.revenueProjections ? `
+    <div style="margin-bottom:24px;">
+      ${sectionTitle('Revenue Projections with E&amp;J Retreats')}
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>
+        ${[['Conservative', data.revenueProjections.conservative,'#f8fafc','#334155'],['Realistic', data.revenueProjections.realistic,'#f0fdfa','#0f766e'],['Optimistic', data.revenueProjections.optimistic,'#f0fdf4','#166534']].map(([l,v,bg,c])=>`
+          <td width="33%" style="padding:4px;">
+            <div style="background:${bg};border-radius:8px;padding:12px;text-align:center;">
+              <div style="font-size:16px;font-weight:900;color:${c};">${fmtN(v as number)}</div>
+              <div style="font-size:10px;color:#64748b;margin-top:2px;">${l}</div>
+            </div>
+          </td>`).join('')}
+      </tr></table>
+    </div>` : '';
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:20px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;margin:0 auto;">
-    <tr><td>
-      <!-- Header -->
-      <div style="background:${headerBg};border-radius:12px 12px 0 0;padding:32px;">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.6);margin-bottom:8px;">E&amp;J Retreats · ${isMtr ? 'Mid-Term Rental Analysis' : 'Revenue Analysis'}</div>
-        <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">${data.reportTitle}</div>
-        <div style="font-size:13px;color:rgba(255,255,255,0.7);">${address}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;">${date}</div>
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;margin:0 auto;"><tr><td>
+    <div style="background:${headerBg};border-radius:12px 12px 0 0;padding:32px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.6);margin-bottom:8px;">E&amp;J Retreats · ${isMtr?'Mid-Term Rental Analysis':'Revenue Analysis'}</div>
+      <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">${data.reportTitle}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.7);">${address}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;">${date}</div>
+    </div>
+    <div style="background:#ffffff;border-radius:0 0 12px 12px;padding:28px;">
+      ${personalNote?.trim() ? `<div style="margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #e2e8f0;"><div style="font-size:14px;color:#475569;line-height:1.8;white-space:pre-wrap;">${personalNote.trim()}</div></div>` : ''}
+      ${metricsHtml}
+      ${ownerHtml}
+      ${scoreHtml}
+      ${findingsHtml}
+      ${seasonalityHtml}
+      ${comparablesHtml}
+      ${marketHtml}
+      ${gapHtml}
+      ${mtrDetailsHtml}
+      ${strVsMtrHtml}
+      ${recsHtml}
+      ${projectionsHtml}
+      <div style="border-top:1px solid #e2e8f0;padding-top:16px;text-align:center;font-size:11px;color:#94a3b8;">
+        Generated by E&amp;J Retreats · Powered by AirDNA market data<br>Projections are estimates and not guaranteed.
       </div>
-      <!-- Body -->
-      <div style="background:#ffffff;border-radius:0 0 12px 12px;padding:28px;">
-        ${personalNote?.trim() ? `
-        <div style="margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #e2e8f0;">
-          <div style="font-size:14px;color:#475569;line-height:1.8;white-space:pre-wrap;">${personalNote.trim()}</div>
-        </div>` : ''}
-        ${metricsHtml}
-        ${ownerHtml}
-        ${scoreHtml}
-        ${findingsHtml}
-        ${recsHtml}
-        ${projectionsHtml}
-        <!-- Footer -->
-        <div style="border-top:1px solid #e2e8f0;padding-top:16px;text-align:center;font-size:11px;color:#94a3b8;">
-          Generated by E&amp;J Retreats · Powered by AirDNA market data<br>Projections are estimates and not guaranteed.
-        </div>
-      </div>
-    </td></tr>
-  </table>
+    </div>
+  </td></tr></table>
 </body></html>`;
 }
+
 
 function fmt(n: number | null | undefined) {
   if (n == null) return '—';
