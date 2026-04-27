@@ -27,7 +27,7 @@ import {
   fetchProjects, upsertProject, deleteProject as deleteProjectDb,
   fetchTodos, upsertTodo, deleteTodo,
 } from './services/projects';
-import { fetchProperties, fetchReservations } from './services/uplisting';
+import { fetchProperties, fetchReservations, estimateMonthlyRevenue, estimateOccupancy } from './services/uplisting';
 import { fetchSettings, saveSettings } from './services/settings';
 import type { Lead, Owner, Property, OutreachEntry, View, Project, Todo } from './types';
 import type { UplistingProperty, UplistingReservation } from './services/uplisting';
@@ -121,6 +121,23 @@ export default function App() {
       setUplistingProperties(props);
       setUplistingReservations(res);
       setLastSync(new Date().toISOString());
+
+      // Update revenue & occupancy for Uplisting-linked CRM properties
+      setOwners(prev => prev.map(owner => {
+        const updatedProps = owner.properties.map(prop => {
+          // IDs from Uplisting imports: p_<timestamp>_<uplistingId>
+          const parts = prop.id.split('_');
+          const uplistingId = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
+          if (!uplistingId) return prop;
+          const monthlyRevenue = estimateMonthlyRevenue(uplistingId, res);
+          const occupancyRate = estimateOccupancy(uplistingId, res);
+          if (monthlyRevenue === prop.monthlyRevenue && occupancyRate === prop.occupancyRate) return prop;
+          const updated = { ...prop, monthlyRevenue, occupancyRate };
+          upsertProperty(owner.id, updated);
+          return updated;
+        });
+        return { ...owner, properties: updatedProps };
+      }));
     } catch {
       // Sync errors shown in Settings
     }
