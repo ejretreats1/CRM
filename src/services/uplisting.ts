@@ -96,20 +96,21 @@ export async function fetchReservations(
 // Normalise Uplisting response shapes into our expected structure
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeProperty(p: any): UplistingProperty {
+  const a = p.attributes ?? p; // Uplisting uses JSON:API format: data is under `attributes`
   return {
-    id: String(p.id ?? p.listing_id ?? ''),
-    name: p.name ?? p.title ?? p.listing_name ?? '',
-    nickname: p.nickname ?? '',
-    address: p.address ?? p.street ?? '',
-    city: p.city ?? '',
-    state: p.state ?? p.region ?? '',
-    bedrooms: Number(p.bedrooms ?? p.bedroom_count ?? 0),
-    bathrooms: Number(p.bathrooms ?? p.bathroom_count ?? 0),
-    max_guests: Number(p.max_guests ?? p.guest_capacity ?? 0),
-    property_type: p.property_type ?? p.type ?? '',
-    channels: p.channels ?? p.active_channels ?? [],
-    status: p.status ?? 'active',
-    time_zone: p.time_zone ?? '',
+    id: String(p.id ?? a.id ?? p.listing_id ?? ''),
+    name: a.name ?? a.title ?? a.listing_name ?? '',
+    nickname: a.nickname ?? '',
+    address: a.address ?? a.street ?? '',
+    city: a.city ?? '',
+    state: a.state ?? a.region ?? '',
+    bedrooms: Number(a.bedrooms ?? a.bedroom_count ?? 0),
+    bathrooms: Number(a.bathrooms ?? a.bathroom_count ?? 0),
+    max_guests: Number(a.maximum_capacity ?? a.max_guests ?? a.guest_capacity ?? 0),
+    property_type: a.property_type ?? (p.type !== 'listing' ? p.type : '') ?? '',
+    channels: a.channels ?? a.active_channels ?? [],
+    status: a.status ?? 'active',
+    time_zone: a.time_zone ?? '',
   };
 }
 
