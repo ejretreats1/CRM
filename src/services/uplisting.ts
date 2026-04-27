@@ -65,7 +65,9 @@ export async function testConnection(apiKey: string): Promise<UplistingConnectio
 
 export async function fetchProperties(apiKey: string): Promise<UplistingProperty[]> {
   const data = await apiFetch('properties', apiKey);
-  return (data?.properties ?? data?.data ?? data ?? []).map(normalizeProperty);
+  const list = data?.properties ?? data?.data ?? data ?? [];
+  if (list.length > 0) console.log('[Uplisting] raw property sample:', JSON.stringify(list[0], null, 2));
+  return list.map(normalizeProperty);
 }
 
 export async function fetchReservations(
