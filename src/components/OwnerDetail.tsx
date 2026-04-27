@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Mail, Phone, Home, TrendingUp, Plus, Edit2, Trash2, Wifi,
-  FileSignature, FileText, Download, Clock, CheckCircle2, XCircle,
+  FileSignature, FileText, Download, Clock, CheckCircle2, XCircle, X,
   UploadCloud, File, Loader, ExternalLink, FileBarChart2,
 } from 'lucide-react';
-import type { Owner, Property, OutreachEntry, SignatureRequest, RevenueReport } from '../types';
+import type { Owner, Property, PropertyStatus, OutreachEntry, SignatureRequest, RevenueReport } from '../types';
+import { fetchProperties } from '../services/uplisting';
+import type { UplistingProperty } from '../services/uplisting';
 import { fetchSignatureRequests, deleteSignatureRequest } from '../services/signatures';
 import { fetchOwnerDocuments, uploadOwnerDocument, deleteOwnerDocument } from '../services/ownerDocuments';
 import type { OwnerDocument } from '../services/ownerDocuments';
@@ -24,7 +26,16 @@ interface OwnerDetailProps {
   onEditProperty: (property: Property) => void;
   onDeleteProperty: (propertyId: string) => void;
   onAddOutreach: () => void;
+  uplistingApiKey?: string;
+  onImportProperties: (properties: Property[]) => Promise<void>;
 }
+
+const CHANNEL_MAP: Record<string, string> = {
+  airbnb: 'Airbnb', airbnb_official: 'Airbnb',
+  booking_dot_com: 'Booking.com',
+  homeaway: 'VRBO', vrbo: 'VRBO',
+  uplisting: 'Direct',
+};
 
 const STATUS_STYLES: Record<string, { badge: string; label: string }> = {
   active: { badge: 'bg-emerald-100 text-emerald-700', label: 'Active' },
@@ -57,6 +68,7 @@ function formatBytes(bytes: number): string {
 
 export default function OwnerDetail({
   owner, outreach, onBack, onEdit, onAddProperty, onEditProperty, onDeleteProperty, onAddOutreach,
+  uplistingApiKey, onImportProperties,
 }: OwnerDetailProps) {
   const [sigRequests, setSigRequests] = useState<SignatureRequest[]>([]);
   const [showSigModal, setShowSigModal] = useState(false);
@@ -70,6 +82,13 @@ export default function OwnerDetail({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [uplistingProps, setUplistingProps] = useState<UplistingProperty[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
 
   const ownerOutreach = outreach.filter(e => e.ownerId === owner.id);
   const totalRevenue = owner.properties.reduce((s, p) => s + p.monthlyRevenue, 0);
@@ -150,6 +169,52 @@ export default function OwnerDetail({
     }
   }
 
+  async function openImport() {
+    if (!uplistingApiKey) return;
+    setImportOpen(true);
+    setImportLoading(true);
+    setImportError('');
+    try {
+      const props = await fetchProperties(uplistingApiKey);
+      setUplistingProps(props);
+      setSelectedIds(new Set(props.map(p => p.id)));
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Failed to fetch Uplisting properties');
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  async function handleImport() {
+    const toImport = uplistingProps.filter(p => selectedIds.has(p.id));
+    if (!toImport.length) return;
+    const now = new Date().toISOString();
+    const properties: Property[] = toImport.map(u => ({
+      id: `p_${Date.now()}_${u.id}`,
+      address: u.address || u.name,
+      city: u.city ?? '',
+      state: u.state ?? '',
+      type: u.property_type || 'Cabin',
+      bedrooms: u.bedrooms,
+      bathrooms: u.bathrooms,
+      maxGuests: u.max_guests,
+      monthlyRevenue: 0,
+      occupancyRate: 0,
+      platforms: [...new Set((u.channels ?? []).map(c => CHANNEL_MAP[c] ?? c))],
+      status: 'active' as PropertyStatus,
+      joinedAt: now,
+    }));
+    setImporting(true);
+    try {
+      await onImportProperties(properties);
+      setImportOpen(false);
+    } catch {
+      setImportError('Import failed. Please try again.');
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <>
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -214,12 +279,22 @@ export default function OwnerDetail({
       <div className="bg-white rounded-xl border border-slate-200">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <h2 className="font-semibold text-slate-800">Properties</h2>
-          <button
-            onClick={onAddProperty}
-            className="flex items-center gap-1.5 text-xs text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-400 px-3 py-1.5 rounded-lg transition-colors font-medium"
-          >
-            <Plus size={13} /> Add Property
-          </button>
+          <div className="flex items-center gap-2">
+            {uplistingApiKey && (
+              <button
+                onClick={openImport}
+                className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-700 border border-indigo-200 hover:border-indigo-400 px-3 py-1.5 rounded-lg transition-colors font-medium"
+              >
+                <Download size={13} /> Import from Uplisting
+              </button>
+            )}
+            <button
+              onClick={onAddProperty}
+              className="flex items-center gap-1.5 text-xs text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-400 px-3 py-1.5 rounded-lg transition-colors font-medium"
+            >
+              <Plus size={13} /> Add Property
+            </button>
+          </div>
         </div>
         <div className="divide-y divide-slate-100">
           {owner.properties.length === 0 && (
@@ -576,6 +651,81 @@ export default function OwnerDetail({
         onSelect={handleLinkDriveFiles}
         onClose={() => setShowDrivePicker(false)}
       />
+    )}
+
+    {importOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 flex flex-col max-h-[80vh]">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Download size={15} className="text-indigo-600" />
+              <h3 className="font-bold text-slate-900 text-sm">Import from Uplisting</h3>
+            </div>
+            <button onClick={() => setImportOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5">
+            {importLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader size={20} className="animate-spin text-indigo-500" />
+              </div>
+            ) : importError ? (
+              <p className="text-sm text-red-500 text-center py-8">{importError}</p>
+            ) : uplistingProps.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-8">No properties found in Uplisting.</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-slate-500 mb-3">
+                  {uplistingProps.length} propert{uplistingProps.length === 1 ? 'y' : 'ies'} found — select to import:
+                </p>
+                {uplistingProps.map(p => (
+                  <label key={p.id} className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:border-indigo-300 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(p.id)}
+                      onChange={e => setSelectedIds(prev => {
+                        const next = new Set(prev);
+                        e.target.checked ? next.add(p.id) : next.delete(p.id);
+                        return next;
+                      })}
+                      className="mt-0.5 accent-indigo-600"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-slate-800 truncate">{p.name}</div>
+                      {p.address && (
+                        <div className="text-xs text-slate-500 mt-0.5 truncate">
+                          {p.address}{p.city ? `, ${p.city}` : ''}{p.state ? `, ${p.state}` : ''}
+                        </div>
+                      )}
+                      <div className="text-xs text-slate-400 mt-1">
+                        {p.bedrooms}bd · {p.bathrooms}ba · max {p.max_guests}
+                        {p.channels?.length ? ` · ${p.channels.map(c => CHANNEL_MAP[c] ?? c).join(', ')}` : ''}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {!importLoading && !importError && uplistingProps.length > 0 && (
+            <div className="px-5 py-4 border-t border-slate-100 space-y-2">
+              {importError && <p className="text-xs text-red-500">{importError}</p>}
+              <button
+                onClick={handleImport}
+                disabled={selectedIds.size === 0 || importing}
+                className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+              >
+                {importing
+                  ? <><Loader size={13} className="animate-spin" /> Importing...</>
+                  : `Import ${selectedIds.size} Propert${selectedIds.size === 1 ? 'y' : 'ies'}`}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     )}
     </>
   );

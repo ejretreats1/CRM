@@ -214,6 +214,18 @@ export default function App() {
     ));
   };
 
+  const importPropertiesHandler = async (ownerId: string, properties: Property[]) => {
+    for (const property of properties) {
+      await upsertProperty(ownerId, property);
+    }
+    setOwners(prev => prev.map(o => {
+      if (o.id !== ownerId) return o;
+      const existingIds = new Set(o.properties.map(p => p.id));
+      const newProps = properties.filter(p => !existingIds.has(p.id));
+      return { ...o, properties: [...o.properties, ...newProps] };
+    }));
+  };
+
   // ── Outreach CRUD ──────────────────────────────────────────────────────────
   const saveOutreachHandler = async (entry: OutreachEntry) => {
     await upsertOutreach(entry);
@@ -354,6 +366,8 @@ export default function App() {
           onEditProperty={(property) => setModal({ type: 'property', ownerId: selectedOwner.id, property })}
           onDeleteProperty={(propertyId) => deletePropertyHandler(selectedOwner.id, propertyId)}
           onAddOutreach={() => setModal({ type: 'outreach', preselectedOwnerId: selectedOwner.id })}
+          uplistingApiKey={uplistingApiKey || undefined}
+          onImportProperties={(properties) => importPropertiesHandler(selectedOwner.id, properties)}
         />
       )}
 
