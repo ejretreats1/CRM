@@ -22,8 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const query = params.toString() ? `?${params}` : '';
 
   const cleanKey = apiKey.trim();
-  const encoded = Buffer.from(cleanKey).toString('base64');
-  const authHeader = `Bearer ${encoded}`;
+  const authHeader = `Bearer ${cleanKey}`;
   const upstreamUrl = `${BASE_URL}/${path}${query}`;
 
   const upstream = await fetch(upstreamUrl, {
@@ -42,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       _debug: {
         url: upstreamUrl,
         keyLength: cleanKey.length,
-        authHeaderPreview: `Basic base64(${cleanKey.slice(0, 6)}...:[empty])`,
+        authHeaderPreview: `Bearer ${cleanKey.slice(0, 6)}...`,
       },
     });
   }
