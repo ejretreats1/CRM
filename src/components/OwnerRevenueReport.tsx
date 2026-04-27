@@ -1,11 +1,18 @@
-import { useState, useMemo } from 'react';
-import { Download, Calendar } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Download, Calendar, Percent } from 'lucide-react';
 import type { Owner } from '../types';
 import type { UplistingReservation } from '../services/uplisting';
 
 interface OwnerRevenueReportProps {
   owner: Owner;
   reservations: UplistingReservation[];
+}
+
+type CommissionBasis = 'accommodation' | 'payout';
+
+interface CommissionSettings {
+  rate: number;
+  basis: CommissionBasis;
 }
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -31,10 +38,37 @@ function defaultRange() {
   return { from, to };
 }
 
+function commissionKey(ownerId: string) {
+  return `ej_commission_${ownerId}`;
+}
+
+function calcCommission(r: UplistingReservation, rate: number, basis: CommissionBasis): number {
+  if (rate === 0) return 0;
+  const base = basis === 'accommodation'
+    ? (r.accommodation_total ?? r.total_price)
+    : r.total_price;
+  return base * (rate / 100);
+}
+
 export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenueReportProps) {
   const { from: defaultFrom, to: defaultTo } = defaultRange();
   const [from, setFrom] = useState(defaultFrom);
   const [to, setTo] = useState(defaultTo);
+
+  const [commission, setCommission] = useState<CommissionSettings>({ rate: 0, basis: 'payout' });
+
+  // Load saved commission settings for this owner
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(commissionKey(owner.id));
+      if (saved) setCommission(JSON.parse(saved));
+    } catch { /* ignore */ }
+  }, [owner.id]);
+
+  function updateCommission(next: CommissionSettings) {
+    setCommission(next);
+    localStorage.setItem(commissionKey(owner.id), JSON.stringify(next));
+  }
 
   // Build map: uplistingId -> property address
   const propertyMap = useMemo(() => {
@@ -65,23 +99,41 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
     accommodation: filtered.reduce((s, r) => s + (r.accommodation_total ?? 0), 0),
     cleaning: filtered.reduce((s, r) => s + (r.cleaning_fee ?? 0), 0),
     nights: filtered.reduce((s, r) => s + (r.nights ?? 0), 0),
-  }), [filtered]);
+    commission: filtered.reduce((s, r) => s + calcCommission(r, commission.rate, commission.basis), 0),
+  }), [filtered, commission]);
+
+  const showCommission = commission.rate > 0;
+  const basisLabel = commission.basis === 'accommodation' ? 'Accommodation Total' : 'Total Payout';
 
   function downloadCSV() {
-    const headers = ['Property', 'Guest', 'Check-In', 'Check-Out', 'Nights', 'Channel', 'Accommodation', 'Cleaning Fee', 'Total Payout', 'Status'];
-    const rows = filtered.map(r => [
-      propertyMap.get(r.listing_id) ?? r.listing_id,
-      r.guest_name,
-      r.check_in,
-      r.check_out,
-      r.nights ?? '',
-      CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? '',
-      r.accommodation_total != null ? r.accommodation_total.toFixed(2) : '',
-      r.cleaning_fee != null ? r.cleaning_fee.toFixed(2) : '',
-      r.total_price.toFixed(2),
-      r.status,
-    ]);
-    const totalsRow = ['TOTALS', '', '', '', totals.nights, '', totals.accommodation.toFixed(2), totals.cleaning.toFixed(2), totals.payout.toFixed(2), ''];
+    const headers = ['Property', 'Guest', 'Check-In', 'Check-Out', 'Nights', 'Channel', 'Accommodation', 'Cleaning Fee', 'Total Payout'];
+    if (showCommission) headers.push(`Commission (${commission.rate}% of ${basisLabel})`);
+
+    const rows = filtered.map(r => {
+      const row = [
+        propertyMap.get(r.listing_id) ?? r.listing_id,
+        r.guest_name,
+        r.check_in,
+        r.check_out,
+        r.nights ?? '',
+        CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? '',
+        r.accommodation_total != null ? r.accommodation_total.toFixed(2) : '',
+        r.cleaning_fee != null ? r.cleaning_fee.toFixed(2) : '',
+        r.total_price.toFixed(2),
+      ];
+      if (showCommission) row.push(calcCommission(r, commission.rate, commission.basis).toFixed(2));
+      return row;
+    });
+
+    const totalsRow = [
+      'TOTALS', '', '', '',
+      totals.nights, '',
+      totals.accommodation.toFixed(2),
+      totals.cleaning.toFixed(2),
+      totals.payout.toFixed(2),
+    ];
+    if (showCommission) totalsRow.push(totals.commission.toFixed(2));
+
     const csv = [headers, ...rows, totalsRow]
       .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
       .join('\n');
@@ -98,7 +150,7 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
 
   return (
     <div className="mt-6">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold text-slate-800">Revenue Report</h2>
         {filtered.length > 0 && (
           <button
@@ -114,23 +166,61 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
         <p className="text-sm text-slate-400 py-4">Import properties from Uplisting to see reservation data here.</p>
       ) : (
         <>
-          {/* Date range */}
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <Calendar size={14} className="text-slate-400" />
-            <input
-              type="date"
-              value={from}
-              onChange={e => setFrom(e.target.value)}
-              className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            <span className="text-slate-400 text-sm">to</span>
-            <input
-              type="date"
-              value={to}
-              onChange={e => setTo(e.target.value)}
-              className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
+          {/* Controls row */}
+          <div className="flex flex-wrap gap-4 mb-5">
+            {/* Date range */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Calendar size={14} className="text-slate-400 flex-shrink-0" />
+              <input
+                type="date"
+                value={from}
+                onChange={e => setFrom(e.target.value)}
+                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <span className="text-slate-400 text-sm">to</span>
+              <input
+                type="date"
+                value={to}
+                onChange={e => setTo(e.target.value)}
+                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+
+            {/* Commission */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Percent size={14} className="text-slate-400 flex-shrink-0" />
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="0"
+                  value={commission.rate || ''}
+                  onChange={e => updateCommission({ ...commission, rate: parseFloat(e.target.value) || 0 })}
+                  className="w-20 text-sm border border-slate-200 rounded-lg px-3 py-1.5 pr-6 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
+              </div>
+              <span className="text-slate-500 text-sm">of</span>
+              <select
+                value={commission.basis}
+                onChange={e => updateCommission({ ...commission, basis: e.target.value as CommissionBasis })}
+                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+              >
+                <option value="payout">Total Payout</option>
+                <option value="accommodation">Accommodation Total</option>
+              </select>
+            </div>
           </div>
+
+          {/* Commission summary badge */}
+          {showCommission && filtered.length > 0 && (
+            <div className="mb-4 inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-sm">
+              <span className="text-indigo-600 font-medium">Commission ({commission.rate}% of {basisLabel}):</span>
+              <span className="text-indigo-800 font-bold">{fmt(totals.commission)}</span>
+            </div>
+          )}
 
           {filtered.length === 0 ? (
             <p className="text-sm text-slate-400 py-4">No reservations found for this date range.</p>
@@ -148,6 +238,11 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
                     <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Accom.</th>
                     <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cleaning</th>
                     <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Payout</th>
+                    {showCommission && (
+                      <th className="text-right px-3 py-2.5 text-xs font-semibold text-indigo-500 uppercase tracking-wide">
+                        Commission
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -162,6 +257,11 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
                       <td className="px-3 py-2.5 text-right text-slate-600">{r.accommodation_total != null ? fmt(r.accommodation_total) : ''}</td>
                       <td className="px-3 py-2.5 text-right text-slate-600">{r.cleaning_fee != null ? fmt(r.cleaning_fee) : ''}</td>
                       <td className="px-3 py-2.5 text-right font-semibold text-teal-700">{fmt(r.total_price)}</td>
+                      {showCommission && (
+                        <td className="px-3 py-2.5 text-right font-semibold text-indigo-600">
+                          {fmt(calcCommission(r, commission.rate, commission.basis))}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -173,6 +273,9 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
                     <td className="px-3 py-2.5 text-right text-slate-700">{totals.accommodation > 0 ? fmt(totals.accommodation) : ''}</td>
                     <td className="px-3 py-2.5 text-right text-slate-700">{totals.cleaning > 0 ? fmt(totals.cleaning) : ''}</td>
                     <td className="px-3 py-2.5 text-right text-teal-700">{fmt(totals.payout)}</td>
+                    {showCommission && (
+                      <td className="px-3 py-2.5 text-right text-indigo-700">{fmt(totals.commission)}</td>
+                    )}
                   </tr>
                 </tfoot>
               </table>
