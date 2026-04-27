@@ -7,6 +7,7 @@
 export interface UplistingProperty {
   id: string;
   name: string;
+  nickname?: string;
   address: string;
   city?: string;
   state?: string;
@@ -16,6 +17,7 @@ export interface UplistingProperty {
   property_type?: string;
   channels?: string[];
   status?: string;
+  time_zone?: string;
 }
 
 export interface UplistingReservation {
@@ -95,6 +97,7 @@ function normalizeProperty(p: any): UplistingProperty {
   return {
     id: String(p.id ?? p.listing_id ?? ''),
     name: p.name ?? p.title ?? p.listing_name ?? '',
+    nickname: p.nickname ?? '',
     address: p.address ?? p.street ?? '',
     city: p.city ?? '',
     state: p.state ?? p.region ?? '',
@@ -104,6 +107,7 @@ function normalizeProperty(p: any): UplistingProperty {
     property_type: p.property_type ?? p.type ?? '',
     channels: p.channels ?? p.active_channels ?? [],
     status: p.status ?? 'active',
+    time_zone: p.time_zone ?? '',
   };
 }
 
