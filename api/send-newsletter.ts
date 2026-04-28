@@ -29,15 +29,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!to || !reportSubject || !reportHtml) {
       return res.status(400).json({ error: 'to, reportSubject, and reportHtml are required' });
     }
-    // Replies should go to the main contact email, not the report sending address
-    const reportReplyTo = replyTo ?? 'ejretreats1@gmail.com';
     try {
       await resend.emails.send({
         from: reportFrom,
         to,
         subject: reportSubject,
         html: reportHtml,
-        reply_to: reportReplyTo,
+        reply_to: 'ejretreats1@gmail.com',
       });
       return res.status(200).json({ sent: 1 });
     } catch (err) {
