@@ -30,13 +30,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'to, reportSubject, and reportHtml are required' });
     }
     try {
-      await resend.emails.send({
+      const payload = {
         from: reportFrom,
         to,
         subject: reportSubject,
         html: reportHtml,
-        reply_to: 'ejretreats1@gmail.com',
-      });
+        replyTo: 'ejretreats1@gmail.com',
+      };
+      console.log('[send-report] payload:', JSON.stringify({ from: payload.from, to: payload.to, replyTo: payload.replyTo }));
+      await resend.emails.send(payload);
       return res.status(200).json({ sent: 1 });
     } catch (err) {
       console.error('Resend report email error:', err);
