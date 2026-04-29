@@ -41,7 +41,7 @@ interface DashboardProps {
   calendarUrl: string;
   slackToken: string;
   slackChannels: SlackChannel[];
-  onNavigate: (view: 'pipeline' | 'owners' | 'outreach' | 'owner-detail' | 'settings' | 'va-hub', extra?: string) => void;
+  onNavigate: (view: 'pipeline' | 'owners' | 'outreach' | 'owner-detail' | 'settings' | 'va-hub' | 'revenue-reports', extra?: string) => void;
   onToggleTodo: (todo: Todo) => void;
   onAddTodo: (todo: Todo) => void;
   onOpenLeadDetail: (lead: Lead) => void;
@@ -230,13 +230,14 @@ export default function Dashboard({
     setNewTodoText('');
   }
 
-  const stats = [
+  const stats: { label: string; value: string | number; sub: string; icon: React.ElementType; color: string; view?: Parameters<typeof onNavigate>[0] }[] = [
     {
       label: 'Monthly Revenue',
       value: `$${totalMonthlyRevenue.toLocaleString()}`,
       sub: `across ${activePropertyCount} active properties`,
       icon: TrendingUp,
       color: 'bg-teal-600',
+      view: 'revenue-reports',
     },
     {
       label: 'Total Clients',
@@ -244,11 +245,12 @@ export default function Dashboard({
       sub: `${activeOwners.length} with active properties`,
       icon: Users,
       color: 'bg-indigo-500',
+      view: 'owners',
     },
     {
       label: 'Avg Occupancy',
       value: `${avgOccupancy}%`,
-      sub: 'active properties',
+      sub: 'across active properties',
       icon: Star,
       color: 'bg-amber-500',
     },
@@ -258,6 +260,7 @@ export default function Dashboard({
       sub: 'leads in progress',
       icon: Phone,
       color: 'bg-rose-500',
+      view: 'pipeline',
     },
   ];
 
@@ -320,16 +323,32 @@ export default function Dashboard({
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(({ label, value, sub, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
-            <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center mb-3`}>
-              <Icon size={18} className="text-white" />
+        {stats.map(({ label, value, sub, icon: Icon, color, view }) => {
+          const inner = (
+            <>
+              <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center mb-3`}>
+                <Icon size={18} className="text-white" />
+              </div>
+              <div className="text-2xl font-bold text-slate-900">{value}</div>
+              <div className="text-sm font-medium text-slate-700 mt-0.5">{label}</div>
+              <div className="text-xs text-slate-400 mt-0.5">{sub}</div>
+              {view && <div className="text-xs text-teal-600 font-medium mt-2 flex items-center gap-0.5">View <ArrowRight size={11} /></div>}
+            </>
+          );
+          return view ? (
+            <button
+              key={label}
+              onClick={() => onNavigate(view)}
+              className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm text-left hover:border-teal-300 hover:shadow-md transition-all"
+            >
+              {inner}
+            </button>
+          ) : (
+            <div key={label} className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+              {inner}
             </div>
-            <div className="text-2xl font-bold text-slate-900">{value}</div>
-            <div className="text-sm font-medium text-slate-700 mt-0.5">{label}</div>
-            <div className="text-xs text-slate-400 mt-0.5">{sub}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Calendar + Todos row */}
