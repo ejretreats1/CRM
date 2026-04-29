@@ -112,7 +112,14 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
         }),
       });
 
-      const data = await res.json();
+      let data: any;
+      const contentType = res.headers.get('content-type') ?? '';
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(res.status === 504 ? 'Report generation timed out — try a smaller PDF or try again.' : text || `Server error ${res.status}`);
+      }
       if (data.error) throw new Error(data.error);
 
       onReportGenerated(address.trim(), data, ownerActualRevenue, ownerNotes.trim() || undefined, selectedLeadId || undefined, selectedOwnerId || undefined, additionalContext.trim() || undefined);

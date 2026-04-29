@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 
-export const config = { maxDuration: 60 };
+export const config = { maxDuration: 120 };
 
 const MonthSchema = z.object({
   month: z.string(),
