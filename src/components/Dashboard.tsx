@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  TrendingUp, Users, Home, Phone, ArrowRight, Star, Wifi, WifiOff,
+  TrendingUp, Users, Home, Phone, ArrowRight, Wifi, WifiOff,
   RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash, Video, CalendarRange,
 } from 'lucide-react';
 import type { Lead, Owner, OutreachEntry, Todo } from '../types';
@@ -197,14 +197,6 @@ export default function Dashboard({
     ? uplistingProperties.reduce((sum, p) => sum + estimateMonthlyRevenue(p.id, uplistingReservations), 0)
     : activeProperties.reduce((sum, p) => sum + p.monthlyRevenue, 0);
 
-  const avgOccupancy = uplistingConnected && uplistingProperties.length > 0
-    ? Math.round(
-        uplistingProperties.reduce((sum, p) => sum + estimateOccupancy(p.id, uplistingReservations), 0) /
-        uplistingProperties.length
-      )
-    : activeProperties.length
-      ? Math.round(activeProperties.reduce((sum, p) => sum + p.occupancyRate, 0) / activeProperties.length)
-      : 0;
 
   const activePropertyCount = uplistingConnected && uplistingProperties.length > 0
     ? uplistingProperties.filter(p => p.status !== 'inactive').length
@@ -246,13 +238,6 @@ export default function Dashboard({
       icon: Users,
       color: 'bg-indigo-500',
       view: 'owners',
-    },
-    {
-      label: 'Avg Occupancy',
-      value: `${avgOccupancy}%`,
-      sub: 'across active properties',
-      icon: Star,
-      color: 'bg-amber-500',
     },
     {
       label: 'Active Pipeline',
@@ -357,7 +342,7 @@ export default function Dashboard({
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-              <CalendarDays size={16} className="text-teal-600" /> Upcoming Events
+              <CalendarDays size={16} className="text-teal-600" /> Upcoming Calls/Meetings
             </h2>
             <div className="flex items-center gap-3">
               {allEvents.length > 0 && (
