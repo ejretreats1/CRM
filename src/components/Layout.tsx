@@ -32,6 +32,7 @@ const navItems = [
   { id: 'revenue-reports' as View, label: 'AI Rev Projection Reports', icon: FileBarChart2 },
   { id: 'listing-optimizer' as View, label: 'Listing Optimizer', icon: Sparkles },
   { id: 'newsletter' as View, label: 'Newsletter', icon: Mail },
+  { id: 'guest-marketing' as View, label: 'Guest Marketing', icon: Users },
 ];
 
 const bottomNavItems = [

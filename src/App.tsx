@@ -11,6 +11,7 @@ import DriveView from './components/DriveView';
 import RevenueReports from './components/RevenueReports';
 import ListingOptimizer from './components/ListingOptimizer';
 import Newsletter from './components/Newsletter';
+import GuestMarketing from './components/GuestMarketing';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -448,6 +449,10 @@ export default function App() {
       {view === 'listing-optimizer' && <ListingOptimizer />}
 
       {view === 'newsletter' && <Newsletter leads={leads} owners={owners} />}
+
+      {view === 'guest-marketing' && (
+        <GuestMarketing reservations={uplistingReservations} />
+      )}
 
       {modal?.type === 'lead-detail' && (
         <LeadDetailModal

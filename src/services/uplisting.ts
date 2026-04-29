@@ -24,6 +24,7 @@ export interface UplistingReservation {
   id: string;
   listing_id: string;
   guest_name: string;
+  guest_email?: string;
   check_in: string;
   check_out: string;
   total_price: number;
@@ -122,6 +123,7 @@ function normalizeReservation(r: any): UplistingReservation {
     id: String(r.id ?? a.id ?? ''),
     listing_id: String(a.property_id ?? a.listing_id ?? r.property_id ?? ''),
     guest_name: a.guest_name ?? a.guest?.name ?? 'Guest',
+    guest_email: a.guest_email ?? a.guest?.email ?? '',
     check_in: a.check_in ?? a.start_date ?? '',
     check_out: a.check_out ?? a.end_date ?? '',
     total_price: Number(a.total_payout ?? a.host_payout ?? a.total_price ?? 0),
