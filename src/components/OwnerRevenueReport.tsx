@@ -151,7 +151,7 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-semibold text-slate-800">Revenue Report</h2>
+        <h2 className="text-base font-semibold text-zinc-100">Revenue Report</h2>
         {filtered.length > 0 && (
           <button
             onClick={downloadCSV}
@@ -163,32 +163,32 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
       </div>
 
       {!hasUplisting ? (
-        <p className="text-sm text-slate-400 py-4">Import properties from Uplisting to see reservation data here.</p>
+        <p className="text-sm text-zinc-500 py-4">Import properties from Uplisting to see reservation data here.</p>
       ) : (
         <>
           {/* Controls row */}
           <div className="flex flex-wrap gap-4 mb-5">
             {/* Date range */}
             <div className="flex items-center gap-2 flex-wrap">
-              <Calendar size={14} className="text-slate-400 flex-shrink-0" />
+              <Calendar size={14} className="text-zinc-500 flex-shrink-0" />
               <input
                 type="date"
                 value={from}
                 onChange={e => setFrom(e.target.value)}
-                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="text-sm border border-zinc-700 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
-              <span className="text-slate-400 text-sm">to</span>
+              <span className="text-zinc-500 text-sm">to</span>
               <input
                 type="date"
                 value={to}
                 onChange={e => setTo(e.target.value)}
-                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="text-sm border border-zinc-700 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
 
             {/* Commission */}
             <div className="flex items-center gap-2 flex-wrap">
-              <Percent size={14} className="text-slate-400 flex-shrink-0" />
+              <Percent size={14} className="text-zinc-500 flex-shrink-0" />
               <div className="relative">
                 <input
                   type="number"
@@ -198,15 +198,15 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
                   placeholder="0"
                   value={commission.rate || ''}
                   onChange={e => updateCommission({ ...commission, rate: parseFloat(e.target.value) || 0 })}
-                  className="w-20 text-sm border border-slate-200 rounded-lg px-3 py-1.5 pr-6 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-20 text-sm border border-zinc-700 rounded-lg px-3 py-1.5 pr-6 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">%</span>
               </div>
-              <span className="text-slate-500 text-sm">of</span>
+              <span className="text-zinc-400 text-sm">of</span>
               <select
                 value={commission.basis}
                 onChange={e => updateCommission({ ...commission, basis: e.target.value as CommissionBasis })}
-                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                className="text-sm border border-zinc-700 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-zinc-800"
               >
                 <option value="payout">Total Payout</option>
                 <option value="accommodation">Accommodation Total</option>
@@ -223,21 +223,21 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
           )}
 
           {filtered.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4">No reservations found for this date range.</p>
+            <p className="text-sm text-zinc-500 py-4">No reservations found for this date range.</p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="overflow-x-auto rounded-xl border border-zinc-700">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Property</th>
-                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Guest</th>
-                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Check-In</th>
-                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Check-Out</th>
-                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Nts</th>
-                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Channel</th>
-                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Accom.</th>
-                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cleaning</th>
-                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Payout</th>
+                  <tr className="bg-zinc-900 border-b border-zinc-700">
+                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Property</th>
+                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Guest</th>
+                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Check-In</th>
+                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Check-Out</th>
+                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Nts</th>
+                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Channel</th>
+                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Accom.</th>
+                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Cleaning</th>
+                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-zinc-400 uppercase tracking-wide">Payout</th>
                     {showCommission && (
                       <th className="text-right px-3 py-2.5 text-xs font-semibold text-indigo-500 uppercase tracking-wide">
                         Commission
@@ -245,17 +245,17 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-zinc-700">
                   {filtered.map(r => (
-                    <tr key={r.id} className="hover:bg-slate-50">
-                      <td className="px-3 py-2.5 text-slate-700 max-w-[120px] truncate">{propertyMap.get(r.listing_id) ?? r.listing_id}</td>
-                      <td className="px-3 py-2.5 text-slate-600 max-w-[100px] truncate">{r.guest_name}</td>
-                      <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.check_in)}</td>
-                      <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.check_out)}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-600">{r.nights || ''}</td>
-                      <td className="px-3 py-2.5 text-slate-500 text-xs">{CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? ''}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-600">{r.accommodation_total != null ? fmt(r.accommodation_total) : ''}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-600">{r.cleaning_fee != null ? fmt(r.cleaning_fee) : ''}</td>
+                    <tr key={r.id} className="hover:bg-zinc-900">
+                      <td className="px-3 py-2.5 text-zinc-200 max-w-[120px] truncate">{propertyMap.get(r.listing_id) ?? r.listing_id}</td>
+                      <td className="px-3 py-2.5 text-zinc-300 max-w-[100px] truncate">{r.guest_name}</td>
+                      <td className="px-3 py-2.5 text-zinc-300 whitespace-nowrap">{fmtDate(r.check_in)}</td>
+                      <td className="px-3 py-2.5 text-zinc-300 whitespace-nowrap">{fmtDate(r.check_out)}</td>
+                      <td className="px-3 py-2.5 text-right text-zinc-300">{r.nights || ''}</td>
+                      <td className="px-3 py-2.5 text-zinc-400 text-xs">{CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? ''}</td>
+                      <td className="px-3 py-2.5 text-right text-zinc-300">{r.accommodation_total != null ? fmt(r.accommodation_total) : ''}</td>
+                      <td className="px-3 py-2.5 text-right text-zinc-300">{r.cleaning_fee != null ? fmt(r.cleaning_fee) : ''}</td>
                       <td className="px-3 py-2.5 text-right font-semibold text-teal-700">{fmt(r.total_price)}</td>
                       {showCommission && (
                         <td className="px-3 py-2.5 text-right font-semibold text-indigo-600">
@@ -266,12 +266,12 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-slate-50 border-t-2 border-slate-300 font-semibold">
-                    <td className="px-3 py-2.5 text-slate-700" colSpan={4}>Totals ({filtered.length} reservations)</td>
-                    <td className="px-3 py-2.5 text-right text-slate-700">{totals.nights}</td>
+                  <tr className="bg-zinc-900 border-t-2 border-zinc-600 font-semibold">
+                    <td className="px-3 py-2.5 text-zinc-200" colSpan={4}>Totals ({filtered.length} reservations)</td>
+                    <td className="px-3 py-2.5 text-right text-zinc-200">{totals.nights}</td>
                     <td />
-                    <td className="px-3 py-2.5 text-right text-slate-700">{totals.accommodation > 0 ? fmt(totals.accommodation) : ''}</td>
-                    <td className="px-3 py-2.5 text-right text-slate-700">{totals.cleaning > 0 ? fmt(totals.cleaning) : ''}</td>
+                    <td className="px-3 py-2.5 text-right text-zinc-200">{totals.accommodation > 0 ? fmt(totals.accommodation) : ''}</td>
+                    <td className="px-3 py-2.5 text-right text-zinc-200">{totals.cleaning > 0 ? fmt(totals.cleaning) : ''}</td>
                     <td className="px-3 py-2.5 text-right text-teal-700">{fmt(totals.payout)}</td>
                     {showCommission && (
                       <td className="px-3 py-2.5 text-right text-indigo-700">{fmt(totals.commission)}</td>

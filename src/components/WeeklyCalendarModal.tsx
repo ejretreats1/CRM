@@ -120,15 +120,15 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden">
+      <div className="relative bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-700 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <button onClick={prevWeek} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors">
+            <button onClick={prevWeek} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-700 transition-colors">
               <ChevronLeft size={16} />
             </button>
-            <span className="text-sm font-semibold text-slate-800 min-w-[180px] text-center">{weekLabel}</span>
-            <button onClick={nextWeek} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors">
+            <span className="text-sm font-semibold text-zinc-100 min-w-[180px] text-center">{weekLabel}</span>
+            <button onClick={nextWeek} className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-700 transition-colors">
               <ChevronRight size={16} />
             </button>
             <button
@@ -138,27 +138,27 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
               Today
             </button>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700 transition-colors">
             <X size={18} />
           </button>
         </div>
 
         {/* Day headers */}
         <div
-          className="grid border-b border-slate-200 flex-shrink-0"
+          className="grid border-b border-zinc-700 flex-shrink-0"
           style={{ gridTemplateColumns: '44px repeat(7, 1fr)' }}
         >
-          <div className="border-r border-slate-100" />
+          <div className="border-r border-zinc-700" />
           {weekDays.map((day, i) => {
             const isToday = day.getTime() === today.getTime();
             return (
               <div
                 key={i}
-                className={`py-2 text-center border-l border-slate-100 ${isToday ? 'bg-teal-50' : ''}`}
+                className={`py-2 text-center border-l border-zinc-700 ${isToday ? 'bg-teal-50' : ''}`}
               >
-                <p className="text-xs text-slate-400 uppercase tracking-wide">{DAY_LABELS[day.getDay()]}</p>
+                <p className="text-xs text-zinc-500 uppercase tracking-wide">{DAY_LABELS[day.getDay()]}</p>
                 <div className={`text-sm font-bold w-7 h-7 mx-auto mt-0.5 flex items-center justify-center rounded-full ${
-                  isToday ? 'bg-teal-600 text-white' : 'text-slate-800'
+                  isToday ? 'bg-teal-600 text-white' : 'text-zinc-100'
                 }`}>
                   {day.getDate()}
                 </div>
@@ -174,14 +174,14 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
             style={{ gridTemplateColumns: '44px repeat(7, 1fr)', height: TOTAL_HOURS * HOUR_HEIGHT }}
           >
             {/* Time labels */}
-            <div className="relative border-r border-slate-100">
+            <div className="relative border-r border-zinc-700">
               {Array.from({ length: TOTAL_HOURS }, (_, i) => (
                 <div
                   key={i}
                   className="absolute w-full flex items-start justify-end pr-1.5"
                   style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
                 >
-                  <span className="text-xs text-slate-400 -mt-2">{formatHour(HOUR_START + i)}</span>
+                  <span className="text-xs text-zinc-500 -mt-2">{formatHour(HOUR_START + i)}</span>
                 </div>
               ))}
             </div>
@@ -195,13 +195,13 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
               return (
                 <div
                   key={dayIdx}
-                  className={`relative border-l border-slate-100 ${isToday ? 'bg-teal-50/20' : ''}`}
+                  className={`relative border-l border-zinc-700 ${isToday ? 'bg-teal-50/20' : ''}`}
                 >
                   {/* Hour lines */}
                   {Array.from({ length: TOTAL_HOURS }, (_, i) => (
                     <div
                       key={i}
-                      className="absolute w-full border-b border-slate-100"
+                      className="absolute w-full border-b border-zinc-700"
                       style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
                     />
                   ))}
@@ -275,14 +275,14 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-slate-100 bg-slate-50 flex-shrink-0 rounded-b-2xl">
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-zinc-700 bg-zinc-900 flex-shrink-0 rounded-b-2xl">
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded bg-blue-200 border border-blue-300" />
-            <span className="text-xs text-slate-500">CRM calls (click to view lead)</span>
+            <span className="text-xs text-zinc-400">CRM calls (click to view lead)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded bg-teal-200 border border-teal-200" />
-            <span className="text-xs text-slate-500">Google Calendar</span>
+            <span className="text-xs text-zinc-400">Google Calendar</span>
           </div>
         </div>
       </div>

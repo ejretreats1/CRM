@@ -156,8 +156,8 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
           <CheckCircle size={32} className="text-emerald-500" />
         </div>
         <div>
-          <p className="text-xl font-bold text-slate-900">Newsletter Sent!</p>
-          <p className="text-slate-500 text-sm mt-1">{result?.sent} emails delivered{result?.failed ? `, ${result.failed} failed` : ''}.</p>
+          <p className="text-xl font-bold text-zinc-100">Newsletter Sent!</p>
+          <p className="text-zinc-400 text-sm mt-1">{result?.sent} emails delivered{result?.failed ? `, ${result.failed} failed` : ''}.</p>
         </div>
         <button onClick={reset} className="mt-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-6 py-2.5 rounded-lg transition-colors">
           Send Another
@@ -169,13 +169,13 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="px-6 py-5 bg-white border-b border-slate-200 flex-shrink-0">
+      <div className="px-6 py-5 bg-zinc-800 border-b border-zinc-700 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
               <Mail size={22} className="text-teal-600" /> Newsletter
             </h1>
-            <p className="text-sm text-slate-500 mt-0.5">Send monthly updates to your clients and leads</p>
+            <p className="text-sm text-zinc-400 mt-0.5">Send monthly updates to your clients and leads</p>
           </div>
         </div>
       </div>
@@ -184,42 +184,42 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
         <div className="max-w-2xl mx-auto space-y-5">
 
           {/* Recipients */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
-            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+          <div className="bg-zinc-800 rounded-xl border border-zinc-700 p-5 space-y-3">
+            <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
               <Users size={15} className="text-teal-600" /> Recipients
             </h3>
             <div className="flex gap-3">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input type="checkbox" checked={includeOwners} onChange={e => setIncludeOwners(e.target.checked)} className="accent-teal-600 w-4 h-4" />
-                <span className="text-sm text-slate-700">Clients <span className="text-slate-400">({ownerCount})</span></span>
+                <span className="text-sm text-zinc-200">Clients <span className="text-zinc-500">({ownerCount})</span></span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input type="checkbox" checked={includeLeads} onChange={e => setIncludeLeads(e.target.checked)} className="accent-teal-600 w-4 h-4" />
-                <span className="text-sm text-slate-700">Leads <span className="text-slate-400">({leadCount})</span></span>
+                <span className="text-sm text-zinc-200">Leads <span className="text-zinc-500">({leadCount})</span></span>
               </label>
             </div>
-            <div className={`flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg ${recipients.length > 0 ? 'bg-teal-50 text-teal-700' : 'bg-slate-50 text-slate-400'}`}>
+            <div className={`flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg ${recipients.length > 0 ? 'bg-teal-50 text-teal-700' : 'bg-zinc-900 text-zinc-500'}`}>
               <Mail size={14} />
               {recipients.length > 0 ? `${recipients.length} recipients selected` : 'No recipients — select at least one group'}
             </div>
           </div>
 
           {/* Compose */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-            <h3 className="text-sm font-bold text-slate-800">Compose</h3>
+          <div className="bg-zinc-800 rounded-xl border border-zinc-700 p-5 space-y-4">
+            <h3 className="text-sm font-bold text-zinc-100">Compose</h3>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Subject Line</label>
+              <label className="block text-xs font-medium text-zinc-300 mb-1.5">Subject Line</label>
               <input
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
                 placeholder="E&J Retreats — April 2026 Update"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
 
             {/* Image */}
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Header Image (optional)</label>
+              <label className="block text-xs font-medium text-zinc-300 mb-1.5">Header Image (optional)</label>
               <input
                 ref={imageFileRef}
                 type="file"
@@ -228,11 +228,11 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ''; }}
               />
               {headerImage ? (
-                <div className="relative rounded-lg overflow-hidden border border-slate-200">
+                <div className="relative rounded-lg overflow-hidden border border-zinc-700">
                   <img src={headerImage} alt="Header" className="w-full object-cover max-h-48" />
                   <button
                     onClick={() => setHeaderImage(null)}
-                    className="absolute top-2 right-2 bg-white/90 hover:bg-white rounded-full p-1 shadow text-slate-500 hover:text-red-500 transition-colors"
+                    className="absolute top-2 right-2 bg-zinc-800/90 hover:bg-zinc-800 rounded-full p-1 shadow text-zinc-400 hover:text-red-500 transition-colors"
                   >
                     <X size={14} />
                   </button>
@@ -243,16 +243,16 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                     onClick={() => imageFileRef.current?.click()}
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleImageFile(f); }}
-                    className="border-2 border-dashed border-slate-200 rounded-lg p-5 text-center cursor-pointer hover:border-teal-300 hover:bg-teal-50 transition-colors"
+                    className="border-2 border-dashed border-zinc-700 rounded-lg p-5 text-center cursor-pointer hover:border-teal-300 hover:bg-teal-50 transition-colors"
                   >
-                    <ImagePlus size={20} className="mx-auto mb-1.5 text-slate-300" />
-                    <p className="text-sm text-slate-500 font-medium">Upload image</p>
-                    <p className="text-xs text-slate-400">or drag & drop · JPG, PNG, WebP</p>
+                    <ImagePlus size={20} className="mx-auto mb-1.5 text-zinc-600" />
+                    <p className="text-sm text-zinc-400 font-medium">Upload image</p>
+                    <p className="text-xs text-zinc-500">or drag & drop · JPG, PNG, WebP</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-px bg-slate-100" />
-                    <span className="text-xs text-slate-400">or</span>
-                    <div className="flex-1 h-px bg-slate-100" />
+                    <div className="flex-1 h-px bg-zinc-700" />
+                    <span className="text-xs text-zinc-500">or</span>
+                    <div className="flex-1 h-px bg-zinc-700" />
                   </div>
                   {showUrlInput ? (
                     <div className="flex gap-2">
@@ -262,10 +262,10 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                         onChange={e => setImageUrlInput(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') applyImageUrl(); if (e.key === 'Escape') setShowUrlInput(false); }}
                         placeholder="https://example.com/image.jpg"
-                        className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="flex-1 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
                       <button onClick={applyImageUrl} className="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors">Add</button>
-                      <button onClick={() => setShowUrlInput(false)} className="px-3 py-1.5 text-slate-500 text-sm rounded-lg hover:bg-slate-100 transition-colors">Cancel</button>
+                      <button onClick={() => setShowUrlInput(false)} className="px-3 py-1.5 text-zinc-400 text-sm rounded-lg hover:bg-zinc-700 transition-colors">Cancel</button>
                     </div>
                   ) : (
                     <button onClick={() => setShowUrlInput(true)} className="w-full text-sm text-teal-600 hover:text-teal-700 font-medium py-1.5 rounded-lg hover:bg-teal-50 transition-colors">
@@ -278,11 +278,11 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-slate-600">Message</label>
+                <label className="text-xs font-medium text-zinc-300">Message</label>
                 <button
                   type="button"
                   onClick={() => setPreview(p => !p)}
-                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-teal-600 transition-colors"
+                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-teal-600 transition-colors"
                 >
                   {preview ? <EyeOff size={12} /> : <Eye size={12} />}
                   {preview ? 'Edit' : 'Preview email'}
@@ -291,7 +291,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
 
               {preview ? (
                 <div
-                  className="border border-slate-200 rounded-lg overflow-hidden"
+                  className="border border-zinc-700 rounded-lg overflow-hidden"
                   dangerouslySetInnerHTML={{ __html: buildHtml() }}
                   style={{ minHeight: 300 }}
                 />
@@ -301,10 +301,10 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                   onChange={e => setBody(e.target.value)}
                   rows={12}
                   placeholder={`Hey everyone,\n\nHere's what we've been up to this month at E&J Retreats...\n\nNew this month:\n- We added AI revenue projection reports\n- New listing optimizer tool\n\nThanks for being part of the E&J Retreats family!\n\n— Ethan & Jordan`}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none font-mono"
+                  className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none font-mono"
                 />
               )}
-              <p className="text-xs text-slate-400 mt-1">Plain text — blank lines become spacing.</p>
+              <p className="text-xs text-zinc-500 mt-1">Plain text — blank lines become spacing.</p>
             </div>
           </div>
 
@@ -321,7 +321,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
               <p className="text-sm font-semibold text-amber-800">Send to {recipients.length} people?</p>
               <p className="text-xs text-amber-700">Subject: <span className="font-medium">{subject}</span></p>
               <div className="flex gap-2">
-                <button onClick={() => setConfirming(false)} className="flex-1 border border-slate-200 text-slate-600 text-sm font-medium py-2 rounded-lg hover:bg-slate-50 transition-colors">
+                <button onClick={() => setConfirming(false)} className="flex-1 border border-zinc-700 text-zinc-300 text-sm font-medium py-2 rounded-lg hover:bg-zinc-900 transition-colors">
                   Cancel
                 </button>
                 <button onClick={handleSend} className="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">

@@ -132,15 +132,15 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <button onClick={onCancel} className="text-sm text-slate-500 hover:text-teal-600 mb-5 flex items-center gap-1 transition-colors">
+      <button onClick={onCancel} className="text-sm text-zinc-400 hover:text-teal-600 mb-5 flex items-center gap-1 transition-colors">
         ← Back to Reports
       </button>
 
-      <h2 className="text-xl font-bold text-slate-900 mb-1">New Revenue Report</h2>
-      <p className="text-sm text-slate-500 mb-5">Upload an AirDNA Rentalizer PDF and Claude will generate a full analysis.</p>
+      <h2 className="text-xl font-bold text-zinc-100 mb-1">New Revenue Report</h2>
+      <p className="text-sm text-zinc-400 mb-5">Upload an AirDNA Rentalizer PDF and Claude will generate a full analysis.</p>
 
       {/* STR / MTR toggle */}
-      <div className="flex gap-2 mb-6 p-1 bg-slate-100 rounded-xl w-fit">
+      <div className="flex gap-2 mb-6 p-1 bg-zinc-700 rounded-xl w-fit">
         {(['str', 'mtr'] as const).map(type => (
           <button
             key={type}
@@ -148,8 +148,8 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
             onClick={() => setReportType(type)}
             className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
               reportType === type
-                ? 'bg-white text-teal-700 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'bg-zinc-800 text-teal-700 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
             {type === 'str' ? '🏠 Short-Term Rental' : '📅 Mid-Term Rental'}
@@ -168,11 +168,11 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
         <div className="grid sm:grid-cols-2 gap-3">
           {leads.length > 0 && (
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Link to lead (optional)</label>
+              <label className="block text-xs font-medium text-zinc-300 mb-1.5">Link to lead (optional)</label>
               <select
                 value={selectedLeadId}
                 onChange={e => handleLeadSelect(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               >
                 <option value="">— Select a lead —</option>
                 {leads.filter(l => l.propertyAddress).map(l => (
@@ -183,11 +183,11 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           )}
           {owners.length > 0 && (
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Link to client (optional)</label>
+              <label className="block text-xs font-medium text-zinc-300 mb-1.5">Link to client (optional)</label>
               <select
                 value={selectedOwnerId}
                 onChange={e => handleOwnerSelect(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               >
                 <option value="">— Select a client —</option>
                 {owners.map(o => (
@@ -199,17 +199,17 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Property Address *</label>
+          <label className="block text-xs font-medium text-zinc-300 mb-1.5">Property Address *</label>
           <input
             value={address}
             onChange={e => setAddress(e.target.value)}
             placeholder="123 Ocean Ave, Rehoboth Beach, DE 19971"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">AirDNA Rentalizer PDF *</label>
+          <label className="block text-xs font-medium text-zinc-300 mb-1.5">AirDNA Rentalizer PDF *</label>
           <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) acceptFile(f); e.target.value = ''; }} />
           <div
             onClick={() => !pdfFile && fileRef.current?.click()}
@@ -219,50 +219,50 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
             className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
               pdfFile ? 'border-teal-300 bg-teal-50 cursor-default' :
               dragOver ? 'border-teal-400 bg-teal-50 cursor-pointer' :
-              'border-slate-200 hover:border-teal-300 hover:bg-slate-50 cursor-pointer'
+              'border-zinc-700 hover:border-teal-300 hover:bg-zinc-900 cursor-pointer'
             }`}
           >
             {pdfFile ? (
               <div className="flex items-center justify-center gap-2 text-teal-700">
                 <FileText size={18} />
                 <span className="text-sm font-medium">{pdfFile.name}</span>
-                <button type="button" onClick={e => { e.stopPropagation(); setPdfFile(null); }} className="ml-1 text-slate-400 hover:text-red-500">
+                <button type="button" onClick={e => { e.stopPropagation(); setPdfFile(null); }} className="ml-1 text-zinc-500 hover:text-red-500">
                   <X size={14} />
                 </button>
               </div>
             ) : (
               <>
-                <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-teal-500' : 'text-slate-300'}`} />
-                <p className="text-sm text-slate-600 font-medium">{dragOver ? 'Drop PDF here' : 'Drag & drop or click to upload'}</p>
-                <p className="text-xs text-slate-400 mt-1">AirDNA Rentalizer PDF export</p>
+                <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-teal-500' : 'text-zinc-600'}`} />
+                <p className="text-sm text-zinc-300 font-medium">{dragOver ? 'Drop PDF here' : 'Drag & drop or click to upload'}</p>
+                <p className="text-xs text-zinc-500 mt-1">AirDNA Rentalizer PDF export</p>
               </>
             )}
           </div>
         </div>
 
-        <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Owner Comparison (Optional)</p>
-          <p className="text-xs text-slate-400">If the owner told you their actual revenue, add it here for a gap analysis.</p>
+        <div className="bg-zinc-900 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Owner Comparison (Optional)</p>
+          <p className="text-xs text-zinc-500">If the owner told you their actual revenue, add it here for a gap analysis.</p>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Actual Last 12 Months Revenue</label>
+            <label className="block text-xs font-medium text-zinc-300 mb-1.5">Actual Last 12 Months Revenue</label>
             <div className="relative">
-              <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
               <input
                 value={ownerRevenue}
                 onChange={e => setOwnerRevenue(e.target.value)}
                 placeholder="48,000"
-                className="w-full border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full border border-zinc-700 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Owner Notes</label>
+            <label className="block text-xs font-medium text-zinc-300 mb-1.5">Owner Notes</label>
             <textarea
               value={ownerNotes}
               onChange={e => setOwnerNotes(e.target.value)}
               rows={2}
               placeholder="e.g. only rented 8 months last year, had maintenance issues..."
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+              className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
             />
           </div>
         </div>
@@ -276,7 +276,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
             onChange={e => setAdditionalContext(e.target.value)}
             rows={4}
             placeholder="e.g. Property has a private pool and hot tub. Owner recently renovated the kitchen. Located 5 min from the beach. Owner wants to focus on family groups..."
-            className="w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+            className="w-full border border-amber-200 bg-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
           />
         </div>
 
@@ -288,7 +288,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
         )}
 
         <div className="flex gap-3 pt-1">
-          <button type="button" onClick={onCancel} className="flex-1 border border-slate-200 text-slate-600 text-sm font-medium py-2.5 rounded-lg hover:bg-slate-50 transition-colors">
+          <button type="button" onClick={onCancel} className="flex-1 border border-zinc-700 text-zinc-300 text-sm font-medium py-2.5 rounded-lg hover:bg-zinc-900 transition-colors">
             Cancel
           </button>
           <button

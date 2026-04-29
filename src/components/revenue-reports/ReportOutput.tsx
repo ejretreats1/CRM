@@ -330,9 +330,9 @@ function ScoreArc({ score }: { score: number }) {
   const bgColor = score >= 7 ? 'bg-emerald-50' : score >= 4 ? 'bg-amber-50' : 'bg-red-50';
   return (
     <div className={`${bgColor} rounded-xl p-4 text-center`}>
-      <div className={`text-4xl font-black ${color}`}>{score}<span className="text-lg font-semibold text-slate-400">/10</span></div>
-      <div className="text-xs font-semibold text-slate-500 mt-1 uppercase tracking-wide">Opportunity Score</div>
-      <div className="mt-2 h-2 bg-slate-200 rounded-full overflow-hidden">
+      <div className={`text-4xl font-black ${color}`}>{score}<span className="text-lg font-semibold text-zinc-500">/10</span></div>
+      <div className="text-xs font-semibold text-zinc-400 mt-1 uppercase tracking-wide">Opportunity Score</div>
+      <div className="mt-2 h-2 bg-zinc-700 rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${score >= 7 ? 'bg-emerald-500' : score >= 4 ? 'bg-amber-400' : 'bg-red-500'}`} style={{ width: `${pct * 100}%` }} />
       </div>
     </div>
@@ -356,9 +356,9 @@ function GapBadge({ projected, actual }: { projected: number | null; actual: num
     </div>
   );
   return (
-    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-      <Minus size={14} className="text-slate-500" />
-      <span className="text-sm font-semibold text-slate-600">At market rate</span>
+    <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2">
+      <Minus size={14} className="text-zinc-400" />
+      <span className="text-sm font-semibold text-zinc-300">At market rate</span>
     </div>
   );
 }
@@ -374,8 +374,8 @@ function SeasonalityChart({ months, isMtr }: { months: MonthData[]; isMtr: boole
 
   return (
     <div className="print-section">
-      <h3 className="text-sm font-bold text-slate-800 mb-3">Monthly Seasonality</h3>
-      <div className="bg-slate-50 rounded-xl p-4 overflow-x-auto">
+      <h3 className="text-sm font-bold text-zinc-100 mb-3">Monthly Seasonality</h3>
+      <div className="bg-zinc-900 rounded-xl p-4 overflow-x-auto">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 320 }}>
           {/* Y-axis gridlines + labels */}
           {[0, 0.25, 0.5, 0.75, 1].map(pct => {
@@ -413,7 +413,7 @@ function SeasonalityChart({ months, isMtr }: { months: MonthData[]; isMtr: boole
             );
           })}
         </svg>
-        <p className="text-xs text-slate-400 mt-1 text-right">Occupancy % shown above bars · Revenue per month</p>
+        <p className="text-xs text-zinc-500 mt-1 text-right">Occupancy % shown above bars · Revenue per month</p>
       </div>
     </div>
   );
@@ -422,29 +422,29 @@ function SeasonalityChart({ months, isMtr }: { months: MonthData[]; isMtr: boole
 function ComparablesTable({ comps }: { comps: CompData[] }) {
   return (
     <div className="print-section">
-      <h3 className="text-sm font-bold text-slate-800 mb-3">Comparable Properties</h3>
-      <div className="bg-slate-50 rounded-xl overflow-hidden">
+      <h3 className="text-sm font-bold text-zinc-100 mb-3">Comparable Properties</h3>
+      <div className="bg-zinc-900 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <tr className="bg-zinc-700 text-xs font-semibold text-zinc-400 uppercase tracking-wide">
               <th className="px-4 py-2.5 text-left">Beds</th>
               <th className="px-4 py-2.5 text-right">Annual Revenue</th>
               <th className="px-4 py-2.5 text-right">Occupancy</th>
               <th className="px-4 py-2.5 text-right">ADR</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-zinc-700">
             {comps.map((c, i) => (
-              <tr key={i} className="bg-white">
-                <td className="px-4 py-2.5 text-slate-700 font-medium">{c.bedrooms != null ? `${c.bedrooms} BR` : ''}</td>
+              <tr key={i} className="bg-zinc-800">
+                <td className="px-4 py-2.5 text-zinc-200 font-medium">{c.bedrooms != null ? `${c.bedrooms} BR` : ''}</td>
                 <td className="px-4 py-2.5 text-right font-semibold text-teal-700">{c.annualRevenue != null ? `$${Math.round(c.annualRevenue).toLocaleString()}` : ''}</td>
-                <td className="px-4 py-2.5 text-right text-slate-600">{c.occupancyRate != null ? `${Math.round(c.occupancyRate)}%` : ''}</td>
-                <td className="px-4 py-2.5 text-right text-slate-600">{c.adr != null ? `$${Math.round(c.adr)}` : ''}</td>
+                <td className="px-4 py-2.5 text-right text-zinc-300">{c.occupancyRate != null ? `${Math.round(c.occupancyRate)}%` : ''}</td>
+                <td className="px-4 py-2.5 text-right text-zinc-300">{c.adr != null ? `$${Math.round(c.adr)}` : ''}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="text-xs text-slate-400 px-4 py-2 text-right">Source: AirDNA comparable listings</p>
+        <p className="text-xs text-zinc-500 px-4 py-2 text-right">Source: AirDNA comparable listings</p>
       </div>
     </div>
   );
@@ -566,13 +566,13 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
       {emailOpen && (
         <div className="fixed inset-0 z-50 flex bg-black/50 print:hidden">
           {/* Left: compose */}
-          <div className="w-80 flex-shrink-0 bg-white flex flex-col shadow-2xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div className="w-80 flex-shrink-0 bg-zinc-800 flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700">
               <div className="flex items-center gap-2">
                 <Mail size={15} className="text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-900">Email Report</h3>
+                <h3 className="text-sm font-bold text-zinc-100">Email Report</h3>
               </div>
-              <button onClick={() => setEmailOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setEmailOpen(false)} className="text-zinc-500 hover:text-zinc-300">
                 <X size={16} />
               </button>
             </div>
@@ -582,55 +582,55 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                 <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
                   <Send size={22} className="text-emerald-600" />
                 </div>
-                <p className="text-sm font-bold text-slate-800">Sent!</p>
-                <p className="text-xs text-slate-500 mt-1">Delivered to {emailTo}</p>
+                <p className="text-sm font-bold text-zinc-100">Sent!</p>
+                <p className="text-xs text-zinc-400 mt-1">Delivered to {emailTo}</p>
                 <button onClick={() => setEmailOpen(false)} className="mt-5 text-sm bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors">Close</button>
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Recipient Name</label>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">Recipient Name</label>
                   <input
                     value={emailName}
                     onChange={e => setEmailName(e.target.value)}
                     placeholder="Jane Smith"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Email Address *</label>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">Email Address *</label>
                   <input
                     value={emailTo}
                     onChange={e => setEmailTo(e.target.value)}
                     placeholder="jane@example.com"
                     type="email"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Subject</label>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">Subject</label>
                   <input
                     value={emailSubject}
                     onChange={e => setEmailSubject(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Personal Note <span className="text-slate-400 font-normal">(appears at top of email)</span></label>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">Personal Note <span className="text-zinc-500 font-normal">(appears at top of email)</span></label>
                   <textarea
                     value={personalNote}
                     onChange={e => setPersonalNote(e.target.value)}
                     rows={14}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y"
+                    className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-y"
                   />
-                  <p className="text-xs text-slate-400 mt-1">The full report follows automatically below your note.</p>
+                  <p className="text-xs text-zinc-500 mt-1">The full report follows automatically below your note.</p>
                 </div>
                 {emailError && <p className="text-xs text-red-500">{emailError}</p>}
               </div>
             )}
 
             {!emailSent && (
-              <div className="p-5 border-t border-slate-100">
+              <div className="p-5 border-t border-zinc-700">
                 <button
                   onClick={handleEmailReport}
                   disabled={!emailTo.trim() || emailSending}
@@ -643,10 +643,10 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           </div>
 
           {/* Right: live preview */}
-          <div className="flex-1 flex flex-col bg-slate-100">
-            <div className="px-4 py-3 bg-slate-200 border-b border-slate-300 flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Preview</span>
-              <span className="text-xs text-slate-400">— updates as you type</span>
+          <div className="flex-1 flex flex-col bg-zinc-700">
+            <div className="px-4 py-3 bg-zinc-700 border-b border-zinc-600 flex items-center gap-2">
+              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Live Preview</span>
+              <span className="text-xs text-zinc-500">— updates as you type</span>
             </div>
             <iframe
               srcDoc={previewHtml}
@@ -660,19 +660,19 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
       {/* Action bar */}
       <div className="flex items-center justify-between px-6 py-4 print:hidden">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-600 transition-colors">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-teal-600 transition-colors">
           <ArrowLeft size={15} /> Back
         </button>
         <div className="flex items-center gap-2">
           <button
             onClick={openEmailModal}
-            className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-sm border border-zinc-700 text-zinc-300 hover:bg-zinc-900 px-3 py-2 rounded-lg transition-colors"
           >
             <Mail size={14} /> Email Report
           </button>
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-sm border border-zinc-700 text-zinc-300 hover:bg-zinc-900 px-3 py-2 rounded-lg transition-colors"
           >
             <Printer size={14} /> Print / PDF
           </button>
@@ -686,7 +686,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
         </div>
       </div>
 
-      <div className="bg-white mx-6 mb-6 rounded-2xl border border-slate-200 overflow-hidden print:overflow-visible print:border-none print:rounded-none print:mx-0 print:mb-0">
+      <div className="bg-zinc-800 mx-6 mb-6 rounded-2xl border border-zinc-700 overflow-hidden print:overflow-visible print:border-none print:rounded-none print:mx-0 print:mb-0">
 
         {/* Header */}
         <div className={`text-white px-8 py-6 ${isMtr ? 'bg-indigo-700' : 'bg-teal-700'}`}>
@@ -700,7 +700,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
             <div className="text-right flex-shrink-0">
               <div className={`text-xs ${isMtr ? 'text-indigo-200' : 'text-teal-200'}`}>{date}</div>
-              {isMtr && <div className="text-xs font-bold mt-1 bg-white/20 px-2 py-0.5 rounded-full">MTR Report</div>}
+              {isMtr && <div className="text-xs font-bold mt-1 bg-zinc-800/20 px-2 py-0.5 rounded-full">MTR Report</div>}
             </div>
           </div>
         </div>
@@ -716,10 +716,10 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                 { label: 'Avg Daily Rate',   value: fmt(data.extracted.adr),                     sub: 'per AirDNA' },
                 { label: 'RevPAR',           value: fmt(data.extracted.revpar),                  sub: 'per AirDNA' },
               ].map(s => (
-                <div key={s.label} className="bg-slate-50 rounded-xl p-4">
+                <div key={s.label} className="bg-zinc-900 rounded-xl p-4">
                   <div className="text-xl font-black text-teal-700">{s.value}</div>
-                  <div className="text-xs font-semibold text-slate-700 mt-0.5">{s.label}</div>
-                  <div className="text-xs text-slate-400">{s.sub}</div>
+                  <div className="text-xs font-semibold text-zinc-200 mt-0.5">{s.label}</div>
+                  <div className="text-xs text-zinc-500">{s.sub}</div>
                 </div>
               ))}
             </div>
@@ -733,10 +733,10 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                 { label: 'Est. Annual Revenue',  value: fmt(data.mtrProjected.annualRevenue),  sub: 'MTR projection', accent: true },
                 { label: 'Expected Occupancy',   value: fmtPct(data.mtrProjected.occupancyRate), sub: 'MTR typical',  accent: false },
               ].map(s => (
-                <div key={s.label} className={`rounded-xl p-4 ${s.accent ? 'bg-indigo-50' : 'bg-slate-50'}`}>
-                  <div className={`text-xl font-black ${s.accent ? 'text-indigo-700' : 'text-slate-700'}`}>{s.value}</div>
-                  <div className="text-xs font-semibold text-slate-700 mt-0.5">{s.label}</div>
-                  <div className="text-xs text-slate-400">{s.sub}</div>
+                <div key={s.label} className={`rounded-xl p-4 ${s.accent ? 'bg-indigo-50' : 'bg-zinc-900'}`}>
+                  <div className={`text-xl font-black ${s.accent ? 'text-indigo-700' : 'text-zinc-200'}`}>{s.value}</div>
+                  <div className="text-xs font-semibold text-zinc-200 mt-0.5">{s.label}</div>
+                  <div className="text-xs text-zinc-500">{s.sub}</div>
                 </div>
               ))}
             </div>
@@ -745,14 +745,14 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           {/* ── MTR details ── */}
           {isMtr && data.mtrProjected && (
             <div className="print-section grid sm:grid-cols-2 gap-4">
-              <div className="bg-slate-50 rounded-xl p-4">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Lease & Tenant</p>
-                <p className="text-sm font-semibold text-slate-800">{data.mtrProjected.recommendedLeaseLength} stays</p>
-                <p className="text-xs text-slate-500 mt-1">{data.mtrProjected.targetTenantProfile}</p>
+              <div className="bg-zinc-900 rounded-xl p-4">
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Lease & Tenant</p>
+                <p className="text-sm font-semibold text-zinc-100">{data.mtrProjected.recommendedLeaseLength} stays</p>
+                <p className="text-xs text-zinc-400 mt-1">{data.mtrProjected.targetTenantProfile}</p>
               </div>
               {data.recommendedPlatforms && data.recommendedPlatforms.length > 0 && (
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Recommended Platforms</p>
+                <div className="bg-zinc-900 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Recommended Platforms</p>
                   <div className="flex flex-wrap gap-1.5">
                     {data.recommendedPlatforms.map(p => (
                       <span key={p} className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">{p}</span>
@@ -765,42 +765,42 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* ── STR vs MTR comparison ── */}
           {isMtr && data.strVsMtr && (
-            <div className="print-section bg-slate-50 rounded-xl p-5 space-y-4">
-              <h3 className="text-sm font-bold text-slate-800">STR vs. MTR Comparison</h3>
+            <div className="print-section bg-zinc-900 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-zinc-100">STR vs. MTR Comparison</h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white rounded-lg p-3 text-center border border-slate-200">
-                  <p className="text-xs text-slate-500 mb-1">STR Annual (AirDNA)</p>
+                <div className="bg-zinc-800 rounded-lg p-3 text-center border border-zinc-700">
+                  <p className="text-xs text-zinc-400 mb-1">STR Annual (AirDNA)</p>
                   <p className="text-2xl font-black text-blue-700">{fmt(data.strVsMtr.strAnnualEstimate)}</p>
-                  <p className="text-xs text-slate-400">short-term rental</p>
+                  <p className="text-xs text-zinc-500">short-term rental</p>
                 </div>
-                <div className="bg-white rounded-lg p-3 text-center border border-indigo-200">
-                  <p className="text-xs text-slate-500 mb-1">MTR Annual (projected)</p>
+                <div className="bg-zinc-800 rounded-lg p-3 text-center border border-indigo-200">
+                  <p className="text-xs text-zinc-400 mb-1">MTR Annual (projected)</p>
                   <p className="text-2xl font-black text-indigo-700">{fmt(data.strVsMtr.mtrAnnualEstimate)}</p>
-                  <p className="text-xs text-slate-400">mid-term rental</p>
+                  <p className="text-xs text-zinc-500">mid-term rental</p>
                 </div>
               </div>
               <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold ${RECOMMENDATION_LABELS[data.strVsMtr.recommendation].color}`}>
                 {RECOMMENDATION_LABELS[data.strVsMtr.recommendation].label}
               </div>
-              <p className="text-sm text-slate-600 leading-relaxed">{data.strVsMtr.reasoning}</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{data.strVsMtr.reasoning}</p>
             </div>
           )}
 
           {/* ── Owner comparison (STR) ── */}
           {!isMtr && ownerActualRevenue != null && data.extracted && (
-            <div className="print-section bg-slate-50 rounded-xl p-5 space-y-3">
-              <h3 className="text-sm font-bold text-slate-800">Owner vs. Market</h3>
+            <div className="print-section bg-zinc-900 rounded-xl p-5 space-y-3">
+              <h3 className="text-sm font-bold text-zinc-100">Owner vs. Market</h3>
               <div className="flex items-center gap-6 flex-wrap">
                 <div>
-                  <div className="text-xs text-slate-500">Owner Reported</div>
-                  <div className="text-2xl font-black text-slate-800">{fmt(ownerActualRevenue)}</div>
-                  <div className="text-xs text-slate-400">last 12 months</div>
+                  <div className="text-xs text-zinc-400">Owner Reported</div>
+                  <div className="text-2xl font-black text-zinc-100">{fmt(ownerActualRevenue)}</div>
+                  <div className="text-xs text-zinc-500">last 12 months</div>
                 </div>
-                <div className="text-slate-300 text-2xl font-light">vs</div>
+                <div className="text-zinc-600 text-2xl font-light">vs</div>
                 <div>
-                  <div className="text-xs text-slate-500">AirDNA Projected</div>
+                  <div className="text-xs text-zinc-400">AirDNA Projected</div>
                   <div className="text-2xl font-black text-teal-700">{fmt(data.extracted.projectedAnnualRevenue)}</div>
-                  <div className="text-xs text-slate-400">market potential</div>
+                  <div className="text-xs text-zinc-500">market potential</div>
                 </div>
               </div>
               <GapBadge projected={data.extracted.projectedAnnualRevenue} actual={ownerActualRevenue} />
@@ -809,19 +809,19 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
           {/* ── Owner comparison (MTR) ── */}
           {isMtr && ownerActualRevenue != null && data.mtrProjected && (
-            <div className="print-section bg-slate-50 rounded-xl p-5 space-y-3">
-              <h3 className="text-sm font-bold text-slate-800">Owner vs. MTR Projection</h3>
+            <div className="print-section bg-zinc-900 rounded-xl p-5 space-y-3">
+              <h3 className="text-sm font-bold text-zinc-100">Owner vs. MTR Projection</h3>
               <div className="flex items-center gap-6 flex-wrap">
                 <div>
-                  <div className="text-xs text-slate-500">Owner Reported (STR)</div>
-                  <div className="text-2xl font-black text-slate-800">{fmt(ownerActualRevenue)}</div>
-                  <div className="text-xs text-slate-400">last 12 months</div>
+                  <div className="text-xs text-zinc-400">Owner Reported (STR)</div>
+                  <div className="text-2xl font-black text-zinc-100">{fmt(ownerActualRevenue)}</div>
+                  <div className="text-xs text-zinc-500">last 12 months</div>
                 </div>
-                <div className="text-slate-300 text-2xl font-light">vs</div>
+                <div className="text-zinc-600 text-2xl font-light">vs</div>
                 <div>
-                  <div className="text-xs text-slate-500">MTR Projected</div>
+                  <div className="text-xs text-zinc-400">MTR Projected</div>
                   <div className="text-2xl font-black text-indigo-700">{fmt(data.mtrProjected.annualRevenue)}</div>
-                  <div className="text-xs text-slate-400">annual MTR potential</div>
+                  <div className="text-xs text-zinc-500">annual MTR potential</div>
                 </div>
               </div>
               <GapBadge projected={data.mtrProjected.annualRevenue} actual={ownerActualRevenue} />
@@ -833,19 +833,19 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             <div className="sm:col-span-1">
               <ScoreArc score={data.opportunityScore} />
             </div>
-            <div className="sm:col-span-2 bg-slate-50 rounded-xl p-5">
-              <h3 className="text-sm font-bold text-slate-800 mb-2">Executive Summary</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">{data.executiveSummary}</p>
+            <div className="sm:col-span-2 bg-zinc-900 rounded-xl p-5">
+              <h3 className="text-sm font-bold text-zinc-100 mb-2">Executive Summary</h3>
+              <p className="text-sm text-zinc-300 leading-relaxed">{data.executiveSummary}</p>
             </div>
           </div>
 
           {/* Key findings */}
           {data.keyFindings.length > 0 && (
             <div className="print-section">
-              <h3 className="text-sm font-bold text-slate-800 mb-3">Key Findings</h3>
+              <h3 className="text-sm font-bold text-zinc-100 mb-3">Key Findings</h3>
               <ul className="space-y-2">
                 {data.keyFindings.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm text-slate-600">
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-zinc-300">
                     <span className="mt-0.5 w-5 h-5 rounded-full bg-teal-100 text-teal-700 text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                     {f}
                   </li>
@@ -867,30 +867,30 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           {/* Market opportunity */}
           {data.marketOpportunity && (
             <div>
-              <h3 className="text-sm font-bold text-slate-800 mb-2">Market Opportunity</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">{data.marketOpportunity}</p>
+              <h3 className="text-sm font-bold text-zinc-100 mb-2">Market Opportunity</h3>
+              <p className="text-sm text-zinc-300 leading-relaxed">{data.marketOpportunity}</p>
             </div>
           )}
 
           {/* Performance gap */}
           {data.performanceGap && (
             <div>
-              <h3 className="text-sm font-bold text-slate-800 mb-2">Performance Gap Analysis</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">{data.performanceGap}</p>
+              <h3 className="text-sm font-bold text-zinc-100 mb-2">Performance Gap Analysis</h3>
+              <p className="text-sm text-zinc-300 leading-relaxed">{data.performanceGap}</p>
             </div>
           )}
 
           {/* Recommendations */}
           {data.recommendations.length > 0 && (
             <div className="print-section">
-              <h3 className="text-sm font-bold text-slate-800 mb-3">Recommendations</h3>
+              <h3 className="text-sm font-bold text-zinc-100 mb-3">Recommendations</h3>
               <ol className="space-y-3">
                 {data.recommendations.map((r, i) => (
                   <li key={i} className="flex gap-3">
                     <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5 ${isMtr ? 'bg-indigo-600' : 'bg-teal-600'}`}>{i + 1}</span>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">{r.title}</p>
-                      <p className="text-sm text-slate-500 mt-0.5">{r.description}</p>
+                      <p className="text-sm font-semibold text-zinc-100">{r.title}</p>
+                      <p className="text-sm text-zinc-400 mt-0.5">{r.description}</p>
                     </div>
                   </li>
                 ))}
@@ -901,10 +901,10 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           {/* STR revenue projections */}
           {!isMtr && data.revenueProjections && (
             <div className="print-section">
-              <h3 className="text-sm font-bold text-slate-800 mb-3">Revenue Projections with E&J Retreats</h3>
+              <h3 className="text-sm font-bold text-zinc-100 mb-3">Revenue Projections with E&J Retreats</h3>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: 'Conservative', value: data.revenueProjections.conservative, color: 'bg-slate-100 text-slate-700' },
+                  { label: 'Conservative', value: data.revenueProjections.conservative, color: 'bg-zinc-700 text-zinc-200' },
                   { label: 'Realistic',    value: data.revenueProjections.realistic,    color: 'bg-teal-50 text-teal-800 ring-2 ring-teal-200' },
                   { label: 'Optimistic',   value: data.revenueProjections.optimistic,   color: 'bg-emerald-50 text-emerald-800' },
                 ].map(p => (
@@ -933,7 +933,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                 {refineOpen ? <ChevronUp size={14} className="text-purple-400" /> : <ChevronDown size={14} className="text-purple-400" />}
               </button>
               {refineOpen && (
-                <div className="p-4 space-y-3 bg-white">
+                <div className="p-4 space-y-3 bg-zinc-800">
                   <textarea
                     value={refineMsg}
                     onChange={e => setRefineMsg(e.target.value)}
@@ -956,7 +956,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
           )}
 
-          <div className="border-t border-slate-100 pt-4 text-xs text-slate-400 text-center print:hidden">
+          <div className="border-t border-zinc-700 pt-4 text-xs text-zinc-500 text-center print:hidden">
             Generated by E&J Retreats · Powered by AirDNA market data · Projections are estimates and not guaranteed.
           </div>
         </div>

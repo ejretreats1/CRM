@@ -42,7 +42,7 @@ const CHANNEL_MAP: Record<string, string> = {
 const STATUS_STYLES: Record<string, { badge: string; label: string }> = {
   active: { badge: 'bg-emerald-100 text-emerald-700', label: 'Active' },
   onboarding: { badge: 'bg-amber-100 text-amber-700', label: 'Onboarding' },
-  inactive: { badge: 'bg-slate-100 text-slate-500', label: 'Inactive' },
+  inactive: { badge: 'bg-zinc-700 text-zinc-400', label: 'Inactive' },
 };
 
 const OUTREACH_ICONS: Record<string, string> = {
@@ -51,15 +51,15 @@ const OUTREACH_ICONS: Record<string, string> = {
 
 const OUTCOME_STYLES: Record<string, string> = {
   positive: 'bg-emerald-100 text-emerald-700',
-  neutral: 'bg-slate-100 text-slate-600',
+  neutral: 'bg-zinc-700 text-zinc-300',
   negative: 'bg-red-100 text-red-600',
-  no_response: 'bg-slate-100 text-slate-400',
+  no_response: 'bg-zinc-700 text-zinc-500',
 };
 
 const SIG_STATUS: Record<string, { icon: React.ReactNode; label: string; cls: string }> = {
   pending: { icon: <Clock size={12} />, label: 'Pending', cls: 'bg-amber-100 text-amber-700' },
   signed:  { icon: <CheckCircle2 size={12} />, label: 'Signed',   cls: 'bg-emerald-100 text-emerald-700' },
-  expired: { icon: <XCircle size={12} />, label: 'Expired',  cls: 'bg-slate-100 text-slate-500' },
+  expired: { icon: <XCircle size={12} />, label: 'Expired',  cls: 'bg-zinc-700 text-zinc-400' },
 };
 
 function formatBytes(bytes: number): string {
@@ -224,7 +224,7 @@ export default function OwnerDetail({
       <div>
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-600 mb-4 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-teal-600 mb-4 transition-colors"
         >
           <ArrowLeft size={16} /> Back to Clients
         </button>
@@ -235,10 +235,10 @@ export default function OwnerDetail({
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-slate-900">{owner.name}</h1>
+              <h1 className="text-2xl font-bold text-zinc-100">{owner.name}</h1>
               <button
                 onClick={onEdit}
-                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-teal-600 border border-slate-200 px-2.5 py-1 rounded-lg hover:border-teal-300 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-teal-600 border border-zinc-700 px-2.5 py-1 rounded-lg hover:border-teal-300 transition-colors"
               >
                 <Edit2 size={12} /> Edit
               </button>
@@ -256,7 +256,7 @@ export default function OwnerDetail({
               )}
             </div>
             {owner.notes && (
-              <p className="text-sm text-slate-500 mt-2 bg-slate-50 px-3 py-2 rounded-lg">{owner.notes}</p>
+              <p className="text-sm text-zinc-400 mt-2 bg-zinc-900 px-3 py-2 rounded-lg">{owner.notes}</p>
             )}
           </div>
         </div>
@@ -269,18 +269,18 @@ export default function OwnerDetail({
           { label: 'Properties', value: owner.properties.length, icon: Home, color: 'text-indigo-500' },
           { label: 'Avg Occupancy', value: avgOccupancy ? `${avgOccupancy}%` : '—', icon: Wifi, color: 'text-amber-500' },
         ].map(s => (
-          <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-4">
+          <div key={s.label} className="bg-zinc-800 rounded-xl border border-zinc-700 p-4">
             <s.icon size={18} className={`${s.color} mb-2`} />
-            <div className="text-xl font-bold text-slate-900">{s.value}</div>
-            <div className="text-xs text-slate-500">{s.label}</div>
+            <div className="text-xl font-bold text-zinc-100">{s.value}</div>
+            <div className="text-xs text-zinc-400">{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Properties */}
-      <div className="bg-white rounded-xl border border-slate-200">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-800">Properties</h2>
+      <div className="bg-zinc-800 rounded-xl border border-zinc-700">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700">
+          <h2 className="font-semibold text-zinc-100">Properties</h2>
           <div className="flex items-center gap-2">
             {uplistingApiKey && (
               <button
@@ -298,9 +298,9 @@ export default function OwnerDetail({
             </button>
           </div>
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-zinc-700">
           {owner.properties.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-8">No properties yet.</p>
+            <p className="text-sm text-zinc-500 text-center py-8">No properties yet.</p>
           )}
           {owner.properties.map(property => {
             const style = STATUS_STYLES[property.status];
@@ -309,14 +309,14 @@ export default function OwnerDetail({
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium text-slate-800">
+                      <h3 className="font-medium text-zinc-100">
                         {property.address}, {property.city}, {property.state}
                       </h3>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${style.badge}`}>
                         {style.label}
                       </span>
                     </div>
-                    <div className="flex flex-wrap gap-4 mt-2 text-sm text-slate-600">
+                    <div className="flex flex-wrap gap-4 mt-2 text-sm text-zinc-300">
                       <span>{property.type}</span>
                       <span>{property.bedrooms}bd / {property.bathrooms}ba</span>
                       <span>Max {property.maxGuests} guests</span>
@@ -333,16 +333,16 @@ export default function OwnerDetail({
                   </div>
                   <div className="text-right flex-shrink-0">
                     <div className="font-bold text-teal-700">${property.monthlyRevenue.toLocaleString()}</div>
-                    <div className="text-xs text-slate-400">/mo</div>
+                    <div className="text-xs text-zinc-500">/mo</div>
                     {property.occupancyRate > 0 && (
-                      <div className="text-xs text-slate-500 mt-0.5">{property.occupancyRate}% occ.</div>
+                      <div className="text-xs text-zinc-400 mt-0.5">{property.occupancyRate}% occ.</div>
                     )}
                   </div>
                 </div>
                 <div className="flex gap-2 mt-3">
                   <button
                     onClick={() => onEditProperty(property)}
-                    className="text-xs text-slate-500 hover:text-teal-600 flex items-center gap-1"
+                    className="text-xs text-zinc-400 hover:text-teal-600 flex items-center gap-1"
                   >
                     <Edit2 size={11} /> Edit
                   </button>
@@ -350,7 +350,7 @@ export default function OwnerDetail({
                     onClick={() => {
                       if (confirm('Remove this property?')) onDeleteProperty(property.id);
                     }}
-                    className="text-xs text-slate-400 hover:text-red-500 flex items-center gap-1"
+                    className="text-xs text-zinc-500 hover:text-red-500 flex items-center gap-1"
                   >
                     <Trash2 size={11} /> Remove
                   </button>
@@ -363,19 +363,19 @@ export default function OwnerDetail({
 
       {/* Revenue Reports */}
       {revenueReports.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200">
-          <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
+        <div className="bg-zinc-800 rounded-xl border border-zinc-700">
+          <div className="flex items-center gap-2 px-5 py-4 border-b border-zinc-700">
             <FileBarChart2 size={16} className="text-teal-600" />
-            <h2 className="font-semibold text-slate-800">Revenue Reports</h2>
-            <span className="text-xs text-slate-400 ml-1">({revenueReports.length})</span>
+            <h2 className="font-semibold text-zinc-100">Revenue Reports</h2>
+            <span className="text-xs text-zinc-500 ml-1">({revenueReports.length})</span>
           </div>
           <div className="p-5 space-y-2">
             {revenueReports.map(r => (
               <div key={r.id} className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-lg px-4 py-3">
                 <FileBarChart2 size={15} className="text-teal-500 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">{r.reportTitle ?? r.propertyAddress}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-sm font-medium text-zinc-100 truncate">{r.reportTitle ?? r.propertyAddress}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
                     {r.reportType?.toUpperCase() ?? 'STR'} · {r.propertyAddress} · {new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                 </div>
@@ -388,7 +388,7 @@ export default function OwnerDetail({
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
                     r.opportunityScore >= 7 ? 'bg-emerald-100 text-emerald-700' :
                     r.opportunityScore >= 4 ? 'bg-amber-100 text-amber-700' :
-                    'bg-slate-100 text-slate-500'
+                    'bg-zinc-700 text-zinc-400'
                   }`}>{r.opportunityScore}/10</span>
                 )}
               </div>
@@ -398,19 +398,19 @@ export default function OwnerDetail({
       )}
 
       {/* Documents / Signatures */}
-      <div className="bg-white rounded-xl border border-slate-200">
-        <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-slate-100 flex-wrap">
-          <h2 className="font-semibold text-slate-800">Documents</h2>
+      <div className="bg-zinc-800 rounded-xl border border-zinc-700">
+        <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-zinc-700 flex-wrap">
+          <h2 className="font-semibold text-zinc-100">Documents</h2>
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => { setShowUpload(v => !v); setUploadError(''); setShowDrivePicker(false); }}
-              className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 px-3 py-1.5 rounded-lg transition-colors font-medium"
+              className="flex items-center gap-1.5 text-xs text-zinc-300 hover:text-zinc-100 border border-zinc-700 hover:border-zinc-600 px-3 py-1.5 rounded-lg transition-colors font-medium"
             >
               <UploadCloud size={13} /> Upload File
             </button>
             <button
               onClick={() => { setShowDrivePicker(true); setShowUpload(false); }}
-              className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 px-3 py-1.5 rounded-lg transition-colors font-medium"
+              className="flex items-center gap-1.5 text-xs text-zinc-300 hover:text-zinc-100 border border-zinc-700 hover:border-zinc-600 px-3 py-1.5 rounded-lg transition-colors font-medium"
             >
               <span className="text-xs">📁</span> Link from Drive
             </button>
@@ -425,7 +425,7 @@ export default function OwnerDetail({
 
         {/* Upload drop zone */}
         {showUpload && (
-          <div className="px-5 py-4 border-b border-slate-100">
+          <div className="px-5 py-4 border-b border-zinc-700">
             <input
               ref={fileInputRef}
               type="file"
@@ -448,24 +448,24 @@ export default function OwnerDetail({
               onClick={() => !uploading && fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
                 uploading
-                  ? 'border-slate-200 bg-slate-50 cursor-default'
+                  ? 'border-zinc-700 bg-zinc-900 cursor-default'
                   : dragOver
                     ? 'border-teal-400 bg-teal-50 cursor-pointer'
-                    : 'border-slate-200 hover:border-teal-300 hover:bg-slate-50 cursor-pointer'
+                    : 'border-zinc-700 hover:border-teal-300 hover:bg-zinc-900 cursor-pointer'
               }`}
             >
               {uploading ? (
                 <div className="flex flex-col items-center gap-2">
                   <Loader size={24} className="text-teal-500 animate-spin" />
-                  <p className="text-sm text-slate-500">Uploading...</p>
+                  <p className="text-sm text-zinc-400">Uploading...</p>
                 </div>
               ) : (
                 <>
-                  <UploadCloud size={28} className={`mx-auto mb-2 ${dragOver ? 'text-teal-500' : 'text-slate-300'}`} />
-                  <p className="text-sm font-medium text-slate-600">
+                  <UploadCloud size={28} className={`mx-auto mb-2 ${dragOver ? 'text-teal-500' : 'text-zinc-600'}`} />
+                  <p className="text-sm font-medium text-zinc-300">
                     {dragOver ? 'Drop to upload' : 'Drag & drop a file here'}
                   </p>
-                  <p className="text-xs text-slate-400 mt-1">or click to browse · any file type</p>
+                  <p className="text-xs text-zinc-500 mt-1">or click to browse · any file type</p>
                 </>
               )}
             </div>
@@ -475,20 +475,20 @@ export default function OwnerDetail({
           </div>
         )}
 
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-zinc-700">
           {ownerDocs.length === 0 && driveLinks.length === 0 && sigRequests.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-8">No documents yet.</p>
+            <p className="text-sm text-zinc-500 text-center py-8">No documents yet.</p>
           )}
 
           {/* Manually uploaded documents */}
           {ownerDocs.map(doc => (
             <div key={doc.id} className="flex items-center gap-3 px-5 py-3.5">
-              <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                <File size={16} className="text-slate-400" />
+              <div className="w-9 h-9 rounded-lg bg-zinc-700 flex items-center justify-center flex-shrink-0">
+                <File size={16} className="text-zinc-500" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate">{doc.name}</p>
-                <p className="text-xs text-slate-400">
+                <p className="text-sm font-medium text-zinc-100 truncate">{doc.name}</p>
+                <p className="text-xs text-zinc-500">
                   {formatBytes(doc.fileSize)} · {new Date(doc.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </p>
               </div>
@@ -503,7 +503,7 @@ export default function OwnerDetail({
                 </a>
                 <button
                   onClick={() => handleDelete(doc)}
-                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-red-500 border border-zinc-700 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
                 >
                   <Trash2 size={11} /> Delete
                 </button>
@@ -523,7 +523,7 @@ export default function OwnerDetail({
                   : '📄'}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate">{link.fileName}</p>
+                <p className="text-sm font-medium text-zinc-100 truncate">{link.fileName}</p>
                 <p className="text-xs text-blue-500 flex items-center gap-1 mt-0.5">
                   <span>📁</span> Google Drive · {new Date(link.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </p>
@@ -539,7 +539,7 @@ export default function OwnerDetail({
                 </a>
                 <button
                   onClick={() => handleDeleteDriveLink(link)}
-                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-red-500 border border-zinc-700 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
                 >
                   <Trash2 size={11} /> Remove
                 </button>
@@ -554,8 +554,8 @@ export default function OwnerDetail({
               <div key={req.id} className="px-5 py-4">
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{req.documentName}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-sm font-medium text-zinc-100 truncate">{req.documentName}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">
                       Sent to {req.sentToEmail} · {new Date(req.sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
                     {req.signedAt && (
@@ -582,7 +582,7 @@ export default function OwnerDetail({
                       <a
                         href={req.signedDocumentUrl}
                         download
-                        className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 hover:border-slate-300 px-3 py-1.5 rounded-lg transition-colors"
+                        className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 border border-zinc-700 hover:border-zinc-600 px-3 py-1.5 rounded-lg transition-colors"
                       >
                         <Download size={12} /> Download
                       </a>
@@ -590,7 +590,7 @@ export default function OwnerDetail({
                   )}
                   <button
                     onClick={() => handleDeleteSigRequest(req.id, req.documentName)}
-                    className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                    className="flex items-center gap-1 text-xs text-zinc-500 hover:text-red-500 border border-zinc-700 hover:border-red-200 px-2.5 py-1.5 rounded-lg transition-colors"
                   >
                     <Trash2 size={11} /> Delete
                   </button>
@@ -602,9 +602,9 @@ export default function OwnerDetail({
       </div>
 
       {/* Outreach history */}
-      <div className="bg-white rounded-xl border border-slate-200">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-800">Outreach History</h2>
+      <div className="bg-zinc-800 rounded-xl border border-zinc-700">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700">
+          <h2 className="font-semibold text-zinc-100">Outreach History</h2>
           <button
             onClick={onAddOutreach}
             className="flex items-center gap-1.5 text-xs text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-400 px-3 py-1.5 rounded-lg transition-colors font-medium"
@@ -612,28 +612,28 @@ export default function OwnerDetail({
             <Plus size={13} /> Log Outreach
           </button>
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-zinc-700">
           {ownerOutreach.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-8">No outreach logged yet.</p>
+            <p className="text-sm text-zinc-500 text-center py-8">No outreach logged yet.</p>
           )}
           {[...ownerOutreach].sort((a, b) => b.date.localeCompare(a.date)).map(entry => (
             <div key={entry.id} className="flex items-start gap-3 px-5 py-4">
               <span className="text-lg mt-0.5">{OUTREACH_ICONS[entry.type]}</span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium text-slate-800">{entry.subject}</p>
+                  <p className="text-sm font-medium text-zinc-100">{entry.subject}</p>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${OUTCOME_STYLES[entry.outcome]}`}>
                     {entry.outcome.replace('_', ' ')}
                   </span>
                 </div>
-                {entry.notes && <p className="text-xs text-slate-500 mt-1">{entry.notes}</p>}
+                {entry.notes && <p className="text-xs text-zinc-400 mt-1">{entry.notes}</p>}
                 {entry.followUpDate && (
                   <p className="text-xs text-amber-600 mt-1">
                     Follow-up: {new Date(entry.followUpDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                 )}
               </div>
-              <div className="text-xs text-slate-400 flex-shrink-0">
+              <div className="text-xs text-zinc-500 flex-shrink-0">
                 {new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </div>
             </div>
@@ -642,7 +642,7 @@ export default function OwnerDetail({
       </div>
 
       {/* Revenue Report */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="bg-zinc-800 rounded-xl border border-zinc-700 p-5">
         <OwnerRevenueReport owner={owner} reservations={reservations} />
       </div>
     </div>
@@ -662,13 +662,13 @@ export default function OwnerDetail({
 
     {importOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 flex flex-col max-h-[80vh]">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <div className="bg-zinc-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 flex flex-col max-h-[80vh]">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700">
             <div className="flex items-center gap-2">
               <Download size={15} className="text-indigo-600" />
-              <h3 className="font-bold text-slate-900 text-sm">Import from Uplisting</h3>
+              <h3 className="font-bold text-zinc-100 text-sm">Import from Uplisting</h3>
             </div>
-            <button onClick={() => setImportOpen(false)} className="text-slate-400 hover:text-slate-600">
+            <button onClick={() => setImportOpen(false)} className="text-zinc-500 hover:text-zinc-300">
               <X size={16} />
             </button>
           </div>
@@ -681,14 +681,14 @@ export default function OwnerDetail({
             ) : importError ? (
               <p className="text-sm text-red-500 text-center py-8">{importError}</p>
             ) : uplistingProps.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-8">No properties found in Uplisting.</p>
+              <p className="text-sm text-zinc-500 text-center py-8">No properties found in Uplisting.</p>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs text-slate-500 mb-3">
+                <p className="text-xs text-zinc-400 mb-3">
                   {uplistingProps.length} propert{uplistingProps.length === 1 ? 'y' : 'ies'} found — select to import:
                 </p>
                 {uplistingProps.map(p => (
-                  <label key={p.id} className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 hover:border-indigo-300 cursor-pointer transition-colors">
+                  <label key={p.id} className="flex items-start gap-3 p-3 rounded-lg border border-zinc-700 hover:border-indigo-300 cursor-pointer transition-colors">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(p.id)}
@@ -700,18 +700,18 @@ export default function OwnerDetail({
                       className="mt-0.5 accent-indigo-600"
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-slate-800 truncate">
+                      <div className="text-sm font-medium text-zinc-100 truncate">
                         {p.nickname || p.name}
                       </div>
                       {p.nickname && p.name && p.nickname !== p.name && (
-                        <div className="text-xs text-slate-400 truncate">{p.name}</div>
+                        <div className="text-xs text-zinc-500 truncate">{p.name}</div>
                       )}
                       {p.address && (
-                        <div className="text-xs text-slate-500 mt-0.5 truncate">
+                        <div className="text-xs text-zinc-400 mt-0.5 truncate">
                           {p.address}{p.city ? `, ${p.city}` : ''}{p.state ? `, ${p.state}` : ''}
                         </div>
                       )}
-                      <div className="text-xs text-slate-400 mt-1">
+                      <div className="text-xs text-zinc-500 mt-1">
                         {p.bedrooms}bd · {p.bathrooms}ba · max {p.max_guests}
                         {p.channels?.length ? ` · ${p.channels.map(c => CHANNEL_MAP[c] ?? c).join(', ')}` : ''}
                       </div>
@@ -723,7 +723,7 @@ export default function OwnerDetail({
           </div>
 
           {!importLoading && !importError && uplistingProps.length > 0 && (
-            <div className="px-5 py-4 border-t border-slate-100 space-y-2">
+            <div className="px-5 py-4 border-t border-zinc-700 space-y-2">
               {importError && <p className="text-xs text-red-500">{importError}</p>}
               <button
                 onClick={handleImport}
