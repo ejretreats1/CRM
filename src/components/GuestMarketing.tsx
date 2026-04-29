@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Send, Users, Mail, CheckSquare, Square, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Send, CheckSquare, Square, X } from 'lucide-react';
 import type { UplistingReservation } from '../services/uplisting';
 
 interface GuestMarketingProps {
