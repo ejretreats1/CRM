@@ -62,6 +62,40 @@ const OUTREACH_TYPE_ICONS: Record<string, string> = {
   call: '📞', email: '✉️', text: '💬', meeting: '🤝', other: '📝',
 };
 
+const SLACK_EMOJI: Record<string, string> = {
+  white_check_mark:'✅', x:'❌', heavy_check_mark:'✔️', ballot_box_with_check:'☑️',
+  rocket:'🚀', tada:'🎉', fire:'🔥', star:'⭐', star2:'🌟', sparkles:'✨', zap:'⚡',
+  house:'🏠', house_with_garden:'🏡', bed:'🛏️', key:'🔑', lock:'🔒', door:'🚪',
+  calendar:'📅', date:'📅', clock1:'🕐', hourglass:'⏳', stopwatch:'⏱️',
+  moneybag:'💰', dollar:'💵', credit_card:'💳', chart_with_upwards_trend:'📈', chart_with_downwards_trend:'📉',
+  bell:'🔔', mega:'📣', loudspeaker:'📢', rotating_light:'🚨', warning:'⚠️', exclamation:'❗', question:'❓',
+  email:'📧', mailbox:'📬', phone:'📞', iphone:'📱', computer:'💻', memo:'📝', clipboard:'📋', notebook:'📓',
+  broom:'🧹', tools:'🛠️', wrench:'🔧', hammer:'🔨', mag:'🔍', eyes:'👀',
+  thumbsup:'👍', thumbsdown:'👎', wave:'👋', pray:'🙏', handshake:'🤝', clap:'👏',
+  heart:'❤️', '100':'💯', new:'🆕', trophy:'🏆', checkered_flag:'🏁',
+  smile:'😊', joy:'😂', sunglasses:'😎', thinking_face:'🤔', raised_hands:'🙌',
+  arrow_right:'➡️', arrow_left:'⬅️', arrow_up:'⬆️', arrow_down:'⬇️',
+  information_source:'ℹ️', bulb:'💡', pencil:'✏️', paperclip:'📎',
+  car:'🚗', airplane:'✈️', airplane_departure:'🛫',
+  person:'👤', busts_in_silhouette:'👥', family:'👨‍👩‍👧',
+};
+
+function renderSlackText(text: string): string {
+  return text
+    .replace(/<(https?:[^|>]+)\|([^>]+)>/g, '$2')   // <url|label> → label
+    .replace(/<(https?:[^>]+)>/g, '$1')               // bare <url> → url
+    .replace(/<@[A-Z0-9]+\|([^>]+)>/g, '@$1')        // <@U123|name> → @name
+    .replace(/<@[A-Z0-9]+>/g, '@user')                // <@U123> → @user
+    .replace(/<#[A-Z0-9]+\|([^>]+)>/g, '#$1')        // <#C123|name> → #name
+    .replace(/<!channel>/g, '@channel')
+    .replace(/<!here>/g, '@here')
+    .replace(/<!everyone>/g, '@everyone')
+    .replace(/:[a-z0-9_+-]+:/gi, m => {
+      const key = m.slice(1, -1);
+      return SLACK_EMOJI[key] ?? m;
+    });
+}
+
 function formatEventDate(start: string): { day: string; time: string; isToday: boolean; isTomorrow: boolean } {
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
@@ -712,10 +746,10 @@ export default function Dashboard({
                         <span className="text-xs text-slate-400">{timeAgoShort(msg.ts)}</span>
                       </div>
                       <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap break-words">
-                        {body}
+                        {renderSlackText(body)}
                       </p>
                       {msg.text && msg.attachmentText && msg.text !== msg.attachmentText && (
-                        <p className="text-xs text-slate-400 mt-1 italic truncate">{msg.attachmentText}</p>
+                        <p className="text-xs text-slate-400 mt-1 italic truncate">{renderSlackText(msg.attachmentText)}</p>
                       )}
                     </div>
                   </div>
