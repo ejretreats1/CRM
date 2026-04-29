@@ -451,7 +451,7 @@ export default function App() {
       {view === 'newsletter' && <Newsletter leads={leads} owners={owners} />}
 
       {view === 'guest-marketing' && (
-        <GuestMarketing reservations={uplistingReservations} />
+        <GuestMarketing reservations={uplistingReservations} apiKey={uplistingApiKey || undefined} />
       )}
 
       {modal?.type === 'lead-detail' && (

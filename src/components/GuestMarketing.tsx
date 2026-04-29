@@ -1,9 +1,20 @@
 import { useState, useMemo } from 'react';
-import { Search, Send, CheckSquare, Square, X } from 'lucide-react';
+import { Search, Send, CheckSquare, Square, X, RefreshCw } from 'lucide-react';
 import type { UplistingReservation } from '../services/uplisting';
+import { fetchReservations } from '../services/uplisting';
+
+const HISTORY_KEY = 'ej_uplisting_history';
+
+function loadHistory(): UplistingReservation[] {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]'); } catch { return []; }
+}
+function saveHistory(r: UplistingReservation[]) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(r));
+}
 
 interface GuestMarketingProps {
   reservations: UplistingReservation[];
+  apiKey?: string;
 }
 
 interface Guest {
@@ -32,7 +43,7 @@ function isRealEmail(email: string) {
   return email.includes('@');
 }
 
-export default function GuestMarketing({ reservations }: GuestMarketingProps) {
+export default function GuestMarketing({ reservations, apiKey }: GuestMarketingProps) {
   const [search, setSearch] = useState('');
   const [channelFilter, setChannelFilter] = useState('all');
   const [showNoEmail, setShowNoEmail] = useState(false);
@@ -43,11 +54,46 @@ export default function GuestMarketing({ reservations }: GuestMarketingProps) {
   const [sending, setSending] = useState(false);
   const [sentResult, setSentResult] = useState<{ sent: number; failed: number } | null>(null);
   const [sendError, setSendError] = useState('');
+  const [history, setHistory] = useState<UplistingReservation[]>(() => loadHistory());
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const [historyLastFetched, setHistoryLastFetched] = useState<string | null>(
+    () => localStorage.getItem('ej_uplisting_history_date')
+  );
+
+  async function fetchHistory() {
+    if (!apiKey) return;
+    setLoadingHistory(true);
+    setHistoryError('');
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const threeYearsAgo = new Date();
+      threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+      const from = threeYearsAgo.toISOString().slice(0, 10);
+      const hist = await fetchReservations(apiKey, from, today);
+      saveHistory(hist);
+      setHistory(hist);
+      localStorage.setItem('ej_uplisting_history_date', today);
+      setHistoryLastFetched(today);
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : 'Failed to load history');
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
+  // Merge regular reservations + history, dedupe by id
+  const allReservations = useMemo(() => {
+    const map = new Map<string, UplistingReservation>();
+    for (const r of history) map.set(r.id, r);
+    for (const r of reservations) map.set(r.id, r);
+    return Array.from(map.values());
+  }, [reservations, history]);
 
   // Deduplicate guests by email, fall back to guest_name for no-email entries
   const guests = useMemo<Guest[]>(() => {
     const map = new Map<string, Guest>();
-    for (const r of reservations) {
+    for (const r of allReservations) {
       if (r.status === 'cancelled') continue;
       const key = r.guest_email && isRealEmail(r.guest_email)
         ? r.guest_email.toLowerCase()
@@ -158,17 +204,30 @@ export default function GuestMarketing({ reservations }: GuestMarketingProps) {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Guest Marketing</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            {withEmail} guests with email · {withoutEmail} without · {reservations.filter(r => r.status !== 'cancelled').length} total stays
+            {withEmail} guests with email · {withoutEmail} without · {allReservations.filter(r => r.status !== 'cancelled').length} total stays
+            {historyLastFetched && <span className="ml-2 text-slate-400">· history through {historyLastFetched}</span>}
           </p>
         </div>
-        {selected.size > 0 && (
-          <button
-            onClick={() => setComposing(true)}
-            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-          >
-            <Send size={15} /> Compose to {selected.size} guest{selected.size !== 1 ? 's' : ''}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {apiKey && (
+            <button
+              onClick={fetchHistory}
+              disabled={loadingHistory}
+              className="flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={loadingHistory ? 'animate-spin' : ''} />
+              {loadingHistory ? 'Loading…' : historyLastFetched ? 'Refresh History' : 'Load Full History'}
+            </button>
+          )}
+          {selected.size > 0 && (
+            <button
+              onClick={() => setComposing(true)}
+              className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              <Send size={15} /> Compose to {selected.size} guest{selected.size !== 1 ? 's' : ''}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -176,7 +235,7 @@ export default function GuestMarketing({ reservations }: GuestMarketingProps) {
         {[
           { label: 'Total Guests', value: guests.length, icon: '👤' },
           { label: 'Have Email', value: withEmail, icon: '📧' },
-          { label: 'Total Stays', value: reservations.filter(r => r.status !== 'cancelled').length, icon: '🏠' },
+          { label: 'Total Stays', value: allReservations.filter(r => r.status !== 'cancelled').length, icon: '🏠' },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-4">
             <div className="text-xl mb-1">{s.icon}</div>
@@ -216,6 +275,10 @@ export default function GuestMarketing({ reservations }: GuestMarketingProps) {
           Show guests without email
         </label>
       </div>
+
+      {historyError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{historyError}</div>
+      )}
 
       {sentResult && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-sm text-emerald-700 font-medium">
