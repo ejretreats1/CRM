@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import LoginPage from './components/LoginPage';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Pipeline from './components/Pipeline';
@@ -43,6 +45,10 @@ type Modal =
   | null;
 
 export default function App() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+  const isAdmin = (user?.publicMetadata?.role as string) === 'admin';
+
   const [leads, setLeads] = useState<Lead[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
   const [outreach, setOutreach] = useState<OutreachEntry[]>([]);
@@ -321,6 +327,16 @@ export default function App() {
   const selectedOwner = owners.find(o => o.id === selectedOwnerId);
   const uplistingConnected = !!uplistingApiKey;
 
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <div className="text-slate-500 text-sm">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isSignedIn) return <LoginPage />;
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
@@ -340,7 +356,7 @@ export default function App() {
   }
 
   return (
-    <Layout currentView={view} onNavigate={navigate}>
+    <Layout currentView={view} onNavigate={navigate} isAdmin={isAdmin}>
       {view === 'dashboard' && (
         <Dashboard
           leads={leads}
@@ -440,7 +456,7 @@ export default function App() {
         />
       )}
 
-      {view === 'drive' && <DriveView />}
+      {view === 'drive' && <DriveView isAdmin={isAdmin} />}
 
       {view === 'revenue-reports' && (
         <RevenueReports leads={leads} owners={owners} />

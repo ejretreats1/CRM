@@ -47,7 +47,11 @@ function fileIcon(mimeType: string) {
   return '📄';
 }
 
-export default function DriveView() {
+interface DriveViewProps {
+  isAdmin: boolean;
+}
+
+export default function DriveView({ isAdmin }: DriveViewProps) {
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -141,8 +145,11 @@ export default function DriveView() {
     setCrumbs(prev => prev.slice(0, index + 1));
   }
 
-  const folders = files.filter(f => f.isFolder);
-  const docs = files.filter(f => !f.isFolder);
+  const visibleFiles = isAdmin
+    ? files
+    : files.filter(f => !(f.isFolder && f.name.toLowerCase() === 'admin'));
+  const folders = visibleFiles.filter(f => f.isFolder);
+  const docs = visibleFiles.filter(f => !f.isFolder);
   const insideFolder = currentFolder.id !== null;
 
   return (

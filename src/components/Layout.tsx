@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useClerk, useUser } from '@clerk/clerk-react';
 import {
   LayoutDashboard,
   Columns3,
@@ -13,12 +14,14 @@ import {
   FileBarChart2,
   Sparkles,
   Mail,
+  LogOut,
 } from 'lucide-react';
 import type { View } from '../types';
 
 interface LayoutProps {
   currentView: View;
   onNavigate: (view: View, extra?: string) => void;
+  isAdmin: boolean;
   children: React.ReactNode;
 }
 
@@ -35,14 +38,27 @@ const navItems = [
   { id: 'guest-marketing' as View, label: 'Guest Marketing', icon: Users },
 ];
 
-const bottomNavItems = [
-  { id: 'settings' as View, label: 'Settings', icon: Settings },
-];
-
-export default function Layout({ currentView, onNavigate, children }: LayoutProps) {
+export default function Layout({ currentView, onNavigate, isAdmin, children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { signOut } = useClerk();
+  const { user } = useUser();
 
   const activeView = currentView === 'owner-detail' ? 'owners' : currentView;
+
+  function handleNav(id: View) {
+    onNavigate(id);
+    setSidebarOpen(false);
+  }
+
+  const initials = (
+    user?.firstName?.[0] ??
+    user?.emailAddresses?.[0]?.emailAddress?.[0] ??
+    '?'
+  ).toUpperCase();
+
+  const displayName = user?.firstName
+    ? `${user.firstName} ${user.lastName ?? ''}`.trim()
+    : (user?.emailAddresses?.[0]?.emailAddress ?? '');
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden print:block print:h-auto print:overflow-visible">
@@ -74,11 +90,11 @@ export default function Layout({ currentView, onNavigate, children }: LayoutProp
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
-              onClick={() => { onNavigate(id); setSidebarOpen(false); }}
+              onClick={() => handleNav(id)}
               className={`
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                 ${activeView === id
@@ -92,23 +108,45 @@ export default function Layout({ currentView, onNavigate, children }: LayoutProp
           ))}
         </nav>
 
-        {/* Bottom nav */}
+        {/* Bottom: Settings (admin only) + user row */}
         <div className="px-3 py-3 border-t border-slate-100 space-y-1">
-          {bottomNavItems.map(({ id, label, icon: Icon }) => (
+          {isAdmin && (
             <button
-              key={id}
-              onClick={() => { onNavigate(id); setSidebarOpen(false); }}
+              onClick={() => handleNav('settings')}
               className={`
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                ${activeView === id
+                ${activeView === 'settings'
                   ? 'bg-teal-50 text-teal-700'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}
               `}
             >
-              <Icon size={18} />
-              {label}
+              <Settings size={18} />
+              Settings
             </button>
-          ))}
+          )}
+
+          {/* User row */}
+          <div className="flex items-center gap-2.5 px-3 py-2">
+            {user?.imageUrl ? (
+              <img src={user.imageUrl} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-semibold text-teal-700">{initials}</span>
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-slate-700 truncate">{displayName}</p>
+              <p className="text-xs text-slate-400">{isAdmin ? 'Admin' : 'VA'}</p>
+            </div>
+            <button
+              onClick={() => signOut()}
+              title="Sign out"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+
           <p className="text-xs text-slate-400 px-3 pt-1">E&amp;J Retreats © 2026</p>
         </div>
       </aside>
