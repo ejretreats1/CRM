@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Mail, Users, Send, CheckCircle, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { Mail, Users, Send, CheckCircle, AlertCircle, Loader, Eye, EyeOff, ImagePlus, X } from 'lucide-react';
 import type { Lead, Owner } from '../types';
 
 interface NewsletterProps {
@@ -18,12 +18,16 @@ type SendState = 'idle' | 'sending' | 'done' | 'error';
 export default function Newsletter({ leads, owners }: NewsletterProps) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [headerImage, setHeaderImage] = useState<string | null>(null);
+  const [imageUrlInput, setImageUrlInput] = useState('');
+  const [showUrlInput, setShowUrlInput] = useState(false);
   const [includeLeads, setIncludeLeads] = useState(true);
   const [includeOwners, setIncludeOwners] = useState(true);
   const [sendState, setSendState] = useState<SendState>('idle');
   const [result, setResult] = useState<{ sent: number; failed: number } | null>(null);
   const [preview, setPreview] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const imageFileRef = useRef<HTMLInputElement>(null);
 
   const recipients = useMemo<Recipient[]>(() => {
     const seen = new Set<string>();
@@ -65,6 +69,21 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
     return seen.size;
   }, [leads, owners]);
 
+  function handleImageFile(file: File) {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => setHeaderImage(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  function applyImageUrl() {
+    const url = imageUrlInput.trim();
+    if (!url) return;
+    setHeaderImage(url);
+    setImageUrlInput('');
+    setShowUrlInput(false);
+  }
+
   function buildHtml() {
     const escaped = body
       .replace(/&/g, '&amp;')
@@ -73,6 +92,10 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
       .split('\n')
       .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 12px 0;line-height:1.6">${line}</p>`)
       .join('');
+
+    const imageBlock = headerImage
+      ? `<img src="${headerImage}" alt="Newsletter image" style="width:100%;display:block;margin-bottom:24px;border-radius:6px;"/>`
+      : '';
 
     return `<!DOCTYPE html>
 <html>
@@ -84,6 +107,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
       <div style="color:#99f6e4;font-size:13px;margin-top:4px">Property Management Newsletter</div>
     </div>
     <div style="padding:32px">
+      ${imageBlock}
       <h2 style="margin:0 0 20px 0;font-size:20px;color:#0f172a">${subject}</h2>
       ${escaped}
     </div>
@@ -117,6 +141,9 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
   function reset() {
     setSubject('');
     setBody('');
+    setHeaderImage(null);
+    setImageUrlInput('');
+    setShowUrlInput(false);
     setSendState('idle');
     setResult(null);
     setConfirming(false);
@@ -189,6 +216,66 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
+
+            {/* Image */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Header Image (optional)</label>
+              <input
+                ref={imageFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ''; }}
+              />
+              {headerImage ? (
+                <div className="relative rounded-lg overflow-hidden border border-slate-200">
+                  <img src={headerImage} alt="Header" className="w-full object-cover max-h-48" />
+                  <button
+                    onClick={() => setHeaderImage(null)}
+                    className="absolute top-2 right-2 bg-white/90 hover:bg-white rounded-full p-1 shadow text-slate-500 hover:text-red-500 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div
+                    onClick={() => imageFileRef.current?.click()}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleImageFile(f); }}
+                    className="border-2 border-dashed border-slate-200 rounded-lg p-5 text-center cursor-pointer hover:border-teal-300 hover:bg-teal-50 transition-colors"
+                  >
+                    <ImagePlus size={20} className="mx-auto mb-1.5 text-slate-300" />
+                    <p className="text-sm text-slate-500 font-medium">Upload image</p>
+                    <p className="text-xs text-slate-400">or drag & drop · JPG, PNG, WebP</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-px bg-slate-100" />
+                    <span className="text-xs text-slate-400">or</span>
+                    <div className="flex-1 h-px bg-slate-100" />
+                  </div>
+                  {showUrlInput ? (
+                    <div className="flex gap-2">
+                      <input
+                        autoFocus
+                        value={imageUrlInput}
+                        onChange={e => setImageUrlInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') applyImageUrl(); if (e.key === 'Escape') setShowUrlInput(false); }}
+                        placeholder="https://example.com/image.jpg"
+                        className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                      <button onClick={applyImageUrl} className="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors">Add</button>
+                      <button onClick={() => setShowUrlInput(false)} className="px-3 py-1.5 text-slate-500 text-sm rounded-lg hover:bg-slate-100 transition-colors">Cancel</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setShowUrlInput(true)} className="w-full text-sm text-teal-600 hover:text-teal-700 font-medium py-1.5 rounded-lg hover:bg-teal-50 transition-colors">
+                      Paste image URL
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-medium text-slate-600">Message</label>
