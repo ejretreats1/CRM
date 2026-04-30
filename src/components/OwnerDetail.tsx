@@ -361,42 +361,6 @@ export default function OwnerDetail({
         </div>
       </div>
 
-      {/* Revenue Reports */}
-      {revenueReports.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200">
-          <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-200">
-            <FileBarChart2 size={16} className="text-teal-600" />
-            <h2 className="font-semibold text-slate-900">Revenue Reports</h2>
-            <span className="text-xs text-slate-400 ml-1">({revenueReports.length})</span>
-          </div>
-          <div className="p-5 space-y-2">
-            {revenueReports.map(r => (
-              <div key={r.id} className="flex items-center gap-3 bg-teal-50 border border-teal-100 rounded-lg px-4 py-3">
-                <FileBarChart2 size={15} className="text-teal-500 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">{r.reportTitle ?? r.propertyAddress}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {r.reportType?.toUpperCase() ?? 'STR'} · {r.propertyAddress} · {new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </div>
-                {r.airdnaProjectedRevenue != null && (
-                  <span className="text-sm font-bold text-teal-700 flex-shrink-0">
-                    ${Math.round(r.airdnaProjectedRevenue).toLocaleString()}/yr
-                  </span>
-                )}
-                {r.opportunityScore != null && (
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                    r.opportunityScore >= 7 ? 'bg-emerald-100 text-emerald-700' :
-                    r.opportunityScore >= 4 ? 'bg-amber-100 text-amber-700' :
-                    'bg-slate-100 text-slate-500'
-                  }`}>{r.opportunityScore}/10</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Revenue Report */}
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <OwnerRevenueReport owner={owner} reservations={reservations} />
@@ -481,9 +445,36 @@ export default function OwnerDetail({
         )}
 
         <div className="divide-y divide-slate-200">
-          {ownerDocs.length === 0 && driveLinks.length === 0 && sigRequests.length === 0 && (
+          {ownerDocs.length === 0 && driveLinks.length === 0 && sigRequests.length === 0 && revenueReports.length === 0 && (
             <p className="text-sm text-slate-400 text-center py-8">No documents yet.</p>
           )}
+
+          {/* AI Revenue Reports */}
+          {revenueReports.map(r => (
+            <div key={r.id} className="flex items-center gap-3 px-5 py-3.5">
+              <div className="w-9 h-9 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                <FileBarChart2 size={16} className="text-teal-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900 truncate">{r.reportTitle ?? r.propertyAddress}</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {r.reportType?.toUpperCase() ?? 'STR'} · {new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {r.airdnaProjectedRevenue != null && (
+                  <span className="text-sm font-bold text-teal-700">${Math.round(r.airdnaProjectedRevenue).toLocaleString()}/yr</span>
+                )}
+                {r.opportunityScore != null && (
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    r.opportunityScore >= 7 ? 'bg-emerald-100 text-emerald-700' :
+                    r.opportunityScore >= 4 ? 'bg-amber-100 text-amber-700' :
+                    'bg-slate-100 text-slate-500'
+                  }`}>{r.opportunityScore}/10</span>
+                )}
+              </div>
+            </div>
+          ))}
 
           {/* Manually uploaded documents */}
           {ownerDocs.map(doc => (
