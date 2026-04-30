@@ -340,19 +340,19 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                 <Users size={15} className="text-teal-600" /> Recipients
               </h3>
               <div className="flex items-center gap-2">
-                <button onClick={selectAll} className="text-xs text-teal-400 hover:text-teal-300 transition-colors">All</button>
+                <button onClick={selectAll} className="text-xs text-teal-600 hover:text-teal-700 transition-colors">All</button>
                 <span className="text-slate-300 text-xs">·</span>
                 <button onClick={clearAll} className="text-xs text-slate-400 hover:text-slate-600 transition-colors">None</button>
               </div>
             </div>
 
             {/* Quick group toggles */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => selectGroup('client', !allClientsSelected)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                   allClientsSelected
-                    ? 'bg-teal-600/20 text-teal-300 border-teal-600/40'
+                    ? 'bg-teal-50 text-teal-700 border-teal-300'
                     : 'bg-slate-100 text-slate-500 border-slate-200 hover:text-slate-700'
                 }`}
               >
@@ -362,7 +362,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                 onClick={() => selectGroup('lead', !allLeadsSelected)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                   allLeadsSelected
-                    ? 'bg-indigo-600/20 text-indigo-300 border-indigo-600/40'
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-300'
                     : 'bg-slate-100 text-slate-500 border-slate-200 hover:text-slate-700'
                 }`}
               >
@@ -373,7 +373,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                   onClick={() => selectGroup('team', !allTeamSelected)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                     allTeamSelected
-                      ? 'bg-violet-600/20 text-violet-300 border-violet-600/40'
+                      ? 'bg-violet-50 text-violet-700 border-violet-300'
                       : 'bg-slate-100 text-slate-500 border-slate-200 hover:text-slate-700'
                   }`}
                 >
@@ -419,9 +419,9 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                         <p className="text-xs text-slate-400 truncate">{c.email}</p>
                       </div>
                       <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                        c.group === 'client' ? 'bg-teal-900/40 text-teal-400'
-                        : c.group === 'lead' ? 'bg-indigo-900/40 text-indigo-400'
-                        : 'bg-violet-900/40 text-violet-400'
+                        c.group === 'client' ? 'bg-teal-100 text-teal-700'
+                        : c.group === 'lead' ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-violet-100 text-violet-700'
                       }`}>
                         {c.group === 'client' ? 'Client' : c.group === 'lead' ? 'Lead' : 'Team'}
                       </span>
@@ -432,7 +432,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
             )}
 
             <div className={`flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg ${
-              recipients.length > 0 ? 'bg-teal-900/30 text-teal-300' : 'bg-slate-100 text-slate-400'
+              recipients.length > 0 ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-slate-100 text-slate-400'
             }`}>
               <Mail size={14} />
               {recipients.length > 0 ? `${recipients.length} recipient${recipients.length !== 1 ? 's' : ''} selected` : 'No recipients selected'}
