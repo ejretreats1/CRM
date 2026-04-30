@@ -397,6 +397,11 @@ export default function OwnerDetail({
         </div>
       )}
 
+      {/* Revenue Report */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <OwnerRevenueReport owner={owner} reservations={reservations} />
+      </div>
+
       {/* Documents / Signatures */}
       <div className="bg-white rounded-xl border border-slate-200">
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-slate-200 flex-wrap">
@@ -641,10 +646,6 @@ export default function OwnerDetail({
         </div>
       </div>
 
-      {/* Revenue Report */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <OwnerRevenueReport owner={owner} reservations={reservations} />
-      </div>
     </div>
     {showSigModal && (
       <SignatureRequestModal
