@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Mail, Users, Send, CheckCircle, AlertCircle, Loader, Eye, EyeOff, ImagePlus, X, Link, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mail, Users, Send, CheckCircle, AlertCircle, Loader, Eye, EyeOff, ImagePlus, X, Link, Search, ChevronDown, ChevronUp, Save } from 'lucide-react';
 import type { Lead, Owner } from '../types';
 
 interface NewsletterProps {
@@ -19,6 +19,19 @@ type Block = TextBlock | ImageBlock;
 
 type SendState = 'idle' | 'sending' | 'done' | 'error';
 
+const DRAFT_KEY = 'newsletter_draft';
+interface Draft { subject: string; blocks: Block[]; savedAt: string; }
+
+function loadDraft(): Draft | null {
+  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null'); } catch { return null; }
+}
+function saveDraft(subject: string, blocks: Block[]) {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ subject, blocks, savedAt: new Date().toISOString() })); } catch { /* quota */ }
+}
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
+}
+
 function newTextBlock(content = ''): TextBlock {
   return { id: `t_${Date.now()}_${Math.random()}`, type: 'text', content };
 }
@@ -27,8 +40,9 @@ function newImageBlock(src: string): ImageBlock {
 }
 
 export default function Newsletter({ leads, owners }: NewsletterProps) {
-  const [subject, setSubject] = useState('');
-  const [blocks, setBlocks] = useState<Block[]>([newTextBlock()]);
+  const [subject, setSubject] = useState(() => loadDraft()?.subject ?? '');
+  const [blocks, setBlocks] = useState<Block[]>(() => { const d = loadDraft(); return d?.blocks?.length ? d.blocks : [newTextBlock()]; });
+  const [lastSaved, setLastSaved] = useState<Date | null>(() => { const d = loadDraft(); return d ? new Date(d.savedAt) : null; });
   const [insertingAfter, setInsertingAfter] = useState<string | null>(null);
   const [insertMode, setInsertMode] = useState<'upload' | 'url' | null>(null);
   const [urlInput, setUrlInput] = useState('');
@@ -56,6 +70,17 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
       })
       .catch(() => {});
   }, []);
+
+  // Auto-save draft
+  useEffect(() => {
+    const hasAnyContent = subject.trim() || blocks.some(b => b.type === 'text' && b.content.trim()) || blocks.some(b => b.type === 'image');
+    if (!hasAnyContent) return;
+    const timer = setTimeout(() => {
+      saveDraft(subject, blocks);
+      setLastSaved(new Date());
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [subject, blocks]);
 
   // All unique contacts
   const allContacts = useMemo<Contact[]>(() => {
@@ -216,6 +241,8 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
       if (!res.ok) throw new Error(data.error ?? 'Failed');
       setResult(data);
       setSendState('done');
+      clearDraft();
+      setLastSaved(null);
     } catch {
       setSendState('error');
     }
@@ -228,6 +255,8 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
     setSendState('idle');
     setResult(null);
     setConfirming(false);
+    setLastSaved(null);
+    clearDraft();
     closeInsert();
   }
 
@@ -368,16 +397,32 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
 
           {/* Compose */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-bold text-slate-900">Compose</h3>
-              <button
-                type="button"
-                onClick={() => setPreview(p => !p)}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-teal-400 transition-colors"
-              >
-                {preview ? <EyeOff size={12} /> : <Eye size={12} />}
-                {preview ? 'Edit' : 'Preview email'}
-              </button>
+              <div className="flex items-center gap-3">
+                {lastSaved && (
+                  <span className="text-xs text-slate-400 flex items-center gap-1">
+                    <Save size={11} />
+                    Draft saved {lastSaved.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { saveDraft(subject, blocks); setLastSaved(new Date()); }}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-teal-600 transition-colors"
+                  title="Save draft"
+                >
+                  <Save size={12} /> Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreview(p => !p)}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-teal-400 transition-colors"
+                >
+                  {preview ? <EyeOff size={12} /> : <Eye size={12} />}
+                  {preview ? 'Edit' : 'Preview'}
+                </button>
+              </div>
             </div>
 
             <div>
@@ -472,6 +517,17 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
               </div>
             )}
           </div>
+
+          {lastSaved && (
+            <div className="flex justify-end">
+              <button
+                onClick={reset}
+                className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+              >
+                Discard draft
+              </button>
+            </div>
+          )}
 
           {sendState === 'error' && (
             <div className="flex items-center gap-2 bg-red-900/20 border border-red-700 text-red-400 rounded-lg px-3 py-2.5 text-sm">
