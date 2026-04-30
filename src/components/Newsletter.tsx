@@ -39,6 +39,43 @@ function newImageBlock(src: string): ImageBlock {
   return { id: `i_${Date.now()}_${Math.random()}`, type: 'image', src };
 }
 
+// Hoisted outside component — js-hoist-regexp
+const BULLET_RE = /^[•·‣▸\-\*–—]\s+/;
+
+function esc(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function buildTextHtml(content: string): string {
+  const lines = content.split('\n');
+  const parts: string[] = [];
+  let listOpen = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (BULLET_RE.test(line)) {
+      if (!listOpen) { parts.push('<ul style="margin:0 0 12px 0;padding-left:24px;line-height:1.8">'); listOpen = true; }
+      parts.push(`<li style="margin-bottom:4px">${esc(line.replace(BULLET_RE, ''))}</li>`);
+    } else {
+      if (listOpen) { parts.push('</ul>'); listOpen = false; }
+      parts.push(line === '' ? '<br/>' : `<p style="margin:0 0 12px 0;line-height:1.6">${esc(raw)}</p>`);
+    }
+  }
+  if (listOpen) parts.push('</ul>');
+  return parts.join('');
+}
+
+function nodeToText(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
+  const el = node as Element;
+  if (el.tagName === 'LI') return '• ' + Array.from(el.childNodes).map(nodeToText).join('').trim() + '\n';
+  if (el.tagName === 'BR') return '\n';
+  if (['P', 'DIV', 'H1', 'H2', 'H3', 'H4'].includes(el.tagName)) {
+    const inner = Array.from(el.childNodes).map(nodeToText).join('');
+    return inner.trim() ? inner.trimEnd() + '\n' : '\n';
+  }
+  return Array.from(el.childNodes).map(nodeToText).join('');
+}
+
 export default function Newsletter({ leads, owners }: NewsletterProps) {
   const [subject, setSubject] = useState(() => loadDraft()?.subject ?? '');
   const [blocks, setBlocks] = useState<Block[]>(() => { const d = loadDraft(); return d?.blocks?.length ? d.blocks : [newTextBlock()]; });
@@ -192,15 +229,22 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
     e.target.value = '';
   }
 
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>, blockId: string) {
+    const html = e.clipboardData.getData('text/html');
+    if (!html) return;
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    if (!doc.querySelector('li')) return;
+    e.preventDefault();
+    const normalized = nodeToText(doc.body).trim();
+    const target = e.currentTarget;
+    const start = target.selectionStart ?? 0;
+    const end = target.selectionEnd ?? 0;
+    updateText(blockId, target.value.slice(0, start) + normalized + target.value.slice(end));
+  }
+
   function buildHtml() {
     const bodyHtml = blocks.map(block => {
-      if (block.type === 'text') {
-        return block.content
-          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-          .split('\n')
-          .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 12px 0;line-height:1.6">${line}</p>`)
-          .join('');
-      }
+      if (block.type === 'text') return buildTextHtml(block.content);
       return `<img src="${block.src}" alt="" style="width:100%;display:block;margin:20px 0;border-radius:6px;"/>`;
     }).join('');
 
@@ -452,6 +496,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                       <textarea
                         value={block.content}
                         onChange={e => updateText(block.id, e.target.value)}
+                        onPaste={e => handlePaste(e, block.id)}
                         rows={idx === 0 && blocks.length === 1 ? 10 : 4}
                         placeholder={idx === 0 ? `Hey everyone,\n\nHere's what's new at E&J Retreats this month...` : 'Continue writing...'}
                         className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none font-mono"
