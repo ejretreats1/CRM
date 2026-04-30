@@ -11,7 +11,7 @@ interface OwnersProps {
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-700',
   onboarding: 'bg-amber-100 text-amber-700',
-  inactive: 'bg-zinc-700 text-zinc-400',
+  inactive: 'bg-slate-100 text-slate-500',
 };
 
 export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: OwnersProps) {
@@ -32,8 +32,8 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: Owners
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-zinc-100">Clients</h1>
-          <p className="text-sm text-zinc-400 mt-0.5">
+          <h1 className="text-xl font-bold text-slate-900">Clients</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
             {owners.length} clients · {totalProperties} properties · ${totalRevenue.toLocaleString()}/mo revenue
           </p>
         </div>
@@ -52,30 +52,30 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: Owners
           { label: 'Active Properties', value: activeProperties, icon: '🏠' },
           { label: 'Monthly Revenue', value: `$${totalRevenue.toLocaleString()}`, icon: '💰' },
         ].map(s => (
-          <div key={s.label} className="bg-zinc-800 rounded-xl border border-zinc-700 p-4">
+          <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-4">
             <div className="text-xl mb-1">{s.icon}</div>
-            <div className="text-xl font-bold text-zinc-100">{s.value}</div>
-            <div className="text-xs text-zinc-400">{s.label}</div>
+            <div className="text-xl font-bold text-slate-900">{s.value}</div>
+            <div className="text-xs text-slate-500">{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           placeholder="Search clients, properties..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+          className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
         />
       </div>
 
       {/* Owner cards */}
       <div className="space-y-3">
         {filtered.length === 0 && (
-          <div className="text-center py-12 text-zinc-500 text-sm">No clients found.</div>
+          <div className="text-center py-12 text-slate-400 text-sm">No clients found.</div>
         )}
         {filtered.map(owner => {
           const rev = owner.properties.reduce((s, p) => s + p.monthlyRevenue, 0);
@@ -90,7 +90,7 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: Owners
             <div
               key={owner.id}
               onClick={() => onViewOwner(owner.id)}
-              className="bg-zinc-800 rounded-xl border border-zinc-700 p-5 cursor-pointer hover:shadow-md hover:border-teal-200 transition-all"
+              className="bg-white rounded-xl border border-slate-200 p-5 cursor-pointer hover:shadow-md hover:border-teal-200 transition-all"
             >
               <div className="flex items-start gap-4">
                 {/* Avatar */}
@@ -101,17 +101,17 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: Owners
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-semibold text-zinc-100">{owner.name}</h3>
-                    <ChevronRight size={16} className="text-zinc-600 flex-shrink-0" />
+                    <h3 className="font-semibold text-slate-900">{owner.name}</h3>
+                    <ChevronRight size={16} className="text-slate-300 flex-shrink-0" />
                   </div>
                   <div className="flex flex-wrap gap-3 mt-1">
                     {owner.email && (
-                      <span className="flex items-center gap-1 text-xs text-zinc-400">
+                      <span className="flex items-center gap-1 text-xs text-slate-500">
                         <Mail size={11} /> {owner.email}
                       </span>
                     )}
                     {owner.phone && (
-                      <span className="flex items-center gap-1 text-xs text-zinc-400">
+                      <span className="flex items-center gap-1 text-xs text-slate-500">
                         <Phone size={11} /> {owner.phone}
                       </span>
                     )}
@@ -136,11 +136,11 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: Owners
                     <TrendingUp size={14} />
                     ${rev.toLocaleString()}
                   </div>
-                  <div className="text-xs text-zinc-500">/mo</div>
+                  <div className="text-xs text-slate-400">/mo</div>
                   {avgOcc !== null && (
-                    <div className="text-xs text-zinc-400 mt-1">{avgOcc}% occ.</div>
+                    <div className="text-xs text-slate-500 mt-1">{avgOcc}% occ.</div>
                   )}
-                  <div className="flex items-center gap-1 text-xs text-zinc-500 mt-1">
+                  <div className="flex items-center gap-1 text-xs text-slate-400 mt-1">
                     <Home size={11} />
                     {owner.properties.length} {owner.properties.length === 1 ? 'property' : 'properties'}
                   </div>

@@ -98,12 +98,12 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-zinc-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700 flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0">
           <div>
-            <h2 className="font-semibold text-zinc-100">Link from Google Drive</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <h2 className="font-semibold text-slate-900">Link from Google Drive</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
               {selectedCount === 0
                 ? 'Select one or more files to add to this client\'s documents'
                 : `${selectedCount} file${selectedCount !== 1 ? 's' : ''} selected`}
@@ -111,22 +111,22 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Breadcrumbs */}
-        <nav className="flex items-center gap-1 px-5 py-2.5 border-b border-zinc-700 flex-shrink-0 bg-zinc-900 flex-wrap">
+        <nav className="flex items-center gap-1 px-5 py-2.5 border-b border-slate-200 flex-shrink-0 bg-slate-100 flex-wrap">
           {crumbs.map((crumb, i) => (
             <span key={i} className="flex items-center gap-1">
-              {i > 0 && <ChevronRight size={13} className="text-zinc-600" />}
+              {i > 0 && <ChevronRight size={13} className="text-slate-300" />}
               <button
                 onClick={() => setCrumbs(prev => prev.slice(0, i + 1))}
-                className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded hover:bg-zinc-700 transition-colors ${
+                className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-100 transition-colors ${
                   i === crumbs.length - 1
-                    ? 'text-zinc-200 font-semibold pointer-events-none'
+                    ? 'text-slate-700 font-semibold pointer-events-none'
                     : 'text-teal-600 hover:text-teal-700'
                 }`}
               >
@@ -147,22 +147,22 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
 
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <Loader size={20} className="text-zinc-600 animate-spin" />
+              <Loader size={20} className="text-slate-300 animate-spin" />
             </div>
           ) : (
             <div className="space-y-4">
               {folders.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Folders</p>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Folders</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {folders.map(f => (
                       <button
                         key={f.id}
                         onClick={() => setCrumbs(prev => [...prev, { id: f.id, name: f.name }])}
-                        className="flex items-center gap-2 p-3 bg-zinc-800 rounded-lg border border-zinc-700 hover:border-amber-300 hover:bg-amber-50 transition-all text-left"
+                        className="flex items-center gap-2 p-3 bg-white rounded-lg border border-slate-200 hover:border-amber-300 hover:bg-amber-50 transition-all text-left"
                       >
                         <Folder size={18} className="text-amber-400 fill-amber-50 flex-shrink-0" />
-                        <span className="text-xs font-medium text-zinc-200 truncate">{f.name}</span>
+                        <span className="text-xs font-medium text-slate-700 truncate">{f.name}</span>
                       </button>
                     ))}
                   </div>
@@ -171,8 +171,8 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
 
               {docs.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Files</p>
-                  <div className="bg-zinc-800 rounded-xl border border-zinc-700 divide-y divide-zinc-700">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Files</p>
+                  <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-200">
                     {docs.map(f => {
                       const isSelected = selected.has(f.id);
                       return (
@@ -180,19 +180,19 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
                           key={f.id}
                           onClick={() => toggleFile(f)}
                           className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left ${
-                            isSelected ? 'bg-teal-50' : 'hover:bg-zinc-900'
+                            isSelected ? 'bg-teal-50' : 'hover:bg-slate-100'
                           }`}
                         >
                           <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
                             isSelected
                               ? 'bg-teal-600 border-teal-600'
-                              : 'border-zinc-600 bg-zinc-800'
+                              : 'border-slate-200 bg-white'
                           }`}>
                             {isSelected && <Check size={11} className="text-white" strokeWidth={3} />}
                           </div>
                           <span className="text-lg flex-shrink-0">{fileIcon(f.mimeType)}</span>
                           <span className={`flex-1 min-w-0 text-sm font-medium truncate transition-colors ${
-                            isSelected ? 'text-teal-700' : 'text-zinc-200'
+                            isSelected ? 'text-teal-700' : 'text-slate-700'
                           }`}>
                             {f.name}
                           </span>
@@ -204,24 +204,24 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
               )}
 
               {folders.length === 0 && docs.length === 0 && !error && (
-                <p className="text-center text-sm text-zinc-500 py-12">This folder is empty.</p>
+                <p className="text-center text-sm text-slate-400 py-12">This folder is empty.</p>
               )}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-zinc-700 flex-shrink-0">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-slate-200 flex-shrink-0">
           <button
             onClick={onClose}
-            className="text-sm text-zinc-400 hover:text-zinc-200 px-4 py-2 rounded-lg border border-zinc-700 hover:border-zinc-600 transition-colors"
+            className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-200 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={() => onSelect(Array.from(selected.values()))}
             disabled={selectedCount === 0}
-            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:bg-zinc-700 disabled:text-zinc-500 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-100 disabled:text-slate-400 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
           >
             {selectedCount === 0 ? 'Select files to link' : `Link ${selectedCount} file${selectedCount !== 1 ? 's' : ''}`}
           </button>

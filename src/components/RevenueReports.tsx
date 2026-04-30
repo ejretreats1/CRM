@@ -234,13 +234,13 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="px-6 py-5 bg-zinc-800 border-b border-zinc-700 flex-shrink-0">
+      <div className="px-6 py-5 bg-white border-b border-slate-200 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
+            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <FileBarChart2 size={22} className="text-teal-600" /> Revenue Reports
             </h1>
-            <p className="text-sm text-zinc-400 mt-0.5">Upload an AirDNA PDF to generate AI-powered revenue analysis</p>
+            <p className="text-sm text-slate-500 mt-0.5">Upload an AirDNA PDF to generate AI-powered revenue analysis</p>
           </div>
           <button
             onClick={() => setPageView('builder')}
@@ -255,15 +255,15 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
       <div className="flex-1 overflow-y-auto p-6">
         {loadingReports ? (
           <div className="flex items-center justify-center py-20">
-            <Loader size={24} className="text-zinc-600 animate-spin" />
+            <Loader size={24} className="text-slate-300 animate-spin" />
           </div>
         ) : reports.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
               <FileBarChart2 size={28} className="text-teal-400" />
             </div>
-            <p className="text-zinc-300 font-medium">No reports yet</p>
-            <p className="text-zinc-500 text-sm mt-1 max-w-xs">Click "New Report", upload an AirDNA PDF, and Claude will generate a full revenue analysis.</p>
+            <p className="text-slate-600 font-medium">No reports yet</p>
+            <p className="text-slate-400 text-sm mt-1 max-w-xs">Click "New Report", upload an AirDNA PDF, and Claude will generate a full revenue analysis.</p>
             <button
               onClick={() => setPageView('builder')}
               className="mt-5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
@@ -276,7 +276,7 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
             {reports.map(r => (
               <div
                 key={r.id}
-                className="bg-zinc-800 rounded-xl border border-zinc-700 hover:border-teal-300 hover:shadow-md transition-all cursor-pointer group"
+                className="bg-white rounded-xl border border-slate-200 hover:border-teal-300 hover:shadow-md transition-all cursor-pointer group"
                 onClick={() => openSavedReport(r)}
               >
                 <div className="p-5">
@@ -288,18 +288,18 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
                       <div className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                         r.opportunityScore >= 7 ? 'bg-emerald-100 text-emerald-700' :
                         r.opportunityScore >= 4 ? 'bg-amber-100 text-amber-700' :
-                        'bg-zinc-700 text-zinc-400'
+                        'bg-slate-100 text-slate-500'
                       }`}>
                         {r.opportunityScore}/10
                       </div>
                     )}
                   </div>
-                  <p className="text-sm font-semibold text-zinc-100 leading-snug line-clamp-2">
+                  <p className="text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
                     {r.reportTitle ?? r.propertyAddress}
                   </p>
-                  <p className="text-xs text-zinc-500 mt-1 truncate">{r.propertyAddress}</p>
+                  <p className="text-xs text-slate-400 mt-1 truncate">{r.propertyAddress}</p>
 
-                  <div className="mt-3 flex items-center gap-3 text-xs text-zinc-400">
+                  <div className="mt-3 flex items-center gap-3 text-xs text-slate-500">
                     {r.airdnaProjectedRevenue != null && (
                       <span className="flex items-center gap-1">
                         <TrendingUp size={11} className="text-teal-500" />
@@ -312,10 +312,10 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
                     </span>
                   </div>
                 </div>
-                <div className="border-t border-zinc-700 px-5 py-2.5 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="border-t border-slate-200 px-5 py-2.5 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={e => { e.stopPropagation(); handleDelete(r.id); }}
-                    className="flex items-center gap-1 text-xs text-zinc-500 hover:text-red-500 transition-colors"
+                    className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors"
                   >
                     <Trash2 size={11} /> Delete
                   </button>

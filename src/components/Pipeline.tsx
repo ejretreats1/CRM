@@ -10,7 +10,7 @@ interface PipelineProps {
 }
 
 const STAGES: { id: LeadStage; label: string; color: string; dot: string }[] = [
-  { id: 'new',  label: 'New Lead',        color: 'bg-zinc-900',   dot: 'bg-slate-400' },
+  { id: 'new',  label: 'New Lead',        color: 'bg-slate-100',   dot: 'bg-slate-400' },
   { id: 'cold', label: 'Old / Cold Lead', color: 'bg-blue-50',    dot: 'bg-blue-400' },
   { id: 'won',  label: 'Won',             color: 'bg-emerald-50', dot: 'bg-emerald-500' },
 ];
@@ -60,23 +60,23 @@ function LeadCard({ lead, onView, onEdit, onDelete, onDragStart }: LeadCardProps
       draggable
       onDragStart={onDragStart}
       onClick={onView}
-      className="bg-zinc-800 rounded-lg border border-zinc-700 p-3.5 cursor-pointer shadow-sm hover:shadow-md hover:border-teal-300 transition-all select-none"
+      className="bg-white rounded-lg border border-slate-200 p-3.5 cursor-pointer shadow-sm hover:shadow-md hover:border-teal-300 transition-all select-none"
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold text-zinc-100 leading-tight">{lead.name}</p>
+        <p className="text-sm font-semibold text-slate-900 leading-tight">{lead.name}</p>
         <div className="relative flex-shrink-0" ref={menuRef}>
           <button
             onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
             onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
-            className="p-0.5 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700"
+            className="p-0.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100"
           >
             <MoreVertical size={14} />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-6 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg z-10 py-1 min-w-[120px]">
+            <div className="absolute right-0 top-6 bg-white border border-slate-200 rounded-lg shadow-lg z-10 py-1 min-w-[120px]">
               <button
                 onClick={e => { e.stopPropagation(); setMenuOpen(false); onEdit(); }}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-900 w-full"
+                className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 w-full"
               >
                 <Edit2 size={12} /> Edit
               </button>
@@ -92,8 +92,8 @@ function LeadCard({ lead, onView, onEdit, onDelete, onDragStart }: LeadCardProps
       </div>
 
       <div className="flex items-center gap-1 mt-1.5">
-        <MapPin size={11} className="text-zinc-500 flex-shrink-0" />
-        <span className="text-xs text-zinc-400 truncate">{lead.propertyAddress}</span>
+        <MapPin size={11} className="text-slate-400 flex-shrink-0" />
+        <span className="text-xs text-slate-500 truncate">{lead.propertyAddress}</span>
       </div>
 
       {/* Scheduled call badge */}
@@ -124,16 +124,16 @@ function LeadCard({ lead, onView, onEdit, onDelete, onDragStart }: LeadCardProps
           <DollarSign size={11} />
           {formatCurrency(lead.estimatedRevenue)}/mo
         </div>
-        <span className="text-xs text-zinc-500">{timeAgo(lead.updatedAt)}</span>
+        <span className="text-xs text-slate-400">{timeAgo(lead.updatedAt)}</span>
       </div>
 
-      <div className="flex items-center gap-1 mt-2 pt-2 border-t border-zinc-700">
-        <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{lead.propertyType}</span>
-        <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{lead.bedrooms}BR</span>
+      <div className="flex items-center gap-1 mt-2 pt-2 border-t border-slate-200">
+        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{lead.propertyType}</span>
+        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{lead.bedrooms}BR</span>
       </div>
 
       {lead.notes && (
-        <p className="text-xs text-zinc-500 mt-2 line-clamp-2">{lead.notes}</p>
+        <p className="text-xs text-slate-400 mt-2 line-clamp-2">{lead.notes}</p>
       )}
 
       <div className="flex gap-2 mt-2.5">
@@ -187,10 +187,10 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="px-6 py-5 bg-zinc-800 border-b border-zinc-700 flex items-center justify-between flex-shrink-0">
+      <div className="px-6 py-5 bg-white border-b border-slate-200 flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-zinc-100">Lead Pipeline</h1>
-          <p className="text-sm text-zinc-400 mt-0.5">
+          <h1 className="text-xl font-bold text-slate-900">Lead Pipeline</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
             {activeLeads.length} active leads · {formatCurrency(totalPipelineValue)}/mo pipeline value
           </p>
         </div>
@@ -218,20 +218,20 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
                 onDragLeave={() => setDragOverStage(null)}
                 className={`
                   flex flex-col w-72 rounded-xl border transition-all duration-150
-                  ${isOver ? 'ring-2 ring-teal-400 border-teal-300 bg-teal-50' : `${stage.color} border-zinc-700`}
+                  ${isOver ? 'ring-2 ring-teal-400 border-teal-300 bg-teal-50' : `${stage.color} border-slate-200`}
                 `}
               >
                 {/* Column header */}
-                <div className="px-3.5 py-3 border-b border-zinc-700/60">
+                <div className="px-3.5 py-3 border-b border-slate-200/60">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${stage.dot}`} />
-                    <span className="text-sm font-semibold text-zinc-200">{stage.label}</span>
-                    <span className="ml-auto bg-zinc-800 text-zinc-400 text-xs font-medium px-1.5 py-0.5 rounded-full border border-zinc-700">
+                    <span className="text-sm font-semibold text-slate-700">{stage.label}</span>
+                    <span className="ml-auto bg-white text-slate-500 text-xs font-medium px-1.5 py-0.5 rounded-full border border-slate-200">
                       {stageLeads.length}
                     </span>
                   </div>
                   {stageLeads.length > 0 && (
-                    <p className="text-xs text-zinc-500 mt-1">{formatCurrency(stageValue)}/mo</p>
+                    <p className="text-xs text-slate-400 mt-1">{formatCurrency(stageValue)}/mo</p>
                   )}
                 </div>
 
@@ -248,7 +248,7 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
                     />
                   ))}
                   {stageLeads.length === 0 && (
-                    <div className="text-center py-8 text-zinc-500 text-xs">
+                    <div className="text-center py-8 text-slate-400 text-xs">
                       Drop leads here
                     </div>
                   )}

@@ -104,22 +104,22 @@ export default function Settings({
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-zinc-100">Settings</h1>
-        <p className="text-sm text-zinc-400 mt-0.5">Manage your integrations and connected services.</p>
+        <h1 className="text-xl font-bold text-slate-900">Settings</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Manage your integrations and connected services.</p>
       </div>
 
       {/* Google Calendar */}
-      <div className="bg-zinc-800 rounded-xl border border-zinc-700 p-5 space-y-4">
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
         <div className="flex items-center gap-2">
           <CalendarDays size={18} className="text-teal-600" />
-          <h2 className="font-semibold text-zinc-100">Google Calendar</h2>
+          <h2 className="font-semibold text-slate-900">Google Calendar</h2>
           {calendarUrl && (
             <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
               Connected
             </span>
           )}
         </div>
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-slate-500">
           Connect your Google Calendar to display upcoming meetings on the dashboard.
         </p>
         <input
@@ -127,9 +127,9 @@ export default function Settings({
           value={icalInput}
           onChange={e => { setIcalInput(e.target.value); setCalSaved(false); }}
           placeholder="https://calendar.google.com/calendar/ical/..."
-          className="w-full border border-zinc-700 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500"
         />
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-slate-400">
           In Google Calendar: Settings → Your calendar → "Secret address in iCal format". This URL gives read-only access to your events.
         </p>
         <div className="flex items-center gap-3">
@@ -153,44 +153,44 @@ export default function Settings({
       </div>
 
       {/* Slack Integration */}
-      <div className="bg-zinc-800 rounded-xl border border-zinc-700 p-5 space-y-4">
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Hash size={18} className="text-purple-500" />
-          <h2 className="font-semibold text-zinc-100">Slack Feed</h2>
+          <h2 className="font-semibold text-slate-900">Slack Feed</h2>
           {slackToken && channelList.length > 0 && (
             <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
               {channelList.length} channel{channelList.length > 1 ? 's' : ''} connected
             </span>
           )}
         </div>
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-slate-500">
           Show a live feed of your Zapier Slack notifications on the dashboard. Add one or more channels.
         </p>
 
         <div>
-          <label className="block text-xs font-medium text-zinc-300 mb-1">Bot Token</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Bot Token</label>
           <div className="relative">
             <input
               type={showSlackToken ? 'text' : 'password'}
               value={slackTokenInput}
               onChange={e => { setSlackTokenInput(e.target.value); setSlackSaved(false); }}
               placeholder="xoxb-..."
-              className="w-full border border-zinc-700 rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
             <button
               type="button"
               onClick={() => setShowSlackToken(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
               {showSlackToken ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
-          <p className="text-xs text-zinc-500 mt-1">One bot token works for all channels — just invite the bot to each channel.</p>
+          <p className="text-xs text-slate-400 mt-1">One bot token works for all channels — just invite the bot to each channel.</p>
         </div>
 
         {/* Channel list */}
         <div>
-          <label className="block text-xs font-medium text-zinc-300 mb-2">Channels</label>
+          <label className="block text-xs font-medium text-slate-600 mb-2">Channels</label>
           {channelList.length > 0 && (
             <div className="space-y-2 mb-3">
               {channelList.map(ch => (
@@ -218,7 +218,7 @@ export default function Settings({
               value={newChannelName}
               onChange={e => setNewChannelName(e.target.value)}
               placeholder="Name (e.g. zapier-leads)"
-              className="flex-1 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
             <input
               type="text"
@@ -226,7 +226,7 @@ export default function Settings({
               onChange={e => setNewChannelId(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleAddChannel(); }}
               placeholder="Channel ID (C...)"
-              className="flex-1 border border-zinc-700 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
             <button
               type="button"
@@ -238,7 +238,7 @@ export default function Settings({
               <Plus size={15} />
             </button>
           </div>
-          <p className="text-xs text-zinc-500 mt-1.5">
+          <p className="text-xs text-slate-400 mt-1.5">
             Right-click a channel in Slack → View channel details → scroll to bottom for Channel ID.
           </p>
         </div>
@@ -275,10 +275,10 @@ export default function Settings({
       </div>
 
       {/* Uplisting API Key */}
-      <div className="bg-zinc-800 rounded-xl border border-zinc-700 p-5 space-y-4">
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Key size={18} className="text-teal-600" />
-          <h2 className="font-semibold text-zinc-100">Uplisting API Key</h2>
+          <h2 className="font-semibold text-slate-900">Uplisting API Key</h2>
         </div>
 
         <div className="relative">
@@ -287,18 +287,18 @@ export default function Settings({
             value={inputKey}
             onChange={(e) => { setInputKey(e.target.value); setStatus('idle'); }}
             placeholder="Paste your Uplisting API key..."
-            className="w-full border border-zinc-700 rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
           <button
             type="button"
             onClick={() => setShowKey(v => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
           >
             {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
 
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-slate-400">
           Find your API key in Uplisting → Settings → API. Keep it private — never share it publicly.
         </p>
 
@@ -306,7 +306,7 @@ export default function Settings({
           <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg
             ${status === 'success' ? 'bg-emerald-50 text-emerald-700' :
               status === 'error' ? 'bg-red-50 text-red-600' :
-              'bg-zinc-900 text-zinc-400'}`}
+              'bg-slate-100 text-slate-500'}`}
           >
             {status === 'testing' && <Loader size={14} className="animate-spin" />}
             {status === 'success' && <CheckCircle size={14} />}
@@ -326,8 +326,8 @@ export default function Settings({
 
       {/* Sync status */}
       {apiKey && (
-        <div className="bg-zinc-800 rounded-xl border border-zinc-700 p-5 space-y-3">
-          <h2 className="font-semibold text-zinc-100">Uplisting Data Sync</h2>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+          <h2 className="font-semibold text-slate-900">Uplisting Data Sync</h2>
 
           <div className="grid grid-cols-3 gap-3">
             {[
@@ -337,9 +337,9 @@ export default function Settings({
                   ? new Date(lastSync).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
                   : 'Never' },
             ].map(s => (
-              <div key={s.label} className="bg-zinc-900 rounded-lg p-3">
-                <div className="text-lg font-bold text-zinc-100">{s.value}</div>
-                <div className="text-xs text-zinc-400">{s.label}</div>
+              <div key={s.label} className="bg-slate-100 rounded-lg p-3">
+                <div className="text-lg font-bold text-slate-900">{s.value}</div>
+                <div className="text-xs text-slate-500">{s.label}</div>
               </div>
             ))}
           </div>

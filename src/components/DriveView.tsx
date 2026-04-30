@@ -115,7 +115,7 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
     const defaultName = isFolder ? 'New Folder' : 'Untitled';
 
     try {
-      const res = await fetch('/api/drive-create', {
+      const res = await fetch('/api/drive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ folderId: currentFolder.id, mimeType, name: defaultName }),
@@ -155,13 +155,13 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="px-6 py-5 bg-zinc-800 border-b border-zinc-700 flex-shrink-0">
+      <div className="px-6 py-5 bg-white border-b border-slate-200 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
+            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <span className="text-2xl">📁</span> Google Drive
             </h1>
-            <p className="text-sm text-zinc-400 mt-0.5">Browse your shared Drive files</p>
+            <p className="text-sm text-slate-500 mt-0.5">Browse your shared Drive files</p>
           </div>
           <div className="flex items-center gap-2">
             {/* New button — only inside a folder */}
@@ -177,12 +177,12 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
                   <ChevronDown size={13} />
                 </button>
                 {newMenuOpen && (
-                  <div className="absolute right-0 mt-1 w-44 bg-zinc-800 rounded-xl border border-zinc-700 shadow-lg z-10 overflow-hidden">
+                  <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl border border-slate-200 shadow-lg z-10 overflow-hidden">
                     {NEW_TYPES.map(({ label, emoji, mimeType }) => (
                       <button
                         key={mimeType}
                         onClick={() => createFile(mimeType)}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-zinc-200 hover:bg-zinc-900 transition-colors"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
                       >
                         <span>{emoji}</span> {label}
                       </button>
@@ -195,7 +195,7 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
             <button
               onClick={() => load(currentFolder.id)}
               disabled={loading}
-              className="p-2 rounded-lg text-zinc-500 hover:text-teal-600 hover:bg-teal-50 transition-colors disabled:opacity-40"
+              className="p-2 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors disabled:opacity-40"
               title="Refresh"
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -207,12 +207,12 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
         <nav className="flex items-center gap-1 mt-3 flex-wrap">
           {crumbs.map((crumb, i) => (
             <span key={i} className="flex items-center gap-1">
-              {i > 0 && <ChevronRight size={14} className="text-zinc-600" />}
+              {i > 0 && <ChevronRight size={14} className="text-slate-300" />}
               <button
                 onClick={() => navigateToCrumb(i)}
-                className={`text-sm flex items-center gap-1 px-2 py-0.5 rounded hover:bg-zinc-700 transition-colors ${
+                className={`text-sm flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-100 transition-colors ${
                   i === crumbs.length - 1
-                    ? 'text-zinc-100 font-semibold pointer-events-none'
+                    ? 'text-slate-900 font-semibold pointer-events-none'
                     : 'text-teal-600 hover:text-teal-700'
                 }`}
               >
@@ -241,13 +241,13 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader size={24} className="text-zinc-600 animate-spin" />
+            <Loader size={24} className="text-slate-300 animate-spin" />
           </div>
         ) : files.length === 0 && !error ? (
           <div className="text-center py-20">
-            <p className="text-zinc-500 text-sm">No files found.</p>
+            <p className="text-slate-400 text-sm">No files found.</p>
             {crumbs.length === 1 && (
-              <p className="text-zinc-500 text-xs mt-1">
+              <p className="text-slate-400 text-xs mt-1">
                 Share your Drive folders with the service account email to see them here.
               </p>
             )}
@@ -257,7 +257,7 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
             {/* Folders */}
             {folders.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
                   Folders ({folders.length})
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -265,10 +265,10 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
                     <button
                       key={f.id}
                       onClick={() => openFolder(f)}
-                      className="flex flex-col items-center gap-2 p-4 bg-zinc-800 rounded-xl border border-zinc-700 hover:border-teal-300 hover:shadow-md transition-all text-center group"
+                      className="flex flex-col items-center gap-2 p-4 bg-white rounded-xl border border-slate-200 hover:border-teal-300 hover:shadow-md transition-all text-center group"
                     >
                       <Folder size={32} className="text-amber-400 group-hover:text-amber-500 transition-colors fill-amber-50" />
-                      <span className="text-xs font-medium text-zinc-200 leading-tight line-clamp-2 w-full">{f.name}</span>
+                      <span className="text-xs font-medium text-slate-700 leading-tight line-clamp-2 w-full">{f.name}</span>
                     </button>
                   ))}
                 </div>
@@ -278,16 +278,16 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
             {/* Files */}
             {docs.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
                   Files ({docs.length})
                 </p>
-                <div className="bg-zinc-800 rounded-xl border border-zinc-700 divide-y divide-zinc-700">
+                <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-200">
                   {docs.map(f => (
-                    <div key={f.id} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 transition-colors">
+                    <div key={f.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-100 transition-colors">
                       <span className="text-xl flex-shrink-0">{fileIcon(f.mimeType)}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-zinc-100 truncate">{f.name}</p>
-                        <p className="text-xs text-zinc-500 mt-0.5">
+                        <p className="text-sm font-medium text-slate-900 truncate">{f.name}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
                           {formatSize(f.size)}{f.size ? ' · ' : ''}{formatDate(f.modifiedTime)}
                         </p>
                       </div>

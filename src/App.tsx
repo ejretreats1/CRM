@@ -329,8 +329,8 @@ export default function App() {
 
   if (!isLoaded) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-900">
-        <div className="text-zinc-400 text-sm">Loading...</div>
+      <div className="flex h-screen items-center justify-center bg-slate-100">
+        <div className="text-slate-500 text-sm">Loading...</div>
       </div>
     );
   }
@@ -339,15 +339,15 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-900">
-        <div className="text-zinc-400 text-sm">Loading CRM data...</div>
+      <div className="flex h-screen items-center justify-center bg-slate-100">
+        <div className="text-slate-500 text-sm">Loading CRM data...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-900">
+      <div className="flex h-screen items-center justify-center bg-slate-100">
         <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl text-sm max-w-md text-center">
           {error}
         </div>

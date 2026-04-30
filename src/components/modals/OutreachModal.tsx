@@ -87,15 +87,15 @@ export default function OutreachModal({ entry, preselectedOwnerId, leads, owners
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Contact type toggle */}
         <div>
-          <label className="block text-xs font-medium text-zinc-300 mb-1.5">Contact Type</label>
-          <div className="flex rounded-lg border border-zinc-700 overflow-hidden">
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">Contact Type</label>
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden">
             {(['lead', 'owner'] as const).map(type => (
               <button
                 key={type}
                 type="button"
                 onClick={() => handleContactTypeChange(type)}
                 className={`flex-1 py-2 text-sm font-medium capitalize transition-colors
-                  ${form.contactType === type ? 'bg-teal-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-900'}`}
+                  ${form.contactType === type ? 'bg-teal-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
               >
                 {type === 'lead' ? 'Lead' : 'Owner / Client'}
               </button>
@@ -105,11 +105,11 @@ export default function OutreachModal({ entry, preselectedOwnerId, leads, owners
 
         {/* Contact selector */}
         <div>
-          <label className="block text-xs font-medium text-zinc-300 mb-1">Select Contact</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Select Contact</label>
           <select
             value={form.contactType === 'lead' ? form.leadId : form.ownerId}
             onChange={e => handleContactSelect(e.target.value)}
-            className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           >
             <option value="">— Select —</option>
             {form.contactType === 'lead'
@@ -121,51 +121,51 @@ export default function OutreachModal({ entry, preselectedOwnerId, leads, owners
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1">Type *</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Type *</label>
             <select value={form.type} onChange={e => set('type', e.target.value as OutreachType)}
-              className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
               {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1">Date & Time *</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Date & Time *</label>
             <input required type="datetime-local" value={form.date} onChange={e => set('date', e.target.value)}
-              className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-zinc-300 mb-1">Subject *</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Subject *</label>
           <input required value={form.subject} onChange={e => set('subject', e.target.value)}
-            className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             placeholder="e.g. Initial discovery call" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-zinc-300 mb-1">Notes</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
           <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3}
-            className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
             placeholder="Summary of the conversation..." />
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1">Outcome</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Outcome</label>
             <select value={form.outcome} onChange={e => set('outcome', e.target.value as OutreachOutcome)}
-              className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
               {OUTCOMES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1">Follow-up Date</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Follow-up Date</label>
             <input type="date" value={form.followUpDate} onChange={e => set('followUpDate', e.target.value)}
-              className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
         </div>
 
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose}
-            className="flex-1 border border-zinc-700 text-zinc-300 text-sm font-medium py-2.5 rounded-lg hover:bg-zinc-900 transition-colors">
+            className="flex-1 border border-slate-200 text-slate-600 text-sm font-medium py-2.5 rounded-lg hover:bg-slate-100 transition-colors">
             Cancel
           </button>
           <button type="submit"

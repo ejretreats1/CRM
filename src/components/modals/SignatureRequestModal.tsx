@@ -136,8 +136,8 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
           <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
             <Send size={20} className="text-emerald-600" />
           </div>
-          <p className="font-semibold text-zinc-100">Sent successfully!</p>
-          <p className="text-sm text-zinc-400">Signing link sent to {email}</p>
+          <p className="font-semibold text-slate-900">Sent successfully!</p>
+          <p className="text-sm text-slate-500">Signing link sent to {email}</p>
         </div>
       </Modal>
     );
@@ -149,24 +149,24 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
       <Modal title="Place Signature Fields" onClose={onClose} size="lg">
         <div className="space-y-3">
           {/* Mode toggle */}
-          <div className="flex rounded-lg border border-zinc-700 overflow-hidden text-xs font-medium">
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-medium">
             <button
               type="button"
               onClick={() => setScrollMode(true)}
-              className={`flex-1 py-2 transition-colors ${scrollMode ? 'bg-slate-800 text-white' : 'text-zinc-400 hover:bg-zinc-900'}`}
+              className={`flex-1 py-2 transition-colors ${scrollMode ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
             >
               Scroll PDF
             </button>
             <button
               type="button"
               onClick={() => setScrollMode(false)}
-              className={`flex-1 py-2 transition-colors ${!scrollMode ? 'bg-teal-600 text-white' : 'text-zinc-400 hover:bg-zinc-900'}`}
+              className={`flex-1 py-2 transition-colors ${!scrollMode ? 'bg-teal-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
             >
               Place Fields
             </button>
           </div>
 
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-slate-500">
             {scrollMode
               ? 'Scroll to the signature page, then click "Place Fields" to drag the boxes.'
               : <>Drag the <span className="font-medium text-teal-700">Signature</span> and <span className="font-medium text-blue-600">Date</span> boxes to where you want them.</>
@@ -176,7 +176,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
           {/* Page preview: PDF iframe behind + drag overlay in front */}
           <div className="flex justify-center">
             <div
-              className="relative border border-zinc-600 shadow-lg bg-zinc-800 overflow-hidden"
+              className="relative border border-slate-200 shadow-lg bg-white overflow-hidden"
               style={{ width: '100%', maxWidth: 400, aspectRatio: '8.5 / 11' }}
             >
               {pdfBlobUrl && (
@@ -209,7 +209,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
             <button
               type="button"
               onClick={() => { setStep('form'); setErrorMsg(''); }}
-              className="flex items-center gap-1.5 border border-zinc-700 text-zinc-300 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-zinc-900 transition-colors"
+              className="flex items-center gap-1.5 border border-slate-200 text-slate-600 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-slate-100 transition-colors"
             >
               <ArrowLeft size={14} /> Back
             </button>
@@ -233,7 +233,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
     <Modal title="Send Document for Signature" onClose={onClose}>
       <form onSubmit={handleNextToPlacement} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-zinc-300 mb-1.5">Document (PDF) *</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">Document (PDF) *</label>
           <div
             onClick={() => fileRef.current?.click()}
             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -247,7 +247,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
             className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
               dragOver
                 ? 'border-teal-400 bg-teal-50'
-                : 'border-zinc-700 hover:border-teal-400 hover:bg-teal-50'
+                : 'border-slate-200 hover:border-teal-400 hover:bg-teal-50'
             }`}
           >
             {file ? (
@@ -257,13 +257,13 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
                 <button
                   type="button"
                   onClick={e => { e.stopPropagation(); setFile(null); }}
-                  className="ml-1 text-zinc-500 hover:text-red-500"
+                  className="ml-1 text-slate-400 hover:text-red-500"
                 >
                   <X size={14} />
                 </button>
               </div>
             ) : (
-              <div className="text-zinc-500">
+              <div className="text-slate-400">
                 <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-teal-500' : ''}`} />
                 <p className="text-sm">{dragOver ? 'Drop PDF here' : 'Drag & drop or click to upload PDF'}</p>
               </div>
@@ -273,22 +273,22 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-zinc-300 mb-1">Document Name</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Document Name</label>
           <input
             value={documentName}
             onChange={e => setDocumentName(e.target.value)}
-            className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             placeholder="Management Agreement"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-zinc-300 mb-1">Send to Email *</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Send to Email *</label>
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             placeholder="owner@email.com"
           />
         </div>
@@ -301,7 +301,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 border border-zinc-700 text-zinc-300 text-sm font-medium py-2.5 rounded-lg hover:bg-zinc-900 transition-colors"
+            className="flex-1 border border-slate-200 text-slate-600 text-sm font-medium py-2.5 rounded-lg hover:bg-slate-100 transition-colors"
           >
             Cancel
           </button>
