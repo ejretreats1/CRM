@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from 'react';
-import { Mail, Users, Send, CheckCircle, AlertCircle, Loader, Eye, EyeOff, ImagePlus, X } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { Mail, Users, Send, CheckCircle, AlertCircle, Loader, Eye, EyeOff, ImagePlus, X, Link, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Lead, Owner } from '../types';
 
 interface NewsletterProps {
@@ -7,95 +7,177 @@ interface NewsletterProps {
   owners: Owner[];
 }
 
-interface Recipient {
+interface Contact {
   email: string;
   name: string;
-  type: 'lead' | 'owner';
+  group: 'client' | 'lead' | 'team';
 }
+
+type TextBlock = { id: string; type: 'text'; content: string };
+type ImageBlock = { id: string; type: 'image'; src: string };
+type Block = TextBlock | ImageBlock;
 
 type SendState = 'idle' | 'sending' | 'done' | 'error';
 
+function newTextBlock(content = ''): TextBlock {
+  return { id: `t_${Date.now()}_${Math.random()}`, type: 'text', content };
+}
+function newImageBlock(src: string): ImageBlock {
+  return { id: `i_${Date.now()}_${Math.random()}`, type: 'image', src };
+}
+
 export default function Newsletter({ leads, owners }: NewsletterProps) {
   const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
-  const [headerImage, setHeaderImage] = useState<string | null>(null);
-  const [imageUrlInput, setImageUrlInput] = useState('');
-  const [showUrlInput, setShowUrlInput] = useState(false);
-  const [includeLeads, setIncludeLeads] = useState(true);
-  const [includeOwners, setIncludeOwners] = useState(true);
+  const [blocks, setBlocks] = useState<Block[]>([newTextBlock()]);
+  const [insertingAfter, setInsertingAfter] = useState<string | null>(null);
+  const [insertMode, setInsertMode] = useState<'upload' | 'url' | null>(null);
+  const [urlInput, setUrlInput] = useState('');
   const [sendState, setSendState] = useState<SendState>('idle');
   const [result, setResult] = useState<{ sent: number; failed: number } | null>(null);
   const [preview, setPreview] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const imageFileRef = useRef<HTMLInputElement>(null);
+  const [recipientSearch, setRecipientSearch] = useState('');
+  const [recipientListOpen, setRecipientListOpen] = useState(false);
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+  const [teamUsers, setTeamUsers] = useState<Contact[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const recipients = useMemo<Recipient[]>(() => {
+  useEffect(() => {
+    fetch('/api/clerk-users')
+      .then(r => r.json())
+      .then(d => {
+        if (d.users) {
+          setTeamUsers(d.users.map((u: { email: string; name: string }) => ({
+            email: u.email,
+            name: u.name,
+            group: 'team' as const,
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // All unique contacts
+  const allContacts = useMemo<Contact[]>(() => {
     const seen = new Set<string>();
-    const list: Recipient[] = [];
-
-    if (includeOwners) {
-      for (const o of owners) {
-        if (o.email && !seen.has(o.email.toLowerCase())) {
-          seen.add(o.email.toLowerCase());
-          list.push({ email: o.email, name: o.name, type: 'owner' });
-        }
+    const list: Contact[] = [];
+    for (const o of owners) {
+      if (o.email && !seen.has(o.email.toLowerCase())) {
+        seen.add(o.email.toLowerCase());
+        list.push({ email: o.email, name: o.name, group: 'client' });
       }
     }
-
-    if (includeLeads) {
-      for (const l of leads) {
-        if (l.email && !seen.has(l.email.toLowerCase())) {
-          seen.add(l.email.toLowerCase());
-          list.push({ email: l.email, name: l.name, type: 'lead' });
-        }
+    for (const l of leads) {
+      if (l.email && !seen.has(l.email.toLowerCase())) {
+        seen.add(l.email.toLowerCase());
+        list.push({ email: l.email, name: l.name, group: 'lead' });
       }
     }
-
+    for (const u of teamUsers) {
+      if (u.email && !seen.has(u.email.toLowerCase())) {
+        seen.add(u.email.toLowerCase());
+        list.push(u);
+      }
+    }
     return list;
-  }, [leads, owners, includeLeads, includeOwners]);
+  }, [leads, owners, teamUsers]);
 
-  const ownerCount = useMemo(() => {
-    const seen = new Set<string>();
-    owners.forEach(o => o.email && seen.add(o.email.toLowerCase()));
-    return seen.size;
-  }, [owners]);
+  const filteredContacts = useMemo(() => {
+    const q = recipientSearch.toLowerCase();
+    return q ? allContacts.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)) : allContacts;
+  }, [allContacts, recipientSearch]);
 
-  const leadCount = useMemo(() => {
-    const ownerEmails = new Set(owners.map(o => o.email?.toLowerCase()).filter(Boolean));
-    const seen = new Set<string>();
-    leads.forEach(l => {
-      if (l.email && !ownerEmails.has(l.email.toLowerCase())) seen.add(l.email.toLowerCase());
+  const clients = allContacts.filter(c => c.group === 'client');
+  const leadsOnly = allContacts.filter(c => c.group === 'lead');
+  const team = allContacts.filter(c => c.group === 'team');
+
+  const recipients = allContacts.filter(c => selectedEmails.has(c.email.toLowerCase()));
+
+  function toggleContact(email: string) {
+    const key = email.toLowerCase();
+    setSelectedEmails(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
     });
-    return seen.size;
-  }, [leads, owners]);
-
-  function handleImageFile(file: File) {
-    if (!file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = () => setHeaderImage(reader.result as string);
-    reader.readAsDataURL(file);
   }
 
-  function applyImageUrl() {
-    const url = imageUrlInput.trim();
-    if (!url) return;
-    setHeaderImage(url);
-    setImageUrlInput('');
-    setShowUrlInput(false);
+  function selectGroup(group: Contact['group'], select: boolean) {
+    const group_ = allContacts.filter(c => c.group === group);
+    setSelectedEmails(prev => {
+      const next = new Set(prev);
+      group_.forEach(c => select ? next.add(c.email.toLowerCase()) : next.delete(c.email.toLowerCase()));
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setSelectedEmails(new Set(allContacts.map(c => c.email.toLowerCase())));
+  }
+
+  function clearAll() {
+    setSelectedEmails(new Set());
+  }
+
+  const allClientsSelected = clients.length > 0 && clients.every(c => selectedEmails.has(c.email.toLowerCase()));
+  const allLeadsSelected = leadsOnly.length > 0 && leadsOnly.every(c => selectedEmails.has(c.email.toLowerCase()));
+  const allTeamSelected = team.length > 0 && team.every(c => selectedEmails.has(c.email.toLowerCase()));
+
+  // Blocks helpers
+  function updateText(id: string, content: string) {
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, content } : b));
+  }
+
+  function removeBlock(id: string) {
+    setBlocks(prev => {
+      const next = prev.filter(b => b.id !== id);
+      return next.length === 0 ? [newTextBlock()] : next;
+    });
+  }
+
+  function openInsert(afterId: string) {
+    setInsertingAfter(afterId);
+    setInsertMode(null);
+    setUrlInput('');
+  }
+
+  function closeInsert() {
+    setInsertingAfter(null);
+    setInsertMode(null);
+    setUrlInput('');
+  }
+
+  function insertImage(src: string) {
+    if (!src || !insertingAfter) return;
+    setBlocks(prev => {
+      const idx = prev.findIndex(b => b.id === insertingAfter);
+      const copy = [...prev];
+      copy.splice(idx + 1, 0, newImageBlock(src), newTextBlock());
+      return copy;
+    });
+    closeInsert();
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => insertImage(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
   }
 
   function buildHtml() {
-    const escaped = body
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .split('\n')
-      .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 12px 0;line-height:1.6">${line}</p>`)
-      .join('');
-
-    const imageBlock = headerImage
-      ? `<img src="${headerImage}" alt="Newsletter image" style="width:100%;display:block;margin-bottom:24px;border-radius:6px;"/>`
-      : '';
+    const bodyHtml = blocks.map(block => {
+      if (block.type === 'text') {
+        return block.content
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .split('\n')
+          .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 12px 0;line-height:1.6">${line}</p>`)
+          .join('');
+      }
+      return `<img src="${block.src}" alt="" style="width:100%;display:block;margin:20px 0;border-radius:6px;"/>`;
+    }).join('');
 
     return `<!DOCTYPE html>
 <html>
@@ -107,20 +189,21 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
       <div style="color:#99f6e4;font-size:13px;margin-top:4px">Property Management Newsletter</div>
     </div>
     <div style="padding:32px">
-      ${imageBlock}
       <h2 style="margin:0 0 20px 0;font-size:20px;color:#0f172a">${subject}</h2>
-      ${escaped}
+      ${bodyHtml}
     </div>
     <div style="background:#f8fafc;padding:20px 32px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center">
-      E&amp;J Retreats · You're receiving this because you're a valued client or contact.<br/>
+      E&amp;J Retreats · You're receiving this because you're a valued client or contact.
     </div>
   </div>
 </body>
 </html>`;
   }
 
+  const hasContent = blocks.some(b => b.type === 'text' && b.content.trim());
+
   async function handleSend() {
-    if (!subject.trim() || !body.trim() || recipients.length === 0) return;
+    if (!subject.trim() || !hasContent || recipients.length === 0) return;
     setConfirming(false);
     setSendState('sending');
     try {
@@ -140,20 +223,19 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
 
   function reset() {
     setSubject('');
-    setBody('');
-    setHeaderImage(null);
-    setImageUrlInput('');
-    setShowUrlInput(false);
+    setBlocks([newTextBlock()]);
+    setSelectedEmails(new Set());
     setSendState('idle');
     setResult(null);
     setConfirming(false);
+    closeInsert();
   }
 
   if (sendState === 'done') {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4 text-center p-8">
-        <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center">
-          <CheckCircle size={32} className="text-emerald-500" />
+        <div className="w-16 h-16 rounded-2xl bg-emerald-900/30 flex items-center justify-center">
+          <CheckCircle size={32} className="text-emerald-400" />
         </div>
         <div>
           <p className="text-xl font-bold text-zinc-100">Newsletter Sent!</p>
@@ -168,16 +250,11 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
       <div className="px-6 py-5 bg-zinc-800 border-b border-zinc-700 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
-              <Mail size={22} className="text-teal-600" /> Newsletter
-            </h1>
-            <p className="text-sm text-zinc-400 mt-0.5">Send monthly updates to your clients and leads</p>
-          </div>
-        </div>
+        <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
+          <Mail size={22} className="text-teal-600" /> Newsletter
+        </h1>
+        <p className="text-sm text-zinc-400 mt-0.5">Send monthly updates to your clients and leads</p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -185,30 +262,126 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
 
           {/* Recipients */}
           <div className="bg-zinc-800 rounded-xl border border-zinc-700 p-5 space-y-3">
-            <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-              <Users size={15} className="text-teal-600" /> Recipients
-            </h3>
-            <div className="flex gap-3">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={includeOwners} onChange={e => setIncludeOwners(e.target.checked)} className="accent-teal-600 w-4 h-4" />
-                <span className="text-sm text-zinc-200">Clients <span className="text-zinc-500">({ownerCount})</span></span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={includeLeads} onChange={e => setIncludeLeads(e.target.checked)} className="accent-teal-600 w-4 h-4" />
-                <span className="text-sm text-zinc-200">Leads <span className="text-zinc-500">({leadCount})</span></span>
-              </label>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                <Users size={15} className="text-teal-600" /> Recipients
+              </h3>
+              <div className="flex items-center gap-2">
+                <button onClick={selectAll} className="text-xs text-teal-400 hover:text-teal-300 transition-colors">All</button>
+                <span className="text-zinc-600 text-xs">·</span>
+                <button onClick={clearAll} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">None</button>
+              </div>
             </div>
-            <div className={`flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg ${recipients.length > 0 ? 'bg-teal-50 text-teal-700' : 'bg-zinc-900 text-zinc-500'}`}>
+
+            {/* Quick group toggles */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => selectGroup('client', !allClientsSelected)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  allClientsSelected
+                    ? 'bg-teal-600/20 text-teal-300 border-teal-600/40'
+                    : 'bg-zinc-700 text-zinc-400 border-zinc-600 hover:text-zinc-200'
+                }`}
+              >
+                {allClientsSelected ? '✓' : '+'} All Clients ({clients.length})
+              </button>
+              <button
+                onClick={() => selectGroup('lead', !allLeadsSelected)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  allLeadsSelected
+                    ? 'bg-indigo-600/20 text-indigo-300 border-indigo-600/40'
+                    : 'bg-zinc-700 text-zinc-400 border-zinc-600 hover:text-zinc-200'
+                }`}
+              >
+                {allLeadsSelected ? '✓' : '+'} All Leads ({leadsOnly.length})
+              </button>
+              {team.length > 0 && (
+                <button
+                  onClick={() => selectGroup('team', !allTeamSelected)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    allTeamSelected
+                      ? 'bg-violet-600/20 text-violet-300 border-violet-600/40'
+                      : 'bg-zinc-700 text-zinc-400 border-zinc-600 hover:text-zinc-200'
+                  }`}
+                >
+                  {allTeamSelected ? '✓' : '+'} Team ({team.length})
+                </button>
+              )}
+              <button
+                onClick={() => setRecipientListOpen(o => !o)}
+                className="flex items-center gap-1 ml-auto text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                Pick individual {recipientListOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </button>
+            </div>
+
+            {/* Individual picker */}
+            {recipientListOpen && (
+              <div className="border border-zinc-700 rounded-xl overflow-hidden">
+                <div className="px-3 py-2 bg-zinc-900/50 border-b border-zinc-700">
+                  <div className="flex items-center gap-2">
+                    <Search size={13} className="text-zinc-500 flex-shrink-0" />
+                    <input
+                      value={recipientSearch}
+                      onChange={e => setRecipientSearch(e.target.value)}
+                      placeholder="Search by name or email..."
+                      className="flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none"
+                    />
+                    {recipientSearch && <button onClick={() => setRecipientSearch('')} className="text-zinc-600 hover:text-zinc-400"><X size={12} /></button>}
+                  </div>
+                </div>
+                <div className="max-h-52 overflow-y-auto divide-y divide-zinc-700/50">
+                  {filteredContacts.length === 0 ? (
+                    <p className="text-xs text-zinc-600 text-center py-4">No contacts found</p>
+                  ) : filteredContacts.map(c => (
+                    <label key={c.email} className="flex items-center gap-3 px-3 py-2.5 hover:bg-zinc-700/40 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedEmails.has(c.email.toLowerCase())}
+                        onChange={() => toggleContact(c.email)}
+                        className="accent-teal-600 w-4 h-4 flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-zinc-200 truncate">{c.name}</p>
+                        <p className="text-xs text-zinc-500 truncate">{c.email}</p>
+                      </div>
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                        c.group === 'client' ? 'bg-teal-900/40 text-teal-400'
+                        : c.group === 'lead' ? 'bg-indigo-900/40 text-indigo-400'
+                        : 'bg-violet-900/40 text-violet-400'
+                      }`}>
+                        {c.group === 'client' ? 'Client' : c.group === 'lead' ? 'Lead' : 'Team'}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className={`flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg ${
+              recipients.length > 0 ? 'bg-teal-900/30 text-teal-300' : 'bg-zinc-700 text-zinc-500'
+            }`}>
               <Mail size={14} />
-              {recipients.length > 0 ? `${recipients.length} recipients selected` : 'No recipients — select at least one group'}
+              {recipients.length > 0 ? `${recipients.length} recipient${recipients.length !== 1 ? 's' : ''} selected` : 'No recipients selected'}
             </div>
           </div>
 
           {/* Compose */}
           <div className="bg-zinc-800 rounded-xl border border-zinc-700 p-5 space-y-4">
-            <h3 className="text-sm font-bold text-zinc-100">Compose</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-zinc-100">Compose</h3>
+              <button
+                type="button"
+                onClick={() => setPreview(p => !p)}
+                className="flex items-center gap-1 text-xs text-zinc-500 hover:text-teal-400 transition-colors"
+              >
+                {preview ? <EyeOff size={12} /> : <Eye size={12} />}
+                {preview ? 'Edit' : 'Preview email'}
+              </button>
+            </div>
+
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5">Subject Line</label>
+              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Subject Line</label>
               <input
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
@@ -217,111 +390,102 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
               />
             </div>
 
-            {/* Image */}
-            <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5">Header Image (optional)</label>
-              <input
-                ref={imageFileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = ''; }}
+            {preview ? (
+              <div
+                className="border border-zinc-700 rounded-lg overflow-hidden"
+                dangerouslySetInnerHTML={{ __html: buildHtml() }}
+                style={{ minHeight: 300 }}
               />
-              {headerImage ? (
-                <div className="relative rounded-lg overflow-hidden border border-zinc-700">
-                  <img src={headerImage} alt="Header" className="w-full object-cover max-h-48" />
-                  <button
-                    onClick={() => setHeaderImage(null)}
-                    className="absolute top-2 right-2 bg-zinc-800/90 hover:bg-zinc-800 rounded-full p-1 shadow text-zinc-400 hover:text-red-500 transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div
-                    onClick={() => imageFileRef.current?.click()}
-                    onDragOver={e => e.preventDefault()}
-                    onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleImageFile(f); }}
-                    className="border-2 border-dashed border-zinc-700 rounded-lg p-5 text-center cursor-pointer hover:border-teal-300 hover:bg-teal-50 transition-colors"
-                  >
-                    <ImagePlus size={20} className="mx-auto mb-1.5 text-zinc-600" />
-                    <p className="text-sm text-zinc-400 font-medium">Upload image</p>
-                    <p className="text-xs text-zinc-500">or drag & drop · JPG, PNG, WebP</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-px bg-zinc-700" />
-                    <span className="text-xs text-zinc-500">or</span>
-                    <div className="flex-1 h-px bg-zinc-700" />
-                  </div>
-                  {showUrlInput ? (
-                    <div className="flex gap-2">
-                      <input
-                        autoFocus
-                        value={imageUrlInput}
-                        onChange={e => setImageUrlInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') applyImageUrl(); if (e.key === 'Escape') setShowUrlInput(false); }}
-                        placeholder="https://example.com/image.jpg"
-                        className="flex-1 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            ) : (
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-zinc-400 mb-2">Message</label>
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+
+                {blocks.map((block, idx) => (
+                  <div key={block.id}>
+                    {block.type === 'text' ? (
+                      <textarea
+                        value={block.content}
+                        onChange={e => updateText(block.id, e.target.value)}
+                        rows={idx === 0 && blocks.length === 1 ? 10 : 4}
+                        placeholder={idx === 0 ? `Hey everyone,\n\nHere's what's new at E&J Retreats this month...` : 'Continue writing...'}
+                        className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none font-mono"
                       />
-                      <button onClick={applyImageUrl} className="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors">Add</button>
-                      <button onClick={() => setShowUrlInput(false)} className="px-3 py-1.5 text-zinc-400 text-sm rounded-lg hover:bg-zinc-700 transition-colors">Cancel</button>
-                    </div>
-                  ) : (
-                    <button onClick={() => setShowUrlInput(true)} className="w-full text-sm text-teal-600 hover:text-teal-700 font-medium py-1.5 rounded-lg hover:bg-teal-50 transition-colors">
-                      Paste image URL
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+                    ) : (
+                      <div className="relative rounded-lg overflow-hidden border border-zinc-700 group">
+                        <img src={block.src} alt="" className="w-full object-cover max-h-56" />
+                        <button
+                          onClick={() => removeBlock(block.id)}
+                          className="absolute top-2 right-2 bg-zinc-900/80 hover:bg-zinc-900 rounded-full p-1.5 text-zinc-400 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-zinc-300">Message</label>
-                <button
-                  type="button"
-                  onClick={() => setPreview(p => !p)}
-                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-teal-600 transition-colors"
-                >
-                  {preview ? <EyeOff size={12} /> : <Eye size={12} />}
-                  {preview ? 'Edit' : 'Preview email'}
-                </button>
+                    {/* Insert image slot */}
+                    {insertingAfter === block.id ? (
+                      <div className="my-2 border border-dashed border-teal-600/50 rounded-xl p-3 bg-teal-900/10 space-y-2">
+                        <p className="text-xs font-medium text-teal-400 text-center">Insert image</p>
+                        {insertMode === 'url' ? (
+                          <div className="flex gap-2">
+                            <input
+                              autoFocus
+                              value={urlInput}
+                              onChange={e => setUrlInput(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') insertImage(urlInput.trim()); if (e.key === 'Escape') closeInsert(); }}
+                              placeholder="https://example.com/image.jpg"
+                              className="flex-1 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            />
+                            <button onClick={() => insertImage(urlInput.trim())} className="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors">Add</button>
+                            <button onClick={closeInsert} className="px-2 text-zinc-500 hover:text-zinc-300"><X size={14} /></button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              onClick={() => { setInsertMode('upload'); fileRef.current?.click(); }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm rounded-lg transition-colors"
+                            >
+                              <ImagePlus size={14} /> Upload
+                            </button>
+                            <button
+                              onClick={() => setInsertMode('url')}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm rounded-lg transition-colors"
+                            >
+                              <Link size={14} /> Paste URL
+                            </button>
+                            <button onClick={closeInsert} className="px-2 text-zinc-500 hover:text-zinc-300"><X size={14} /></button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => openInsert(block.id)}
+                        className="w-full my-1 py-1.5 text-xs text-zinc-600 hover:text-teal-400 hover:bg-teal-900/10 rounded-lg border border-transparent hover:border-teal-700/30 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <ImagePlus size={12} /> Insert image here
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <p className="text-xs text-zinc-600 mt-1">Blank lines become spacing. Click "Insert image here" to add a photo anywhere in the email.</p>
               </div>
-
-              {preview ? (
-                <div
-                  className="border border-zinc-700 rounded-lg overflow-hidden"
-                  dangerouslySetInnerHTML={{ __html: buildHtml() }}
-                  style={{ minHeight: 300 }}
-                />
-              ) : (
-                <textarea
-                  value={body}
-                  onChange={e => setBody(e.target.value)}
-                  rows={12}
-                  placeholder={`Hey everyone,\n\nHere's what we've been up to this month at E&J Retreats...\n\nNew this month:\n- We added AI revenue projection reports\n- New listing optimizer tool\n\nThanks for being part of the E&J Retreats family!\n\n— Ethan & Jordan`}
-                  className="w-full border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none font-mono"
-                />
-              )}
-              <p className="text-xs text-zinc-500 mt-1">Plain text — blank lines become spacing.</p>
-            </div>
+            )}
           </div>
 
           {sendState === 'error' && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2.5 text-sm">
+            <div className="flex items-center gap-2 bg-red-900/20 border border-red-700 text-red-400 rounded-lg px-3 py-2.5 text-sm">
               <AlertCircle size={14} className="flex-shrink-0" />
               Failed to send. Check that RESEND_API_KEY and NEWSLETTER_FROM_EMAIL are set in Vercel.
             </div>
           )}
 
-          {/* Send / Confirm */}
           {confirming ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-semibold text-amber-800">Send to {recipients.length} people?</p>
-              <p className="text-xs text-amber-700">Subject: <span className="font-medium">{subject}</span></p>
+            <div className="bg-amber-900/20 border border-amber-700 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-amber-300">Send to {recipients.length} people?</p>
+              <p className="text-xs text-amber-400">Subject: <span className="font-medium">{subject}</span></p>
               <div className="flex gap-2">
-                <button onClick={() => setConfirming(false)} className="flex-1 border border-zinc-700 text-zinc-300 text-sm font-medium py-2 rounded-lg hover:bg-zinc-900 transition-colors">
+                <button onClick={() => setConfirming(false)} className="flex-1 border border-zinc-700 text-zinc-300 text-sm font-medium py-2 rounded-lg hover:bg-zinc-700 transition-colors">
                   Cancel
                 </button>
                 <button onClick={handleSend} className="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
@@ -332,13 +496,13 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
           ) : (
             <button
               onClick={() => setConfirming(true)}
-              disabled={!subject.trim() || !body.trim() || recipients.length === 0 || sendState === 'sending'}
+              disabled={!subject.trim() || !hasContent || recipients.length === 0 || sendState === 'sending'}
               className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               {sendState === 'sending' ? (
                 <><Loader size={14} className="animate-spin" /> Sending...</>
               ) : (
-                <><Send size={14} /> Send Newsletter to {recipients.length} People</>
+                <><Send size={14} /> Send Newsletter to {recipients.length} {recipients.length === 1 ? 'Person' : 'People'}</>
               )}
             </button>
           )}
