@@ -99,10 +99,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const drive = google.drive({ version: 'v3', auth });
     const docs = google.docs({ version: 'v1', auth });
 
-    // 1. Copy the template into a working doc
+    // 1. Copy the template into a working doc (place in same parent so service account has quota)
+    const templateMeta = await drive.files.get({
+      fileId: templateFileId,
+      fields: 'parents',
+      supportsAllDrives: true,
+    });
     const copy = await drive.files.copy({
       fileId: templateFileId,
-      requestBody: { name: docName },
+      supportsAllDrives: true,
+      requestBody: {
+        name: docName,
+        parents: templateMeta.data.parents ?? undefined,
+      },
     });
     const copyId = copy.data.id!;
 
@@ -156,13 +165,13 @@ Example: ["John Smith", "123 Ocean Ave, Rehoboth Beach, DE 19971", "20", "Delawa
 
     // 5. Export filled doc as PDF
     const exported = await drive.files.export(
-      { fileId: copyId, mimeType: 'application/pdf' },
+      { fileId: copyId, mimeType: 'application/pdf', supportsAllDrives: true },
       { responseType: 'arraybuffer' },
     );
     const pdfBuffer = Buffer.from(exported.data as ArrayBuffer);
 
     // 6. Delete the temporary working copy from Drive
-    await drive.files.delete({ fileId: copyId }).catch(() => {});
+    await drive.files.delete({ fileId: copyId, supportsAllDrives: true }).catch(() => {});
 
     // 7. Upload PDF to Supabase
     const supabase = createClient(
