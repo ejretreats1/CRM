@@ -23,6 +23,8 @@ export default function DocumentGeneratorModal({
 
   const firstProp = owner.properties[0];
   const [ownerName, setOwnerName] = useState(owner.name);
+  const [ownerEmail, setOwnerEmail] = useState(owner.email ?? '');
+  const [ownerPhone, setOwnerPhone] = useState(owner.phone ?? '');
   const [propertyAddress, setPropertyAddress] = useState(
     firstProp ? `${firstProp.address}, ${firstProp.city}, ${firstProp.state}`.replace(/, ,/g, ',').replace(/,\s*$/, '') : ''
   );
@@ -51,6 +53,8 @@ export default function DocumentGeneratorModal({
         body: JSON.stringify({
           templateFileId: template.id,
           ownerName: ownerName.trim(),
+          ownerEmail: ownerEmail.trim(),
+          ownerPhone: ownerPhone.trim(),
           propertyAddress: propertyAddress.trim(),
           commissionPct: commissionPct.trim(),
           state: state.trim(),
@@ -108,6 +112,8 @@ export default function DocumentGeneratorModal({
                   {[
                     { label: 'Document name', value: documentName, set: setDocumentName, placeholder: 'Management Agreement' },
                     { label: 'Client name', value: ownerName, set: setOwnerName, placeholder: owner.name },
+                    { label: 'Client email', value: ownerEmail, set: setOwnerEmail, placeholder: 'owner@email.com' },
+                    { label: 'Client phone', value: ownerPhone, set: setOwnerPhone, placeholder: '555-123-4567' },
                     { label: 'Property address', value: propertyAddress, set: setPropertyAddress, placeholder: '123 Ocean Ave, Rehoboth Beach, DE' },
                     { label: 'Commission %', value: commissionPct, set: setCommissionPct, placeholder: '20' },
                     { label: 'Governing state', value: state, set: setState, placeholder: 'Delaware' },

@@ -71,6 +71,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const {
     templateFileId,
     ownerName,
+    ownerEmail,
+    ownerPhone,
     propertyAddress,
     commissionPct,
     state,
@@ -79,6 +81,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } = req.body as {
     templateFileId: string;
     ownerName: string;
+    ownerEmail?: string;
+    ownerPhone?: string;
     propertyAddress?: string;
     commissionPct?: string;
     state?: string;
@@ -109,23 +113,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .map((b, i) => `Blank ${i + 1}: "...${b.context}..."`)
         .join('\n');
 
+      const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
       const { text } = await generateText({
         model: 'anthropic/claude-haiku-4.5',
-        maxTokens: 256,
-        prompt: `Fill in the blanks (____) in a property management contract.
+        maxTokens: 512,
+        prompt: `Fill in the blanks (____) in a short-term rental property management agreement.
 
 Available data:
+- Today's date: ${today}
 - Client name: ${ownerName}
+- Client email: ${ownerEmail ?? 'not provided'}
+- Client phone: ${ownerPhone ?? 'not provided'}
 - Property address: ${propertyAddress ?? 'not provided'}
 - Commission %: ${commissionPct ?? 'not provided'}
 - Governing state: ${state ?? 'not provided'}
 
+Rules:
+- Any blank asking for a date (agreement date, commencement date, signature date) → use today's date
+- Any blank for owner/client name → use the client name
+- Any blank for owner email → use client email
+- Any blank for owner phone → use client phone
+- Any blank for property address → use property address
+- Any blank for commission percentage → use the commission % number only (no % symbol)
+- Any blank for state → use the governing state
+
 Blanks and their surrounding text:
 ${blanksDesc}
 
-Return ONLY a JSON array of strings, one per blank in order, using the available data.
-If a blank's context is unclear, use the most logical value from the data above.
-Example: ["John Smith", "123 Ocean Ave, Rehoboth Beach, DE 19971", "20", "Delaware"]`,
+Return ONLY a JSON array of strings, one per blank in order. No markdown, no explanation.
+Example: ["May 1, 2026", "John Smith", "123 Ocean Ave", "john@email.com", "555-123-4567", "20", "Delaware"]`,
       });
 
       const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
