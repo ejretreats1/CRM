@@ -22,7 +22,7 @@ function getAuth() {
 interface BlankLocation {
   startIndex: number;
   endIndex: number;
-  blankText: string; // the actual underscores found (length may vary)
+  blankText: string;
   context: string;
 }
 
@@ -32,12 +32,10 @@ function findBlanks(elements: any[]): BlankLocation[] {
   function traverse(elems: any[]) {
     for (const elem of elems ?? []) {
       if (elem.paragraph) {
-        // Build full paragraph text for context
         let paraText = '';
         for (const part of elem.paragraph.elements ?? []) {
           paraText += part.textRun?.content ?? '';
         }
-        // Find blanks inside each text run
         for (const part of elem.paragraph.elements ?? []) {
           const content: string = part.textRun?.content ?? '';
           const runStart: number = part.startIndex ?? 0;
@@ -99,28 +97,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const drive = google.drive({ version: 'v3', auth });
     const docs = google.docs({ version: 'v1', auth });
 
-    // 1. Copy the template into a working doc (place in same parent so service account has quota)
-    const templateMeta = await drive.files.get({
-      fileId: templateFileId,
-      fields: 'parents',
-      supportsAllDrives: true,
-    });
-    const copy = await drive.files.copy({
-      fileId: templateFileId,
-      supportsAllDrives: true,
-      requestBody: {
-        name: docName,
-        parents: templateMeta.data.parents ?? undefined,
-      },
-    });
-    const copyId = copy.data.id!;
-
-    // 2. Read the copy and find all blank positions
-    const doc = await docs.documents.get({ documentId: copyId });
+    // 1. Read the original template and find blank positions
+    const doc = await docs.documents.get({ documentId: templateFileId });
     const blanks = findBlanks(doc.data.body?.content ?? []);
 
+    let values: string[] = [];
+
     if (blanks.length > 0) {
-      // 3. Ask Claude to map each blank to the right value based on context
+      // 2. Ask Claude to map each blank to the right value based on context
       const blanksDesc = blanks
         .map((b, i) => `Blank ${i + 1}: "...${b.context}..."`)
         .join('\n');
@@ -144,36 +128,48 @@ If a blank's context is unclear, use the most logical value from the data above.
 Example: ["John Smith", "123 Ocean Ave, Rehoboth Beach, DE 19971", "20", "Delaware"]`,
       });
 
-      const values: string[] = JSON.parse(text.trim());
+      values = JSON.parse(text.trim());
 
-      // 4. Replace blanks last→first so earlier indices stay valid
-      const requests: object[] = [];
+      // 3. Fill blanks in the ORIGINAL template (last→first so earlier indices stay valid)
+      // No Drive copy needed = no storage quota required
+      const fillRequests: object[] = [];
       for (let i = blanks.length - 1; i >= 0; i--) {
-        const blank = blanks[i];
-        const value = values[i] ?? '';
-        requests.push(
-          { deleteContentRange: { range: { startIndex: blank.startIndex, endIndex: blank.endIndex } } },
-          { insertText: { location: { index: blank.startIndex }, text: value } },
+        fillRequests.push(
+          { deleteContentRange: { range: { startIndex: blanks[i].startIndex, endIndex: blanks[i].endIndex } } },
+          { insertText: { location: { index: blanks[i].startIndex }, text: values[i] ?? '' } },
         );
       }
-
       await docs.documents.batchUpdate({
-        documentId: copyId,
-        requestBody: { requests },
+        documentId: templateFileId,
+        requestBody: { requests: fillRequests },
       });
     }
 
-    // 5. Export filled doc as PDF
-    const exported = await drive.files.export(
-      { fileId: copyId, mimeType: 'application/pdf', supportsAllDrives: true },
-      { responseType: 'arraybuffer' },
-    );
-    const pdfBuffer = Buffer.from(exported.data as ArrayBuffer);
+    let pdfBuffer: Buffer;
+    try {
+      // 4. Export filled template as PDF
+      const exported = await drive.files.export(
+        { fileId: templateFileId, mimeType: 'application/pdf', supportsAllDrives: true },
+        { responseType: 'arraybuffer' },
+      );
+      pdfBuffer = Buffer.from(exported.data as ArrayBuffer);
+    } finally {
+      if (blanks.length > 0) {
+        // 5. Restore original blanks (first→last, using original startIndex values)
+        // Math: processing first-to-last in the batch means each subsequent blank's
+        // original startIndex is still valid after restoring the preceding ones.
+        const restoreRequests: object[] = blanks.flatMap((blank, i) => [
+          { deleteContentRange: { range: { startIndex: blank.startIndex, endIndex: blank.startIndex + (values[i]?.length ?? 0) } } },
+          { insertText: { location: { index: blank.startIndex }, text: blank.blankText } },
+        ]);
+        await docs.documents.batchUpdate({
+          documentId: templateFileId,
+          requestBody: { requests: restoreRequests },
+        }).catch(err => console.error('Template restore failed:', err));
+      }
+    }
 
-    // 6. Delete the temporary working copy from Drive
-    await drive.files.delete({ fileId: copyId, supportsAllDrives: true }).catch(() => {});
-
-    // 7. Upload PDF to Supabase
+    // 6. Upload PDF to Supabase
     const supabase = createClient(
       process.env.VITE_SUPABASE_URL!,
       process.env.VITE_SUPABASE_ANON_KEY!,
@@ -184,12 +180,12 @@ Example: ["John Smith", "123 Ocean Ave, Rehoboth Beach, DE 19971", "20", "Delawa
 
     const { error: uploadErr } = await supabase.storage
       .from('documents')
-      .upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: false });
+      .upload(storagePath, pdfBuffer!, { contentType: 'application/pdf', upsert: false });
     if (uploadErr) throw uploadErr;
 
     const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(storagePath);
 
-    // 8. Save record to owner_documents table
+    // 7. Save record to owner_documents table
     const id = `doc_${Date.now()}`;
     const now = new Date().toISOString();
     const { error: dbErr } = await supabase.from('owner_documents').insert({
@@ -198,7 +194,7 @@ Example: ["John Smith", "123 Ocean Ave, Rehoboth Beach, DE 19971", "20", "Delawa
       name: docName,
       file_url: publicUrl,
       file_type: 'application/pdf',
-      file_size: pdfBuffer.length,
+      file_size: pdfBuffer!.length,
       storage_path: storagePath,
       uploaded_at: now,
     });
@@ -210,7 +206,7 @@ Example: ["John Smith", "123 Ocean Ave, Rehoboth Beach, DE 19971", "20", "Delawa
       name: docName,
       fileUrl: publicUrl,
       fileType: 'application/pdf',
-      fileSize: pdfBuffer.length,
+      fileSize: pdfBuffer!.length,
       storagePath,
       uploadedAt: now,
     });

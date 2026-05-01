@@ -480,10 +480,11 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
             </div>
 
             {preview ? (
-              <div
-                className="border border-slate-200 rounded-lg overflow-hidden"
-                dangerouslySetInnerHTML={{ __html: buildHtml() }}
-                style={{ minHeight: 300 }}
+              <iframe
+                srcDoc={buildHtml()}
+                className="border border-slate-200 rounded-lg overflow-hidden w-full"
+                style={{ minHeight: 400, border: 'none' }}
+                title="Email Preview"
               />
             ) : (
               <div className="space-y-1">
