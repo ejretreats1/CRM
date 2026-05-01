@@ -250,20 +250,16 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
 
     return `<!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"/></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;margin:0;padding:32px 16px">
-  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
-    <div style="background:#0f766e;padding:32px;text-align:center">
-      <div style="color:#fff;font-size:22px;font-weight:700">E&amp;J Retreats</div>
-      <div style="color:#99f6e4;font-size:13px;margin-top:4px">Property Management Newsletter</div>
-    </div>
-    <div style="padding:32px">
-      <h2 style="margin:0 0 20px 0;font-size:20px;color:#0f172a">${subject}</h2>
-      ${bodyHtml}
-    </div>
-    <div style="background:#f8fafc;padding:20px 32px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center">
-      E&amp;J Retreats · You're receiving this because you're a valued client or contact.
-    </div>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#ffffff;margin:0;padding:0;color:#1e293b">
+  <div style="max-width:580px;margin:0 auto;padding:40px 24px">
+    <p style="margin:0 0 24px 0;font-size:15px;color:#64748b">E&amp;J Retreats</p>
+    ${bodyHtml}
+    <hr style="border:none;border-top:1px solid #e2e8f0;margin:32px 0"/>
+    <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.6">
+      — The E&amp;J Retreats Team<br/>
+      <a href="mailto:ejretreats1@gmail.com" style="color:#94a3b8">ejretreats1@gmail.com</a>
+    </p>
   </div>
 </body>
 </html>`;
