@@ -128,7 +128,8 @@ If a blank's context is unclear, use the most logical value from the data above.
 Example: ["John Smith", "123 Ocean Ave, Rehoboth Beach, DE 19971", "20", "Delaware"]`,
       });
 
-      values = JSON.parse(text.trim());
+      const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+      values = JSON.parse(cleaned);
 
       // 3. Fill blanks in the ORIGINAL template (last→first so earlier indices stay valid)
       // No Drive copy needed = no storage quota required
