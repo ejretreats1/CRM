@@ -37,10 +37,10 @@ export default function SignPage({ token }: SignPageProps) {
 
     try {
       setStatus('submitting');
-      const res = await fetch('/api/complete-signing', {
+      const res = await fetch('/api/signing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, signatureDataUrl: dataUrl }),
+        body: JSON.stringify({ action: 'complete', token, signatureDataUrl: dataUrl }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to submit signature.');

@@ -17,6 +17,7 @@ import OwnerRevenueReport from './OwnerRevenueReport';
 import SignatureRequestModal from './modals/SignatureRequestModal';
 import DrivePickerModal from './modals/DrivePickerModal';
 import type { PickedDriveFile } from './modals/DrivePickerModal';
+import DocumentGeneratorModal from './modals/DocumentGeneratorModal';
 
 interface OwnerDetailProps {
   owner: Owner;
@@ -74,6 +75,8 @@ export default function OwnerDetail({
 }: OwnerDetailProps) {
   const [sigRequests, setSigRequests] = useState<SignatureRequest[]>([]);
   const [showSigModal, setShowSigModal] = useState(false);
+  const [showDocGenerator, setShowDocGenerator] = useState(false);
+  const [prefillSigDoc, setPrefillSigDoc] = useState<{ fileUrl: string; fileName: string } | null>(null);
 
   const [ownerDocs, setOwnerDocs] = useState<OwnerDocument[]>([]);
   const [driveLinks, setDriveLinks] = useState<OwnerDriveLink[]>([]);
@@ -384,7 +387,13 @@ export default function OwnerDetail({
               <span className="text-xs">📁</span> Link from Drive
             </button>
             <button
-              onClick={() => setShowSigModal(true)}
+              onClick={() => setShowDocGenerator(true)}
+              className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-700 border border-indigo-200 hover:border-indigo-400 px-3 py-1.5 rounded-lg transition-colors font-medium"
+            >
+              <FileText size={13} /> Generate Contract
+            </button>
+            <button
+              onClick={() => { setPrefillSigDoc(null); setShowSigModal(true); }}
               className="flex items-center gap-1.5 text-xs text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-400 px-3 py-1.5 rounded-lg transition-colors font-medium"
             >
               <FileSignature size={13} /> Send for Signature
@@ -642,7 +651,20 @@ export default function OwnerDetail({
       <SignatureRequestModal
         owner={owner}
         onSent={() => fetchSignatureRequests(owner.id).then(setSigRequests).catch(() => {})}
-        onClose={() => setShowSigModal(false)}
+        onClose={() => { setShowSigModal(false); setPrefillSigDoc(null); }}
+        prefillDocUrl={prefillSigDoc?.fileUrl}
+        prefillDocName={prefillSigDoc?.fileName}
+      />
+    )}
+    {showDocGenerator && (
+      <DocumentGeneratorModal
+        owner={owner}
+        onGenerated={doc => setOwnerDocs(prev => [doc, ...prev])}
+        onSendForSignature={(fileUrl, fileName) => {
+          setPrefillSigDoc({ fileUrl, fileName });
+          setShowSigModal(true);
+        }}
+        onClose={() => setShowDocGenerator(false)}
       />
     )}
     {showDrivePicker && (

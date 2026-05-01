@@ -8,6 +8,8 @@ interface SignatureRequestModalProps {
   owner: Owner;
   onSent: () => void;
   onClose: () => void;
+  prefillDocUrl?: string;
+  prefillDocName?: string;
 }
 
 interface FieldPos {
@@ -17,11 +19,11 @@ interface FieldPos {
 
 type Step = 'form' | 'placement' | 'sending' | 'done' | 'error';
 
-export default function SignatureRequestModal({ owner, onSent, onClose }: SignatureRequestModalProps) {
+export default function SignatureRequestModal({ owner, onSent, onClose, prefillDocUrl, prefillDocName }: SignatureRequestModalProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [documentName, setDocumentName] = useState('Management Agreement');
+  const [documentName, setDocumentName] = useState(prefillDocName ?? 'Management Agreement');
   const [email, setEmail] = useState(owner.email);
-  const [step, setStep] = useState<Step>('form');
+  const [step, setStep] = useState<Step>(prefillDocUrl ? 'placement' : 'form');
   const [errorMsg, setErrorMsg] = useState('');
   const [pdfBlobUrl, setPdfBlobUrl] = useState('');
   const [scrollMode, setScrollMode] = useState(true); // true = scroll PDF, false = place fields
@@ -93,15 +95,16 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
   }, [getRelativePos]);
 
   const handleSubmit = async () => {
-    if (!file) return;
+    if (!prefillDocUrl && !file) return;
     try {
       setStep('sending');
-      const documentUrl = await uploadDocument(owner.id, file);
+      const documentUrl = prefillDocUrl ?? await uploadDocument(owner.id, file!);
 
-      const res = await fetch('/api/send-signature', {
+      const res = await fetch('/api/signing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'send',
           ownerId: owner.id,
           ownerName: owner.name,
           documentUrl,
@@ -179,9 +182,9 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
               className="relative border border-slate-200 shadow-lg bg-white overflow-hidden"
               style={{ width: '100%', maxWidth: 400, aspectRatio: '8.5 / 11' }}
             >
-              {pdfBlobUrl && (
+              {(prefillDocUrl || pdfBlobUrl) && (
                 <iframe
-                  src={`${pdfBlobUrl}#toolbar=0&navpanes=0`}
+                  src={prefillDocUrl ? `${prefillDocUrl}#toolbar=0&navpanes=0` : `${pdfBlobUrl}#toolbar=0&navpanes=0`}
                   className="absolute inset-0 w-full h-full border-none"
                   style={{ pointerEvents: scrollMode ? 'auto' : 'none' }}
                   title="PDF preview"
@@ -208,10 +211,10 @@ export default function SignatureRequestModal({ owner, onSent, onClose }: Signat
           <div className="flex gap-3 pt-1">
             <button
               type="button"
-              onClick={() => { setStep('form'); setErrorMsg(''); }}
+              onClick={() => { if (prefillDocUrl) { onClose(); } else { setStep('form'); setErrorMsg(''); } }}
               className="flex items-center gap-1.5 border border-slate-200 text-slate-600 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-slate-100 transition-colors"
             >
-              <ArrowLeft size={14} /> Back
+              <ArrowLeft size={14} /> {prefillDocUrl ? 'Cancel' : 'Back'}
             </button>
             <button
               type="button"
