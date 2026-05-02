@@ -14,6 +14,7 @@ import RevenueReports from './components/RevenueReports';
 import ListingOptimizer from './components/ListingOptimizer';
 import Newsletter from './components/Newsletter';
 import GuestMarketing from './components/GuestMarketing';
+import QuarterlyReports from './components/QuarterlyReports';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -468,6 +469,10 @@ export default function App() {
 
       {view === 'guest-marketing' && (
         <GuestMarketing reservations={uplistingReservations} apiKey={uplistingApiKey || undefined} />
+      )}
+
+      {view === 'quarterly-reports' && (
+        <QuarterlyReports owners={owners} reservations={uplistingReservations} />
       )}
 
       {modal?.type === 'lead-detail' && (

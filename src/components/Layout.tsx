@@ -15,6 +15,7 @@ import {
   Sparkles,
   Mail,
   LogOut,
+  BarChart3,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -36,6 +37,7 @@ const navItems = [
   { id: 'listing-optimizer' as View, label: 'Listing Optimizer', icon: Sparkles },
   { id: 'newsletter' as View, label: 'Newsletter', icon: Mail },
   { id: 'guest-marketing' as View, label: 'Guest Marketing', icon: Users },
+  { id: 'quarterly-reports' as View, label: 'Quarterly Reports', icon: BarChart3 },
 ];
 
 export default function Layout({ currentView, onNavigate, isAdmin, children }: LayoutProps) {
