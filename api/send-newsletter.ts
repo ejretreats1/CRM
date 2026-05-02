@@ -48,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── QUARTERLY REPORT ─────────────────────────────────────────────────────
   if (body.action === 'quarterly') {
     const {
-      ownerName, ownerEmail, quarter, year, properties, metrics, send,
+      ownerName, ownerEmail, quarter, year, properties, metrics, context, ownerNotes, send,
     } = body as {
       ownerName: string;
       ownerEmail: string;
@@ -62,6 +62,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         avgNightlyRate: number;
         avgLos: number;
       };
+      context?: string;
+      ownerNotes?: string;
       send?: boolean;
     };
 
@@ -93,7 +95,7 @@ Performance metrics for the quarter:
 - Occupancy rate: ${metrics.occupancyRate}%
 - Average nightly rate: $${metrics.avgNightlyRate}
 - Average length of stay: ${metrics.avgLos} nights
-
+${context ? `\nAdditional context about this quarter (apply to all clients):\n${context}` : ''}${ownerNotes ? `\nNotes specific to this client:\n${ownerNotes}` : ''}
 Write 3 short sections:
 
 What Went Well This Quarter

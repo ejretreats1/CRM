@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { BarChart3, Send, Eye, X, Loader, CheckCircle, ChevronDown } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { BarChart3, Send, Eye, X, Loader, CheckCircle, ChevronDown, StickyNote } from 'lucide-react';
 import type { Owner } from '../types';
 import type { UplistingReservation } from '../services/uplisting';
 
@@ -71,6 +71,12 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [sendAllStatus, setSendAllStatus] = useState<'idle' | 'running' | 'done'>('idle');
   const [sendAllResults, setSendAllResults] = useState<{ name: string; ok: boolean }[]>([]);
+  const [globalContext, setGlobalContext] = useState('');
+  const [ownerNotes, setOwnerNotes] = useState<Record<string, string>>({});
+
+  const setOwnerNote = useCallback((id: string, value: string) => {
+    setOwnerNotes(prev => ({ ...prev, [id]: value }));
+  }, []);
 
   const [qStart, qEnd] = useMemo(() => getQuarterBounds(quarter, year), [quarter, year]);
 
@@ -104,6 +110,8 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
         year,
         properties: props,
         metrics,
+        context: globalContext.trim(),
+        ownerNotes: (ownerNotes[owner.id] ?? '').trim(),
         send: sendNow,
       }),
     });
@@ -221,6 +229,21 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
         </div>
       </div>
 
+      {/* Global context */}
+      <div className="mb-4 bg-white border border-slate-200 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <StickyNote size={13} className="text-slate-400" />
+          <label className="text-xs font-semibold text-slate-600">Context for Claude (applies to all reports)</label>
+        </div>
+        <textarea
+          value={globalContext}
+          onChange={e => setGlobalContext(e.target.value)}
+          rows={2}
+          placeholder="e.g. Q1 had a major snowstorm in January that impacted bookings. We raised nightly rates by 15% in February. The market is seeing increased competition from new listings."
+          className="w-full text-sm text-slate-700 placeholder:text-slate-300 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500"
+        />
+      </div>
+
       {/* Send-all results */}
       {sendAllResults.length > 0 && sendAllStatus !== 'idle' && (
         <div className="mb-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
@@ -261,7 +284,16 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
                   <tr key={owner.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
                       <p className="font-medium text-slate-900">{owner.name}</p>
-                      <p className="text-xs text-slate-400">{owner.email}</p>
+                      <p className="text-xs text-slate-400 mb-1.5">{owner.email}</p>
+                      <textarea
+                        value={ownerNotes[owner.id] ?? ''}
+                        onChange={e => setOwnerNote(owner.id, e.target.value)}
+                        rows={1}
+                        placeholder="Notes for Claude (optional)"
+                        className="w-full text-xs text-slate-600 placeholder:text-slate-300 border border-slate-200 rounded px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-teal-500 focus:rows-3 transition-all"
+                        onFocus={e => e.currentTarget.rows = 3}
+                        onBlur={e => { if (!e.currentTarget.value) e.currentTarget.rows = 1; }}
+                      />
                     </td>
                     <td className="px-4 py-3 text-right text-slate-700">{m.totalBookings}</td>
                     <td className="px-4 py-3 text-right text-slate-700">${m.totalRevenue.toLocaleString()}</td>
