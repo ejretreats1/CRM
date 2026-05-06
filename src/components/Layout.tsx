@@ -16,6 +16,7 @@ import {
   Mail,
   LogOut,
   BarChart3,
+  Home,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -30,6 +31,7 @@ const navItems = [
   { id: 'dashboard' as View, label: 'Dashboard', icon: LayoutDashboard },
   { id: 'pipeline' as View, label: 'Pipeline', icon: Columns3 },
   { id: 'owners' as View, label: 'Clients', icon: Users },
+  { id: 'properties' as View, label: 'Properties', icon: Home },
   { id: 'outreach' as View, label: 'Outreach Log', icon: MessageSquare },
   { id: 'va-hub' as View, label: 'VA Hub', icon: FolderKanban },
   { id: 'drive' as View, label: 'Google Drive', icon: HardDrive },
@@ -45,7 +47,9 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
   const { signOut } = useClerk();
   const { user } = useUser();
 
-  const activeView = currentView === 'owner-detail' ? 'owners' : currentView;
+  const activeView = currentView === 'owner-detail' ? 'owners'
+    : currentView === 'property-portal' ? 'properties'
+    : currentView;
 
   function handleNav(id: View) {
     onNavigate(id);

@@ -15,6 +15,8 @@ import ListingOptimizer from './components/ListingOptimizer';
 import Newsletter from './components/Newsletter';
 import GuestMarketing from './components/GuestMarketing';
 import QuarterlyReports from './components/QuarterlyReports';
+import Properties from './components/Properties';
+import PropertyPortal from './components/PropertyPortal';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -71,6 +73,7 @@ export default function App() {
 
   const [view, setView] = useState<View>('dashboard');
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [modal, setModal] = useState<Modal>(null);
 
   // ── Load all data from Supabase on mount ───────────────────────────────────
@@ -107,6 +110,11 @@ export default function App() {
   const navigate = (v: View, extra?: string) => {
     setView(v);
     if (v === 'owner-detail' && extra) setSelectedOwnerId(extra);
+    if (v === 'property-portal' && extra) {
+      const [ownerId, propertyId] = extra.split('::');
+      setSelectedOwnerId(ownerId);
+      setSelectedPropertyId(propertyId);
+    }
   };
 
   // ── Uplisting sync ─────────────────────────────────────────────────────────
@@ -474,6 +482,30 @@ export default function App() {
       {view === 'quarterly-reports' && (
         <QuarterlyReports owners={owners} reservations={uplistingReservations} />
       )}
+
+      {view === 'properties' && (
+        <Properties
+          owners={owners}
+          reservations={uplistingReservations}
+          onViewProperty={(ownerId, propertyId) => navigate('property-portal', `${ownerId}::${propertyId}`)}
+        />
+      )}
+
+      {(() => {
+        if (view !== 'property-portal') return null;
+        const portalOwner = owners.find(o => o.id === selectedOwnerId);
+        const portalProperty = portalOwner?.properties.find(p => p.id === selectedPropertyId);
+        if (!portalOwner || !portalProperty) return null;
+        return (
+          <PropertyPortal
+            owner={portalOwner}
+            property={portalProperty}
+            reservations={uplistingReservations}
+            onBack={() => navigate('properties')}
+            onViewOwner={(ownerId) => navigate('owner-detail', ownerId)}
+          />
+        );
+      })()}
 
       {modal?.type === 'lead-detail' && (
         <LeadDetailModal
