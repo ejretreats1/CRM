@@ -83,15 +83,17 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
 
   const ownerListingIds = useMemo(() => new Set(propertyMap.keys()), [propertyMap]);
 
-  const filtered = useMemo(() => {
-    if (ownerListingIds.size === 0) return [];
-    return reservations.filter(r => {
-      if (!ownerListingIds.has(r.listing_id)) return false;
-      if (r.status === 'cancelled') return false;
+  const { filtered, cancelled } = useMemo(() => {
+    if (ownerListingIds.size === 0) return { filtered: [], cancelled: [] };
+    const inRange = (r: UplistingReservation) => {
       const checkIn = r.check_in.slice(0, 10);
       const checkOut = r.check_out.slice(0, 10);
-      return checkOut >= from && checkIn <= to;
-    });
+      return ownerListingIds.has(r.listing_id) && checkOut >= from && checkIn <= to;
+    };
+    return {
+      filtered: reservations.filter(r => r.status !== 'cancelled' && inRange(r)),
+      cancelled: reservations.filter(r => r.status === 'cancelled' && inRange(r)),
+    };
   }, [reservations, ownerListingIds, from, to]);
 
   const totals = useMemo(() => ({
@@ -106,11 +108,12 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
   const basisLabel = commission.basis === 'accommodation' ? 'Accommodation Total' : 'Total Payout';
 
   function downloadCSV() {
-    const headers = ['Property', 'Guest', 'Check-In', 'Check-Out', 'Nights', 'Channel', 'Accommodation', 'Cleaning Fee', 'Total Payout'];
+    const headers = ['Status', 'Property', 'Guest', 'Check-In', 'Check-Out', 'Nights', 'Channel', 'Accommodation', 'Cleaning Fee', 'Total Payout'];
     if (showCommission) headers.push(`Commission (${commission.rate}% of ${basisLabel})`);
 
-    const rows = filtered.map(r => {
+    const makeRow = (r: UplistingReservation, status: string) => {
       const row = [
+        status,
         propertyMap.get(r.listing_id) ?? r.listing_id,
         r.guest_name,
         r.check_in,
@@ -121,12 +124,12 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
         r.cleaning_fee != null ? r.cleaning_fee.toFixed(2) : '',
         r.total_price.toFixed(2),
       ];
-      if (showCommission) row.push(calcCommission(r, commission.rate, commission.basis).toFixed(2));
+      if (showCommission) row.push(status === 'Cancelled' ? '' : calcCommission(r, commission.rate, commission.basis).toFixed(2));
       return row;
-    });
+    };
 
     const totalsRow = [
-      'TOTALS', '', '', '',
+      'TOTALS', '', '', '', '',
       totals.nights, '',
       totals.accommodation.toFixed(2),
       totals.cleaning.toFixed(2),
@@ -134,7 +137,14 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
     ];
     if (showCommission) totalsRow.push(totals.commission.toFixed(2));
 
-    const csv = [headers, ...rows, totalsRow]
+    const rows = [
+      ...filtered.map(r => makeRow(r, 'Completed')),
+      ...(cancelled.length > 0 ? [['--- CANCELLATIONS ---', ...Array(headers.length - 1).fill('')]] : []),
+      ...cancelled.map(r => makeRow(r, 'Cancelled')),
+      totalsRow,
+    ];
+
+    const csv = [headers, ...rows]
       .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
       .join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -152,7 +162,7 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold text-slate-900">Revenue Report</h2>
-        {filtered.length > 0 && (
+        {(filtered.length > 0 || cancelled.length > 0) && (
           <button
             onClick={downloadCSV}
             className="flex items-center gap-1.5 text-xs font-medium text-teal-700 border border-teal-200 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-colors"
@@ -222,63 +232,113 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
             </div>
           )}
 
-          {filtered.length === 0 ? (
+          {filtered.length === 0 && cancelled.length === 0 ? (
             <p className="text-sm text-slate-400 py-4">No reservations found for this date range.</p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200">
-                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Property</th>
-                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Guest</th>
-                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Check-In</th>
-                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Check-Out</th>
-                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Nts</th>
-                    <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Channel</th>
-                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Accom.</th>
-                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cleaning</th>
-                    <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Payout</th>
-                    {showCommission && (
-                      <th className="text-right px-3 py-2.5 text-xs font-semibold text-indigo-500 uppercase tracking-wide">
-                        Commission
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {filtered.map(r => (
-                    <tr key={r.id} className="hover:bg-slate-100">
-                      <td className="px-3 py-2.5 text-slate-700 max-w-[120px] truncate">{propertyMap.get(r.listing_id) ?? r.listing_id}</td>
-                      <td className="px-3 py-2.5 text-slate-600 max-w-[100px] truncate">{r.guest_name}</td>
-                      <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.check_in)}</td>
-                      <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.check_out)}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-600">{r.nights || ''}</td>
-                      <td className="px-3 py-2.5 text-slate-500 text-xs">{CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? ''}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-600">{r.accommodation_total != null ? fmt(r.accommodation_total) : ''}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-600">{r.cleaning_fee != null ? fmt(r.cleaning_fee) : ''}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-teal-700">{fmt(r.total_price)}</td>
-                      {showCommission && (
-                        <td className="px-3 py-2.5 text-right font-semibold text-indigo-600">
-                          {fmt(calcCommission(r, commission.rate, commission.basis))}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-slate-100 border-t-2 border-slate-200 font-semibold">
-                    <td className="px-3 py-2.5 text-slate-700" colSpan={4}>Totals ({filtered.length} reservations)</td>
-                    <td className="px-3 py-2.5 text-right text-slate-700">{totals.nights}</td>
-                    <td />
-                    <td className="px-3 py-2.5 text-right text-slate-700">{totals.accommodation > 0 ? fmt(totals.accommodation) : ''}</td>
-                    <td className="px-3 py-2.5 text-right text-slate-700">{totals.cleaning > 0 ? fmt(totals.cleaning) : ''}</td>
-                    <td className="px-3 py-2.5 text-right text-teal-700">{fmt(totals.payout)}</td>
-                    {showCommission && (
-                      <td className="px-3 py-2.5 text-right text-indigo-700">{fmt(totals.commission)}</td>
-                    )}
-                  </tr>
-                </tfoot>
-              </table>
+            <div className="space-y-5">
+              {/* Completed reservations */}
+              {filtered.length > 0 && (
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-slate-200">
+                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Property</th>
+                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Guest</th>
+                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Check-In</th>
+                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Check-Out</th>
+                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Nts</th>
+                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Channel</th>
+                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Accom.</th>
+                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cleaning</th>
+                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Payout</th>
+                        {showCommission && (
+                          <th className="text-right px-3 py-2.5 text-xs font-semibold text-indigo-500 uppercase tracking-wide">Commission</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {filtered.map(r => (
+                        <tr key={r.id} className="hover:bg-slate-50">
+                          <td className="px-3 py-2.5 text-slate-700 max-w-[120px] truncate">{propertyMap.get(r.listing_id) ?? r.listing_id}</td>
+                          <td className="px-3 py-2.5 text-slate-600 max-w-[100px] truncate">{r.guest_name}</td>
+                          <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.check_in)}</td>
+                          <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.check_out)}</td>
+                          <td className="px-3 py-2.5 text-right text-slate-600">{r.nights || ''}</td>
+                          <td className="px-3 py-2.5 text-slate-500 text-xs">{CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? ''}</td>
+                          <td className="px-3 py-2.5 text-right text-slate-600">{r.accommodation_total != null ? fmt(r.accommodation_total) : ''}</td>
+                          <td className="px-3 py-2.5 text-right text-slate-600">{r.cleaning_fee != null ? fmt(r.cleaning_fee) : ''}</td>
+                          <td className="px-3 py-2.5 text-right font-semibold text-teal-700">{fmt(r.total_price)}</td>
+                          {showCommission && (
+                            <td className="px-3 py-2.5 text-right font-semibold text-indigo-600">
+                              {fmt(calcCommission(r, commission.rate, commission.basis))}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-slate-100 border-t-2 border-slate-200 font-semibold">
+                        <td className="px-3 py-2.5 text-slate-700" colSpan={4}>Totals ({filtered.length} reservations)</td>
+                        <td className="px-3 py-2.5 text-right text-slate-700">{totals.nights}</td>
+                        <td />
+                        <td className="px-3 py-2.5 text-right text-slate-700">{totals.accommodation > 0 ? fmt(totals.accommodation) : ''}</td>
+                        <td className="px-3 py-2.5 text-right text-slate-700">{totals.cleaning > 0 ? fmt(totals.cleaning) : ''}</td>
+                        <td className="px-3 py-2.5 text-right text-teal-700">{fmt(totals.payout)}</td>
+                        {showCommission && (
+                          <td className="px-3 py-2.5 text-right text-indigo-700">{fmt(totals.commission)}</td>
+                        )}
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {/* Cancelled reservations */}
+              {cancelled.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-rose-500 uppercase tracking-wide mb-2">Cancelled Reservations</p>
+                  <div className="overflow-x-auto rounded-xl border border-rose-200">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-rose-50 border-b border-rose-200">
+                          <th className="text-left px-3 py-2.5 text-xs font-semibold text-rose-400 uppercase tracking-wide">Property</th>
+                          <th className="text-left px-3 py-2.5 text-xs font-semibold text-rose-400 uppercase tracking-wide">Guest</th>
+                          <th className="text-left px-3 py-2.5 text-xs font-semibold text-rose-400 uppercase tracking-wide">Check-In</th>
+                          <th className="text-left px-3 py-2.5 text-xs font-semibold text-rose-400 uppercase tracking-wide">Check-Out</th>
+                          <th className="text-right px-3 py-2.5 text-xs font-semibold text-rose-400 uppercase tracking-wide">Nts</th>
+                          <th className="text-left px-3 py-2.5 text-xs font-semibold text-rose-400 uppercase tracking-wide">Channel</th>
+                          <th className="text-right px-3 py-2.5 text-xs font-semibold text-rose-400 uppercase tracking-wide">Accom.</th>
+                          <th className="text-right px-3 py-2.5 text-xs font-semibold text-rose-400 uppercase tracking-wide">Cleaning</th>
+                          <th className="text-right px-3 py-2.5 text-xs font-semibold text-rose-400 uppercase tracking-wide">Payout</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-rose-100">
+                        {cancelled.map(r => (
+                          <tr key={r.id} className="bg-white hover:bg-rose-50">
+                            <td className="px-3 py-2.5 text-slate-500 max-w-[120px] truncate">{propertyMap.get(r.listing_id) ?? r.listing_id}</td>
+                            <td className="px-3 py-2.5 text-slate-400 max-w-[100px] truncate line-through">{r.guest_name}</td>
+                            <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">{fmtDate(r.check_in)}</td>
+                            <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">{fmtDate(r.check_out)}</td>
+                            <td className="px-3 py-2.5 text-right text-slate-400">{r.nights || ''}</td>
+                            <td className="px-3 py-2.5 text-slate-400 text-xs">{CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? ''}</td>
+                            <td className="px-3 py-2.5 text-right text-slate-400">{r.accommodation_total != null ? fmt(r.accommodation_total) : fmt(0)}</td>
+                            <td className="px-3 py-2.5 text-right text-slate-400">{r.cleaning_fee != null ? fmt(r.cleaning_fee) : fmt(0)}</td>
+                            <td className="px-3 py-2.5 text-right font-semibold text-rose-500">{fmt(r.total_price)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-rose-50 border-t-2 border-rose-200 font-semibold">
+                          <td className="px-3 py-2.5 text-rose-600" colSpan={8}>Total Payout from Cancellations ({cancelled.length})</td>
+                          <td className="px-3 py-2.5 text-right text-rose-600">
+                            {fmt(cancelled.reduce((s, r) => s + r.total_price, 0))}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
