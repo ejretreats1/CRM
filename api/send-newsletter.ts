@@ -58,6 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       metrics: {
         totalRevenue: number;
         totalBookings: number;
+        cancelledWithPayout: number;
         occupancyRate: number;
         avgNightlyRate: number;
         avgLos: number;
@@ -90,9 +91,9 @@ Properties managed:
 ${propList}
 
 Performance metrics for the quarter:
-- Total revenue: $${metrics.totalRevenue.toLocaleString()}
-- Total bookings: ${metrics.totalBookings}
-- Occupancy rate: ${metrics.occupancyRate}%
+- Total revenue: $${metrics.totalRevenue.toLocaleString()} (includes cancellation payouts)
+- Total bookings: ${metrics.totalBookings}${metrics.cancelledWithPayout > 0 ? ` (${metrics.cancelledWithPayout} cancelled but paid out due to cancellation policy)` : ''}
+- Occupancy rate: ${metrics.occupancyRate}% (based on nights actually stayed, excludes cancelled)
 - Average nightly rate: $${metrics.avgNightlyRate}
 - Average length of stay: ${metrics.avgLos} nights
 ${context ? `\nAdditional context about this quarter (apply to all clients):\n${context}` : ''}${ownerNotes ? `\nNotes specific to this client:\n${ownerNotes}` : ''}

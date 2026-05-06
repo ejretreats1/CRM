@@ -36,6 +36,7 @@ function toDateStr(d: Date): string {
 
 function getDayInfo(dateStr: string, reservations: UplistingReservation[]) {
   for (const r of reservations) {
+    if (r.status === 'cancelled') continue; // cancelled don't occupy calendar nights
     const cin = r.check_in.slice(0, 10);
     const cout = r.check_out.slice(0, 10);
     if (dateStr === cin) return { type: 'checkin' as const, reservation: r };
@@ -76,17 +77,20 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
 
   const propReservations = useMemo(() =>
     uplistingId
-      ? reservations.filter(r => r.listing_id === uplistingId && r.status !== 'cancelled')
+      ? reservations.filter(r =>
+          r.listing_id === uplistingId &&
+          (r.status !== 'cancelled' || (r.total_price ?? 0) > 0)
+        )
       : [],
     [uplistingId, reservations]
   );
 
   const arrivingToday = useMemo(
-    () => propReservations.filter(r => r.check_in.slice(0, 10) === today),
+    () => propReservations.filter(r => r.status !== 'cancelled' && r.check_in.slice(0, 10) === today),
     [propReservations, today]
   );
   const departingToday = useMemo(
-    () => propReservations.filter(r => r.check_out.slice(0, 10) === today),
+    () => propReservations.filter(r => r.status !== 'cancelled' && r.check_out.slice(0, 10) === today),
     [propReservations, today]
   );
 
@@ -311,11 +315,17 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
                 const nights = r.nights ?? Math.round(
                   (new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) / 86400000
                 );
+                const isCancelled = r.status === 'cancelled';
                 return (
-                  <div key={r.id} className="px-5 py-3 hover:bg-slate-50 transition-colors">
+                  <div key={r.id} className={`px-5 py-3 hover:bg-slate-50 transition-colors ${isCancelled ? 'opacity-75' : ''}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 text-sm truncate">{r.guest_name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className={`font-medium text-sm truncate ${isCancelled ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{r.guest_name}</p>
+                          {isCancelled && (
+                            <span className="flex-shrink-0 text-xs px-1.5 py-0.5 rounded bg-rose-100 text-rose-600 font-medium">Cancelled</span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-400 mt-0.5">
                           {fmtDate(r.check_in)} → {fmtDate(r.check_out)} · {nights}n
                         </p>
@@ -326,8 +336,11 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
                         )}
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="font-bold text-slate-800 text-sm">{fmt(r.total_price)}</p>
-                        {r.channel && (
+                        <p className={`font-bold text-sm ${isCancelled ? 'text-rose-500' : 'text-slate-800'}`}>{fmt(r.total_price)}</p>
+                        {isCancelled && (
+                          <p className="text-xs text-rose-400 mt-0.5">payout kept</p>
+                        )}
+                        {!isCancelled && r.channel && (
                           <span className={`text-xs px-1.5 py-0.5 rounded font-medium mt-1 inline-block ${channelStyle(r.channel)}`}>
                             {r.channel}
                           </span>

@@ -11,6 +11,7 @@ interface QuarterlyReportsProps {
 interface OwnerMetrics {
   totalRevenue: number;
   totalBookings: number;
+  cancelledWithPayout: number;
   occupancyRate: number;
   avgNightlyRate: number;
   avgLos: number;
@@ -30,14 +31,17 @@ function computeMetrics(owner: Owner, reservations: UplistingReservation[], qSta
 
   const qRes = reservations.filter(r =>
     uplistingIds.includes(r.listing_id) &&
-    r.status !== 'cancelled' &&
+    (r.status !== 'cancelled' || (r.total_price ?? 0) > 0) &&
     new Date(r.check_in) >= qStart &&
     new Date(r.check_in) <= qEnd
   );
 
   const totalRevenue = Math.round(qRes.reduce((s, r) => s + (r.total_price ?? 0), 0));
   const totalBookings = qRes.length;
-  const totalNights = qRes.reduce((s, r) => {
+  const cancelledWithPayout = qRes.filter(r => r.status === 'cancelled').length;
+
+  // Occupancy uses only nights actually stayed (excludes cancelled)
+  const totalNights = qRes.filter(r => r.status !== 'cancelled').reduce((s, r) => {
     const nights = r.nights ?? Math.round(
       (new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) / 86400000
     );
@@ -49,7 +53,7 @@ function computeMetrics(owner: Owner, reservations: UplistingReservation[], qSta
   const avgNightlyRate = totalNights > 0 ? Math.round(totalRevenue / totalNights) : 0;
   const avgLos = totalBookings > 0 ? Math.round((totalNights / totalBookings) * 10) / 10 : 0;
 
-  return { totalRevenue, totalBookings, occupancyRate, avgNightlyRate, avgLos };
+  return { totalRevenue, totalBookings, cancelledWithPayout, occupancyRate, avgNightlyRate, avgLos };
 }
 
 interface PreviewState {
@@ -295,7 +299,12 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
                         onBlur={e => { if (!e.currentTarget.value) e.currentTarget.rows = 1; }}
                       />
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-700">{m.totalBookings}</td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-slate-700">{m.totalBookings}</span>
+                      {m.cancelledWithPayout > 0 && (
+                        <span className="block text-xs text-rose-500">{m.cancelledWithPayout} cancelled w/ payout</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right text-slate-700">${m.totalRevenue.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
