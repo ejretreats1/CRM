@@ -71,9 +71,8 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
 
   const today = toDateStr(now);
   const uplistingId = getUplistingId(property.id);
-  const photoUrl = uplistingId
-    ? (uplistingProperties.find(p => p.id === uplistingId)?.photo_url ?? '')
-    : '';
+  const photoUrl = property.photoUrl
+    || (uplistingId ? (uplistingProperties.find(p => p.id === uplistingId)?.photo_url ?? '') : '');
 
   const propReservations = useMemo(() =>
     uplistingId

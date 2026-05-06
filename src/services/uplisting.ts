@@ -100,7 +100,7 @@ export async function fetchReservations(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeProperty(p: any): UplistingProperty {
   const a = p.attributes ?? p; // Uplisting uses JSON:API format: data is under `attributes`
-  return {
+  const result: UplistingProperty = {
     id: String(p.id ?? a.id ?? p.listing_id ?? ''),
     name: a.name ?? a.title ?? a.listing_name ?? '',
     nickname: a.nickname ?? '',
@@ -115,10 +115,18 @@ function normalizeProperty(p: any): UplistingProperty {
     status: a.status ?? 'active',
     time_zone: a.time_zone ?? '',
     photo_url: a.photo_url ?? a.thumbnail_url ?? a.cover_photo_url ?? a.cover_image_url
-      ?? a.photos?.[0]?.url ?? a.photos?.[0]
+      ?? a.main_photo ?? a.main_image ?? a.hero_image ?? a.primary_image
+      ?? a.picture ?? a.pictures?.[0]?.original ?? a.pictures?.[0]?.url ?? a.pictures?.[0]
+      ?? a.photos?.[0]?.url ?? a.photos?.[0]?.original ?? a.photos?.[0]
       ?? a.images?.[0]?.url ?? a.images?.[0]
+      ?? a.listing_image ?? a.listing_photo ?? a.featured_image
       ?? '',
   };
+  // Debug: open browser DevTools > Console after syncing to see exact field names
+  const photoKeys = Object.keys(a).filter(k => /photo|image|picture|thumbnail|cover|hero|featured/i.test(k));
+  if (photoKeys.length) console.log('[Uplisting] photo fields on', result.id, Object.fromEntries(photoKeys.map(k => [k, a[k]])));
+  else console.log('[Uplisting] no photo fields on', result.id, '— keys:', Object.keys(a).join(', '));
+  return result;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

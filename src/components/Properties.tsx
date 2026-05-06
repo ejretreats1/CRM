@@ -51,7 +51,7 @@ export default function Properties({ owners, reservations, uplistingProperties, 
               r.check_in.slice(0, 10) >= today
             ).length
           : 0;
-        const photoUrl = uplistingId ? (uplistingPhotoMap.get(uplistingId) ?? '') : '';
+        const photoUrl = property.photoUrl || (uplistingId ? (uplistingPhotoMap.get(uplistingId) ?? '') : '');
         result.push({ property, owner, upcomingCount, hasUplisting: !!uplistingId, photoUrl });
       }
     }

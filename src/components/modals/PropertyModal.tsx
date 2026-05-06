@@ -24,6 +24,7 @@ export default function PropertyModal({ property, onSave, onClose }: PropertyMod
     occupancyRate: property?.occupancyRate ?? 0,
     platforms: property?.platforms ?? [] as string[],
     status: (property?.status ?? 'onboarding') as PropertyStatus,
+    photoUrl: property?.photoUrl ?? '',
   });
 
   const set = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
@@ -43,6 +44,7 @@ export default function PropertyModal({ property, onSave, onClose }: PropertyMod
     onSave({
       id: property?.id ?? `p_${Date.now()}`,
       ...form,
+      photoUrl: form.photoUrl.trim() || undefined,
       joinedAt: property?.joinedAt ?? new Date().toISOString(),
     });
   };
@@ -122,6 +124,24 @@ export default function PropertyModal({ property, onSave, onClose }: PropertyMod
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               placeholder="75" />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Photo URL (optional)</label>
+          <input
+            value={form.photoUrl}
+            onChange={e => set('photoUrl', e.target.value)}
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            placeholder="https://... (paste any image URL)"
+          />
+          {form.photoUrl.trim() && (
+            <img
+              src={form.photoUrl.trim()}
+              alt="preview"
+              className="mt-2 w-full h-28 object-cover rounded-lg border border-slate-200"
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          )}
         </div>
 
         <div>

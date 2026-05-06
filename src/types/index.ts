@@ -36,6 +36,7 @@ export interface Property {
   platforms: string[];
   status: PropertyStatus;
   joinedAt: string;
+  photoUrl?: string;
 }
 
 export interface Owner {
