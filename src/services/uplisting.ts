@@ -18,6 +18,7 @@ export interface UplistingProperty {
   channels?: string[];
   status?: string;
   time_zone?: string;
+  photo_url?: string;
 }
 
 export interface UplistingReservation {
@@ -113,6 +114,10 @@ function normalizeProperty(p: any): UplistingProperty {
     channels: a.channels ?? a.active_channels ?? [],
     status: a.status ?? 'active',
     time_zone: a.time_zone ?? '',
+    photo_url: a.photo_url ?? a.thumbnail_url ?? a.cover_photo_url ?? a.cover_image_url
+      ?? a.photos?.[0]?.url ?? a.photos?.[0]
+      ?? a.images?.[0]?.url ?? a.images?.[0]
+      ?? '',
   };
 }
 

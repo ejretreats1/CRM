@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { Home, ChevronRight, TrendingUp, Calendar } from 'lucide-react';
 import type { Owner, Property } from '../types';
-import type { UplistingReservation } from '../services/uplisting';
+import type { UplistingReservation, UplistingProperty } from '../services/uplisting';
 
 interface PropertiesProps {
   owners: Owner[];
   reservations: UplistingReservation[];
+  uplistingProperties: UplistingProperty[];
   onViewProperty: (ownerId: string, propertyId: string) => void;
 }
 
@@ -20,8 +21,16 @@ function getUplistingId(propertyId: string): string | null {
   return parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
 }
 
-export default function Properties({ owners, reservations, onViewProperty }: PropertiesProps) {
+export default function Properties({ owners, reservations, uplistingProperties, onViewProperty }: PropertiesProps) {
   const today = new Date().toISOString().slice(0, 10);
+
+  const uplistingPhotoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of uplistingProperties) {
+      if (p.photo_url) map.set(p.id, p.photo_url);
+    }
+    return map;
+  }, [uplistingProperties]);
 
   const allProperties = useMemo(() => {
     const result: Array<{
@@ -29,6 +38,7 @@ export default function Properties({ owners, reservations, onViewProperty }: Pro
       owner: Owner;
       upcomingCount: number;
       hasUplisting: boolean;
+      photoUrl: string;
     }> = [];
 
     for (const owner of owners) {
@@ -41,12 +51,13 @@ export default function Properties({ owners, reservations, onViewProperty }: Pro
               r.check_in.slice(0, 10) >= today
             ).length
           : 0;
-        result.push({ property, owner, upcomingCount, hasUplisting: !!uplistingId });
+        const photoUrl = uplistingId ? (uplistingPhotoMap.get(uplistingId) ?? '') : '';
+        result.push({ property, owner, upcomingCount, hasUplisting: !!uplistingId, photoUrl });
       }
     }
 
     return result.sort((a, b) => a.property.address.localeCompare(b.property.address));
-  }, [owners, reservations, today]);
+  }, [owners, reservations, uplistingPhotoMap, today]);
 
   const activeCount = allProperties.filter(p => p.property.status === 'active').length;
 
@@ -70,20 +81,34 @@ export default function Properties({ owners, reservations, onViewProperty }: Pro
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {allProperties.map(({ property, owner, upcomingCount, hasUplisting }) => (
+          {allProperties.map(({ property, owner, upcomingCount, hasUplisting, photoUrl }) => (
             <button
               key={property.id}
               onClick={() => onViewProperty(owner.id, property.id)}
-              className="bg-white border border-slate-200 rounded-2xl p-5 text-left hover:border-teal-300 hover:shadow-md transition-all group"
+              className="bg-white border border-slate-200 rounded-2xl text-left hover:border-teal-300 hover:shadow-md transition-all group overflow-hidden"
             >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-900 text-sm truncate">{property.address}</p>
-                  <p className="text-xs text-slate-400">{property.city}, {property.state}</p>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[property.status] ?? STATUS_COLORS.inactive}`}>
+              {/* Hero photo */}
+              <div className="w-full h-40 bg-slate-100 overflow-hidden relative">
+                {photoUrl ? (
+                  <img
+                    src={photoUrl}
+                    alt={property.address}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Home size={32} className="text-slate-300" />
+                  </div>
+                )}
+                <span className={`absolute top-2 right-2 text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[property.status] ?? STATUS_COLORS.inactive}`}>
                   {property.status}
                 </span>
+              </div>
+
+              <div className="p-5">
+              <div className="mb-2">
+                <p className="font-semibold text-slate-900 text-sm truncate">{property.address}</p>
+                <p className="text-xs text-slate-400">{property.city}, {property.state}</p>
               </div>
 
               <p className="text-xs text-slate-500 mb-3">
@@ -125,6 +150,7 @@ export default function Properties({ owners, reservations, onViewProperty }: Pro
                 </div>
                 <ChevronRight size={14} className="text-slate-300 group-hover:text-teal-500 transition-colors" />
               </div>
+              </div>{/* end p-5 */}
             </button>
           ))}
         </div>

@@ -4,12 +4,13 @@ import {
   Users, Bed, Calendar, ExternalLink,
 } from 'lucide-react';
 import type { Owner, Property } from '../types';
-import type { UplistingReservation } from '../services/uplisting';
+import type { UplistingReservation, UplistingProperty } from '../services/uplisting';
 
 interface PropertyPortalProps {
   owner: Owner;
   property: Property;
   reservations: UplistingReservation[];
+  uplistingProperties: UplistingProperty[];
   onBack: () => void;
   onViewOwner: (ownerId: string) => void;
 }
@@ -62,7 +63,7 @@ function fmtDate(str: string) {
   return `${MONTHS[parseInt(m) - 1].slice(0, 3)} ${parseInt(d)}, ${y}`;
 }
 
-export default function PropertyPortal({ owner, property, reservations, onBack, onViewOwner }: PropertyPortalProps) {
+export default function PropertyPortal({ owner, property, reservations, uplistingProperties, onBack, onViewOwner }: PropertyPortalProps) {
   const now = new Date();
   const [calMonth, setCalMonth] = useState(now.getMonth());
   const [calYear, setCalYear] = useState(now.getFullYear());
@@ -70,6 +71,9 @@ export default function PropertyPortal({ owner, property, reservations, onBack, 
 
   const today = toDateStr(now);
   const uplistingId = getUplistingId(property.id);
+  const photoUrl = uplistingId
+    ? (uplistingProperties.find(p => p.id === uplistingId)?.photo_url ?? '')
+    : '';
 
   const propReservations = useMemo(() =>
     uplistingId
@@ -128,24 +132,46 @@ export default function PropertyPortal({ owner, property, reservations, onBack, 
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-start gap-4 mb-6">
-        <button onClick={onBack} className="mt-1 p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors flex-shrink-0">
-          <ArrowLeft size={18} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Home size={16} className="text-teal-600 flex-shrink-0" />
-            <h1 className="font-bold text-slate-900 text-lg leading-tight truncate">{fullAddress}</h1>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[property.status] ?? ''}`}>
-              {property.status}
-            </span>
+      {/* Hero photo */}
+      {photoUrl && (
+        <div className="w-full h-52 rounded-2xl overflow-hidden mb-5 relative">
+          <img src={photoUrl} alt={fullAddress} className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+          <div className="absolute bottom-0 left-0 p-4">
+            <h1 className="font-bold text-white text-lg leading-tight drop-shadow">{fullAddress}</h1>
+            <p className="text-sm text-white/80 mt-0.5">
+              Owner: <span className="font-medium text-white">{owner.name}</span>
+            </p>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5 ml-6">
-            Owner: <span className="font-medium text-slate-600">{owner.name}</span>
-          </p>
+          <span className={`absolute top-3 right-3 text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[property.status] ?? ''}`}>
+            {property.status}
+          </span>
+          <button onClick={onBack} className="absolute top-3 left-3 p-1.5 rounded-lg bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors">
+            <ArrowLeft size={18} />
+          </button>
         </div>
-      </div>
+      )}
+
+      {/* Header (no photo fallback) */}
+      {!photoUrl && (
+        <div className="flex items-start gap-4 mb-6">
+          <button onClick={onBack} className="mt-1 p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors flex-shrink-0">
+            <ArrowLeft size={18} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Home size={16} className="text-teal-600 flex-shrink-0" />
+              <h1 className="font-bold text-slate-900 text-lg leading-tight truncate">{fullAddress}</h1>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[property.status] ?? ''}`}>
+                {property.status}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5 ml-6">
+              Owner: <span className="font-medium text-slate-600">{owner.name}</span>
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Today's activity */}
       {(arrivingToday.length > 0 || departingToday.length > 0) && (

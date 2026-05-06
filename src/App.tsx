@@ -487,6 +487,7 @@ export default function App() {
         <Properties
           owners={owners}
           reservations={uplistingReservations}
+          uplistingProperties={uplistingProperties}
           onViewProperty={(ownerId, propertyId) => navigate('property-portal', `${ownerId}::${propertyId}`)}
         />
       )}
@@ -501,6 +502,7 @@ export default function App() {
             owner={portalOwner}
             property={portalProperty}
             reservations={uplistingReservations}
+            uplistingProperties={uplistingProperties}
             onBack={() => navigate('properties')}
             onViewOwner={(ownerId) => navigate('owner-detail', ownerId)}
           />
