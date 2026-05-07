@@ -17,6 +17,7 @@ import {
   LogOut,
   BarChart3,
   Home,
+  Brain,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -35,6 +36,7 @@ const navItems = [
   { id: 'outreach' as View, label: 'Outreach Log', icon: MessageSquare },
   { id: 'va-hub' as View, label: 'VA Hub', icon: FolderKanban },
   { id: 'drive' as View, label: 'Google Drive', icon: HardDrive },
+  { id: 'calendar-intel' as View, label: 'Revenue Intelligence', icon: Brain },
   { id: 'revenue-reports' as View, label: 'AI Rev Projection Reports', icon: FileBarChart2 },
   { id: 'listing-optimizer' as View, label: 'Listing Optimizer', icon: Sparkles },
   { id: 'newsletter' as View, label: 'Newsletter', icon: Mail },

@@ -1,0 +1,191 @@
+import type { Owner, Property } from '../types';
+import type { UplistingReservation } from './uplisting';
+
+export interface GapInfo {
+  start: string; // YYYY-MM-DD
+  end: string;
+  nights: number;
+}
+
+export interface PropertyInsight {
+  ownerId: string;
+  ownerName: string;
+  propertyId: string;
+  propertyAddress: string;
+  uplistingId: string | null;
+  // Occupancy
+  occupancy30d: number;
+  occupancy60d: number;
+  occupancy90d: number;
+  // Revenue
+  adr: number;
+  totalRevenue30d: number;
+  // Gaps in next 90 days
+  gaps: GapInfo[];
+  largestGap: GapInfo | null;
+  urgentGap: GapInfo | null; // starts within 14 days
+  // Velocity
+  bookingsLast14d: number;
+  bookingsLast14dPriorYear: number;
+  // Lead time
+  avgLeadTimeDays: number;
+  // Channels
+  channelMix: Record<string, number>;
+  platforms: string[];
+}
+
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return toDateStr(d);
+}
+
+function daysBetween(a: string, b: string): number {
+  return Math.round((new Date(b + 'T00:00:00').getTime() - new Date(a + 'T00:00:00').getTime()) / 86400000);
+}
+
+function getUplistingId(propertyId: string): string | null {
+  const parts = propertyId.split('_');
+  return parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
+}
+
+function bookedNightsInWindow(reservations: UplistingReservation[], windowStart: string, windowEnd: string): number {
+  let booked = 0;
+  for (const r of reservations) {
+    if (r.status === 'cancelled') continue;
+    const cin = r.check_in.slice(0, 10);
+    const cout = r.check_out.slice(0, 10);
+    const overlapStart = cin > windowStart ? cin : windowStart;
+    const overlapEnd = cout < windowEnd ? cout : windowEnd;
+    if (overlapEnd > overlapStart) {
+      booked += daysBetween(overlapStart, overlapEnd);
+    }
+  }
+  return booked;
+}
+
+function findGaps(reservations: UplistingReservation[], today: string, horizonEnd: string): GapInfo[] {
+  const active = reservations
+    .filter(r => r.status !== 'cancelled' && r.check_out.slice(0, 10) > today && r.check_in.slice(0, 10) < horizonEnd)
+    .sort((a, b) => a.check_in.localeCompare(b.check_in));
+
+  const gaps: GapInfo[] = [];
+  let cursor = today;
+
+  for (const r of active) {
+    const cin = r.check_in.slice(0, 10);
+    if (cin > cursor) {
+      const gapEnd = cin < horizonEnd ? cin : horizonEnd;
+      const nights = daysBetween(cursor, gapEnd);
+      if (nights >= 2) gaps.push({ start: cursor, end: gapEnd, nights });
+    }
+    const cout = r.check_out.slice(0, 10);
+    if (cout > cursor) cursor = cout;
+  }
+
+  // trailing gap
+  if (cursor < horizonEnd) {
+    const nights = daysBetween(cursor, horizonEnd);
+    if (nights >= 2) gaps.push({ start: cursor, end: horizonEnd, nights });
+  }
+
+  return gaps;
+}
+
+export function analyzeProperty(
+  owner: Owner,
+  property: Property,
+  allReservations: UplistingReservation[],
+): PropertyInsight {
+  const uplistingId = getUplistingId(property.id);
+  const now = new Date();
+  const today = toDateStr(now);
+  const d30 = addDays(today, 30);
+  const d60 = addDays(today, 60);
+  const d90 = addDays(today, 90);
+  const d14ago = addDays(today, -14);
+  const d90ago = addDays(today, -90);
+
+  const propRes = uplistingId
+    ? allReservations.filter(r => r.listing_id === uplistingId)
+    : [];
+
+  const booked30 = bookedNightsInWindow(propRes, today, d30);
+  const booked60 = bookedNightsInWindow(propRes, today, d60);
+  const booked90 = bookedNightsInWindow(propRes, today, d90);
+
+  const occupancy30d = Math.round((booked30 / 30) * 100);
+  const occupancy60d = Math.round((booked60 / 60) * 100);
+  const occupancy90d = Math.round((booked90 / 90) * 100);
+
+  const past90 = propRes.filter(
+    r => r.status !== 'cancelled' && r.check_out.slice(0, 10) >= d90ago && r.check_in.slice(0, 10) <= today,
+  );
+  const totalRevenue30d = propRes
+    .filter(r => r.status !== 'cancelled' && r.check_in.slice(0, 10) >= today && r.check_in.slice(0, 10) <= d30)
+    .reduce((s, r) => s + r.total_price, 0);
+
+  const adrSource = past90.filter(r => (r.nights ?? 0) > 0);
+  const adr = adrSource.length
+    ? Math.round(adrSource.reduce((s, r) => s + r.total_price / (r.nights ?? 1), 0) / adrSource.length)
+    : 0;
+
+  const gaps = findGaps(propRes, today, d90);
+  const largestGap = gaps.length ? gaps.reduce((a, b) => (b.nights > a.nights ? b : a)) : null;
+  const urgentGap = gaps.find(g => daysBetween(today, g.start) <= 14) ?? null;
+
+  const bookingsLast14d = propRes.filter(
+    r => r.status !== 'cancelled' && r.check_in.slice(0, 10) >= d14ago && r.check_in.slice(0, 10) <= today,
+  ).length;
+
+  const priorYearStart = addDays(today, -365 - 14);
+  const priorYearEnd = addDays(today, -365);
+  const bookingsLast14dPriorYear = propRes.filter(
+    r => r.status !== 'cancelled' &&
+      r.check_in.slice(0, 10) >= priorYearStart &&
+      r.check_in.slice(0, 10) <= priorYearEnd,
+  ).length;
+
+  const withLeadTime = past90.filter(r => r.check_in > ((r as any).created_at ?? ''));
+  const avgLeadTimeDays = withLeadTime.length
+    ? Math.round(withLeadTime.reduce((s, r) => s + daysBetween(((r as any).created_at?.slice(0, 10) ?? today), r.check_in.slice(0, 10)), 0) / withLeadTime.length)
+    : 0;
+
+  const channelMix: Record<string, number> = {};
+  for (const r of past90) {
+    if (r.channel) channelMix[r.channel] = (channelMix[r.channel] ?? 0) + 1;
+  }
+
+  return {
+    ownerId: owner.id,
+    ownerName: owner.name,
+    propertyId: property.id,
+    propertyAddress: [property.address, property.city, property.state].filter(Boolean).join(', '),
+    uplistingId,
+    occupancy30d,
+    occupancy60d,
+    occupancy90d,
+    adr,
+    totalRevenue30d,
+    gaps,
+    largestGap,
+    urgentGap,
+    bookingsLast14d,
+    bookingsLast14dPriorYear,
+    avgLeadTimeDays,
+    channelMix,
+    platforms: property.platforms,
+  };
+}
+
+export function urgencyLevel(insight: PropertyInsight): 'critical' | 'warning' | 'info' | 'ok' {
+  if (insight.urgentGap && insight.urgentGap.nights >= 3) return 'critical';
+  if (insight.occupancy30d < 30) return 'critical';
+  if (insight.occupancy30d < 50 || (insight.largestGap && insight.largestGap.nights >= 7)) return 'warning';
+  if (insight.occupancy60d < 50) return 'warning';
+  return 'info';
+}
