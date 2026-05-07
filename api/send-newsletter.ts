@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
-import { generateText } from 'ai';
+import { generateText, Output } from 'ai';
+import { z } from 'zod';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -8,7 +9,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const body = req.body as {
-    action?: 'newsletter' | 'report';
+    action?: 'newsletter' | 'report' | 'quarterly' | 'calendar-intel';
     // newsletter fields
     subject?: string;
     html?: string;
@@ -164,6 +165,61 @@ Rules:
     } catch (err) {
       console.error('Quarterly Resend error:', err);
       return res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to send email' });
+    }
+  }
+
+  // ── CALENDAR INTELLIGENCE ─────────────────────────────────────────────────
+  if (body.action === 'calendar-intel') {
+    const { insights } = body as { insights: unknown[] };
+    if (!Array.isArray(insights) || insights.length === 0) {
+      return res.status(400).json({ error: 'insights array required' });
+    }
+    const RecommendationSchema = z.object({
+      action: z.string(),
+      reason: z.string(),
+      priority: z.enum(['high', 'medium', 'low']),
+    });
+    const PropertyAnalysisSchema = z.object({
+      propertyId: z.string(),
+      urgency: z.enum(['critical', 'warning', 'info', 'ok']),
+      headline: z.string(),
+      recommendations: z.array(RecommendationSchema),
+    });
+    const OutputSchema = z.object({
+      analyses: z.array(PropertyAnalysisSchema),
+      portfolioSummary: z.string(),
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    const prompt = `You are a short-term rental revenue optimization expert for E&J Retreats, a property management company.
+
+Today is ${today}.
+
+Below is live data for ${insights.length} managed properties. For each property analyze the calendar gaps, occupancy trajectory, booking velocity, ADR, and channel mix. Then provide specific, immediately actionable recommendations to fill gaps and maximize revenue.
+
+PROPERTY DATA:
+${JSON.stringify(insights, null, 2)}
+
+FOR EACH PROPERTY:
+1. Assign urgency: critical (urgent gap within 7 days or <30% occupancy next 30d), warning (<50% next 30d or large upcoming gap), info (generally healthy but room to optimize), ok (performing well).
+2. Write a 1-sentence headline summarizing the key issue or opportunity.
+3. List 3–5 specific recommendations ordered by priority. Be very specific — mention exact gap dates, specific discount %, channel names, promotion types, and seasonal context.
+4. Write a 2–3 sentence portfolio summary highlighting the biggest opportunities across all properties.
+
+IMPORTANT:
+- Base all advice on the actual numbers in the data
+- Do not give generic advice — every recommendation must reference a specific data point
+- If uplistingId is null, note calendar data is unavailable and recommend connecting Uplisting
+- ADR of 0 means no recent booking data available`;
+    try {
+      const { output } = await generateText({
+        model: 'anthropic/claude-sonnet-4.6',
+        output: Output.object({ schema: OutputSchema }),
+        messages: [{ role: 'user', content: prompt }],
+      });
+      return res.status(200).json(output);
+    } catch (err) {
+      console.error('calendar-intel error:', err);
+      return res.status(500).json({ error: err instanceof Error ? err.message : 'Analysis failed' });
     }
   }
 

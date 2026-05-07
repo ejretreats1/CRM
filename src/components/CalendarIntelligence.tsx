@@ -229,10 +229,10 @@ export default function CalendarIntelligence({ owners, reservations }: Props) {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/calendar-intel', {
+      const res = await fetch('/api/send-newsletter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ insights }),
+        body: JSON.stringify({ action: 'calendar-intel', insights }),
       });
       if (!res.ok) throw new Error(await res.text());
       const data: AIResult = await res.json();
