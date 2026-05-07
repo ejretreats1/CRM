@@ -70,11 +70,26 @@ export async function testConnection(apiKey: string): Promise<UplistingConnectio
 
 export async function fetchProperties(apiKey: string): Promise<UplistingProperty[]> {
   const data = await apiFetch('properties', apiKey);
-  console.log('[Uplisting] raw properties response keys:', Object.keys(data ?? {}));
   const list: any[] = data?.properties ?? data?.data ?? data ?? [];
-  // JSON:API included resources (photos may live here)
   const included: any[] = data?.included ?? [];
-  return list.map(p => normalizeProperty(p, included));
+  const base = list.map(p => normalizeProperty(p, included));
+
+  // List endpoint has no photos — fetch individual details in parallel to get them
+  const enriched = await Promise.all(base.map(async prop => {
+    try {
+      const detail = await apiFetch(`properties/${prop.id}`, apiKey);
+      const d = detail?.property ?? detail?.data ?? detail;
+      if (!d) return prop;
+      const da = d.attributes ?? d;
+      const photo_url = extractPhotoUrl(da, d, detail?.included ?? []);
+      console.log('[Uplisting] detail keys for', prop.id, Object.keys(da).join(', '));
+      return photo_url ? { ...prop, photo_url } : prop;
+    } catch {
+      return prop;
+    }
+  }));
+
+  return enriched;
 }
 
 export async function fetchReservations(
@@ -139,9 +154,6 @@ function extractPhotoUrl(a: any, p: any, included: any[]): string {
 function normalizeProperty(p: any, included: any[] = []): UplistingProperty {
   const a = p.attributes ?? p; // Uplisting uses JSON:API format: data is under `attributes`
   const id = String(p.id ?? a.id ?? p.listing_id ?? '');
-
-  // Debug: log full raw object so we can see exactly what Uplisting returns
-  console.log('[Uplisting] raw property', id, JSON.stringify(p).slice(0, 600));
 
   const photo_url = extractPhotoUrl(a, p, included);
 
