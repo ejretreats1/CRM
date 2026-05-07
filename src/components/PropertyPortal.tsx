@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import {
   ArrowLeft, Home, ChevronLeft, ChevronRight, Phone, Mail,
-  Users, Bed, Calendar, ExternalLink,
+  Users, Bed, Calendar, ExternalLink, Edit2, Check, X,
 } from 'lucide-react';
-import type { Owner, Property } from '../types';
+import type { Owner, Property, PropertyStatus } from '../types';
 import type { UplistingReservation, UplistingProperty } from '../services/uplisting';
 
 interface PropertyPortalProps {
@@ -13,6 +13,7 @@ interface PropertyPortalProps {
   uplistingProperties: UplistingProperty[];
   onBack: () => void;
   onViewOwner: (ownerId: string) => void;
+  onUpdateProperty?: (property: Property) => Promise<void>;
 }
 
 const MONTHS = ['January','February','March','April','May','June',
@@ -64,11 +65,46 @@ function fmtDate(str: string) {
   return `${MONTHS[parseInt(m) - 1].slice(0, 3)} ${parseInt(d)}, ${y}`;
 }
 
-export default function PropertyPortal({ owner, property, reservations, uplistingProperties, onBack, onViewOwner }: PropertyPortalProps) {
+type DetailForm = {
+  bedrooms: string; bathrooms: string; maxGuests: string; type: string;
+  monthlyRevenue: string; occupancyRate: string; status: PropertyStatus; photoUrl: string;
+};
+
+export default function PropertyPortal({ owner, property, reservations, uplistingProperties, onBack, onViewOwner, onUpdateProperty }: PropertyPortalProps) {
   const now = new Date();
   const [calMonth, setCalMonth] = useState(now.getMonth());
   const [calYear, setCalYear] = useState(now.getFullYear());
   const [selectedReservation, setSelectedReservation] = useState<UplistingReservation | null>(null);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [detailForm, setDetailForm] = useState<DetailForm>({
+    bedrooms: String(property.bedrooms),
+    bathrooms: String(property.bathrooms),
+    maxGuests: String(property.maxGuests),
+    type: property.type,
+    monthlyRevenue: String(property.monthlyRevenue),
+    occupancyRate: String(property.occupancyRate),
+    status: property.status,
+    photoUrl: property.photoUrl ?? '',
+  });
+  const [savingDetails, setSavingDetails] = useState(false);
+
+  async function saveDetails() {
+    if (!onUpdateProperty) return;
+    setSavingDetails(true);
+    await onUpdateProperty({
+      ...property,
+      bedrooms: Number(detailForm.bedrooms) || 0,
+      bathrooms: Number(detailForm.bathrooms) || 0,
+      maxGuests: Number(detailForm.maxGuests) || 0,
+      type: detailForm.type,
+      monthlyRevenue: Number(detailForm.monthlyRevenue) || 0,
+      occupancyRate: Number(detailForm.occupancyRate) || 0,
+      status: detailForm.status,
+      photoUrl: detailForm.photoUrl || undefined,
+    });
+    setSavingDetails(false);
+    setIsEditingDetails(false);
+  }
 
   const today = toDateStr(now);
   const uplistingId = getUplistingId(property.id);
@@ -359,53 +395,153 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         {/* Property details */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">Property Details</p>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm">
-              <Bed size={14} className="text-slate-400" />
-              <span className="text-slate-600">{property.bedrooms} bed · {property.bathrooms} bath</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Users size={14} className="text-slate-400" />
-              <span className="text-slate-600">Up to {property.maxGuests} guests</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Home size={14} className="text-slate-400" />
-              <span className="text-slate-600">{property.type || 'Residential'}</span>
-            </div>
-            {property.joinedAt && (
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar size={14} className="text-slate-400" />
-                <span className="text-slate-600">Joined {new Date(property.joinedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
-              </div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Property Details</p>
+            {onUpdateProperty && !isEditingDetails && (
+              <button
+                onClick={() => setIsEditingDetails(true)}
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-teal-600 transition-colors"
+              >
+                <Edit2 size={11} /> Edit
+              </button>
             )}
-            {property.platforms.length > 0 && (
-              <div className="pt-1">
-                <p className="text-xs text-slate-400 mb-1.5">Listed on</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {property.platforms.map(p => (
-                    <span key={p} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-medium">{p}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {(property.monthlyRevenue > 0 || property.occupancyRate > 0) && (
-              <div className="pt-1 flex gap-4">
-                {property.monthlyRevenue > 0 && (
-                  <div>
-                    <p className="text-xs text-slate-400">Est. monthly</p>
-                    <p className="text-sm font-bold text-teal-700">{fmt(property.monthlyRevenue)}</p>
-                  </div>
-                )}
-                {property.occupancyRate > 0 && (
-                  <div>
-                    <p className="text-xs text-slate-400">Occupancy</p>
-                    <p className="text-sm font-bold text-slate-800">{property.occupancyRate}%</p>
-                  </div>
-                )}
+            {isEditingDetails && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={saveDetails}
+                  disabled={savingDetails}
+                  className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium transition-colors"
+                >
+                  <Check size={12} /> {savingDetails ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setIsEditingDetails(false)}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X size={12} /> Cancel
+                </button>
               </div>
             )}
           </div>
+
+          {isEditingDetails ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'Beds', key: 'bedrooms' as const },
+                  { label: 'Baths', key: 'bathrooms' as const },
+                  { label: 'Max guests', key: 'maxGuests' as const },
+                ].map(({ label, key }) => (
+                  <div key={key}>
+                    <label className="text-xs text-slate-400 block mb-1">{label}</label>
+                    <input
+                      type="number" min="0"
+                      value={detailForm[key]}
+                      onChange={e => setDetailForm(f => ({ ...f, [key]: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Property type</label>
+                <input
+                  value={detailForm.type}
+                  onChange={e => setDetailForm(f => ({ ...f, type: e.target.value }))}
+                  placeholder="e.g. Condo, House…"
+                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Est. monthly revenue</label>
+                  <input
+                    type="number" min="0"
+                    value={detailForm.monthlyRevenue}
+                    onChange={e => setDetailForm(f => ({ ...f, monthlyRevenue: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Occupancy %</label>
+                  <input
+                    type="number" min="0" max="100"
+                    value={detailForm.occupancyRate}
+                    onChange={e => setDetailForm(f => ({ ...f, occupancyRate: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Status</label>
+                <select
+                  value={detailForm.status}
+                  onChange={e => setDetailForm(f => ({ ...f, status: e.target.value as PropertyStatus }))}
+                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="active">Active</option>
+                  <option value="onboarding">Onboarding</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Photo URL</label>
+                <input
+                  value={detailForm.photoUrl}
+                  onChange={e => setDetailForm(f => ({ ...f, photoUrl: e.target.value }))}
+                  placeholder="https://…"
+                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Bed size={14} className="text-slate-400" />
+                <span className="text-slate-600">{property.bedrooms} bed · {property.bathrooms} bath</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Users size={14} className="text-slate-400" />
+                <span className="text-slate-600">Up to {property.maxGuests} guests</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Home size={14} className="text-slate-400" />
+                <span className="text-slate-600">{property.type || 'Residential'}</span>
+              </div>
+              {property.joinedAt && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar size={14} className="text-slate-400" />
+                  <span className="text-slate-600">Joined {new Date(property.joinedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                </div>
+              )}
+              {property.platforms.length > 0 && (
+                <div className="pt-1">
+                  <p className="text-xs text-slate-400 mb-1.5">Listed on</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {property.platforms.map(p => (
+                      <span key={p} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-medium">{p}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(property.monthlyRevenue > 0 || property.occupancyRate > 0) && (
+                <div className="pt-1 flex gap-4">
+                  {property.monthlyRevenue > 0 && (
+                    <div>
+                      <p className="text-xs text-slate-400">Est. monthly</p>
+                      <p className="text-sm font-bold text-teal-700">{fmt(property.monthlyRevenue)}</p>
+                    </div>
+                  )}
+                  {property.occupancyRate > 0 && (
+                    <div>
+                      <p className="text-xs text-slate-400">Occupancy</p>
+                      <p className="text-sm font-bold text-slate-800">{property.occupancyRate}%</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Owner contact */}

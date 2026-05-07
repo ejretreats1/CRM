@@ -512,6 +512,7 @@ export default function App() {
             uplistingProperties={uplistingProperties}
             onBack={() => navigate('properties')}
             onViewOwner={(ownerId) => navigate('owner-detail', ownerId)}
+            onUpdateProperty={(p) => savePropertyHandler(portalOwner.id, p)}
           />
         );
       })()}

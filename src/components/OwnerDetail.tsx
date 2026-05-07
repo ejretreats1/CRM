@@ -80,6 +80,8 @@ export default function OwnerDetail({
   uplistingApiKey, onImportProperties, reservations = [], onNavigateToProperty,
 }: OwnerDetailProps) {
   const [activeTab, setActiveTab] = useState<OwnerTab>('properties');
+  const [notesValue, setNotesValue] = useState(owner.notes ?? '');
+  const [savingNotes, setSavingNotes] = useState(false);
   const [sigRequests, setSigRequests] = useState<SignatureRequest[]>([]);
   const [vendorForm, setVendorForm] = useState<{ name: string; role: string; phone: string; email: string; notes: string } | null>(null);
   const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
@@ -290,9 +292,22 @@ export default function OwnerDetail({
                 </a>
               )}
             </div>
-            {owner.notes && (
-              <p className="text-sm text-slate-500 mt-2 bg-slate-100 px-3 py-2 rounded-lg">{owner.notes}</p>
-            )}
+            <div className="mt-2 relative">
+              <textarea
+                value={notesValue}
+                onChange={e => setNotesValue(e.target.value)}
+                onBlur={async () => {
+                  if (notesValue === owner.notes) return;
+                  setSavingNotes(true);
+                  await onUpdateOwner({ ...owner, notes: notesValue });
+                  setSavingNotes(false);
+                }}
+                rows={2}
+                placeholder="Add notes…"
+                className="w-full text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-colors"
+              />
+              {savingNotes && <span className="absolute right-2 bottom-2 text-xs text-slate-400">Saving…</span>}
+            </div>
           </div>
         </div>
       </div>
