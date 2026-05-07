@@ -60,7 +60,8 @@ async function apiFetch(path: string, apiKey: string, params?: Record<string, st
 export async function testConnection(apiKey: string): Promise<UplistingConnectionResult> {
   try {
     const data = await apiFetch('properties', apiKey);
-    const properties: UplistingProperty[] = (data?.properties ?? data?.data ?? data ?? []).map(normalizeProperty);
+    const included: any[] = data?.included ?? [];
+    const properties: UplistingProperty[] = (data?.properties ?? data?.data ?? data ?? []).map((p: any) => normalizeProperty(p, included));
     return { ok: true, properties };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -69,8 +70,11 @@ export async function testConnection(apiKey: string): Promise<UplistingConnectio
 
 export async function fetchProperties(apiKey: string): Promise<UplistingProperty[]> {
   const data = await apiFetch('properties', apiKey);
-  const list = data?.properties ?? data?.data ?? data ?? [];
-  return list.map(normalizeProperty);
+  console.log('[Uplisting] raw properties response keys:', Object.keys(data ?? {}));
+  const list: any[] = data?.properties ?? data?.data ?? data ?? [];
+  // JSON:API included resources (photos may live here)
+  const included: any[] = data?.included ?? [];
+  return list.map(p => normalizeProperty(p, included));
 }
 
 export async function fetchReservations(
@@ -96,12 +100,53 @@ export async function fetchReservations(
   return allBookings;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractPhotoUrl(a: any, p: any, included: any[]): string {
+  // 1. Direct attribute field guesses
+  const direct = a.photo_url ?? a.thumbnail_url ?? a.cover_photo_url ?? a.cover_image_url
+    ?? a.main_photo ?? a.main_image ?? a.hero_image ?? a.primary_image
+    ?? a.picture ?? a.listing_image ?? a.listing_photo ?? a.featured_image;
+  if (direct) return String(direct);
+
+  // 2. Array of photos/images/pictures
+  const arr = a.photos ?? a.images ?? a.pictures;
+  if (Array.isArray(arr) && arr.length > 0) {
+    const first = arr[0];
+    if (typeof first === 'string') return first;
+    const url = first?.url ?? first?.original ?? first?.large ?? first?.medium ?? first?.src ?? first?.href;
+    if (url) return String(url);
+  }
+
+  // 3. JSON:API relationships → look in included array
+  const photoRel = p.relationships?.photos?.data ?? p.relationships?.images?.data ?? p.relationships?.photo?.data;
+  if (photoRel && included.length > 0) {
+    const refs: any[] = Array.isArray(photoRel) ? photoRel : [photoRel];
+    for (const ref of refs) {
+      const match = included.find(i => i.id === ref.id && (i.type === ref.type || /photo|image/i.test(i.type ?? '')));
+      if (match) {
+        const ma = match.attributes ?? match;
+        const url = ma.url ?? ma.original ?? ma.large ?? ma.medium ?? ma.src;
+        if (url) return String(url);
+      }
+    }
+  }
+
+  return '';
+}
+
 // Normalise Uplisting response shapes into our expected structure
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function normalizeProperty(p: any): UplistingProperty {
+function normalizeProperty(p: any, included: any[] = []): UplistingProperty {
   const a = p.attributes ?? p; // Uplisting uses JSON:API format: data is under `attributes`
-  const result: UplistingProperty = {
-    id: String(p.id ?? a.id ?? p.listing_id ?? ''),
+  const id = String(p.id ?? a.id ?? p.listing_id ?? '');
+
+  // Debug: log full raw object so we can see exactly what Uplisting returns
+  console.log('[Uplisting] raw property', id, JSON.stringify(p).slice(0, 600));
+
+  const photo_url = extractPhotoUrl(a, p, included);
+
+  return {
+    id,
     name: a.name ?? a.title ?? a.listing_name ?? '',
     nickname: a.nickname ?? '',
     address: a.address ?? a.street ?? '',
@@ -114,19 +159,8 @@ function normalizeProperty(p: any): UplistingProperty {
     channels: a.channels ?? a.active_channels ?? [],
     status: a.status ?? 'active',
     time_zone: a.time_zone ?? '',
-    photo_url: a.photo_url ?? a.thumbnail_url ?? a.cover_photo_url ?? a.cover_image_url
-      ?? a.main_photo ?? a.main_image ?? a.hero_image ?? a.primary_image
-      ?? a.picture ?? a.pictures?.[0]?.original ?? a.pictures?.[0]?.url ?? a.pictures?.[0]
-      ?? a.photos?.[0]?.url ?? a.photos?.[0]?.original ?? a.photos?.[0]
-      ?? a.images?.[0]?.url ?? a.images?.[0]
-      ?? a.listing_image ?? a.listing_photo ?? a.featured_image
-      ?? '',
+    photo_url,
   };
-  // Debug: open browser DevTools > Console after syncing to see exact field names
-  const photoKeys = Object.keys(a).filter(k => /photo|image|picture|thumbnail|cover|hero|featured/i.test(k));
-  if (photoKeys.length) console.log('[Uplisting] photo fields on', result.id, Object.fromEntries(photoKeys.map(k => [k, a[k]])));
-  else console.log('[Uplisting] no photo fields on', result.id, '— keys:', Object.keys(a).join(', '));
-  return result;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
