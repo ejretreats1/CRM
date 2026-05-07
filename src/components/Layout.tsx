@@ -85,8 +85,19 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
         `}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-200">
-          <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-200">
+          <img
+            src="/logo.png"
+            alt="E&J Retreats"
+            className="w-10 h-10 rounded-xl object-cover flex-shrink-0"
+            onError={e => {
+              const img = e.currentTarget;
+              img.style.display = 'none';
+              const fallback = img.nextElementSibling as HTMLElement | null;
+              if (fallback) fallback.style.display = 'flex';
+            }}
+          />
+          <div className="w-10 h-10 rounded-xl bg-teal-600 items-center justify-center flex-shrink-0 hidden">
             <Building2 size={20} className="text-white" />
           </div>
           <div>

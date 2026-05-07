@@ -101,10 +101,13 @@ export interface Project {
   updatedAt: string;
 }
 
+export type TodoAssignee = 'ethan' | 'jess' | 'va';
+
 export interface Todo {
   id: string;
   text: string;
   completed: boolean;
+  assignedTo?: TodoAssignee;
   projectId?: string;
   priority: Priority;
   dueDate?: string;

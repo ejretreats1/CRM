@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Plus, Trash2, Edit2, ChevronDown, ChevronRight,
-  CheckSquare, Square, ListTodo, FolderKanban, Hash,
+  CheckSquare, Square, ListTodo, FolderKanban, Hash, Bell,
 } from 'lucide-react';
-import type { Project, Todo, Priority, ProjectStatus } from '../types';
+import type { Project, Todo, Priority, ProjectStatus, TodoAssignee } from '../types';
 
 interface SlackChannel { id: string; name: string; }
 interface SlackMessage { ts: string; text: string; username: string; attachmentText: string; channelName: string; }
@@ -153,36 +153,113 @@ function ProjectForm({
   );
 }
 
-function TodoRow({
-  todo,
-  onToggle,
-  onDelete,
+const ASSIGNEE_CONFIG: Record<TodoAssignee, { label: string; color: string; header: string; ring: string; dot: string }> = {
+  ethan: { label: 'Ethan', color: 'bg-blue-50 border-blue-200',   header: 'bg-blue-600',   ring: 'ring-blue-400',   dot: 'bg-blue-500' },
+  jess:  { label: 'Jess',  color: 'bg-purple-50 border-purple-200', header: 'bg-purple-600', ring: 'ring-purple-400', dot: 'bg-purple-500' },
+  va:    { label: 'VA',    color: 'bg-teal-50 border-teal-200',   header: 'bg-teal-600',   ring: 'ring-teal-400',   dot: 'bg-teal-500' },
+};
+
+function TodoCard({
+  todo, onToggle, onDelete, onDragStart,
 }: {
   todo: Todo;
   onToggle: (t: Todo) => void;
   onDelete: (id: string) => void;
+  onDragStart: (id: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-3 px-5 py-3 hover:bg-slate-100 transition-colors group">
+    <div
+      draggable
+      onDragStart={() => onDragStart(todo.id)}
+      className="flex items-start gap-2 p-2.5 bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow cursor-grab active:cursor-grabbing group"
+    >
       <button
         onClick={() => onToggle({ ...todo, completed: !todo.completed, updatedAt: new Date().toISOString() })}
-        className="flex-shrink-0 text-slate-400 hover:text-teal-600 transition-colors"
+        className="flex-shrink-0 text-slate-400 hover:text-teal-600 transition-colors mt-0.5"
       >
-        {todo.completed
-          ? <CheckSquare size={16} className="text-teal-600" />
-          : <Square size={16} />
-        }
+        {todo.completed ? <CheckSquare size={15} className="text-teal-600" /> : <Square size={15} />}
       </button>
-      <span className={`flex-1 text-sm ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+      <span className={`flex-1 text-sm leading-snug ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>
         {todo.text}
       </span>
       <button
         onClick={() => onDelete(todo.id)}
-        className="text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-        title="Delete task"
+        className="text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5"
       >
-        <Trash2 size={13} />
+        <Trash2 size={12} />
       </button>
+    </div>
+  );
+}
+
+function TodoColumn({
+  assignee, todos, onToggle, onDelete, onDragStart, onDrop, onAddInColumn,
+}: {
+  assignee: TodoAssignee;
+  todos: Todo[];
+  onToggle: (t: Todo) => void;
+  onDelete: (id: string) => void;
+  onDragStart: (id: string) => void;
+  onDrop: (assignee: TodoAssignee) => void;
+  onAddInColumn: (assignee: TodoAssignee, text: string) => void;
+}) {
+  const cfg = ASSIGNEE_CONFIG[assignee];
+  const [over, setOver] = useState(false);
+  const [addText, setAddText] = useState('');
+  const incomplete = todos.filter(t => !t.completed);
+  const completed = todos.filter(t => t.completed);
+
+  function submit() {
+    if (!addText.trim()) return;
+    onAddInColumn(assignee, addText.trim());
+    setAddText('');
+  }
+
+  return (
+    <div
+      className={`flex flex-col rounded-xl border-2 transition-all ${cfg.color} ${over ? cfg.ring + ' ring-2' : ''}`}
+      onDragOver={e => { e.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={() => { setOver(false); onDrop(assignee); }}
+    >
+      {/* Column header */}
+      <div className={`flex items-center gap-2 px-3 py-2.5 rounded-t-[10px] ${cfg.header}`}>
+        <span className="font-semibold text-white text-sm">{cfg.label}</span>
+        <span className="ml-auto text-xs bg-white/20 text-white px-1.5 py-0.5 rounded-full font-medium">{incomplete.length}</span>
+      </div>
+
+      {/* Tasks */}
+      <div className="flex-1 p-2 space-y-1.5 min-h-[80px]">
+        {incomplete.map(t => (
+          <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
+        ))}
+        {completed.length > 0 && (
+          <>
+            <p className="text-xs text-slate-400 uppercase tracking-wide pt-1 px-1">Done ({completed.length})</p>
+            {completed.map(t => (
+              <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* Inline add */}
+      <div className="px-2 pb-2 flex gap-1">
+        <input
+          value={addText}
+          onChange={e => setAddText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+          placeholder="Add task…"
+          className="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-teal-400"
+        />
+        <button
+          onClick={submit}
+          disabled={!addText.trim()}
+          className="bg-white border border-slate-200 text-slate-500 hover:text-teal-600 hover:border-teal-400 disabled:opacity-40 px-2 rounded-lg transition-colors"
+        >
+          <Plus size={14} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -206,12 +283,68 @@ export default function VAHub({
   const [showForm, setShowForm] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
-  const [newTodoText, setNewTodoText] = useState('');
+  const [vaNotifyEmail, setVaNotifyEmail] = useState('');
+  const [showVaEmailEdit, setShowVaEmailEdit] = useState(false);
+  const [vaEmailInput, setVaEmailInput] = useState('');
+  const draggedId = useRef<string | null>(null);
 
   const [slackMessages, setSlackMessages] = useState<SlackMessage[]>([]);
   const [slackLoading, setSlackLoading] = useState(false);
   const [slackError, setSlackError] = useState('');
   const [slackExpanded, setSlackExpanded] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('ej_va_notify_email');
+    if (saved) setVaNotifyEmail(saved);
+  }, []);
+
+  function saveVaEmail() {
+    localStorage.setItem('ej_va_notify_email', vaEmailInput.trim());
+    setVaNotifyEmail(vaEmailInput.trim());
+    setShowVaEmailEdit(false);
+  }
+
+  async function notifyVA(taskText: string) {
+    const email = vaNotifyEmail;
+    if (!email) return;
+    try {
+      await fetch('/api/send-newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'report',
+          to: email,
+          toName: 'VA',
+          reportSubject: 'New task assigned to you — E&J Retreats',
+          reportHtml: `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:32px;color:#334155"><p style="font-size:16px">Hey! You have a new task assigned:</p><div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:16px 20px;font-size:15px;font-weight:600;color:#0f766e;margin:16px 0">${taskText}</div><p style="font-size:13px;color:#94a3b8">— E&J Retreats Team</p></body></html>`,
+        }),
+      });
+    } catch { /* non-blocking */ }
+  }
+
+  function handleAddInColumn(assignee: TodoAssignee, text: string) {
+    const now = new Date().toISOString();
+    const todo: Todo = {
+      id: `todo_${Date.now()}`,
+      text,
+      completed: false,
+      assignedTo: assignee,
+      priority: 'medium',
+      createdAt: now,
+      updatedAt: now,
+    };
+    onAddTodo(todo);
+    if (assignee === 'va') notifyVA(text);
+  }
+
+  function handleDropOnColumn(assignee: TodoAssignee) {
+    if (!draggedId.current) return;
+    const todo = todos.find(t => t.id === draggedId.current);
+    if (!todo || todo.assignedTo === assignee) { draggedId.current = null; return; }
+    onToggleTodo({ ...todo, assignedTo: assignee, updatedAt: new Date().toISOString() });
+    if (assignee === 'va' && todo.assignedTo !== 'va') notifyVA(todo.text);
+    draggedId.current = null;
+  }
 
   useEffect(() => {
     if (!slackToken || slackChannels.length === 0) { setSlackMessages([]); return; }
@@ -246,8 +379,8 @@ export default function VAHub({
     ? projects
     : projects.filter(p => p.status === filter);
 
-  const incompleteTodos = todos.filter(t => !t.completed);
-  const completedTodos = todos.filter(t => t.completed);
+  const todosByAssignee = (assignee: TodoAssignee) => todos.filter(t => t.assignedTo === assignee);
+  const unassignedTodos = todos.filter(t => !t.assignedTo);
 
   function handleSaveNew(data: ProjectFormData) {
     const now = new Date().toISOString();
@@ -259,20 +392,6 @@ export default function VAHub({
     if (!editingProject) return;
     onUpdateProject({ ...editingProject, ...data, updatedAt: new Date().toISOString() });
     setEditingProject(null);
-  }
-
-  function handleAddTodo() {
-    if (!newTodoText.trim()) return;
-    const now = new Date().toISOString();
-    onAddTodo({
-      id: `todo_${Date.now()}`,
-      text: newTodoText.trim(),
-      completed: false,
-      priority: 'medium',
-      createdAt: now,
-      updatedAt: now,
-    });
-    setNewTodoText('');
   }
 
   function toggleNotes(id: string) {
@@ -448,61 +567,62 @@ export default function VAHub({
         </div>
       </div>
 
-      {/* Shared To-Do List */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+      {/* Team To-Do Boards */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-            <ListTodo size={16} className="text-teal-600" /> Shared To-Do List
+            <ListTodo size={16} className="text-teal-600" /> Team To-Do
           </h2>
-          <span className="text-xs text-slate-400">
-            {incompleteTodos.length} remaining
-          </span>
+          <button
+            onClick={() => { setShowVaEmailEdit(v => !v); setVaEmailInput(vaNotifyEmail); }}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-teal-600 border border-slate-200 hover:border-teal-300 px-2.5 py-1.5 rounded-lg transition-colors"
+          >
+            <Bell size={12} />
+            {vaNotifyEmail ? 'VA notify: ' + vaNotifyEmail : 'Set VA email alerts'}
+          </button>
         </div>
 
-        {/* Add new todo */}
-        <div className="px-5 py-3 border-b border-slate-200">
-          <div className="flex gap-2">
+        {showVaEmailEdit && (
+          <div className="mb-3 flex gap-2 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
             <input
-              value={newTodoText}
-              onChange={e => setNewTodoText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleAddTodo(); }}
-              placeholder="Add a new task... (press Enter)"
-              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              value={vaEmailInput}
+              onChange={e => setVaEmailInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveVaEmail(); }}
+              placeholder="VA email for task notifications"
+              className="flex-1 text-sm border border-teal-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-teal-400"
             />
-            <button
-              onClick={handleAddTodo}
-              disabled={!newTodoText.trim()}
-              className="bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white px-3 py-2 rounded-lg transition-colors"
-            >
-              <Plus size={16} />
-            </button>
+            <button onClick={saveVaEmail} className="bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors">Save</button>
+            <button onClick={() => setShowVaEmailEdit(false)} className="text-slate-500 hover:text-slate-700 text-sm px-2">✕</button>
           </div>
-        </div>
+        )}
 
-        <div className="divide-y divide-slate-200">
-          {incompleteTodos.length === 0 && completedTodos.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-8">
-              No tasks yet. Add one above.
-            </p>
-          )}
-
-          {incompleteTodos.map(todo => (
-            <TodoRow key={todo.id} todo={todo} onToggle={onToggleTodo} onDelete={onDeleteTodo} />
+        {/* 3-column board */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {(['ethan', 'jess', 'va'] as TodoAssignee[]).map(assignee => (
+            <TodoColumn
+              key={assignee}
+              assignee={assignee}
+              todos={todosByAssignee(assignee)}
+              onToggle={onToggleTodo}
+              onDelete={onDeleteTodo}
+              onDragStart={id => { draggedId.current = id; }}
+              onDrop={handleDropOnColumn}
+              onAddInColumn={handleAddInColumn}
+            />
           ))}
-
-          {completedTodos.length > 0 && (
-            <>
-              <div className="px-5 py-2 bg-slate-100">
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
-                  Completed ({completedTodos.length})
-                </p>
-              </div>
-              {completedTodos.map(todo => (
-                <TodoRow key={todo.id} todo={todo} onToggle={onToggleTodo} onDelete={onDeleteTodo} />
-              ))}
-            </>
-          )}
         </div>
+
+        {/* Unassigned (legacy) */}
+        {unassignedTodos.length > 0 && (
+          <div className="mt-3 bg-white rounded-xl border border-slate-200 p-3">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Unassigned — drag to a column to assign</p>
+            <div className="space-y-1.5">
+              {unassignedTodos.map(t => (
+                <TodoCard key={t.id} todo={t} onToggle={onToggleTodo} onDelete={onDeleteTodo} onDragStart={id => { draggedId.current = id; }} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Slack Feed */}
