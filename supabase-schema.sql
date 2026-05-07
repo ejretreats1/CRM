@@ -77,6 +77,7 @@ create table if not exists todos (
   id text primary key,
   text text not null,
   completed boolean not null default false,
+  assigned_to text,
   project_id text references projects(id) on delete set null,
   priority text not null default 'medium',
   due_date date,
