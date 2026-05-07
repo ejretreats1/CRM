@@ -39,6 +39,15 @@ export interface Property {
   photoUrl?: string;
 }
 
+export interface Vendor {
+  id: string;
+  name: string;
+  role: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
+}
+
 export interface Owner {
   id: string;
   name: string;
@@ -48,6 +57,7 @@ export interface Owner {
   notes: string;
   source: LeadSource;
   createdAt: string;
+  vendors?: Vendor[];
 }
 
 export interface OutreachEntry {

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Lead, Owner, Property, OutreachEntry } from '../types';
+import type { Lead, Owner, Property, OutreachEntry, Vendor } from '../types';
 
 // ─── Leads ───────────────────────────────────────────────────────────────────
 
@@ -41,6 +41,7 @@ export async function fetchOwners(): Promise<Owner[]> {
     notes: o.notes ?? '',
     source: o.source,
     createdAt: o.created_at,
+    vendors: (o.vendors as Vendor[] | null) ?? [],
     properties: (propRows ?? [])
       .filter(p => p.owner_id === o.id)
       .map(rowToProperty),
@@ -55,6 +56,7 @@ export async function upsertOwner(owner: Owner): Promise<void> {
     phone: owner.phone,
     notes: owner.notes,
     source: owner.source,
+    vendors: owner.vendors ?? [],
     created_at: owner.createdAt,
   });
   if (error) throw error;

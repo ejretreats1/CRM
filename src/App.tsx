@@ -229,6 +229,11 @@ export default function App() {
     setModal(null);
   };
 
+  const updateOwnerHandler = async (owner: Owner) => {
+    await upsertOwner(owner);
+    setOwners(prev => prev.map(o => o.id === owner.id ? owner : o));
+  };
+
   // ── Property CRUD ──────────────────────────────────────────────────────────
   const savePropertyHandler = async (ownerId: string, property: Property) => {
     await upsertProperty(ownerId, property);
@@ -417,6 +422,7 @@ export default function App() {
           uplistingApiKey={uplistingApiKey || undefined}
           onImportProperties={(properties) => importPropertiesHandler(selectedOwner.id, properties)}
           reservations={uplistingReservations}
+          onUpdateOwner={updateOwnerHandler}
         />
       )}
 

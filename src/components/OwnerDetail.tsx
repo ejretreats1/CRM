@@ -31,7 +31,12 @@ interface OwnerDetailProps {
   uplistingApiKey?: string;
   onImportProperties: (properties: Property[]) => Promise<void>;
   reservations?: import('../services/uplisting').UplistingReservation[];
+  onUpdateOwner: (owner: Owner) => Promise<void>;
 }
+
+type OwnerTab = 'properties' | 'revenue' | 'documents' | 'vendors' | 'outreach';
+
+const VENDOR_ROLES = ['Cleaner', 'Handyman', 'Plumber', 'Electrician', 'Landscaper', 'HVAC', 'Pool Service', 'Pest Control', 'Other'];
 
 const CHANNEL_MAP: Record<string, string> = {
   airbnb: 'Airbnb', airbnb_official: 'Airbnb',
@@ -70,10 +75,13 @@ function formatBytes(bytes: number): string {
 }
 
 export default function OwnerDetail({
-  owner, outreach, onBack, onEdit, onAddProperty, onEditProperty, onDeleteProperty, onAddOutreach,
+  owner, outreach, onBack, onEdit, onAddProperty, onEditProperty, onDeleteProperty, onAddOutreach, onUpdateOwner,
   uplistingApiKey, onImportProperties, reservations = [],
 }: OwnerDetailProps) {
+  const [activeTab, setActiveTab] = useState<OwnerTab>('properties');
   const [sigRequests, setSigRequests] = useState<SignatureRequest[]>([]);
+  const [vendorForm, setVendorForm] = useState<{ name: string; role: string; phone: string; email: string; notes: string } | null>(null);
+  const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
   const [showSigModal, setShowSigModal] = useState(false);
   const [showDocGenerator, setShowDocGenerator] = useState(false);
   const [prefillSigDoc, setPrefillSigDoc] = useState<{ fileUrl: string; fileName: string } | null>(null);
@@ -220,6 +228,29 @@ export default function OwnerDetail({
     }
   }
 
+  async function saveVendor() {
+    if (!vendorForm || !vendorForm.name.trim()) return;
+    const vendors = [...(owner.vendors ?? [])];
+    if (editingVendorId) {
+      const idx = vendors.findIndex(v => v.id === editingVendorId);
+      if (idx !== -1) vendors[idx] = { id: editingVendorId, ...vendorForm };
+    } else {
+      vendors.push({ id: `vendor_${Date.now()}`, ...vendorForm });
+    }
+    await onUpdateOwner({ ...owner, vendors });
+    setVendorForm(null);
+    setEditingVendorId(null);
+  }
+
+  async function deleteVendor(id: string) {
+    await onUpdateOwner({ ...owner, vendors: (owner.vendors ?? []).filter(v => v.id !== id) });
+  }
+
+  function startEditVendor(v: import('../types').Vendor) {
+    setEditingVendorId(v.id);
+    setVendorForm({ name: v.name, role: v.role, phone: v.phone ?? '', email: v.email ?? '', notes: v.notes ?? '' });
+  }
+
   return (
     <>
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -280,7 +311,31 @@ export default function OwnerDetail({
         ))}
       </div>
 
+      {/* Horizontal tabs */}
+      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+        {([
+          { id: 'properties', label: 'Properties' },
+          { id: 'revenue',    label: 'Revenue' },
+          { id: 'documents',  label: 'Documents' },
+          { id: 'vendors',    label: 'Vendors' },
+          { id: 'outreach',   label: 'Outreach' },
+        ] as { id: OwnerTab; label: string }[]).map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors -mb-px ${
+              activeTab === tab.id
+                ? 'border-teal-600 text-teal-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Properties */}
+      {activeTab === 'properties' && (<>
       <div className="bg-white rounded-xl border border-slate-200">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <h2 className="font-semibold text-slate-900">Properties</h2>
@@ -364,12 +419,17 @@ export default function OwnerDetail({
         </div>
       </div>
 
-      {/* Revenue Report */}
+      </>)}
+
+      {/* Revenue */}
+      {activeTab === 'revenue' && (
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <OwnerRevenueReport owner={owner} reservations={reservations} />
       </div>
+      )}
 
       {/* Documents / Signatures */}
+      {activeTab === 'documents' && (<>
       <div className="bg-white rounded-xl border border-slate-200">
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-slate-200 flex-wrap">
           <h2 className="font-semibold text-slate-900">Documents</h2>
@@ -606,7 +666,98 @@ export default function OwnerDetail({
         </div>
       </div>
 
+      </>)}
+
+      {/* Vendors */}
+      {activeTab === 'vendors' && (
+      <div className="bg-white rounded-xl border border-slate-200">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <h2 className="font-semibold text-slate-900">Vendors</h2>
+          <button
+            onClick={() => { setVendorForm({ name: '', role: 'Cleaner', phone: '', email: '', notes: '' }); setEditingVendorId(null); }}
+            className="flex items-center gap-1.5 text-xs text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-400 px-3 py-1.5 rounded-lg transition-colors font-medium"
+          >
+            <Plus size={13} /> Add Vendor
+          </button>
+        </div>
+
+        {vendorForm !== null && (
+          <div className="px-5 py-4 border-b border-slate-200 bg-slate-50 space-y-3">
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{editingVendorId ? 'Edit Vendor' : 'New Vendor'}</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Name *</label>
+                <input value={vendorForm.name} onChange={e => setVendorForm(f => f && ({ ...f, name: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Jane's Cleaning Co." />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Role</label>
+                <select value={vendorForm.role} onChange={e => setVendorForm(f => f && ({ ...f, role: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+                  {VENDOR_ROLES.map(r => <option key={r}>{r}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Phone</label>
+                <input value={vendorForm.phone} onChange={e => setVendorForm(f => f && ({ ...f, phone: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="(555) 000-0000" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Email</label>
+                <input value={vendorForm.email} onChange={e => setVendorForm(f => f && ({ ...f, email: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="vendor@example.com" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-xs text-slate-500 block mb-1">Notes</label>
+                <input value={vendorForm.notes} onChange={e => setVendorForm(f => f && ({ ...f, notes: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Preferred contact, schedule, rates..." />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={saveVendor} disabled={!vendorForm.name.trim()}
+                className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors">
+                {editingVendorId ? 'Save Changes' : 'Add Vendor'}
+              </button>
+              <button onClick={() => { setVendorForm(null); setEditingVendorId(null); }}
+                className="border border-slate-200 text-slate-600 text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="divide-y divide-slate-200">
+          {(owner.vendors ?? []).length === 0 && vendorForm === null && (
+            <p className="text-sm text-slate-400 text-center py-8">No vendors yet. Add cleaners, handymen, and other service providers.</p>
+          )}
+          {(owner.vendors ?? []).map(v => (
+            <div key={v.id} className="flex items-start gap-3 px-5 py-4">
+              <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 text-base">
+                {v.role === 'Cleaner' ? '🧹' : v.role === 'Handyman' ? '🔧' : v.role === 'Plumber' ? '🪠' : v.role === 'Electrician' ? '⚡' : v.role === 'Landscaper' ? '🌿' : v.role === 'HVAC' ? '❄️' : v.role === 'Pool Service' ? '🏊' : v.role === 'Pest Control' ? '🐛' : '🔨'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold text-slate-900">{v.name}</p>
+                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{v.role}</span>
+                </div>
+                <div className="flex flex-wrap gap-3 mt-1">
+                  {v.phone && <a href={`tel:${v.phone}`} className="text-xs text-teal-600 hover:underline">{v.phone}</a>}
+                  {v.email && <a href={`mailto:${v.email}`} className="text-xs text-teal-600 hover:underline">{v.email}</a>}
+                </div>
+                {v.notes && <p className="text-xs text-slate-500 mt-1">{v.notes}</p>}
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button onClick={() => startEditVendor(v)} className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"><Edit2 size={13} /></button>
+                <button onClick={() => deleteVendor(v.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={13} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      )}
+
       {/* Outreach history */}
+      {activeTab === 'outreach' && (
       <div className="bg-white rounded-xl border border-slate-200">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <h2 className="font-semibold text-slate-900">Outreach History</h2>
@@ -645,6 +796,7 @@ export default function OwnerDetail({
           ))}
         </div>
       </div>
+      )}
 
     </div>
     {showSigModal && (
