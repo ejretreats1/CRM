@@ -134,6 +134,7 @@ export default function Dashboard({
   const [calEvents, setCalEvents] = useState<CalEvent[]>([]);
   const [calLoading, setCalLoading] = useState(false);
   const [newTodoText, setNewTodoText] = useState('');
+  const [todoAssignee, setTodoAssignee] = useState<'ethan' | 'jess' | 'va'>('ethan');
   const [slackMessages, setSlackMessages] = useState<SlackMessage[]>([]);
   const [slackLoading, setSlackLoading] = useState(false);
   const [slackError, setSlackError] = useState('');
@@ -215,6 +216,7 @@ export default function Dashboard({
       id: `todo_${Date.now()}`,
       text: newTodoText.trim(),
       completed: false,
+      assignedTo: todoAssignee,
       priority: 'medium',
       createdAt: now,
       updatedAt: now,
@@ -479,70 +481,87 @@ export default function Dashboard({
           )}
         </div>
 
-        {/* Shared To-Do List Widget */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-            <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-              <ListTodo size={16} className="text-teal-600" /> To-Do List
-            </h2>
-            <button
+        {/* To-Do Widget — click anywhere to open VA Hub */}
+        {(() => {
+          const ASSIGNEE_COLORS = { ethan: 'bg-blue-500', jess: 'bg-purple-500', va: 'bg-teal-500' };
+          const ASSIGNEE_LABELS = { ethan: 'Ethan', jess: 'Jess', va: 'VA' };
+          const ASSIGNEE_CYCLE: Array<'ethan' | 'jess' | 'va'> = ['ethan', 'jess', 'va'];
+          return (
+            <div
+              className="bg-white rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-teal-300 hover:shadow-md transition-all group"
               onClick={() => onNavigate('va-hub')}
-              className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
             >
-              See completed <ArrowRight size={13} />
-            </button>
-          </div>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+                <h2 className="font-semibold text-slate-900 flex items-center gap-2">
+                  <ListTodo size={16} className="text-teal-600" /> Team To-Do
+                </h2>
+                <span className="flex items-center gap-1 text-xs text-teal-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                  Open VA Hub <ArrowRight size={13} />
+                </span>
+              </div>
 
-          {/* Quick add */}
-          <div className="px-4 py-2.5 border-b border-slate-200">
-            <div className="flex gap-2">
-              <input
-                value={newTodoText}
-                onChange={e => setNewTodoText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleAddTodo(); }}
-                placeholder="Quick add task..."
-                className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-              <button
-                onClick={handleAddTodo}
-                disabled={!newTodoText.trim()}
-                className="bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white px-2.5 py-1.5 rounded-lg transition-colors"
-              >
-                <Plus size={15} />
-              </button>
+              {/* Quick add — stop propagation so it doesn't navigate */}
+              <div className="px-4 py-2.5 border-b border-slate-200" onClick={e => e.stopPropagation()}>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setTodoAssignee(a => ASSIGNEE_CYCLE[(ASSIGNEE_CYCLE.indexOf(a) + 1) % 3])}
+                    className={`flex-shrink-0 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors ${ASSIGNEE_COLORS[todoAssignee]}`}
+                  >
+                    {ASSIGNEE_LABELS[todoAssignee]}
+                  </button>
+                  <input
+                    value={newTodoText}
+                    onChange={e => setNewTodoText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddTodo(); }}
+                    placeholder="Quick add task..."
+                    className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <button
+                    onClick={handleAddTodo}
+                    disabled={!newTodoText.trim()}
+                    className="bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white px-2.5 py-1.5 rounded-lg transition-colors"
+                  >
+                    <Plus size={15} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="divide-y divide-slate-200">
+                {incompleteTodos.length === 0 && (
+                  <div className="px-5 py-8 text-center">
+                    <CheckSquare size={24} className="text-slate-200 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400">All caught up! No pending tasks.</p>
+                  </div>
+                )}
+                {incompleteTodos.map(todo => (
+                  <div
+                    key={todo.id}
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => onToggleTodo({ ...todo, completed: true, updatedAt: new Date().toISOString() })}
+                      className="flex-shrink-0 text-slate-300 hover:text-teal-600 transition-colors"
+                    >
+                      <Square size={15} />
+                    </button>
+                    <span className="flex-1 text-sm text-slate-700 truncate">{todo.text}</span>
+                    {todo.assignedTo && (
+                      <span className={`flex-shrink-0 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full ${ASSIGNEE_COLORS[todo.assignedTo]}`}>
+                        {ASSIGNEE_LABELS[todo.assignedTo]}
+                      </span>
+                    )}
+                  </div>
+                ))}
+                {todos.filter(t => !t.completed).length > 6 && (
+                  <div className="px-5 py-2.5 text-center text-xs text-slate-400">
+                    +{todos.filter(t => !t.completed).length - 6} more in VA Hub
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-
-          <div className="divide-y divide-slate-200">
-            {incompleteTodos.length === 0 && (
-              <div className="px-5 py-8 text-center">
-                <CheckSquare size={24} className="text-slate-200 mx-auto mb-2" />
-                <p className="text-sm text-slate-400">All caught up! No pending tasks.</p>
-              </div>
-            )}
-            {incompleteTodos.map(todo => (
-              <div key={todo.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-100 transition-colors">
-                <button
-                  onClick={() => onToggleTodo({ ...todo, completed: true, updatedAt: new Date().toISOString() })}
-                  className="flex-shrink-0 text-slate-300 hover:text-teal-600 transition-colors"
-                >
-                  <Square size={15} />
-                </button>
-                <span className="flex-1 text-sm text-slate-700 truncate">{todo.text}</span>
-              </div>
-            ))}
-            {todos.filter(t => !t.completed).length > 6 && (
-              <div className="px-5 py-2.5 text-center">
-                <button
-                  onClick={() => onNavigate('va-hub')}
-                  className="text-xs text-teal-600 hover:text-teal-700 font-medium"
-                >
-                  +{todos.filter(t => !t.completed).length - 6} more in VA Hub
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
       {/* Recent leads + outreach row */}
