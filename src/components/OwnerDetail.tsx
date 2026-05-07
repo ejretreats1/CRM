@@ -32,6 +32,7 @@ interface OwnerDetailProps {
   onImportProperties: (properties: Property[]) => Promise<void>;
   reservations?: import('../services/uplisting').UplistingReservation[];
   onUpdateOwner: (owner: Owner) => Promise<void>;
+  onNavigateToProperty?: (ownerId: string, propertyId: string) => void;
 }
 
 type OwnerTab = 'properties' | 'revenue' | 'documents' | 'vendors' | 'outreach';
@@ -76,7 +77,7 @@ function formatBytes(bytes: number): string {
 
 export default function OwnerDetail({
   owner, outreach, onBack, onEdit, onAddProperty, onEditProperty, onDeleteProperty, onAddOutreach, onUpdateOwner,
-  uplistingApiKey, onImportProperties, reservations = [],
+  uplistingApiKey, onImportProperties, reservations = [], onNavigateToProperty,
 }: OwnerDetailProps) {
   const [activeTab, setActiveTab] = useState<OwnerTab>('properties');
   const [sigRequests, setSigRequests] = useState<SignatureRequest[]>([]);
@@ -363,7 +364,11 @@ export default function OwnerDetail({
           {owner.properties.map(property => {
             const style = STATUS_STYLES[property.status];
             return (
-              <div key={property.id} className="px-5 py-4">
+              <div
+                key={property.id}
+                className={`px-5 py-4 ${onNavigateToProperty ? 'cursor-pointer hover:bg-slate-50 transition-colors' : ''}`}
+                onClick={() => onNavigateToProperty?.(owner.id, property.id)}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -399,13 +404,14 @@ export default function OwnerDetail({
                 </div>
                 <div className="flex gap-2 mt-3">
                   <button
-                    onClick={() => onEditProperty(property)}
+                    onClick={(e) => { e.stopPropagation(); onEditProperty(property); }}
                     className="text-xs text-slate-500 hover:text-teal-600 flex items-center gap-1"
                   >
                     <Edit2 size={11} /> Edit
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (confirm('Remove this property?')) onDeleteProperty(property.id);
                     }}
                     className="text-xs text-slate-400 hover:text-red-500 flex items-center gap-1"

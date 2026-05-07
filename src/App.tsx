@@ -423,6 +423,7 @@ export default function App() {
           onImportProperties={(properties) => importPropertiesHandler(selectedOwner.id, properties)}
           reservations={uplistingReservations}
           onUpdateOwner={updateOwnerHandler}
+          onNavigateToProperty={(ownerId, propertyId) => navigate('property-portal', `${ownerId}::${propertyId}`)}
         />
       )}
 
