@@ -398,7 +398,6 @@ export default function VAHub({
     : projects.filter(p => p.status === filter);
 
   const todosByAssignee = (assignee: TodoAssignee) => todos.filter(t => t.assignedTo === assignee);
-  const unassignedTodos = todos.filter(t => !t.assignedTo);
 
   function handleSaveNew(data: ProjectFormData) {
     const now = new Date().toISOString();
@@ -637,17 +636,6 @@ export default function VAHub({
           return <CompletedTodos todos={allDone} onToggle={onToggleTodo} onDelete={onDeleteTodo} onDragStart={id => { draggedId.current = id; }} />;
         })()}
 
-        {/* Unassigned (legacy) */}
-        {unassignedTodos.length > 0 && (
-          <div className="mt-3 bg-white rounded-xl border border-slate-200 p-3">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Unassigned — drag to a column to assign</p>
-            <div className="space-y-1.5">
-              {unassignedTodos.map(t => (
-                <TodoCard key={t.id} todo={t} onToggle={onToggleTodo} onDelete={onDeleteTodo} onDragStart={id => { draggedId.current = id; }} />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Slack Feed */}
