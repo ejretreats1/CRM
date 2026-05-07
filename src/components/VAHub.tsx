@@ -192,6 +192,33 @@ function TodoCard({
   );
 }
 
+function CompletedTodos({ todos, onToggle, onDelete, onDragStart }: {
+  todos: Todo[];
+  onToggle: (t: Todo) => void;
+  onDelete: (id: string) => void;
+  onDragStart: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-3">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors"
+      >
+        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        {todos.length} completed task{todos.length !== 1 ? 's' : ''}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-1.5">
+          {todos.map(t => (
+            <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TodoColumn({
   assignee, todos, onToggle, onDelete, onDragStart, onDrop, onAddInColumn,
 }: {
@@ -207,7 +234,6 @@ function TodoColumn({
   const [over, setOver] = useState(false);
   const [addText, setAddText] = useState('');
   const incomplete = todos.filter(t => !t.completed);
-  const completed = todos.filter(t => t.completed);
 
   function submit() {
     if (!addText.trim()) return;
@@ -233,14 +259,6 @@ function TodoColumn({
         {incomplete.map(t => (
           <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
         ))}
-        {completed.length > 0 && (
-          <>
-            <p className="text-xs text-slate-400 uppercase tracking-wide pt-1 px-1">Done ({completed.length})</p>
-            {completed.map(t => (
-              <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
-            ))}
-          </>
-        )}
       </div>
 
       {/* Inline add */}
@@ -611,6 +629,13 @@ export default function VAHub({
             />
           ))}
         </div>
+
+        {/* Completed — single shared toggle */}
+        {(() => {
+          const allDone = todos.filter(t => t.completed);
+          if (allDone.length === 0) return null;
+          return <CompletedTodos todos={allDone} onToggle={onToggleTodo} onDelete={onDeleteTodo} onDragStart={id => { draggedId.current = id; }} />;
+        })()}
 
         {/* Unassigned (legacy) */}
         {unassignedTodos.length > 0 && (
