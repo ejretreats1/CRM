@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, FileBarChart2, Trash2, Calendar, TrendingUp, Loader } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, FileBarChart2, Trash2, Calendar, TrendingUp, Loader, Search, X } from 'lucide-react';
 import ReportBuilder from './revenue-reports/ReportBuilder';
 import ReportOutput from './revenue-reports/ReportOutput';
 import { fetchRevenueReports, saveRevenueReport, deleteRevenueReport, updateRevenueReport } from '../services/revenueReports';
@@ -52,6 +52,21 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
   const [viewingReport, setViewingReport] = useState<RevenueReport | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredReports = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return reports;
+    return reports.filter(r => {
+      if ((r.propertyAddress ?? '').toLowerCase().includes(q)) return true;
+      if ((r.reportTitle ?? '').toLowerCase().includes(q)) return true;
+      const lead = r.leadId ? leads.find(l => l.id === r.leadId) : null;
+      if (lead && lead.name.toLowerCase().includes(q)) return true;
+      const owner = r.ownerId ? owners.find(o => o.id === r.ownerId) : null;
+      if (owner && owner.name.toLowerCase().includes(q)) return true;
+      return false;
+    });
+  }, [reports, searchQuery, leads, owners]);
 
   useEffect(() => {
     fetchRevenueReports()
@@ -235,19 +250,36 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="px-6 py-5 bg-white border-b border-slate-200 flex-shrink-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <FileBarChart2 size={22} className="text-teal-600" /> Revenue Reports
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">Upload an AirDNA PDF to generate AI-powered revenue analysis</p>
           </div>
-          <button
-            onClick={() => setPageView('builder')}
-            className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-          >
-            <Plus size={15} /> New Report
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search address, client…"
+                className="pl-8 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 w-52"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setPageView('builder')}
+              className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              <Plus size={15} /> New Report
+            </button>
+          </div>
         </div>
       </div>
 
@@ -257,23 +289,32 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
           <div className="flex items-center justify-center py-20">
             <Loader size={24} className="text-slate-300 animate-spin" />
           </div>
-        ) : reports.length === 0 ? (
+        ) : filteredReports.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
               <FileBarChart2 size={28} className="text-teal-400" />
             </div>
-            <p className="text-slate-600 font-medium">No reports yet</p>
-            <p className="text-slate-400 text-sm mt-1 max-w-xs">Click "New Report", upload an AirDNA PDF, and Claude will generate a full revenue analysis.</p>
-            <button
-              onClick={() => setPageView('builder')}
-              className="mt-5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
-            >
-              Create First Report
-            </button>
+            {searchQuery ? (
+              <>
+                <p className="text-slate-600 font-medium">No reports match "{searchQuery}"</p>
+                <button onClick={() => setSearchQuery('')} className="mt-3 text-sm text-teal-600 hover:underline">Clear search</button>
+              </>
+            ) : (
+              <>
+                <p className="text-slate-600 font-medium">No reports yet</p>
+                <p className="text-slate-400 text-sm mt-1 max-w-xs">Click "New Report", upload an AirDNA PDF, and Claude will generate a full revenue analysis.</p>
+                <button
+                  onClick={() => setPageView('builder')}
+                  className="mt-5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
+                >
+                  Create First Report
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {reports.map(r => (
+            {filteredReports.map(r => (
               <div
                 key={r.id}
                 className="bg-white rounded-xl border border-slate-200 hover:border-teal-300 hover:shadow-md transition-all cursor-pointer group"

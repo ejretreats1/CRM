@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
 import type { Lead, RevenueReport } from '../../types';
-import { MapPin, Phone, Mail, DollarSign, Clock, Video, FileText, Home, UploadCloud, File, Loader, Trash2, ExternalLink, FileBarChart2, TrendingUp } from 'lucide-react';
+import { MapPin, Phone, Mail, DollarSign, Clock, Video, FileText, Home, UploadCloud, File, Loader, Trash2, ExternalLink, FileBarChart2, TrendingUp, X, ChevronLeft, Star } from 'lucide-react';
 import { fetchLeadDocuments, uploadLeadDocument, deleteLeadDocument } from '../../services/leadDocuments';
 import type { LeadDocument } from '../../services/leadDocuments';
 import { fetchRevenueReportsByLead } from '../../services/revenueReports';
@@ -52,6 +52,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
   const [dragOver, setDragOver] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [reports, setReports] = useState<RevenueReport[]>([]);
+  const [previewReport, setPreviewReport] = useState<RevenueReport | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -79,6 +80,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
   }
 
   return (
+    <>
     <Modal title={lead.name} onClose={onClose}>
       <div className="space-y-4">
         {/* Stage + source badges */}
@@ -186,7 +188,11 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
             </div>
             <div className="space-y-1.5">
               {reports.map(r => (
-                <div key={r.id} className="flex items-center gap-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
+                <button
+                  key={r.id}
+                  onClick={() => setPreviewReport(r)}
+                  className="w-full flex items-center gap-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2 hover:bg-teal-100 hover:border-teal-200 transition-colors text-left"
+                >
                   <FileBarChart2 size={13} className="text-teal-500 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-slate-700 truncate">{r.reportTitle ?? r.propertyAddress}</p>
@@ -206,7 +212,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
                       'bg-slate-100 text-slate-500'
                     }`}>{r.opportunityScore}/10</span>
                   )}
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -329,5 +335,113 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
         </div>
       </div>
     </Modal>
+
+    {/* Report preview — rendered outside Modal to avoid overflow clipping */}
+    {previewReport && (
+      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/40" onClick={() => setPreviewReport(null)} />
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-200 flex-shrink-0">
+            <button
+              onClick={() => setPreviewReport(null)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-slate-900 text-sm truncate">
+                {previewReport.reportTitle ?? previewReport.propertyAddress}
+              </p>
+              <p className="text-xs text-slate-400">
+                {previewReport.reportType?.toUpperCase() ?? 'STR'} · {new Date(previewReport.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </p>
+            </div>
+            <button
+              onClick={() => setPreviewReport(null)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {/* Metrics */}
+            <div className="grid grid-cols-2 gap-2">
+              {previewReport.airdnaProjectedRevenue != null && (
+                <div className="bg-teal-50 rounded-xl p-3">
+                  <p className="text-xs text-teal-600 mb-0.5">Projected Annual</p>
+                  <p className="text-lg font-bold text-teal-700">${Math.round(previewReport.airdnaProjectedRevenue).toLocaleString()}</p>
+                </div>
+              )}
+              {previewReport.airdnaOccupancyRate != null && (
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-xs text-slate-500 mb-0.5">Occupancy Rate</p>
+                  <p className="text-lg font-bold text-slate-800">{previewReport.airdnaOccupancyRate}%</p>
+                </div>
+              )}
+              {previewReport.airdnaAdr != null && (
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-xs text-slate-500 mb-0.5">Avg Daily Rate</p>
+                  <p className="text-lg font-bold text-slate-800">${Math.round(previewReport.airdnaAdr).toLocaleString()}</p>
+                </div>
+              )}
+              {previewReport.airdnaRevpar != null && (
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-xs text-slate-500 mb-0.5">RevPAR</p>
+                  <p className="text-lg font-bold text-slate-800">${Math.round(previewReport.airdnaRevpar).toLocaleString()}</p>
+                </div>
+              )}
+              {previewReport.opportunityScore != null && (
+                <div className={`rounded-xl p-3 col-span-2 flex items-center gap-2 ${
+                  previewReport.opportunityScore >= 7 ? 'bg-emerald-50' :
+                  previewReport.opportunityScore >= 4 ? 'bg-amber-50' : 'bg-slate-50'
+                }`}>
+                  <Star size={14} className={previewReport.opportunityScore >= 7 ? 'text-emerald-500' : previewReport.opportunityScore >= 4 ? 'text-amber-500' : 'text-slate-400'} />
+                  <span className="text-xs text-slate-600">Opportunity Score</span>
+                  <span className={`ml-auto text-lg font-bold ${
+                    previewReport.opportunityScore >= 7 ? 'text-emerald-700' :
+                    previewReport.opportunityScore >= 4 ? 'text-amber-700' : 'text-slate-600'
+                  }`}>{previewReport.opportunityScore}/10</span>
+                </div>
+              )}
+            </div>
+
+            {/* Key findings */}
+            {previewReport.keyFindings && previewReport.keyFindings.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Key Findings</p>
+                <ul className="space-y-1.5">
+                  {previewReport.keyFindings.map((f, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* AI narrative */}
+            {previewReport.claudeNarrative && (
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Analysis</p>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{previewReport.claudeNarrative}</p>
+              </div>
+            )}
+
+            {/* Owner notes */}
+            {previewReport.ownerNotes && (
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                <p className="text-xs font-semibold text-amber-700 mb-1">Owner Notes</p>
+                <p className="text-sm text-amber-900 leading-relaxed">{previewReport.ownerNotes}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
