@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   TrendingUp, Users, Home, Phone, ArrowRight, Wifi, WifiOff,
-  RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash, Video, CalendarRange,
+  RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash, Video, CalendarRange, Bell,
 } from 'lucide-react';
 import type { Lead, Owner, OutreachEntry, Todo } from '../types';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
@@ -53,9 +53,10 @@ interface DashboardProps {
 }
 
 const STAGE_LABELS: Record<string, string> = {
-  new:  'New Lead',
-  cold: 'Old / Cold Lead',
-  won:  'Won',
+  new:       'New Lead',
+  contacted: 'Contacted',
+  cold:      'Old / Cold Lead',
+  won:       'Won',
 };
 
 const OUTREACH_TYPE_ICONS: Record<string, string> = {
@@ -272,6 +273,8 @@ export default function Dashboard({
   // Next upcoming event (first one)
   const nextEvent = allEvents[0] ?? null;
 
+  const uncontactedNewLeads = leads.filter(l => l.stage === 'new').length;
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
@@ -307,6 +310,24 @@ export default function Dashboard({
           </button>
         )}
       </div>
+
+      {/* Uncontacted new leads alert */}
+      {uncontactedNewLeads > 0 && (
+        <button
+          onClick={() => onNavigate('pipeline')}
+          className="w-full flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 hover:bg-amber-100 transition-colors text-left"
+        >
+          <div className="w-8 h-8 rounded-lg bg-amber-400 flex items-center justify-center flex-shrink-0">
+            <Bell size={15} className="text-white" />
+          </div>
+          <p className="text-sm font-semibold text-amber-900 flex-1">
+            {uncontactedNewLeads === 1
+              ? "1 new lead hasn't been contacted yet"
+              : `${uncontactedNewLeads} new leads haven't been contacted yet`}
+          </p>
+          <ArrowRight size={14} className="text-amber-500 flex-shrink-0" />
+        </button>
+      )}
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -594,6 +615,7 @@ export default function Dashboard({
                   text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0
                   ${lead.stage === 'won' ? 'bg-emerald-100 text-emerald-700' :
                     lead.stage === 'cold' ? 'bg-blue-100 text-blue-700' :
+                    lead.stage === 'contacted' ? 'bg-violet-100 text-violet-700' :
                     'bg-teal-100 text-teal-700'}
                 `}>
                   {STAGE_LABELS[lead.stage]}
