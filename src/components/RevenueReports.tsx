@@ -207,6 +207,7 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
           keyFindings: report.keyFindings ?? [],
           opportunityScore: report.opportunityScore ?? 5,
         };
+
     async function handleRefineSaved(message: string) {
       const res = await fetch('/api/generate-revenue-report', {
         method: 'POST',
@@ -245,6 +246,9 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
         onRefine={handleRefineSaved}
         recipientEmail={savedLead?.email || savedOwner?.email}
         recipientName={savedLead?.name || savedOwner?.name}
+        onMarkContacted={savedLead && onUpdateLead ? () => {
+          onUpdateLead({ ...savedLead, stage: 'contacted', updatedAt: new Date().toISOString() });
+        } : undefined}
       />
     );
   }
@@ -252,7 +256,6 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
   // List view
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
       <div className="px-6 py-5 bg-white border-b border-slate-200 flex-shrink-0">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
@@ -287,7 +290,6 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
         </div>
       </div>
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto p-6">
         {loadingReports ? (
           <div className="flex items-center justify-center py-20">
@@ -343,7 +345,6 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
                     {r.reportTitle ?? r.propertyAddress}
                   </p>
                   <p className="text-xs text-slate-400 mt-1 truncate">{r.propertyAddress}</p>
-
                   <div className="mt-3 flex items-center gap-3 text-xs text-slate-500">
                     {r.airdnaProjectedRevenue != null && (
                       <span className="flex items-center gap-1">
