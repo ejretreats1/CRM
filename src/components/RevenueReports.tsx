@@ -8,6 +8,7 @@ import type { Lead, Owner, RevenueReport } from '../types';
 interface RevenueReportsProps {
   leads: Lead[];
   owners: Owner[];
+  onUpdateLead?: (lead: Lead) => Promise<void>;
 }
 
 type PageView = 'list' | 'builder' | 'output';
@@ -44,7 +45,7 @@ function fmt(n: number | undefined) {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
-export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
+export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueReportsProps) {
   const [pageView, setPageView] = useState<PageView>('list');
   const [reports, setReports] = useState<RevenueReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
@@ -178,6 +179,9 @@ export default function RevenueReports({ leads, owners }: RevenueReportsProps) {
         onRefine={handleRefinePending}
         recipientEmail={recipientEmail}
         recipientName={recipientName}
+        onMarkContacted={pendingLead && onUpdateLead ? () => {
+          onUpdateLead({ ...pendingLead, stage: 'contacted', updatedAt: new Date().toISOString() });
+        } : undefined}
       />
     );
   }
