@@ -10,9 +10,10 @@ interface PipelineProps {
 }
 
 const STAGES: { id: LeadStage; label: string; color: string; dot: string }[] = [
-  { id: 'new',  label: 'New Lead',        color: 'bg-slate-100',   dot: 'bg-slate-400' },
-  { id: 'cold', label: 'Old / Cold Lead', color: 'bg-blue-50',    dot: 'bg-blue-400' },
-  { id: 'won',  label: 'Won',             color: 'bg-emerald-50', dot: 'bg-emerald-500' },
+  { id: 'new',       label: 'New Lead',        color: 'bg-slate-100',   dot: 'bg-slate-400' },
+  { id: 'contacted', label: 'Contacted',        color: 'bg-violet-50',   dot: 'bg-violet-400' },
+  { id: 'cold',      label: 'Old / Cold Lead', color: 'bg-blue-50',    dot: 'bg-blue-400' },
+  { id: 'won',       label: 'Won',             color: 'bg-emerald-50', dot: 'bg-emerald-500' },
 ];
 
 function formatCurrency(n: number) {
@@ -96,7 +97,6 @@ function LeadCard({ lead, onView, onEdit, onDelete, onDragStart }: LeadCardProps
         <span className="text-xs text-slate-500 truncate">{lead.propertyAddress}</span>
       </div>
 
-      {/* Scheduled call badge */}
       {hasUpcomingCall && (
         <div className="mt-2 bg-teal-50 border border-teal-200 rounded-md px-2 py-1.5 space-y-1">
           <div className="flex items-center gap-1.5">
@@ -186,7 +186,6 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
       <div className="px-6 py-5 bg-white border-b border-slate-200 flex items-center justify-between flex-shrink-0">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Lead Pipeline</h1>
@@ -202,7 +201,6 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
         </button>
       </div>
 
-      {/* Kanban board */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <div className="flex gap-4 p-5 h-full min-w-max">
           {STAGES.map(stage => {
@@ -221,7 +219,6 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
                   ${isOver ? 'ring-2 ring-teal-400 border-teal-300 bg-teal-50' : `${stage.color} border-slate-200`}
                 `}
               >
-                {/* Column header */}
                 <div className="px-3.5 py-3 border-b border-slate-200/60">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${stage.dot}`} />
@@ -235,7 +232,6 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
                   )}
                 </div>
 
-                {/* Cards */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-[120px]">
                   {stageLeads.map(lead => (
                     <LeadCard

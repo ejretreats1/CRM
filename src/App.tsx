@@ -476,7 +476,7 @@ export default function App() {
       {view === 'drive' && <DriveView isAdmin={isAdmin} />}
 
       {view === 'revenue-reports' && (
-        <RevenueReports leads={leads} owners={owners} />
+        <RevenueReports leads={leads} owners={owners} onUpdateLead={saveLeadHandler} />
       )}
 
       {view === 'listing-optimizer' && <ListingOptimizer />}

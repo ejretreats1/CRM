@@ -22,6 +22,19 @@ function unescapeICal(s: string): string {
   return s.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
 }
 
+function extractMeetLink(block: string, description: string): string {
+  // X-GOOGLE-CONFERENCE is the most reliable source
+  const confField = extractField(block, 'X-GOOGLE-CONFERENCE');
+  if (confField && confField.startsWith('https://')) return confField;
+  // CONFERENCE;VALUE=URI:https://meet.google.com/...
+  const confUri = block.match(/^CONFERENCE(?:;[^:\r\n]*)?:(\S+)/m);
+  if (confUri && confUri[1].startsWith('https://')) return confUri[1];
+  // Scan description for meet.google.com URLs
+  const meetInDesc = description.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i);
+  if (meetInDesc) return meetInDesc[0];
+  return '';
+}
+
 function parseICal(ical: string) {
   // Unfold continuation lines (CRLF or LF followed by whitespace)
   const unfolded = ical.replace(/\r?\n[ \t]/g, '');
@@ -33,6 +46,7 @@ function parseICal(ical: string) {
     end: string;
     description: string;
     location: string;
+    meetLink?: string;
   }> = [];
 
   const blocks = unfolded.split(/BEGIN:VEVENT/);
@@ -43,13 +57,17 @@ function parseICal(ical: string) {
     const start = parseICalDate(startRaw);
     if (!start) continue;
 
+    const description = unescapeICal(extractField(block, 'DESCRIPTION'));
+    const meetLink = extractMeetLink(block, description);
+
     events.push({
       id: extractField(block, 'UID') || `evt-${i}`,
       title: unescapeICal(extractField(block, 'SUMMARY') || 'Untitled'),
       start,
       end: parseICalDate(endRaw) || start,
-      description: unescapeICal(extractField(block, 'DESCRIPTION')),
+      description,
       location: unescapeICal(extractField(block, 'LOCATION')),
+      ...(meetLink ? { meetLink } : {}),
     });
   }
   return events;

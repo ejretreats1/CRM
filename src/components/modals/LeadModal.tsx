@@ -9,9 +9,10 @@ interface LeadModalProps {
 }
 
 const STAGES: { value: LeadStage; label: string }[] = [
-  { value: 'new',  label: 'New Lead' },
-  { value: 'cold', label: 'Old / Cold Lead' },
-  { value: 'won',  label: 'Won' },
+  { value: 'new',       label: 'New Lead' },
+  { value: 'contacted', label: 'Contacted' },
+  { value: 'cold',      label: 'Old / Cold Lead' },
+  { value: 'won',       label: 'Won' },
 ];
 
 const SOURCES: { value: LeadSource; label: string }[] = [
@@ -26,11 +27,9 @@ const SOURCES: { value: LeadSource; label: string }[] = [
   { value: 'other',             label: 'Other' },
 ];
 
-// Convert ISO string → datetime-local input value (YYYY-MM-DDTHH:MM)
 function toDatetimeLocal(iso?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
-  // Adjust for local timezone
   const offset = d.getTimezoneOffset() * 60000;
   return new Date(d.getTime() - offset).toISOString().slice(0, 16);
 }
@@ -144,7 +143,6 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
           </div>
         </div>
 
-        {/* Scheduled Call */}
         <div className="space-y-2">
           <label className="block text-xs font-medium text-slate-600">
             Schedule Call

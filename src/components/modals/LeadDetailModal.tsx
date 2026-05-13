@@ -7,9 +7,10 @@ import type { LeadDocument } from '../../services/leadDocuments';
 import { fetchRevenueReportsByLead } from '../../services/revenueReports';
 
 const STAGE_LABELS: Record<string, string> = {
-  new:  'New Lead',
-  cold: 'Old / Cold Lead',
-  won:  'Won',
+  new:       'New Lead',
+  contacted: 'Contacted',
+  cold:      'Old / Cold Lead',
+  won:       'Won',
 };
 
 const SOURCE_LABELS: Record<string, string> = {

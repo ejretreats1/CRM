@@ -1,4 +1,4 @@
-export type LeadStage = 'new' | 'cold' | 'won';
+export type LeadStage = 'new' | 'contacted' | 'cold' | 'won';
 export type OutreachType = 'call' | 'email' | 'text' | 'meeting' | 'other';
 export type OutreachOutcome = 'positive' | 'neutral' | 'negative' | 'no_response';
 export type PropertyStatus = 'active' | 'inactive' | 'onboarding';
