@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Key, CheckCircle, XCircle, Loader, Eye, EyeOff, RefreshCw, Trash2, CalendarDays, Save, Hash, Plus, X } from 'lucide-react';
 import { testConnection } from '../services/uplisting';
+import { testHostawayConnection } from '../services/hostaway';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
 
 interface SlackChannel {
@@ -9,19 +10,30 @@ interface SlackChannel {
 }
 
 interface SettingsProps {
+  // Uplisting
   apiKey: string;
   onSaveApiKey: (key: string) => void;
+  lastSync: string | null;
+  properties: UplistingProperty[];
+  reservations: UplistingReservation[];
+  onSync: () => Promise<void>;
+  onClearData: () => void;
+  // Hostaway
+  hostawayAccountId: string;
+  hostawaySecret: string;
+  onSaveHostawayCredentials: (accountId: string, secret: string) => Promise<void>;
+  hostawayLastSync: string | null;
+  hostawayProperties: UplistingProperty[];
+  hostawayReservations: UplistingReservation[];
+  onHostawaySync: () => Promise<void>;
+  onClearHostawayData: () => void;
+  // Other
   calendarUrl: string;
   onSaveCalendarUrl: (url: string) => void;
   slackToken: string;
   onSaveSlackToken: (token: string) => void;
   slackChannels: SlackChannel[];
   onSaveSlackChannels: (channels: SlackChannel[]) => void;
-  lastSync: string | null;
-  properties: UplistingProperty[];
-  reservations: UplistingReservation[];
-  onSync: () => Promise<void>;
-  onClearData: () => void;
 }
 
 type Status = 'idle' | 'testing' | 'success' | 'error';
@@ -32,16 +44,29 @@ export default function Settings({
   slackToken, onSaveSlackToken,
   slackChannels, onSaveSlackChannels,
   lastSync, properties, reservations, onSync, onClearData,
+  hostawayAccountId, hostawaySecret, onSaveHostawayCredentials,
+  hostawayLastSync, hostawayProperties, hostawayReservations, onHostawaySync, onClearHostawayData,
 }: SettingsProps) {
+  // Uplisting
   const [inputKey, setInputKey] = useState(apiKey);
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
   const [statusMsg, setStatusMsg] = useState('');
   const [syncing, setSyncing] = useState(false);
 
+  // Hostaway
+  const [hostawayIdInput, setHostawayIdInput] = useState(hostawayAccountId);
+  const [hostawaySecretInput, setHostawaySecretInput] = useState(hostawaySecret);
+  const [showHostawaySecret, setShowHostawaySecret] = useState(false);
+  const [hostawayStatus, setHostawayStatus] = useState<Status>('idle');
+  const [hostawayStatusMsg, setHostawayStatusMsg] = useState('');
+  const [hostawaySyncing, setHostawaySyncing] = useState(false);
+
+  // Calendar
   const [icalInput, setIcalInput] = useState(calendarUrl);
   const [calSaved, setCalSaved] = useState(false);
 
+  // Slack
   const [slackTokenInput, setSlackTokenInput] = useState(slackToken);
   const [channelList, setChannelList] = useState<SlackChannel[]>(slackChannels);
   const [newChannelName, setNewChannelName] = useState('');
@@ -64,13 +89,29 @@ export default function Settings({
     }
   };
 
+  const handleTestHostaway = async () => {
+    if (!hostawayIdInput.trim() || !hostawaySecretInput.trim()) return;
+    setHostawayStatus('testing');
+    setHostawayStatusMsg('');
+    const result = await testHostawayConnection(hostawayIdInput.trim(), hostawaySecretInput.trim());
+    if (result.ok) {
+      setHostawayStatus('success');
+      setHostawayStatusMsg(`Connected! Found ${result.properties?.length ?? 0} listings.`);
+      await onSaveHostawayCredentials(hostawayIdInput.trim(), hostawaySecretInput.trim());
+    } else {
+      setHostawayStatus('error');
+      setHostawayStatusMsg(result.error ?? 'Connection failed.');
+    }
+  };
+
   const handleSync = async () => {
     setSyncing(true);
-    try {
-      await onSync();
-    } finally {
-      setSyncing(false);
-    }
+    try { await onSync(); } finally { setSyncing(false); }
+  };
+
+  const handleHostawaySync = async () => {
+    setHostawaySyncing(true);
+    try { await onHostawaySync(); } finally { setHostawaySyncing(false); }
   };
 
   const handleSaveCalendar = () => {
@@ -82,7 +123,7 @@ export default function Settings({
   const handleAddChannel = () => {
     const id = newChannelId.trim();
     if (!id) return;
-    if (channelList.find(c => c.id === id)) return; // dedupe
+    if (channelList.find(c => c.id === id)) return;
     setChannelList(prev => [...prev, { id, name: newChannelName.trim() || id }]);
     setNewChannelName('');
     setNewChannelId('');
@@ -101,6 +142,9 @@ export default function Settings({
     setTimeout(() => setSlackSaved(false), 2000);
   };
 
+  const fmtSync = (ts: string | null) =>
+    ts ? new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never';
+
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
@@ -114,14 +158,10 @@ export default function Settings({
           <CalendarDays size={18} className="text-teal-600" />
           <h2 className="font-semibold text-slate-900">Google Calendar</h2>
           {calendarUrl && (
-            <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
-              Connected
-            </span>
+            <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">Connected</span>
           )}
         </div>
-        <p className="text-sm text-slate-500">
-          Connect your Google Calendar to display upcoming meetings on the dashboard.
-        </p>
+        <p className="text-sm text-slate-500">Connect your Google Calendar to display upcoming meetings on the dashboard.</p>
         <input
           type="text"
           value={icalInput}
@@ -129,9 +169,7 @@ export default function Settings({
           placeholder="https://calendar.google.com/calendar/ical/..."
           className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500"
         />
-        <p className="text-xs text-slate-400">
-          In Google Calendar: Settings → Your calendar → "Secret address in iCal format". This URL gives read-only access to your events.
-        </p>
+        <p className="text-xs text-slate-400">In Google Calendar: Settings → Your calendar → “Secret address in iCal format”.</p>
         <div className="flex items-center gap-3">
           <button
             onClick={handleSaveCalendar}
@@ -142,12 +180,7 @@ export default function Settings({
             {calSaved ? 'Saved!' : 'Save Calendar URL'}
           </button>
           {calendarUrl && (
-            <button
-              onClick={() => { setIcalInput(''); onSaveCalendarUrl(''); }}
-              className="text-sm text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-2 rounded-lg transition-colors"
-            >
-              Remove
-            </button>
+            <button onClick={() => { setIcalInput(''); onSaveCalendarUrl(''); }} className="text-sm text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-2 rounded-lg transition-colors">Remove</button>
           )}
         </div>
       </div>
@@ -163,10 +196,7 @@ export default function Settings({
             </span>
           )}
         </div>
-        <p className="text-sm text-slate-500">
-          Show a live feed of your Zapier Slack notifications on the dashboard. Add one or more channels.
-        </p>
-
+        <p className="text-sm text-slate-500">Show a live feed of your Zapier Slack notifications on the dashboard.</p>
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Bot Token</label>
           <div className="relative">
@@ -177,18 +207,11 @@ export default function Settings({
               placeholder="xoxb-..."
               className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
-            <button
-              type="button"
-              onClick={() => setShowSlackToken(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
+            <button type="button" onClick={() => setShowSlackToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
               {showSlackToken ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
-          <p className="text-xs text-slate-400 mt-1">One bot token works for all channels — just invite the bot to each channel.</p>
         </div>
-
-        {/* Channel list */}
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-2">Channels</label>
           {channelList.length > 0 && (
@@ -198,79 +221,25 @@ export default function Settings({
                   <Hash size={13} className="text-purple-400 flex-shrink-0" />
                   <span className="text-sm font-medium text-purple-800 flex-1">{ch.name}</span>
                   <span className="text-xs text-purple-500 font-mono">{ch.id}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveChannel(ch.id)}
-                    className="text-purple-400 hover:text-red-500 transition-colors flex-shrink-0"
-                    title="Remove channel"
-                  >
-                    <X size={14} />
-                  </button>
+                  <button type="button" onClick={() => handleRemoveChannel(ch.id)} className="text-purple-400 hover:text-red-500 transition-colors flex-shrink-0"><X size={14} /></button>
                 </div>
               ))}
             </div>
           )}
-
-          {/* Add channel row */}
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={newChannelName}
-              onChange={e => setNewChannelName(e.target.value)}
-              placeholder="Name (e.g. zapier-leads)"
-              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-            />
-            <input
-              type="text"
-              value={newChannelId}
-              onChange={e => setNewChannelId(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleAddChannel(); }}
-              placeholder="Channel ID (C...)"
-              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
-            />
-            <button
-              type="button"
-              onClick={handleAddChannel}
-              disabled={!newChannelId.trim()}
-              className="bg-purple-100 hover:bg-purple-200 disabled:opacity-40 text-purple-700 px-3 py-2 rounded-lg transition-colors flex-shrink-0"
-              title="Add channel"
-            >
-              <Plus size={15} />
-            </button>
+            <input type="text" value={newChannelName} onChange={e => setNewChannelName(e.target.value)} placeholder="Name (e.g. zapier-leads)" className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+            <input type="text" value={newChannelId} onChange={e => setNewChannelId(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddChannel(); }} placeholder="Channel ID (C...)" className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400" />
+            <button type="button" onClick={handleAddChannel} disabled={!newChannelId.trim()} className="bg-purple-100 hover:bg-purple-200 disabled:opacity-40 text-purple-700 px-3 py-2 rounded-lg transition-colors flex-shrink-0"><Plus size={15} /></button>
           </div>
-          <p className="text-xs text-slate-400 mt-1.5">
-            Right-click a channel in Slack → View channel details → scroll to bottom for Channel ID.
-          </p>
         </div>
-
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleSaveSlack}
-            disabled={!slackTokenInput.trim() || channelList.length === 0}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-          >
+          <button onClick={handleSaveSlack} disabled={!slackTokenInput.trim() || channelList.length === 0} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
             {slackSaved ? <CheckCircle size={14} /> : <Save size={14} />}
             {slackSaved ? 'Saved!' : 'Save Slack Settings'}
           </button>
           {slackToken && (
-            <button
-              onClick={() => { setSlackTokenInput(''); setChannelList([]); onSaveSlackToken(''); onSaveSlackChannels([]); }}
-              className="text-sm text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-2 rounded-lg transition-colors"
-            >
-              Remove All
-            </button>
+            <button onClick={() => { setSlackTokenInput(''); setChannelList([]); onSaveSlackToken(''); onSaveSlackChannels([]); }} className="text-sm text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-2 rounded-lg transition-colors">Remove All</button>
           )}
-        </div>
-
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-xs text-purple-700 space-y-1">
-          <p className="font-semibold">How to set up</p>
-          <ol className="list-decimal list-inside space-y-0.5 text-purple-600">
-            <li>Go to api.slack.com/apps → Create New App → From scratch</li>
-            <li>OAuth & Permissions → Add scope: <code className="bg-purple-100 px-1 rounded">channels:history</code></li>
-            <li>Install App to Workspace → copy the Bot User OAuth Token</li>
-            <li>Invite the bot to each channel: <code className="bg-purple-100 px-1 rounded">/invite @your-app-name</code></li>
-            <li>Add each channel by name + ID above, then save</li>
-          </ol>
         </div>
       </div>
 
@@ -279,63 +248,46 @@ export default function Settings({
         <div className="flex items-center gap-2">
           <Key size={18} className="text-teal-600" />
           <h2 className="font-semibold text-slate-900">Uplisting API Key</h2>
+          {apiKey && <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">Connected</span>}
         </div>
-
         <div className="relative">
           <input
             type={showKey ? 'text' : 'password'}
             value={inputKey}
-            onChange={(e) => { setInputKey(e.target.value); setStatus('idle'); }}
+            onChange={e => { setInputKey(e.target.value); setStatus('idle'); }}
             placeholder="Paste your Uplisting API key..."
             className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
-          <button
-            type="button"
-            onClick={() => setShowKey(v => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-          >
+          <button type="button" onClick={() => setShowKey(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
             {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
-
-        <p className="text-xs text-slate-400">
-          Find your API key in Uplisting → Settings → API. Keep it private — never share it publicly.
-        </p>
-
+        <p className="text-xs text-slate-400">Find your API key in Uplisting → Settings → API.</p>
         {status !== 'idle' && (
-          <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg
-            ${status === 'success' ? 'bg-emerald-50 text-emerald-700' :
-              status === 'error' ? 'bg-red-50 text-red-600' :
-              'bg-slate-100 text-slate-500'}`}
-          >
+          <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${
+            status === 'success' ? 'bg-emerald-50 text-emerald-700' :
+            status === 'error'   ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
+          }`}>
             {status === 'testing' && <Loader size={14} className="animate-spin" />}
             {status === 'success' && <CheckCircle size={14} />}
-            {status === 'error' && <XCircle size={14} />}
+            {status === 'error'   && <XCircle size={14} />}
             {status === 'testing' ? 'Testing connection...' : statusMsg}
           </div>
         )}
-
-        <button
-          onClick={handleTest}
-          disabled={!inputKey.trim() || status === 'testing'}
-          className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-        >
+        <button onClick={handleTest} disabled={!inputKey.trim() || status === 'testing'} className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
           {apiKey && inputKey === apiKey ? 'Re-test Connection' : 'Save & Test Connection'}
         </button>
       </div>
 
-      {/* Sync status */}
+      {/* Uplisting Sync */}
       {apiKey && (
         <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
           <h2 className="font-semibold text-slate-900">Uplisting Data Sync</h2>
-
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: 'Properties synced', value: properties.length },
               { label: 'Reservations synced', value: reservations.length },
-              { label: 'Last synced', value: lastSync
-                  ? new Date(lastSync).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-                  : 'Never' },
+              { label: 'Last synced', value: fmtSync(lastSync) },
             ].map(s => (
               <div key={s.label} className="bg-slate-100 rounded-lg p-3">
                 <div className="text-lg font-bold text-slate-900">{s.value}</div>
@@ -343,24 +295,98 @@ export default function Settings({
               </div>
             ))}
           </div>
-
           <div className="flex gap-3">
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            >
+            <button onClick={handleSync} disabled={syncing} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
               <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
               {syncing ? 'Syncing...' : 'Sync Now'}
             </button>
-            <button
-              onClick={() => {
-                if (confirm('Clear all synced Uplisting data? Your manually entered data will remain.')) {
-                  onClearData();
-                }
-              }}
-              className="flex items-center gap-2 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            >
+            <button onClick={() => { if (confirm('Clear all synced Uplisting data?')) onClearData(); }} className="flex items-center gap-2 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+              <Trash2 size={14} /> Clear Synced Data
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Hostaway */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Key size={18} className="text-violet-600" />
+          <h2 className="font-semibold text-slate-900">Hostaway</h2>
+          {hostawayAccountId && hostawaySecret && (
+            <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">Connected</span>
+          )}
+        </div>
+        <p className="text-sm text-slate-500">Connect a Hostaway account to sync its properties and reservations into the CRM alongside Uplisting.</p>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Account ID</label>
+            <input
+              type="text"
+              value={hostawayIdInput}
+              onChange={e => { setHostawayIdInput(e.target.value); setHostawayStatus('idle'); }}
+              placeholder="e.g. 12345"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">API Secret</label>
+            <div className="relative">
+              <input
+                type={showHostawaySecret ? 'text' : 'password'}
+                value={hostawaySecretInput}
+                onChange={e => { setHostawaySecretInput(e.target.value); setHostawayStatus('idle'); }}
+                placeholder="Paste your Hostaway API secret..."
+                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+              <button type="button" onClick={() => setShowHostawaySecret(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                {showHostawaySecret ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400">In Hostaway: Settings → API &amp; Integrations. Copy your Account ID and API Secret.</p>
+        {hostawayStatus !== 'idle' && (
+          <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${
+            hostawayStatus === 'success' ? 'bg-emerald-50 text-emerald-700' :
+            hostawayStatus === 'error'   ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
+          }`}>
+            {hostawayStatus === 'testing' && <Loader size={14} className="animate-spin" />}
+            {hostawayStatus === 'success' && <CheckCircle size={14} />}
+            {hostawayStatus === 'error'   && <XCircle size={14} />}
+            {hostawayStatus === 'testing' ? 'Testing connection...' : hostawayStatusMsg}
+          </div>
+        )}
+        <button
+          onClick={handleTestHostaway}
+          disabled={!hostawayIdInput.trim() || !hostawaySecretInput.trim() || hostawayStatus === 'testing'}
+          className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+        >
+          {hostawayAccountId && hostawayIdInput === hostawayAccountId ? 'Re-test Connection' : 'Save & Test Connection'}
+        </button>
+      </div>
+
+      {/* Hostaway Sync */}
+      {hostawayAccountId && hostawaySecret && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+          <h2 className="font-semibold text-slate-900">Hostaway Data Sync</h2>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Properties synced', value: hostawayProperties.length },
+              { label: 'Reservations synced', value: hostawayReservations.length },
+              { label: 'Last synced', value: fmtSync(hostawayLastSync) },
+            ].map(s => (
+              <div key={s.label} className="bg-slate-100 rounded-lg p-3">
+                <div className="text-lg font-bold text-slate-900">{s.value}</div>
+                <div className="text-xs text-slate-500">{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-3">
+            <button onClick={handleHostawaySync} disabled={hostawaySyncing} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+              <RefreshCw size={14} className={hostawaySyncing ? 'animate-spin' : ''} />
+              {hostawaySyncing ? 'Syncing...' : 'Sync Now'}
+            </button>
+            <button onClick={() => { if (confirm('Clear all synced Hostaway data?')) onClearHostawayData(); }} className="flex items-center gap-2 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
               <Trash2 size={14} /> Clear Synced Data
             </button>
           </div>

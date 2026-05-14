@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import LoginPage from './components/LoginPage';
 import Layout from './components/Layout';
@@ -35,6 +35,7 @@ import {
   fetchTodos, upsertTodo, deleteTodo,
 } from './services/projects';
 import { fetchProperties, fetchReservations, estimateMonthlyRevenue, estimateOccupancy } from './services/uplisting';
+import { fetchHostawayProperties, fetchHostawayReservations } from './services/hostaway';
 import { fetchSettings, saveSettings } from './services/settings';
 import type { Lead, Owner, Property, OutreachEntry, View, Project, Todo } from './types';
 import type { UplistingProperty, UplistingReservation } from './services/uplisting';
@@ -66,18 +67,29 @@ export default function App() {
   const [calendarUrl, setCalendarUrl] = useState('');
   const [slackToken, setSlackToken] = useState('');
   const [slackChannels, setSlackChannels] = useState<SlackChannel[]>([]);
+  const [hostawayAccountId, setHostawayAccountId] = useState('');
+  const [hostawaySecret, setHostawaySecret] = useState('');
 
-  // Uplisting cached data stays in localStorage (device-local cache)
+  // Uplisting cached data (device-local)
   const [uplistingProperties, setUplistingProperties] = useLocalStorage<UplistingProperty[]>('ej_uplisting_properties', []);
   const [uplistingReservations, setUplistingReservations] = useLocalStorage<UplistingReservation[]>('ej_uplisting_reservations', []);
   const [lastSync, setLastSync] = useLocalStorage<string | null>('ej_uplisting_last_sync', null);
+
+  // Hostaway cached data (device-local)
+  const [hostawayProperties, setHostawayProperties] = useLocalStorage<UplistingProperty[]>('ej_hostaway_properties', []);
+  const [hostawayReservations, setHostawayReservations] = useLocalStorage<UplistingReservation[]>('ej_hostaway_reservations', []);
+  const [hostawayLastSync, setHostawayLastSync] = useLocalStorage<string | null>('ej_hostaway_last_sync', null);
+
+  // Merged arrays — passed to all views so both PMS sources appear everywhere
+  const allProperties  = useMemo(() => [...uplistingProperties,  ...hostawayProperties],  [uplistingProperties,  hostawayProperties]);
+  const allReservations = useMemo(() => [...uplistingReservations, ...hostawayReservations], [uplistingReservations, hostawayReservations]);
 
   const [view, setView] = useState<View>('dashboard');
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [modal, setModal] = useState<Modal>(null);
 
-  // ── Load all data from Supabase on mount ───────────────────────────────────
+  // Load all data from Supabase on mount
   useEffect(() => {
     async function loadAll() {
       try {
@@ -98,6 +110,8 @@ export default function App() {
         setCalendarUrl(settings.calendarUrl);
         setSlackToken(settings.slackToken);
         setSlackChannels(settings.slackChannels);
+        setHostawayAccountId(settings.hostawayAccountId);
+        setHostawaySecret(settings.hostawaySecret);
       } catch (e) {
         setError('Failed to load data. Check your Supabase connection.');
         console.error(e);
@@ -118,7 +132,7 @@ export default function App() {
     }
   };
 
-  // ── Uplisting sync ─────────────────────────────────────────────────────────
+  // Uplisting sync
   const handleSync = useCallback(async () => {
     if (!uplistingApiKey) return;
     try {
@@ -132,22 +146,20 @@ export default function App() {
         fetchReservations(
           uplistingApiKey,
           thirtyDaysAgo.toISOString().slice(0, 10),
-          ninetyDaysAhead.toISOString().slice(0, 10)
+          ninetyDaysAhead.toISOString().slice(0, 10),
         ),
       ]);
       setUplistingProperties(props);
       setUplistingReservations(res);
       setLastSync(new Date().toISOString());
 
-      // Update revenue & occupancy for Uplisting-linked CRM properties
       setOwners(prev => prev.map(owner => {
         const updatedProps = owner.properties.map(prop => {
-          // IDs from Uplisting imports: p_<timestamp>_<uplistingId>
           const parts = prop.id.split('_');
           const uplistingId = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
           if (!uplistingId) return prop;
           const monthlyRevenue = estimateMonthlyRevenue(uplistingId, res);
-          const occupancyRate = estimateOccupancy(uplistingId, res);
+          const occupancyRate  = estimateOccupancy(uplistingId, res);
           if (monthlyRevenue === prop.monthlyRevenue && occupancyRate === prop.occupancyRate) return prop;
           const updated = { ...prop, monthlyRevenue, occupancyRate };
           upsertProperty(owner.id, updated);
@@ -156,7 +168,7 @@ export default function App() {
         return { ...owner, properties: updatedProps };
       }));
     } catch {
-      // Sync errors shown in Settings
+      // sync errors shown in Settings
     }
   }, [uplistingApiKey, setUplistingProperties, setUplistingReservations, setLastSync]);
 
@@ -165,28 +177,60 @@ export default function App() {
     handleSync();
   }, [uplistingApiKey, handleSync]);
 
-  // ── Settings handlers (save to Supabase + update local state) ─────────────
+  // Hostaway sync
+  const handleHostawaySync = useCallback(async () => {
+    if (!hostawayAccountId || !hostawaySecret) return;
+    try {
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+      const ninetyDaysAhead = new Date(today);
+      ninetyDaysAhead.setDate(today.getDate() + 90);
+      const [props, resv] = await Promise.all([
+        fetchHostawayProperties(hostawayAccountId, hostawaySecret),
+        fetchHostawayReservations(
+          hostawayAccountId, hostawaySecret,
+          thirtyDaysAgo.toISOString().slice(0, 10),
+          ninetyDaysAhead.toISOString().slice(0, 10),
+        ),
+      ]);
+      setHostawayProperties(props);
+      setHostawayReservations(resv);
+      setHostawayLastSync(new Date().toISOString());
+    } catch {
+      // sync errors shown in Settings
+    }
+  }, [hostawayAccountId, hostawaySecret, setHostawayProperties, setHostawayReservations, setHostawayLastSync]);
+
+  useEffect(() => {
+    if (!hostawayAccountId || !hostawaySecret) return;
+    handleHostawaySync();
+  }, [hostawayAccountId, hostawaySecret, handleHostawaySync]);
+
+  // Settings save handlers
   const handleSaveApiKey = async (key: string) => {
     setUplistingApiKey(key);
     await saveSettings({ uplistingApiKey: key });
   };
-
   const handleSaveCalendarUrl = async (url: string) => {
     setCalendarUrl(url);
     await saveSettings({ calendarUrl: url });
   };
-
   const handleSaveSlackToken = async (token: string) => {
     setSlackToken(token);
     await saveSettings({ slackToken: token });
   };
-
   const handleSaveSlackChannels = async (channels: SlackChannel[]) => {
     setSlackChannels(channels);
     await saveSettings({ slackChannels: channels });
   };
+  const handleSaveHostawayCredentials = async (id: string, secret: string) => {
+    setHostawayAccountId(id);
+    setHostawaySecret(secret);
+    await saveSettings({ hostawayAccountId: id, hostawaySecret: secret });
+  };
 
-  // ── Auto-create client from won lead ──────────────────────────────────────
+  // Auto-create client from won lead
   const autoCreateClientFromLead = async (lead: Lead, currentOwners: Owner[]) => {
     const alreadyExists = currentOwners.some(
       o => o.email && lead.email && o.email.toLowerCase() === lead.email.toLowerCase()
@@ -206,7 +250,7 @@ export default function App() {
     setOwners(prev => [newOwner, ...prev]);
   };
 
-  // ── Lead CRUD ──────────────────────────────────────────────────────────────
+  // Lead CRUD
   const saveLeadHandler = async (lead: Lead) => {
     const prevLead = leads.find(l => l.id === lead.id);
     await upsertLead(lead);
@@ -220,7 +264,7 @@ export default function App() {
     setModal(null);
   };
 
-  // ── Owner CRUD ─────────────────────────────────────────────────────────────
+  // Owner CRUD
   const saveOwnerHandler = async (owner: Owner) => {
     await upsertOwner(owner);
     setOwners(prev => {
@@ -229,13 +273,12 @@ export default function App() {
     });
     setModal(null);
   };
-
   const updateOwnerHandler = async (owner: Owner) => {
     await upsertOwner(owner);
     setOwners(prev => prev.map(o => o.id === owner.id ? owner : o));
   };
 
-  // ── Property CRUD ──────────────────────────────────────────────────────────
+  // Property CRUD
   const savePropertyHandler = async (ownerId: string, property: Property) => {
     await upsertProperty(ownerId, property);
     setOwners(prev => prev.map(o => {
@@ -250,14 +293,12 @@ export default function App() {
     }));
     setModal(null);
   };
-
   const deletePropertyHandler = async (ownerId: string, propertyId: string) => {
     await deleteProperty(propertyId);
     setOwners(prev => prev.map(o =>
       o.id === ownerId ? { ...o, properties: o.properties.filter(p => p.id !== propertyId) } : o
     ));
   };
-
   const importPropertiesHandler = async (ownerId: string, properties: Property[]) => {
     for (const property of properties) {
       await upsertProperty(ownerId, property);
@@ -270,7 +311,7 @@ export default function App() {
     }));
   };
 
-  // ── Outreach CRUD ──────────────────────────────────────────────────────────
+  // Outreach CRUD
   const saveOutreachHandler = async (entry: OutreachEntry) => {
     await upsertOutreach(entry);
     setOutreach(prev => {
@@ -280,39 +321,35 @@ export default function App() {
     setModal(null);
   };
 
-  // ── Project CRUD ──────────────────────────────────────────────────────────
+  // Project CRUD
   const handleAddProject = async (project: Project) => {
     await upsertProject(project);
     setProjects(prev => [project, ...prev]);
   };
-
   const handleUpdateProject = async (project: Project) => {
     await upsertProject(project);
     setProjects(prev => prev.map(p => p.id === project.id ? project : p));
   };
-
   const handleDeleteProject = async (id: string) => {
     await deleteProjectDb(id);
     setProjects(prev => prev.filter(p => p.id !== id));
   };
 
-  // ── Todo CRUD ─────────────────────────────────────────────────────────────
+  // Todo CRUD
   const handleAddTodo = async (todo: Todo) => {
     await upsertTodo(todo);
     setTodos(prev => [todo, ...prev]);
   };
-
   const handleToggleTodo = async (todo: Todo) => {
     await upsertTodo(todo);
     setTodos(prev => prev.map(t => t.id === todo.id ? todo : t));
   };
-
   const handleDeleteTodo = async (id: string) => {
     await deleteTodo(id);
     setTodos(prev => prev.filter(t => t.id !== id));
   };
 
-  // ── Bulk handlers ──────────────────────────────────────────────────────────
+  // Bulk handlers
   const updateLeadsHandler = async (updated: Lead[]) => {
     const deleted = leads.filter(l => !updated.find(u => u.id === l.id));
     const changed = updated.filter(l => {
@@ -332,7 +369,6 @@ export default function App() {
       await autoCreateClientFromLead(lead, owners);
     }
   };
-
   const updateOutreachHandler = async (updated: OutreachEntry[]) => {
     const removed = outreach.filter(e => !updated.find(u => u.id === e.id));
     setOutreach(updated);
@@ -349,9 +385,7 @@ export default function App() {
       </div>
     );
   }
-
   if (!isSignedIn) return <LoginPage />;
-
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-100">
@@ -359,7 +393,6 @@ export default function App() {
       </div>
     );
   }
-
   if (error) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-100">
@@ -386,8 +419,8 @@ export default function App() {
           onAddTodo={handleAddTodo}
           onOpenLeadDetail={(lead) => setModal({ type: 'lead-detail', lead })}
           uplistingConnected={uplistingConnected}
-          uplistingProperties={uplistingProperties}
-          uplistingReservations={uplistingReservations}
+          uplistingProperties={allProperties}
+          uplistingReservations={allReservations}
           lastSync={lastSync}
           onSync={handleSync}
         />
@@ -421,8 +454,10 @@ export default function App() {
           onDeleteProperty={(propertyId) => deletePropertyHandler(selectedOwner.id, propertyId)}
           onAddOutreach={() => setModal({ type: 'outreach', preselectedOwnerId: selectedOwner.id })}
           uplistingApiKey={uplistingApiKey || undefined}
+          hostawayAccountId={hostawayAccountId || undefined}
+          hostawaySecret={hostawaySecret || undefined}
           onImportProperties={(properties) => importPropertiesHandler(selectedOwner.id, properties)}
-          reservations={uplistingReservations}
+          reservations={allReservations}
           onUpdateOwner={updateOwnerHandler}
           onNavigateToProperty={(ownerId, propertyId) => navigate('property-portal', `${ownerId}::${propertyId}`)}
         />
@@ -455,6 +490,18 @@ export default function App() {
             setUplistingReservations([]);
             setLastSync(null);
           }}
+          hostawayAccountId={hostawayAccountId}
+          hostawaySecret={hostawaySecret}
+          onSaveHostawayCredentials={handleSaveHostawayCredentials}
+          hostawayLastSync={hostawayLastSync}
+          hostawayProperties={hostawayProperties}
+          hostawayReservations={hostawayReservations}
+          onHostawaySync={handleHostawaySync}
+          onClearHostawayData={() => {
+            setHostawayProperties([]);
+            setHostawayReservations([]);
+            setHostawayLastSync(null);
+          }}
         />
       )}
 
@@ -484,33 +531,33 @@ export default function App() {
       {view === 'newsletter' && <Newsletter leads={leads} owners={owners} />}
 
       {view === 'guest-marketing' && (
-        <GuestMarketing reservations={uplistingReservations} apiKey={uplistingApiKey || undefined} />
+        <GuestMarketing reservations={allReservations} apiKey={uplistingApiKey || undefined} />
       )}
 
       {view === 'quarterly-reports' && (
-        <QuarterlyReports owners={owners} reservations={uplistingReservations} />
+        <QuarterlyReports owners={owners} reservations={allReservations} />
       )}
 
       {view === 'properties' && (
         <Properties
           owners={owners}
-          reservations={uplistingReservations}
-          uplistingProperties={uplistingProperties}
+          reservations={allReservations}
+          uplistingProperties={allProperties}
           onViewProperty={(ownerId, propertyId) => navigate('property-portal', `${ownerId}::${propertyId}`)}
         />
       )}
 
       {(() => {
         if (view !== 'property-portal') return null;
-        const portalOwner = owners.find(o => o.id === selectedOwnerId);
+        const portalOwner    = owners.find(o => o.id === selectedOwnerId);
         const portalProperty = portalOwner?.properties.find(p => p.id === selectedPropertyId);
         if (!portalOwner || !portalProperty) return null;
         return (
           <PropertyPortal
             owner={portalOwner}
             property={portalProperty}
-            reservations={uplistingReservations}
-            uplistingProperties={uplistingProperties}
+            reservations={allReservations}
+            uplistingProperties={allProperties}
             onBack={() => navigate('properties')}
             onViewOwner={(ownerId) => navigate('owner-detail', ownerId)}
             onUpdateProperty={(p) => savePropertyHandler(portalOwner.id, p)}
@@ -519,7 +566,7 @@ export default function App() {
       })()}
 
       {view === 'calendar-intel' && (
-        <CalendarIntelligence owners={owners} reservations={uplistingReservations} />
+        <CalendarIntelligence owners={owners} reservations={allReservations} />
       )}
 
       {modal?.type === 'lead-detail' && (
