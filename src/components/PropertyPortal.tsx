@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   ArrowLeft, Home, ChevronLeft, ChevronRight, Phone, Mail,
-  Users, Bed, Calendar, ExternalLink, Edit2, Check, X,
+  Users, Bed, Calendar, ExternalLink, Edit2, Check, X, Wrench,
 } from 'lucide-react';
 import type { Owner, Property, PropertyStatus } from '../types';
 import type { UplistingReservation, UplistingProperty } from '../services/uplisting';
@@ -37,7 +37,7 @@ function toDateStr(d: Date): string {
 
 function getDayInfo(dateStr: string, reservations: UplistingReservation[]) {
   for (const r of reservations) {
-    if (r.status === 'cancelled') continue; // cancelled don't occupy calendar nights
+    if (r.status === 'cancelled') continue;
     const cin = r.check_in.slice(0, 10);
     const cout = r.check_out.slice(0, 10);
     if (dateStr === cin) return { type: 'checkin' as const, reservation: r };
@@ -63,6 +63,20 @@ function fmt(n: number) {
 function fmtDate(str: string) {
   const [y, m, d] = str.slice(0, 10).split('-');
   return `${MONTHS[parseInt(m) - 1].slice(0, 3)} ${parseInt(d)}, ${y}`;
+}
+
+function vendorEmoji(role: string): string {
+  switch (role) {
+    case 'Cleaner':      return '🧹';
+    case 'Handyman':     return '🔧';
+    case 'Plumber':      return '🪠';
+    case 'Electrician':  return '⚡';
+    case 'Landscaper':   return '🌿';
+    case 'HVAC':         return '❄️';
+    case 'Pool Service': return '🏊';
+    case 'Pest Control': return '🐛';
+    default:             return '🔨';
+  }
 }
 
 type DetailForm = {
@@ -168,6 +182,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
   }
 
   const fullAddress = [property.address, property.city, property.state].filter(Boolean).join(', ');
+  const vendors = owner.vendors ?? [];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -577,6 +592,36 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
           </button>
         </div>
       </div>
+
+      {/* Vendors */}
+      {vendors.length > 0 && (
+        <div className="mt-5 bg-white border border-slate-200 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Wrench size={14} className="text-slate-400" />
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Vendors</p>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {vendors.map(v => (
+              <div key={v.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 text-base">
+                  {vendorEmoji(v.role)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-slate-900">{v.name}</p>
+                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{v.role}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-3 mt-1">
+                    {v.phone && <a href={`tel:${v.phone}`} className="text-xs text-teal-600 hover:underline">{v.phone}</a>}
+                    {v.email && <a href={`mailto:${v.email}`} className="text-xs text-teal-600 hover:underline">{v.email}</a>}
+                  </div>
+                  {v.notes && <p className="text-xs text-slate-500 mt-1">{v.notes}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
