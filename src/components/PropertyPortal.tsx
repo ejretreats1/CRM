@@ -153,22 +153,19 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
 
   const liveRevenue = useMemo(() => {
     if (!propReservations.length) return null;
-    const n = new Date();
-    const monthStart = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`;
-    const nextM = new Date(n.getFullYear(), n.getMonth() + 1, 1);
-    const monthEnd = `${nextM.getFullYear()}-${String(nextM.getMonth() + 1).padStart(2, '0')}-01`;
-    const thisMonth = propReservations
-      .filter(r => r.status !== 'cancelled' && r.check_in.slice(0, 10) >= monthStart && r.check_in.slice(0, 10) < monthEnd)
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const rolling = propReservations
+      .filter(r => r.status !== 'cancelled' && r.check_in.slice(0, 10) >= cutoff)
       .reduce((s, r) => s + (r.total_price ?? 0), 0);
     const activeCount = propReservations.filter(r => r.status !== 'cancelled').length;
     const occupied = propReservations
-      .filter(r => r.status !== 'cancelled')
+      .filter(r => r.status !== 'cancelled' && r.check_in.slice(0, 10) >= cutoff)
       .reduce((s, r) => {
         const ci = new Date(r.check_in); const co = new Date(r.check_out);
         return s + Math.max(0, Math.round((co.getTime() - ci.getTime()) / 86400000));
       }, 0);
     const occRate = Math.min(100, Math.round((occupied / 30) * 100));
-    return { thisMonth, activeCount, occRate };
+    return { rolling, activeCount, occRate };
   }, [propReservations]);
 
   // Calendar grid
@@ -277,8 +274,8 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
       {liveRevenue && (
         <div className="grid grid-cols-3 gap-4 mb-5">
           <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <p className="text-xs text-slate-400 mb-1">This Month Revenue</p>
-            <p className="text-xl font-bold text-teal-700">{fmt(liveRevenue.thisMonth)}</p>
+            <p className="text-xs text-slate-400 mb-1">Revenue (30d)</p>
+            <p className="text-xl font-bold text-teal-700">{fmt(liveRevenue.rolling)}</p>
             <p className="text-xs text-teal-500 mt-0.5">live from PMS</p>
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-4">
