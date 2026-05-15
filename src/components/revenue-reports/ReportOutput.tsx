@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Printer, Save, ArrowLeft, TrendingUp, TrendingDown, Minus, Sparkles, Loader, ChevronDown, ChevronUp, Mail, X, Send } from 'lucide-react';
+import { Printer, Save, ArrowLeft, TrendingUp, TrendingDown, Minus, Sparkles, Loader, ChevronDown, ChevronUp, Mail, X, Send, Copy, Check as CheckIcon, Phone } from 'lucide-react';
 
 interface StrExtracted {
   projectedAnnualRevenue: number | null;
@@ -70,6 +70,7 @@ interface ReportOutputProps {
   onRefine?: (message: string) => Promise<void>;
   recipientEmail?: string;
   recipientName?: string;
+  recipientPhone?: string;
   onMarkContacted?: () => void;
 }
 
@@ -86,7 +87,7 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
 
   const sectionTitle = (t: string) => `<div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">${t}</div>`;
 
-  // ── Metrics ──────────────────────────────────────────────────────────────
+  // ── Metrics ────────────────────────────────────────────────────────────────────────
   let metricsHtml = '';
   if (!isMtr && data.extracted) {
     metricsHtml = `
@@ -109,7 +110,7 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
       </tr></table>`;
   }
 
-  // ── Owner vs Market ───────────────────────────────────────────────────────
+  // ── Owner vs Market ────────────────────────────────────────────────────────────────────────────
   const ownerHtml = ownerActualRevenue != null ? (() => {
     const projected = !isMtr ? data.extracted?.projectedAnnualRevenue : data.mtrProjected?.annualRevenue;
     if (!projected) return '';
@@ -128,7 +129,7 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
       </div></div>`;
   })() : '';
 
-  // ── Score + Summary ───────────────────────────────────────────────────────
+  // ── Score + Summary ────────────────────────────────────────────────────────────────────────────
   const scoreHtml = `
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;"><tr>
       <td width="28%" valign="top" style="padding-right:12px;">
@@ -145,7 +146,7 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
       </td>
     </tr></table>`;
 
-  // ── Key Findings ──────────────────────────────────────────────────────────
+  // ── Key Findings ──────────────────────────────────────────────────────────────────────────
   const findingsHtml = data.keyFindings.length > 0 ? `
     <div style="margin-bottom:24px;">
       ${sectionTitle('Key Findings')}
@@ -156,7 +157,7 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
         </tr></table>`).join('')}
     </div>` : '';
 
-  // ── Seasonality Chart (HTML table bars — email-safe, no SVG) ─────────────
+  // ── Seasonality Chart (HTML table bars — email-safe, no SVG) ───────────────────────
   const seasonalityHtml = data.monthlySeasonality && data.monthlySeasonality.length > 0 ? (() => {
     const months = data.monthlySeasonality!;
     const maxRev = Math.max(...months.map(m => m.revenue ?? 0), 1);
@@ -181,7 +182,7 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
       </div></div>`;
   })() : '';
 
-  // ── Comparable Properties ─────────────────────────────────────────────────
+  // ── Comparable Properties ─────────────────────────────────────────────────────────────────────────
   const comparablesHtml = data.comparables && data.comparables.length > 0 ? `
     <div style="margin-bottom:24px;">
       ${sectionTitle('Comparable Properties')}
@@ -203,21 +204,21 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
       <div style="font-size:9px;color:#94a3b8;text-align:right;margin-top:4px;">Source: AirDNA comparable listings</div>
     </div>` : '';
 
-  // ── Market Opportunity ────────────────────────────────────────────────────
+  // ── Market Opportunity ──────────────────────────────────────────────────────────────────────────
   const marketHtml = data.marketOpportunity ? `
     <div style="margin-bottom:24px;">
       ${sectionTitle('Market Opportunity')}
       <div style="font-size:12px;color:#475569;line-height:1.6;">${data.marketOpportunity}</div>
     </div>` : '';
 
-  // ── Performance Gap ───────────────────────────────────────────────────────
+  // ── Performance Gap ────────────────────────────────────────────────────────────────────────────
   const gapHtml = data.performanceGap ? `
     <div style="margin-bottom:24px;">
       ${sectionTitle('Performance Gap Analysis')}
       <div style="font-size:12px;color:#475569;line-height:1.6;">${data.performanceGap}</div>
     </div>` : '';
 
-  // ── MTR Details ───────────────────────────────────────────────────────────
+  // ── MTR Details ─────────────────────────────────────────────────────────────────────────────
   const mtrDetailsHtml = isMtr && data.mtrProjected ? `
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;"><tr>
       <td width="50%" style="padding-right:6px;">
@@ -235,7 +236,7 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
       </td>` : ''}
     </tr></table>` : '';
 
-  // ── STR vs MTR ────────────────────────────────────────────────────────────
+  // ── STR vs MTR ───────────────────────────────────────────────────────────────────────────────
   const strVsMtrHtml = isMtr && data.strVsMtr ? `
     <div style="margin-bottom:24px;background:#f8fafc;border-radius:8px;padding:16px;">
       ${sectionTitle('STR vs. MTR Comparison')}
@@ -256,7 +257,7 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
       <div style="font-size:12px;color:#475569;line-height:1.5;">${data.strVsMtr.reasoning}</div>
     </div>` : '';
 
-  // ── Recommendations ───────────────────────────────────────────────────────
+  // ── Recommendations ────────────────────────────────────────────────────────────────────────────
   const recsHtml = data.recommendations.length > 0 ? `
     <div style="margin-bottom:24px;">
       ${sectionTitle('Recommendations')}
@@ -267,7 +268,7 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
         </div>`).join('')}
     </div>` : '';
 
-  // ── Revenue Projections ───────────────────────────────────────────────────
+  // ── Revenue Projections ──────────────────────────────────────────────────────────────────────────
   const projectionsHtml = !isMtr && data.revenueProjections ? `
     <div style="margin-bottom:24px;">
       ${sectionTitle('Revenue Projections with E&amp;J Retreats')}
@@ -378,6 +379,7 @@ function SeasonalityChart({ months, isMtr }: { months: MonthData[]; isMtr: boole
       <h3 className="text-sm font-bold text-slate-900 mb-3">Monthly Seasonality</h3>
       <div className="bg-slate-100 rounded-xl p-4 overflow-x-auto">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 320 }}>
+          {/* Y-axis gridlines + labels */}
           {[0, 0.25, 0.5, 0.75, 1].map(pct => {
             const y = PAD_TOP + chartH * (1 - pct);
             const val = Math.round(maxRevenue * pct);
@@ -390,6 +392,7 @@ function SeasonalityChart({ months, isMtr }: { months: MonthData[]; isMtr: boole
               </g>
             );
           })}
+          {/* Bars */}
           {months.map((m, i) => {
             const x = PAD_LEFT + i * (chartW / months.length) + 2;
             const rev = m.revenue ?? 0;
@@ -477,7 +480,7 @@ const RECOMMENDATION_LABELS: Record<string, { label: string; color: string }> = 
   hybrid: { label: '⚖️ Hybrid STR + MTR Strategy',    color: 'bg-amber-50 text-amber-800 border-amber-200' },
 };
 
-export default function ReportOutput({ address, data, ownerActualRevenue, onSave, onBack, saving, saved, onRefine, recipientEmail, recipientName, onMarkContacted }: ReportOutputProps) {
+export default function ReportOutput({ address, data, ownerActualRevenue, onSave, onBack, saving, saved, onRefine, recipientEmail, recipientName, recipientPhone, onMarkContacted }: ReportOutputProps) {
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const isMtr = data.reportType === 'mtr';
   const [refineOpen, setRefineOpen] = useState(false);
@@ -493,8 +496,20 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [copiedMsg, setCopiedMsg] = useState(false);
+  const [copiedPhone, setCopiedPhone] = useState(false);
 
   const previewHtml = buildReportEmail(address, data, ownerActualRevenue, personalNote);
+
+  const firstName = (emailName || recipientName || '').trim().split(' ')[0] || 'there';
+  const followUpText = `Hey ${firstName}! This is Ethan, I just ran your revenue analysis for your property at ${address} and emailed it to you at ${emailTo || recipientEmail || ''}. Please check your promotions/spam folder as they sometimes end up there. Please message us here if you have any questions about management or your property in general. 😊`;
+
+  function copyText(text: string, setCopied: (v: boolean) => void) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   function openEmailModal() {
     const name = recipientName ?? '';
@@ -578,13 +593,45 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
 
             {emailSent ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
-                  <Send size={22} className="text-emerald-600" />
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="flex flex-col items-center text-center pt-2 pb-1">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-2">
+                    <Send size={20} className="text-emerald-600" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-900">Report Sent!</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Delivered to {emailTo}</p>
                 </div>
-                <p className="text-sm font-bold text-slate-900">Sent!</p>
-                <p className="text-xs text-slate-500 mt-1">Delivered to {emailTo}</p>
-                <button onClick={() => setEmailOpen(false)} className="mt-5 text-sm bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors">Close</button>
+
+                {/* Phone number */}
+                {recipientPhone && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Phone Number</p>
+                    <div className="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-2">
+                      <Phone size={13} className="text-slate-400 flex-shrink-0" />
+                      <span className="text-sm text-slate-800 flex-1 font-medium">{recipientPhone}</span>
+                      <button
+                        onClick={() => copyText(recipientPhone, setCopiedPhone)}
+                        className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium transition-colors flex-shrink-0"
+                      >
+                        {copiedPhone ? <><CheckIcon size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Follow-up text message */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Follow-up Text</p>
+                  <div className="bg-slate-100 rounded-lg p-3 text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{followUpText}</div>
+                  <button
+                    onClick={() => copyText(followUpText, setCopiedMsg)}
+                    className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs border border-slate-200 text-slate-600 hover:bg-slate-100 py-2 rounded-lg transition-colors font-medium"
+                  >
+                    {copiedMsg ? <><CheckIcon size={12} /> Copied!</> : <><Copy size={12} /> Copy Text Message</>}
+                  </button>
+                </div>
+
+                <button onClick={() => setEmailOpen(false)} className="w-full text-sm bg-teal-600 text-white py-2.5 rounded-lg hover:bg-teal-700 transition-colors font-medium">Close</button>
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -707,7 +754,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
         <div className="p-8 space-y-8">
 
-          {/* STR stat cards */}
+          {/* ── STR stat cards ── */}
           {!isMtr && data.extracted && (
             <div className="print-section grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
@@ -725,13 +772,13 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
           )}
 
-          {/* MTR stat cards */}
+          {/* ── MTR stat cards ── */}
           {isMtr && data.mtrProjected && (
             <div className="print-section grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
-                { label: 'Est. Monthly Rent',    value: fmt(data.mtrProjected.monthlyRent),      sub: 'MTR projection', accent: true },
-                { label: 'Est. Annual Revenue',  value: fmt(data.mtrProjected.annualRevenue),    sub: 'MTR projection', accent: true },
-                { label: 'Expected Occupancy',   value: fmtPct(data.mtrProjected.occupancyRate), sub: 'MTR typical',    accent: false },
+                { label: 'Est. Monthly Rent',    value: fmt(data.mtrProjected.monthlyRent),   sub: 'MTR projection', accent: true },
+                { label: 'Est. Annual Revenue',  value: fmt(data.mtrProjected.annualRevenue),  sub: 'MTR projection', accent: true },
+                { label: 'Expected Occupancy',   value: fmtPct(data.mtrProjected.occupancyRate), sub: 'MTR typical',  accent: false },
               ].map(s => (
                 <div key={s.label} className={`rounded-xl p-4 ${s.accent ? 'bg-indigo-50' : 'bg-slate-100'}`}>
                   <div className={`text-xl font-black ${s.accent ? 'text-indigo-700' : 'text-slate-700'}`}>{s.value}</div>
@@ -742,7 +789,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
           )}
 
-          {/* MTR details */}
+          {/* ── MTR details ── */}
           {isMtr && data.mtrProjected && (
             <div className="print-section grid sm:grid-cols-2 gap-4">
               <div className="bg-slate-100 rounded-xl p-4">
@@ -763,7 +810,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
           )}
 
-          {/* STR vs MTR comparison */}
+          {/* ── STR vs MTR comparison ── */}
           {isMtr && data.strVsMtr && (
             <div className="print-section bg-slate-100 rounded-xl p-5 space-y-4">
               <h3 className="text-sm font-bold text-slate-900">STR vs. MTR Comparison</h3>
@@ -786,7 +833,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
           )}
 
-          {/* Owner comparison (STR) */}
+          {/* ── Owner comparison (STR) ── */}
           {!isMtr && ownerActualRevenue != null && data.extracted && (
             <div className="print-section bg-slate-100 rounded-xl p-5 space-y-3">
               <h3 className="text-sm font-bold text-slate-900">Owner vs. Market</h3>
@@ -807,7 +854,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
           )}
 
-          {/* Owner comparison (MTR) */}
+          {/* ── Owner comparison (MTR) ── */}
           {isMtr && ownerActualRevenue != null && data.mtrProjected && (
             <div className="print-section bg-slate-100 rounded-xl p-5 space-y-3">
               <h3 className="text-sm font-bold text-slate-900">Owner vs. MTR Projection</h3>
@@ -957,7 +1004,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           )}
 
           <div className="border-t border-slate-200 pt-4 text-xs text-slate-400 text-center print:hidden">
-            Generated by E&amp;J Retreats · Powered by AirDNA market data · Projections are estimates and not guaranteed.
+            Generated by E&J Retreats · Powered by AirDNA market data · Projections are estimates and not guaranteed.
           </div>
         </div>
       </div>
