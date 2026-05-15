@@ -27,9 +27,11 @@ const SOURCES: { value: LeadSource; label: string }[] = [
   { value: 'other',             label: 'Other' },
 ];
 
+// Convert ISO string → datetime-local input value (YYYY-MM-DDTHH:MM)
 function toDatetimeLocal(iso?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
+  // Adjust for local timezone
   const offset = d.getTimezoneOffset() * 60000;
   return new Date(d.getTime() - offset).toISOString().slice(0, 16);
 }
@@ -42,6 +44,7 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
     propertyAddress: lead?.propertyAddress ?? '',
     propertyType: lead?.propertyType ?? '',
     bedrooms: lead?.bedrooms ?? 2,
+    bathrooms: lead?.bathrooms ?? 1,
     estimatedRevenue: lead?.estimatedRevenue ?? 0,
     stage: (lead?.stage ?? 'new') as LeadStage,
     source: (lead?.source ?? 'referral') as LeadSource,
@@ -63,6 +66,7 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
       propertyAddress: form.propertyAddress,
       propertyType: form.propertyType,
       bedrooms: form.bedrooms,
+      bathrooms: form.bathrooms,
       estimatedRevenue: form.estimatedRevenue,
       stage: form.stage,
       source: form.source,
@@ -106,7 +110,7 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
             placeholder="123 Mountain View Dr, Gatlinburg, TN" />
         </div>
 
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-4 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Property Type</label>
             <input value={form.propertyType} onChange={e => set('propertyType', e.target.value)}
@@ -116,6 +120,11 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Bedrooms</label>
             <input type="number" min={1} max={20} value={form.bedrooms} onChange={e => set('bedrooms', Number(e.target.value))}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Bathrooms</label>
+            <input type="number" min={1} max={20} step={0.5} value={form.bathrooms} onChange={e => set('bathrooms', Number(e.target.value))}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
           <div>
@@ -143,6 +152,7 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
           </div>
         </div>
 
+        {/* Scheduled Call */}
         <div className="space-y-2">
           <label className="block text-xs font-medium text-slate-600">
             Schedule Call

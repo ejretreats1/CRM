@@ -12,6 +12,7 @@ export interface Lead {
   propertyAddress: string;
   propertyType: string;
   bedrooms: number;
+  bathrooms?: number;
   estimatedRevenue: number;
   stage: LeadStage;
   notes: string;

@@ -123,7 +123,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
         </div>
 
         {/* Property details */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           <div className="bg-slate-100 rounded-lg p-3 text-center">
             <Home size={14} className="text-slate-400 mx-auto mb-1" />
             <p className="text-xs text-slate-500">Type</p>
@@ -132,6 +132,10 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
           <div className="bg-slate-100 rounded-lg p-3 text-center">
             <p className="text-xs text-slate-500 mb-1">Bedrooms</p>
             <p className="text-2xl font-bold text-slate-900">{lead.bedrooms}</p>
+          </div>
+          <div className="bg-slate-100 rounded-lg p-3 text-center">
+            <p className="text-xs text-slate-500 mb-1">Bathrooms</p>
+            <p className="text-2xl font-bold text-slate-900">{lead.bathrooms ?? '—'}</p>
           </div>
           <div className="bg-slate-100 rounded-lg p-3 text-center">
             <DollarSign size={14} className="text-teal-600 mx-auto mb-1" />
