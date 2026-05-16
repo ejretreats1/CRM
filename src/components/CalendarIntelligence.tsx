@@ -3,10 +3,12 @@ import { Brain, AlertTriangle, Info, CheckCircle, ChevronDown, ChevronUp, Refres
 import type { Owner } from '../types';
 import type { UplistingReservation } from '../services/uplisting';
 import { analyzeProperty, urgencyLevel, type PropertyInsight } from '../services/calendarAnalysis';
+import { fetchPLListings, type PLListing } from '../services/pricelabs';
 
 interface Props {
   owners: Owner[];
   reservations: UplistingReservation[];
+  priceLabsApiKey?: string;
 }
 
 interface AIRecommendation {
@@ -103,13 +105,19 @@ function PropertyCard({
 
       {/* Occupancy bars always visible */}
       <div className="px-5 pb-3 flex gap-4">
-        <OccupancyBar value={insight.occupancy30d} label="30d" />
+        <OccupancyBar value={insight.occupancy30d} label={insight.unitCount > 1 ? `30d avg (${insight.unitCount}u)` : '30d'} />
         <OccupancyBar value={insight.occupancy60d} label="60d" />
         <OccupancyBar value={insight.occupancy90d} label="90d" />
         {insight.adr > 0 && (
           <div className="flex-shrink-0 text-right">
             <p className="text-xs text-slate-400">ADR</p>
             <p className="text-sm font-bold text-teal-700">${insight.adr}</p>
+          </div>
+        )}
+        {insight.revPar30d > 0 && (
+          <div className="flex-shrink-0 text-right">
+            <p className="text-xs text-slate-400">RevPAR</p>
+            <p className="text-sm font-bold text-violet-700">${insight.revPar30d}</p>
           </div>
         )}
       </div>
@@ -145,6 +153,13 @@ function PropertyCard({
               <p className="text-xs text-slate-400">Rev next 30d</p>
               <p className="text-lg font-bold text-teal-700">${insight.totalRevenue30d.toLocaleString()}</p>
             </div>
+            {insight.revPar30d > 0 && (
+              <div className="bg-violet-50 rounded-lg p-3 border border-violet-100">
+                <p className="text-xs text-violet-500">RevPAR (30d)</p>
+                <p className="text-lg font-bold text-violet-700">${insight.revPar30d}</p>
+                <p className="text-xs text-slate-400">rev / avail night</p>
+              </div>
+            )}
             {insight.adr > 0 && (
               <div className="bg-slate-50 rounded-lg p-3">
                 <p className="text-xs text-slate-400">Avg nightly rate</p>
@@ -195,12 +210,13 @@ function PropertyCard({
   );
 }
 
-export default function CalendarIntelligence({ owners, reservations }: Props) {
+export default function CalendarIntelligence({ owners, reservations, priceLabsApiKey }: Props) {
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterUrgency, setFilterUrgency] = useState<string>('all');
+  const [plListings, setPlListings] = useState<PLListing[]>([]);
 
   const insights = useMemo(() => {
     const result: PropertyInsight[] = [];
@@ -228,11 +244,15 @@ export default function CalendarIntelligence({ owners, reservations }: Props) {
   async function runAnalysis() {
     setLoading(true);
     setError('');
+    let pl = plListings;
+    if (priceLabsApiKey && pl.length === 0) {
+      try { pl = await fetchPLListings(priceLabsApiKey); setPlListings(pl); } catch { /* non-fatal */ }
+    }
     try {
       const res = await fetch('/api/send-newsletter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'calendar-intel', insights }),
+        body: JSON.stringify({ action: 'calendar-intel', insights, plListings: pl.length ? pl : undefined }),
       });
       if (!res.ok) throw new Error(await res.text());
       const data: AIResult = await res.json();

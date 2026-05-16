@@ -27,6 +27,9 @@ interface SettingsProps {
   hostawayReservations: UplistingReservation[];
   onHostawaySync: () => Promise<void>;
   onClearHostawayData: () => void;
+  // PriceLabs
+  priceLabsApiKey: string;
+  onSavePriceLabsApiKey: (key: string) => Promise<void>;
   // Other
   calendarUrl: string;
   onSaveCalendarUrl: (url: string) => void;
@@ -46,6 +49,7 @@ export default function Settings({
   lastSync, properties, reservations, onSync, onClearData,
   hostawayAccountId, hostawaySecret, onSaveHostawayCredentials,
   hostawayLastSync, hostawayProperties, hostawayReservations, onHostawaySync, onClearHostawayData,
+  priceLabsApiKey, onSavePriceLabsApiKey,
 }: SettingsProps) {
   // Uplisting
   const [inputKey, setInputKey] = useState(apiKey);
@@ -61,6 +65,20 @@ export default function Settings({
   const [hostawayStatus, setHostawayStatus] = useState<Status>('idle');
   const [hostawayStatusMsg, setHostawayStatusMsg] = useState('');
   const [hostawaySyncing, setHostawaySyncing] = useState(false);
+
+  // PriceLabs
+  const [plKeyInput, setPlKeyInput] = useState(priceLabsApiKey);
+  const [showPlKey, setShowPlKey] = useState(false);
+  const [plSaved, setPlSaved] = useState(false);
+  const [plSaving, setPlSaving] = useState(false);
+
+  const handleSavePriceLabs = async () => {
+    setPlSaving(true);
+    await onSavePriceLabsApiKey(plKeyInput.trim());
+    setPlSaving(false);
+    setPlSaved(true);
+    setTimeout(() => setPlSaved(false), 2000);
+  };
 
   // Calendar
   const [icalInput, setIcalInput] = useState(calendarUrl);
@@ -392,6 +410,44 @@ export default function Settings({
           </div>
         </div>
       )}
+
+      {/* PriceLabs */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Key size={18} className="text-teal-600" />
+          <h2 className="font-semibold text-slate-900">PriceLabs</h2>
+          {priceLabsApiKey && <span className="ml-auto flex items-center gap-1 text-xs text-emerald-600"><CheckCircle size={12} /> Connected</span>}
+        </div>
+        <p className="text-sm text-slate-500">Connect PriceLabs to pull portfolio performance data and get AI-powered pricing recommendations in Revenue Intelligence.</p>
+        <div className="relative">
+          <input
+            type={showPlKey ? 'text' : 'password'}
+            value={plKeyInput}
+            onChange={e => setPlKeyInput(e.target.value)}
+            placeholder="Paste your PriceLabs API key…"
+            className="w-full pr-10 pl-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
+          />
+          <button onClick={() => setShowPlKey(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            {showPlKey ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSavePriceLabs}
+            disabled={!plKeyInput.trim() || plSaving}
+            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            {plSaving ? <Loader size={14} className="animate-spin" /> : <Save size={14} />}
+            {plSaved ? 'Saved!' : 'Save'}
+          </button>
+          {priceLabsApiKey && (
+            <button onClick={() => { setPlKeyInput(''); onSavePriceLabsApiKey(''); }} className="text-sm text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-2 rounded-lg transition-colors">
+              Remove
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-slate-400">In PriceLabs: Account → API → Generate API Key.</p>
+      </div>
 
       {/* Help */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700 space-y-1">

@@ -146,7 +146,7 @@ export default function Dashboard({
   useEffect(() => {
     if (!calendarUrl) { setCalEvents([]); return; }
     setCalLoading(true);
-    fetch(`/api/calendar-proxy?url=${encodeURIComponent(calendarUrl)}`)
+    fetch(`/api/uplisting-proxy?service=calendar&url=${encodeURIComponent(calendarUrl)}`)
       .then(r => r.json())
       .then(d => setCalEvents(d.events ?? []))
       .catch(() => {})

@@ -1,17 +1,20 @@
 import { useState } from 'react';
+import { X } from 'lucide-react';
 import Modal from './Modal';
 import type { Property, PropertyStatus } from '../../types';
+import type { UplistingProperty } from '../../services/uplisting';
 
 interface PropertyModalProps {
   property?: Property;
   onSave: (property: Property) => void;
   onClose: () => void;
+  uplistingProperties?: UplistingProperty[];
 }
 
 const PROPERTY_TYPES = ['Cabin', 'Lake House', 'Mountain Cabin', 'Condo', 'Cottage', 'Farmhouse', 'Beach House', 'Tiny Home', 'Other'];
 const PLATFORMS = ['Airbnb', 'VRBO', 'Booking.com', 'Direct', 'Other'];
 
-export default function PropertyModal({ property, onSave, onClose }: PropertyModalProps) {
+export default function PropertyModal({ property, onSave, onClose, uplistingProperties = [] }: PropertyModalProps) {
   const [form, setForm] = useState({
     address: property?.address ?? '',
     city: property?.city ?? '',
@@ -25,7 +28,9 @@ export default function PropertyModal({ property, onSave, onClose }: PropertyMod
     platforms: property?.platforms ?? [] as string[],
     status: (property?.status ?? 'onboarding') as PropertyStatus,
     photoUrl: property?.photoUrl ?? '',
+    linkedListingIds: property?.linkedListingIds ?? [] as string[],
   });
+  const [linkedInput, setLinkedInput] = useState('');
 
   const set = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
     setForm(f => ({ ...f, [k]: v }));
@@ -39,12 +44,34 @@ export default function PropertyModal({ property, onSave, onClose }: PropertyMod
     }));
   };
 
+  // Extract the primary uplisting ID from property.id (format: p_{ownerId}_{uplistingId})
+  const primaryUplistingId = (() => {
+    if (!property?.id) return null;
+    const parts = property.id.split('_');
+    return parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
+  })();
+
+  // Listings available to link: exclude primary and already-linked ones
+  const availableToLink = uplistingProperties.filter(
+    p => p.id !== primaryUplistingId && !form.linkedListingIds.includes(p.id)
+  );
+
+  const addLinkedId = (id: string) => {
+    if (!id || form.linkedListingIds.includes(id)) return;
+    setForm(f => ({ ...f, linkedListingIds: [...f.linkedListingIds, id] }));
+    setLinkedInput('');
+  };
+
+  const removeLinkedId = (id: string) =>
+    setForm(f => ({ ...f, linkedListingIds: f.linkedListingIds.filter(x => x !== id) }));
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
       id: property?.id ?? `p_${Date.now()}`,
       ...form,
       photoUrl: form.photoUrl.trim() || undefined,
+      linkedListingIds: form.linkedListingIds.length ? form.linkedListingIds : undefined,
       joinedAt: property?.joinedAt ?? new Date().toISOString(),
     });
   };
@@ -141,6 +168,60 @@ export default function PropertyModal({ property, onSave, onClose }: PropertyMod
               className="mt-2 w-full h-28 object-cover rounded-lg border border-slate-200"
               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
+          )}
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Linked Listings <span className="text-slate-400 font-normal">(optional — for multi-unit properties)</span></label>
+          <p className="text-xs text-slate-400 mb-2">Link other units at this property to aggregate occupancy &amp; revenue together in Revenue Intelligence.</p>
+
+          {/* Picker from synced listings */}
+          {availableToLink.length > 0 ? (
+            <select
+              value=""
+              onChange={e => { if (e.target.value) addLinkedId(e.target.value); }}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 mb-2"
+            >
+              <option value="">— Select a listing to link —</option>
+              {availableToLink.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.nickname || p.name} ({p.id})
+                </option>
+              ))}
+            </select>
+          ) : uplistingProperties.length === 0 ? (
+            /* Fallback manual input when no sync data */
+            <div className="flex gap-2 mb-2">
+              <input
+                value={linkedInput}
+                onChange={e => setLinkedInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLinkedId(linkedInput.trim()); } }}
+                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                placeholder="Paste Uplisting listing ID…"
+              />
+              <button type="button" onClick={() => addLinkedId(linkedInput.trim())}
+                className="px-3 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 transition-colors">
+                Add
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 mb-2 italic">All synced listings are already linked.</p>
+          )}
+
+          {form.linkedListingIds.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {form.linkedListingIds.map(id => {
+                const listing = uplistingProperties.find(p => p.id === id);
+                return (
+                  <span key={id} className="flex items-center gap-1 px-2 py-1 bg-teal-50 border border-teal-200 rounded-md text-xs text-teal-800">
+                    {listing ? (listing.nickname || listing.name) : id}
+                    <button type="button" onClick={() => removeLinkedId(id)} className="text-teal-500 hover:text-rose-500 transition-colors ml-0.5">
+                      <X size={11} />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
           )}
         </div>
 

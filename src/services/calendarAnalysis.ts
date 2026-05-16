@@ -13,12 +13,14 @@ export interface PropertyInsight {
   propertyId: string;
   propertyAddress: string;
   uplistingId: string | null;
+  unitCount: number;
   // Occupancy
   occupancy30d: number;
   occupancy60d: number;
   occupancy90d: number;
   // Revenue
   adr: number;
+  revPar30d: number;
   totalRevenue30d: number;
   // Gaps in next 90 days
   gaps: GapInfo[];
@@ -96,12 +98,25 @@ function findGaps(reservations: UplistingReservation[], today: string, horizonEn
   return gaps;
 }
 
+function avgOccupancy(ids: string[], allReservations: UplistingReservation[], windowStart: string, windowEnd: string, windowDays: number): number {
+  if (ids.length === 0) return 0;
+  const totalBooked = ids.reduce((sum, id) => {
+    const unitRes = allReservations.filter(r => r.listing_id === id);
+    return sum + bookedNightsInWindow(unitRes, windowStart, windowEnd);
+  }, 0);
+  return Math.round((totalBooked / (ids.length * windowDays)) * 100);
+}
+
 export function analyzeProperty(
   owner: Owner,
   property: Property,
   allReservations: UplistingReservation[],
 ): PropertyInsight {
-  const uplistingId = getUplistingId(property.id);
+  const primaryId = getUplistingId(property.id);
+  const linkedIds = property.linkedListingIds ?? [];
+  const allIds = [primaryId, ...linkedIds].filter(Boolean) as string[];
+  const isMultiUnit = allIds.length > 1;
+
   const now = new Date();
   const today = toDateStr(now);
   const d30 = addDays(today, 30);
@@ -110,21 +125,20 @@ export function analyzeProperty(
   const d14ago = addDays(today, -14);
   const d90ago = addDays(today, -90);
 
-  const propRes = uplistingId
-    ? allReservations.filter(r => r.listing_id === uplistingId)
+  // All reservations across every listing in this group
+  const propRes = allIds.length > 0
+    ? allReservations.filter(r => allIds.includes(r.listing_id))
     : [];
 
-  const booked30 = bookedNightsInWindow(propRes, today, d30);
-  const booked60 = bookedNightsInWindow(propRes, today, d60);
-  const booked90 = bookedNightsInWindow(propRes, today, d90);
-
-  const occupancy30d = Math.round((booked30 / 30) * 100);
-  const occupancy60d = Math.round((booked60 / 60) * 100);
-  const occupancy90d = Math.round((booked90 / 90) * 100);
+  // Occupancy: average occupied nights per unit so multi-unit reads correctly
+  const occupancy30d = isMultiUnit ? avgOccupancy(allIds, allReservations, today, d30, 30) : Math.round((bookedNightsInWindow(propRes, today, d30) / 30) * 100);
+  const occupancy60d = isMultiUnit ? avgOccupancy(allIds, allReservations, today, d60, 60) : Math.round((bookedNightsInWindow(propRes, today, d60) / 60) * 100);
+  const occupancy90d = isMultiUnit ? avgOccupancy(allIds, allReservations, today, d90, 90) : Math.round((bookedNightsInWindow(propRes, today, d90) / 90) * 100);
 
   const past90 = propRes.filter(
     r => r.status !== 'cancelled' && r.check_out.slice(0, 10) >= d90ago && r.check_in.slice(0, 10) <= today,
   );
+  // Revenue: sum across all listings in group
   const totalRevenue30d = propRes
     .filter(r => r.status !== 'cancelled' && r.check_in.slice(0, 10) >= today && r.check_in.slice(0, 10) <= d30)
     .reduce((s, r) => s + r.total_price, 0);
@@ -134,7 +148,9 @@ export function analyzeProperty(
     ? Math.round(adrSource.reduce((s, r) => s + r.total_price / (r.nights ?? 1), 0) / adrSource.length)
     : 0;
 
-  const gaps = findGaps(propRes, today, d90);
+  // Gaps: use primary listing only (the "entire property" view)
+  const primaryRes = primaryId ? allReservations.filter(r => r.listing_id === primaryId) : propRes;
+  const gaps = findGaps(primaryRes, today, d90);
   const largestGap = gaps.length ? gaps.reduce((a, b) => (b.nights > a.nights ? b : a)) : null;
   const urgentGap = gaps.find(g => daysBetween(today, g.start) <= 14) ?? null;
 
@@ -160,16 +176,20 @@ export function analyzeProperty(
     if (r.channel) channelMix[r.channel] = (channelMix[r.channel] ?? 0) + 1;
   }
 
+  const revPar30d = Math.round(totalRevenue30d / 30);
+
   return {
     ownerId: owner.id,
     ownerName: owner.name,
     propertyId: property.id,
     propertyAddress: [property.address, property.city, property.state].filter(Boolean).join(', '),
-    uplistingId,
+    uplistingId: primaryId,
+    unitCount: allIds.length || 1,
     occupancy30d,
     occupancy60d,
     occupancy90d,
     adr,
+    revPar30d,
     totalRevenue30d,
     gaps,
     largestGap,

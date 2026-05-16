@@ -69,6 +69,7 @@ export default function App() {
   const [slackChannels, setSlackChannels] = useState<SlackChannel[]>([]);
   const [hostawayAccountId, setHostawayAccountId] = useState('');
   const [hostawaySecret, setHostawaySecret] = useState('');
+  const [priceLabsApiKey, setPriceLabsApiKey] = useState('');
 
   // Uplisting cached data (device-local)
   const [uplistingProperties, setUplistingProperties] = useLocalStorage<UplistingProperty[]>('ej_uplisting_properties', []);
@@ -112,6 +113,7 @@ export default function App() {
         setSlackChannels(settings.slackChannels);
         setHostawayAccountId(settings.hostawayAccountId);
         setHostawaySecret(settings.hostawaySecret);
+        setPriceLabsApiKey(settings.priceLabsApiKey);
       } catch (e) {
         setError('Failed to load data. Check your Supabase connection.');
         console.error(e);
@@ -228,6 +230,10 @@ export default function App() {
     setHostawayAccountId(id);
     setHostawaySecret(secret);
     await saveSettings({ hostawayAccountId: id, hostawaySecret: secret });
+  };
+  const handleSavePriceLabsApiKey = async (key: string) => {
+    setPriceLabsApiKey(key);
+    await saveSettings({ priceLabsApiKey: key });
   };
 
   // Auto-create client from won lead
@@ -508,6 +514,8 @@ export default function App() {
             setHostawayReservations([]);
             setHostawayLastSync(null);
           }}
+          priceLabsApiKey={priceLabsApiKey}
+          onSavePriceLabsApiKey={handleSavePriceLabsApiKey}
         />
       )}
 
@@ -572,7 +580,7 @@ export default function App() {
       })()}
 
       {view === 'calendar-intel' && (
-        <CalendarIntelligence owners={owners} reservations={allReservations} />
+        <CalendarIntelligence owners={owners} reservations={allReservations} priceLabsApiKey={priceLabsApiKey || undefined} />
       )}
 
       {modal?.type === 'lead-detail' && (
@@ -593,6 +601,7 @@ export default function App() {
           property={modal.property}
           onSave={(property) => savePropertyHandler(modal.ownerId, property)}
           onClose={() => setModal(null)}
+          uplistingProperties={allProperties}
         />
       )}
       {modal?.type === 'outreach' && (
