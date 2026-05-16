@@ -10,17 +10,13 @@ export interface AppSettings {
   slackChannels: SlackChannel[];
   calendarUrl: string;
   uplistingApiKey: string;
-  hostawayAccountId: string;
-  hostawaySecret: string;
 }
 
 const DEFAULTS: AppSettings = {
-  slackToken:        '',
-  slackChannels:     [],
-  calendarUrl:       '',
-  uplistingApiKey:   '',
-  hostawayAccountId: '',
-  hostawaySecret:    '',
+  slackToken: '',
+  slackChannels: [],
+  calendarUrl: '',
+  uplistingApiKey: '',
 };
 
 export async function fetchSettings(): Promise<AppSettings> {
@@ -33,23 +29,19 @@ export async function fetchSettings(): Promise<AppSettings> {
   if (!data) return DEFAULTS;
 
   return {
-    slackToken:        data.slack_token        ?? '',
-    slackChannels:     data.slack_channels     ?? [],
-    calendarUrl:       data.calendar_url       ?? '',
-    uplistingApiKey:   data.uplisting_api_key  ?? '',
-    hostawayAccountId: data.hostaway_account_id ?? '',
-    hostawaySecret:    data.hostaway_secret     ?? '',
+    slackToken: data.slack_token ?? '',
+    slackChannels: data.slack_channels ?? [],
+    calendarUrl: data.calendar_url ?? '',
+    uplistingApiKey: data.uplisting_api_key ?? '',
   };
 }
 
 export async function saveSettings(patch: Partial<AppSettings>): Promise<void> {
   const row: Record<string, unknown> = { id: 'default', updated_at: new Date().toISOString() };
-  if (patch.slackToken        !== undefined) row.slack_token         = patch.slackToken;
-  if (patch.slackChannels     !== undefined) row.slack_channels      = patch.slackChannels;
-  if (patch.calendarUrl       !== undefined) row.calendar_url        = patch.calendarUrl;
-  if (patch.uplistingApiKey   !== undefined) row.uplisting_api_key   = patch.uplistingApiKey;
-  if (patch.hostawayAccountId !== undefined) row.hostaway_account_id = patch.hostawayAccountId;
-  if (patch.hostawaySecret    !== undefined) row.hostaway_secret     = patch.hostawaySecret;
+  if (patch.slackToken !== undefined)     row.slack_token       = patch.slackToken;
+  if (patch.slackChannels !== undefined)  row.slack_channels    = patch.slackChannels;
+  if (patch.calendarUrl !== undefined)    row.calendar_url      = patch.calendarUrl;
+  if (patch.uplistingApiKey !== undefined) row.uplisting_api_key = patch.uplistingApiKey;
 
   await supabase.from('settings').upsert(row);
 }
