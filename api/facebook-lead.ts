@@ -25,7 +25,7 @@ async function insertLead(fields: {
     estimated_revenue: 0,
     stage: 'new',
     notes: '',
-    source: 'facebook_outreach',
+    source: 'Meta ads',
     created_at: now,
     updated_at: now,
   });
