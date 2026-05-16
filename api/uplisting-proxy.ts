@@ -1,51 +1,125 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const BASE_URL = 'https://connect.uplisting.io';
+// ── Calendar helpers ──────────────────────────────────────────────────────────
+
+function parseICalDate(val: string): string | null {
+  const dateOnly = val.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (dateOnly) return `${dateOnly[1]}-${dateOnly[2]}-${dateOnly[3]}`;
+  const dateTime = val.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/);
+  if (dateTime) return `${dateTime[1]}-${dateTime[2]}-${dateTime[3]}T${dateTime[4]}:${dateTime[5]}:${dateTime[6]}${dateTime[7] === 'Z' ? 'Z' : ''}`;
+  return null;
+}
+
+function extractField(block: string, key: string): string {
+  const regex = new RegExp(`^${key}(?:;[^:\\r\\n]*)?:([^\\r\\n]*)`, 'm');
+  const match = block.match(regex);
+  return match ? match[1].trim() : '';
+}
+
+function unescapeICal(s: string): string {
+  return s.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
+}
+
+function extractMeetLink(block: string, description: string): string {
+  const confField = extractField(block, 'X-GOOGLE-CONFERENCE');
+  if (confField && confField.startsWith('https://')) return confField;
+  const confUri = block.match(/^CONFERENCE(?:;[^:\r\n]*)?:(\S+)/m);
+  if (confUri && confUri[1].startsWith('https://')) return confUri[1];
+  const meetInDesc = description.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i);
+  if (meetInDesc) return meetInDesc[0];
+  return '';
+}
+
+function parseICal(ical: string) {
+  const unfolded = ical.replace(/\r?\n[ \t]/g, '');
+  const events: Array<{ id: string; title: string; start: string; end: string; description: string; location: string; meetLink?: string }> = [];
+  const blocks = unfolded.split(/BEGIN:VEVENT/);
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i];
+    const startRaw = extractField(block, 'DTSTART');
+    const endRaw = extractField(block, 'DTEND');
+    const start = parseICalDate(startRaw);
+    if (!start) continue;
+    const description = unescapeICal(extractField(block, 'DESCRIPTION'));
+    const meetLink = extractMeetLink(block, description);
+    events.push({
+      id: extractField(block, 'UID') || `evt-${i}`,
+      title: unescapeICal(extractField(block, 'SUMMARY') || 'Untitled'),
+      start,
+      end: parseICalDate(endRaw) || start,
+      description,
+      location: unescapeICal(extractField(block, 'LOCATION')),
+      ...(meetLink ? { meetLink } : {}),
+    });
+  }
+  return events;
+}
+
+// ── Main handler ──────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
+  const { service } = req.query;
+
+  // ── Calendar proxy ──────────────────────────────────────────────────────────
+  if (service === 'calendar') {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') return res.status(400).json({ error: 'Missing url param' });
+    try {
+      const icalRes = await fetch(url, { headers: { 'User-Agent': 'EJRetreatsCRM/1.0' } });
+      if (!icalRes.ok) return res.status(502).json({ error: `Failed to fetch calendar: ${icalRes.status}` });
+      const text = await icalRes.text();
+      const events = parseICal(text);
+      const nowStr = new Date().toISOString().slice(0, 10);
+      const upcoming = events.filter(e => e.start >= nowStr).sort((a, b) => a.start.localeCompare(b.start)).slice(0, 10);
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.status(200).json({ events: upcoming });
+    } catch (err) {
+      return res.status(500).json({ error: err instanceof Error ? err.message : 'Unknown error' });
+    }
+  }
+
+  // ── PriceLabs proxy ─────────────────────────────────────────────────────────
+  if (service === 'pricelabs') {
+    const { path } = req.query;
+    const apiKey = req.headers['x-pricelabs-key'];
+    if (!apiKey || typeof apiKey !== 'string') return res.status(401).json({ error: 'Missing PriceLabs API key' });
+    if (!path || typeof path !== 'string') return res.status(400).json({ error: 'Missing path' });
+
+    const upstream = await fetch(`https://api.pricelabs.co/v1/${path}?api_key=${encodeURIComponent(apiKey)}`, {
+      headers: { Accept: 'application/json' },
+    });
+    const body = await upstream.text();
+    return res.status(upstream.status).setHeader('Content-Type', 'application/json').send(body);
+  }
+
+  // ── Uplisting / Hostaway proxy (default) ────────────────────────────────────
   const { path, ...queryParams } = req.query;
   const apiKey = req.headers['x-uplisting-key'];
 
-  if (!apiKey || typeof apiKey !== 'string') {
-    return res.status(401).json({ error: 'Missing API key' });
-  }
-  if (!path || typeof path !== 'string') {
-    return res.status(400).json({ error: 'Missing path' });
-  }
+  if (!apiKey || typeof apiKey !== 'string') return res.status(401).json({ error: 'Missing API key' });
+  if (!path || typeof path !== 'string') return res.status(400).json({ error: 'Missing path' });
 
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(queryParams)) {
     if (typeof v === 'string') params.set(k, v);
   }
   const query = params.toString() ? `?${params}` : '';
-
   const cleanKey = apiKey.trim();
   const encoded = Buffer.from(cleanKey).toString('base64');
-  const authHeader = `Basic ${encoded}`;
-  const upstreamUrl = `${BASE_URL}/${path}${query}`;
+  const upstreamUrl = `https://connect.uplisting.io/${path}${query}`;
 
   const upstream = await fetch(upstreamUrl, {
-    headers: {
-      Authorization: authHeader,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
+    headers: { Authorization: `Basic ${encoded}`, 'Content-Type': 'application/json', Accept: 'application/json' },
   });
-
   const body = await upstream.text();
 
   if (!upstream.ok) {
     return res.status(upstream.status).json({
       error: body,
-      _debug: {
-        url: upstreamUrl,
-        keyLength: cleanKey.length,
-        authHeaderPreview: `Basic base64(${cleanKey.slice(0, 6)}...)`,
-      },
+      _debug: { url: upstreamUrl, keyLength: cleanKey.length, authHeaderPreview: `Basic base64(${cleanKey.slice(0, 6)}...)` },
     });
   }
-
-  res.status(upstream.status).setHeader('Content-Type', 'application/json').send(body);
+  return res.status(upstream.status).setHeader('Content-Type', 'application/json').send(body);
 }
