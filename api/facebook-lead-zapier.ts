@@ -14,12 +14,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body = req.body ?? {};
 
-  const firstName = body.first_name ?? body.name?.split(' ')[0] ?? '';
-  const lastName  = body.last_name  ?? body.name?.split(' ').slice(1).join(' ') ?? '';
-  const name      = body.full_name ?? body.name ?? `${firstName} ${lastName}`.trim() || 'Unknown';
-  const email     = body.email ?? body.email_address ?? '';
-  const phone     = body.phone ?? body.phone_number ?? '';
-  const address   = body.street_address ?? body.property_address ?? body.address ?? '';
+  const name    = body.full_name ?? body.name ?? `${body.first_name ?? ''} ${body.last_name ?? ''}`.trim() || 'Unknown';
+  const email   = body.email ?? body.email_address ?? '';
+  const phone   = body.phone ?? body.phone_number ?? '';
+  const street  = body.street_address ?? body.property_address ?? body.address ?? '';
+  const state   = body.state ?? '';
+  const address = [street, state].filter(Boolean).join(', ');
 
   const now = new Date().toISOString();
 
