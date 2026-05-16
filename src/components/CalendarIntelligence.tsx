@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Brain, AlertTriangle, Info, CheckCircle, ChevronDown, ChevronUp, RefreshCw, Zap } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Brain, AlertTriangle, Info, CheckCircle, ChevronDown, ChevronUp, RefreshCw, Zap, Clock } from 'lucide-react';
 import type { Owner } from '../types';
 import type { UplistingReservation } from '../services/uplisting';
 import { analyzeProperty, urgencyLevel, type PropertyInsight } from '../services/calendarAnalysis';
@@ -210,13 +210,41 @@ function PropertyCard({
   );
 }
 
+const STORAGE_KEY = 'revenue_intel_saved';
+
+function loadSaved(): { result: AIResult; savedAt: string } | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function formatAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 export default function CalendarIntelligence({ owners, reservations, priceLabsApiKey }: Props) {
-  const [aiResult, setAiResult] = useState<AIResult | null>(null);
+  const saved = loadSaved();
+  const [aiResult, setAiResult] = useState<AIResult | null>(saved?.result ?? null);
+  const [savedAt, setSavedAt] = useState<string | null>(saved?.savedAt ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterUrgency, setFilterUrgency] = useState<string>('all');
   const [plListings, setPlListings] = useState<PLListing[]>([]);
+  const [, forceRefresh] = useState(0);
+
+  // Tick every minute so "X ago" label stays current
+  useEffect(() => {
+    const id = setInterval(() => forceRefresh(n => n + 1), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   const insights = useMemo(() => {
     const result: PropertyInsight[] = [];
@@ -256,7 +284,10 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
       });
       if (!res.ok) throw new Error(await res.text());
       const data: AIResult = await res.json();
+      const ts = new Date().toISOString();
       setAiResult(data);
+      setSavedAt(ts);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ result: data, savedAt: ts })); } catch { /* quota */ }
       // Auto-expand first critical/warning property
       const first = insights.find(i => {
         const ai = data.analyses.find(a => a.propertyId === i.propertyId);
@@ -283,6 +314,11 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
           <p className="text-sm text-slate-500">
             {insights.length} properties · {reservations.length} total reservations in data
           </p>
+          {savedAt && (
+            <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+              <Clock size={11} /> Last analysis: {formatAgo(savedAt)}
+            </p>
+          )}
         </div>
         <button
           onClick={runAnalysis}
