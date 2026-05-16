@@ -26,7 +26,7 @@ import OutreachModal from './components/modals/OutreachModal';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import {
   fetchLeads, upsertLead, deleteLead,
-  fetchOwners, upsertOwner,
+  fetchOwners, upsertOwner, deleteOwner,
   upsertProperty, deleteProperty,
   fetchOutreach, upsertOutreach, deleteOutreach,
 } from './services/db';
@@ -277,6 +277,11 @@ export default function App() {
     await upsertOwner(owner);
     setOwners(prev => prev.map(o => o.id === owner.id ? owner : o));
   };
+  const deleteOwnerHandler = async (id: string) => {
+    if (!confirm('Delete this client? This cannot be undone.')) return;
+    await deleteOwner(id);
+    setOwners(prev => prev.filter(o => o.id !== id));
+  };
 
   // Property CRUD
   const savePropertyHandler = async (ownerId: string, property: Property) => {
@@ -440,6 +445,7 @@ export default function App() {
           owners={owners}
           onViewOwner={(id) => navigate('owner-detail', id)}
           onOpenOwnerModal={(owner) => setModal({ type: 'owner', owner })}
+          onDeleteOwner={deleteOwnerHandler}
         />
       )}
 

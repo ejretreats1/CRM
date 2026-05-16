@@ -543,6 +543,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
       if (result.error) throw new Error(result.error);
       setEmailSent(true);
       onMarkContacted?.();
+      if (!saved) onSave();
     } catch (err) {
       setEmailError(err instanceof Error ? err.message : 'Failed to send email. Please try again.');
     } finally {
