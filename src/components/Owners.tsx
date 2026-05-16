@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Plus, Search, Home, TrendingUp, Phone, Mail, ChevronRight } from 'lucide-react';
+import { Plus, Search, Home, TrendingUp, Phone, Mail, ChevronRight, Trash2 } from 'lucide-react';
 import type { Owner } from '../types';
 
 interface OwnersProps {
   owners: Owner[];
   onViewOwner: (id: string) => void;
   onOpenOwnerModal: (owner?: Owner) => void;
+  onDeleteOwner: (id: string) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -14,7 +15,7 @@ const STATUS_COLORS: Record<string, string> = {
   inactive: 'bg-slate-100 text-slate-500',
 };
 
-export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: OwnersProps) {
+export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDeleteOwner }: OwnersProps) {
   const [search, setSearch] = useState('');
 
   const filtered = owners.filter(o =>
@@ -90,7 +91,7 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: Owners
             <div
               key={owner.id}
               onClick={() => onViewOwner(owner.id)}
-              className="bg-white rounded-xl border border-slate-200 p-5 cursor-pointer hover:shadow-md hover:border-teal-200 transition-all"
+              className="bg-white rounded-xl border border-slate-200 p-5 cursor-pointer hover:shadow-md hover:border-teal-200 transition-all group"
             >
               <div className="flex items-start gap-4">
                 {/* Avatar */}
@@ -102,7 +103,15 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal }: Owners
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="font-semibold text-slate-900">{owner.name}</h3>
-                    <ChevronRight size={16} className="text-slate-300 flex-shrink-0" />
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={e => { e.stopPropagation(); onDeleteOwner(owner.id); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-500"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      <ChevronRight size={16} className="text-slate-300" />
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-3 mt-1">
                     {owner.email && (
