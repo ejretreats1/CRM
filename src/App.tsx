@@ -601,6 +601,7 @@ export default function App() {
           property={modal.property}
           onSave={(property) => savePropertyHandler(modal.ownerId, property)}
           onClose={() => setModal(null)}
+          uplistingProperties={allProperties}
         />
       )}
       {modal?.type === 'outreach' && (
