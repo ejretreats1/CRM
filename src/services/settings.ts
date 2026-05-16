@@ -12,6 +12,7 @@ export interface AppSettings {
   uplistingApiKey: string;
   hostawayAccountId: string;
   hostawaySecret: string;
+  priceLabsApiKey: string;
 }
 
 const DEFAULTS: AppSettings = {
@@ -21,6 +22,7 @@ const DEFAULTS: AppSettings = {
   uplistingApiKey: '',
   hostawayAccountId: '',
   hostawaySecret: '',
+  priceLabsApiKey: '',
 };
 
 export async function fetchSettings(): Promise<AppSettings> {
@@ -39,6 +41,7 @@ export async function fetchSettings(): Promise<AppSettings> {
     uplistingApiKey: data.uplisting_api_key ?? '',
     hostawayAccountId: data.hostaway_account_id ?? '',
     hostawaySecret: data.hostaway_secret ?? '',
+    priceLabsApiKey: data.pricelabs_api_key ?? '',
   };
 }
 
@@ -50,6 +53,7 @@ export async function saveSettings(patch: Partial<AppSettings>): Promise<void> {
   if (patch.uplistingApiKey !== undefined)   row.uplisting_api_key    = patch.uplistingApiKey;
   if (patch.hostawayAccountId !== undefined) row.hostaway_account_id  = patch.hostawayAccountId;
   if (patch.hostawaySecret !== undefined)    row.hostaway_secret      = patch.hostawaySecret;
+  if (patch.priceLabsApiKey !== undefined)   row.pricelabs_api_key    = patch.priceLabsApiKey;
 
   await supabase.from('settings').upsert(row);
 }
