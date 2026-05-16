@@ -38,6 +38,7 @@ export interface Property {
   status: PropertyStatus;
   joinedAt: string;
   photoUrl?: string;
+  linkedListingIds?: string[];
 }
 
 export interface Vendor {

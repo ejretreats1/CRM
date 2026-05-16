@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { X, Plus } from 'lucide-react';
 import Modal from './Modal';
 import type { Property, PropertyStatus } from '../../types';
 
@@ -25,7 +26,9 @@ export default function PropertyModal({ property, onSave, onClose }: PropertyMod
     platforms: property?.platforms ?? [] as string[],
     status: (property?.status ?? 'onboarding') as PropertyStatus,
     photoUrl: property?.photoUrl ?? '',
+    linkedListingIds: property?.linkedListingIds ?? [] as string[],
   });
+  const [linkedInput, setLinkedInput] = useState('');
 
   const set = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
     setForm(f => ({ ...f, [k]: v }));
@@ -39,12 +42,23 @@ export default function PropertyModal({ property, onSave, onClose }: PropertyMod
     }));
   };
 
+  const addLinkedId = () => {
+    const id = linkedInput.trim();
+    if (!id || form.linkedListingIds.includes(id)) return;
+    setForm(f => ({ ...f, linkedListingIds: [...f.linkedListingIds, id] }));
+    setLinkedInput('');
+  };
+
+  const removeLinkedId = (id: string) =>
+    setForm(f => ({ ...f, linkedListingIds: f.linkedListingIds.filter(x => x !== id) }));
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
       id: property?.id ?? `p_${Date.now()}`,
       ...form,
       photoUrl: form.photoUrl.trim() || undefined,
+      linkedListingIds: form.linkedListingIds.length ? form.linkedListingIds : undefined,
       joinedAt: property?.joinedAt ?? new Date().toISOString(),
     });
   };
@@ -141,6 +155,36 @@ export default function PropertyModal({ property, onSave, onClose }: PropertyMod
               className="mt-2 w-full h-28 object-cover rounded-lg border border-slate-200"
               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
+          )}
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Linked Listing IDs <span className="text-slate-400 font-normal">(optional — for multi-unit properties)</span></label>
+          <p className="text-xs text-slate-400 mb-2">Add Uplisting IDs for other units at this property (e.g. individual cabins) to aggregate occupancy &amp; revenue together.</p>
+          <div className="flex gap-2 mb-2">
+            <input
+              value={linkedInput}
+              onChange={e => setLinkedInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLinkedId(); } }}
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              placeholder="Paste Uplisting listing ID…"
+            />
+            <button type="button" onClick={addLinkedId}
+              className="flex items-center gap-1 px-3 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 transition-colors">
+              <Plus size={14} /> Add
+            </button>
+          </div>
+          {form.linkedListingIds.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {form.linkedListingIds.map(id => (
+                <span key={id} className="flex items-center gap-1 px-2 py-1 bg-teal-50 border border-teal-200 rounded-md text-xs text-teal-800 font-mono">
+                  {id}
+                  <button type="button" onClick={() => removeLinkedId(id)} className="text-teal-500 hover:text-rose-500 transition-colors">
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+            </div>
           )}
         </div>
 
