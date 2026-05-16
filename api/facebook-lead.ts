@@ -7,8 +7,32 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+async function insertLead(fields: {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+}) {
+  const now = new Date().toISOString();
+  return supabase.from('leads').insert({
+    id: randomUUID(),
+    name: fields.name || 'Unknown',
+    email: fields.email,
+    phone: fields.phone,
+    property_address: fields.address,
+    property_type: '',
+    bedrooms: 0,
+    estimated_revenue: 0,
+    stage: 'new',
+    notes: '',
+    source: 'facebook_outreach',
+    created_at: now,
+    updated_at: now,
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Webhook verification handshake (Meta sends a GET to confirm the endpoint)
+  // Facebook webhook verification handshake
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -21,9 +45,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== 'POST') return res.status(405).end();
 
-  const body = req.body;
-  if (body.object !== 'page') return res.status(200).end();
+  const body = req.body ?? {};
 
+  // Zapier format: fields sent directly in body
+  if (body.object !== 'page') {
+    const name    = body.full_name ?? body.name ?? `${body.first_name ?? ''} ${body.last_name ?? ''}`.trim();
+    const email   = body.email ?? body.email_address ?? '';
+    const phone   = body.phone ?? body.phone_number ?? '';
+    const street  = body.street_address ?? body.property_address ?? body.address ?? '';
+    const state   = body.state ?? '';
+    const address = [street, state].filter(Boolean).join(', ');
+
+    const { error } = await insertLead({ name, email, phone, address });
+    if (error) {
+      console.error('facebook-lead zapier insert error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+    return res.status(200).json({ ok: true });
+  }
+
+  // Meta webhook format: fetch lead details from Graph API
   for (const entry of body.entry ?? []) {
     for (const change of entry.changes ?? []) {
       if (change.field !== 'leadgen') continue;
@@ -31,7 +72,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!leadgenId) continue;
 
       try {
-        // Fetch lead details from Facebook Graph API
         const fbRes = await fetch(
           `https://graph.facebook.com/v19.0/${leadgenId}?access_token=${process.env.FACEBOOK_PAGE_ACCESS_TOKEN}`
         );
@@ -41,7 +81,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
-        // Parse the field_data array into a flat object
         const fields: Record<string, string> = {};
         for (const field of lead.field_data ?? []) {
           fields[field.name] = field.values?.[0] ?? '';
@@ -49,37 +88,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const firstName = fields['first_name'] ?? fields['full_name']?.split(' ')[0] ?? '';
         const lastName  = fields['last_name']  ?? fields['full_name']?.split(' ').slice(1).join(' ') ?? '';
-        const name      = `${firstName} ${lastName}`.trim() || fields['full_name'] || 'Unknown';
+        const name      = fields['full_name'] ?? `${firstName} ${lastName}`.trim();
         const email     = fields['email'] ?? fields['email_address'] ?? '';
         const phone     = fields['phone_number'] ?? fields['phone'] ?? '';
-        const address   = fields['street_address'] ?? fields['property_address'] ?? '';
-        const notes     = Object.entries(fields)
-          .filter(([k]) => !['first_name','last_name','full_name','email','email_address','phone_number','phone','street_address','property_address'].includes(k))
-          .map(([k, v]) => `${k}: ${v}`)
-          .join('\n');
+        const street    = fields['street_address'] ?? fields['property_address'] ?? '';
+        const state     = fields['state'] ?? '';
+        const address   = [street, state].filter(Boolean).join(', ');
 
-        const now = new Date().toISOString();
-        await supabase.from('leads').insert({
-          id: randomUUID(),
-          name,
-          email,
-          phone,
-          property_address: address,
-          property_type: '',
-          bedrooms: 0,
-          estimated_revenue: 0,
-          stage: 'new',
-          notes: notes || '',
-          source: 'facebook_outreach',
-          created_at: now,
-          updated_at: now,
-        });
+        await insertLead({ name, email, phone, address });
       } catch (err) {
         console.error('facebook-lead handler error:', err);
       }
     }
   }
 
-  // Always respond 200 quickly so Meta doesn't retry
   return res.status(200).end();
 }
