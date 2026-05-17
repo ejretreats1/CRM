@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
-import { Brain, AlertTriangle, Info, CheckCircle, ChevronDown, ChevronUp, RefreshCw, Zap } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Brain, AlertTriangle, Info, CheckCircle, ChevronDown, ChevronUp, RefreshCw, Zap, Clock, SlidersHorizontal } from 'lucide-react';
 import type { Owner } from '../types';
 import type { UplistingReservation } from '../services/uplisting';
 import { analyzeProperty, urgencyLevel, type PropertyInsight } from '../services/calendarAnalysis';
 import { fetchPLListings, type PLListing } from '../services/pricelabs';
+import { fetchSettings, saveSettings } from '../services/settings';
 
 interface Props {
   owners: Owner[];
@@ -210,13 +211,43 @@ function PropertyCard({
   );
 }
 
+function formatAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 export default function CalendarIntelligence({ owners, reservations, priceLabsApiKey }: Props) {
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterUrgency, setFilterUrgency] = useState<string>('all');
   const [plListings, setPlListings] = useState<PLListing[]>([]);
+  const [, forceRefresh] = useState(0);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string> | null>(null); // null = all selected
+
+  // Load saved analysis from Supabase on mount
+  useEffect(() => {
+    fetchSettings().then(s => {
+      if (s.lastIntelResult && s.lastIntelAt) {
+        setAiResult(s.lastIntelResult as AIResult);
+        setSavedAt(s.lastIntelAt);
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Tick every minute so "X ago" label stays current
+  useEffect(() => {
+    const id = setInterval(() => forceRefresh(n => n + 1), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   const insights = useMemo(() => {
     const result: PropertyInsight[] = [];
@@ -231,15 +262,32 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
     });
   }, [owners, reservations]);
 
-  const criticalCount = insights.filter(i => urgencyLevel(i) === 'critical').length;
-  const warningCount = insights.filter(i => urgencyLevel(i) === 'warning').length;
+  // Insights scoped to the user's selection (null = all)
+  const activeInsights = selectedIds
+    ? insights.filter(i => selectedIds.has(i.propertyId))
+    : insights;
+
+  const criticalCount = activeInsights.filter(i => urgencyLevel(i) === 'critical').length;
+  const warningCount = activeInsights.filter(i => urgencyLevel(i) === 'warning').length;
 
   const filtered = filterUrgency === 'all'
-    ? insights
-    : insights.filter(i => {
+    ? activeInsights
+    : activeInsights.filter(i => {
         const ai = aiResult?.analyses.find(a => a.propertyId === i.propertyId);
         return (ai?.urgency ?? urgencyLevel(i)) === filterUrgency;
       });
+
+  function toggleProperty(id: string) {
+    setSelectedIds(prev => {
+      const base = prev ?? new Set(insights.map(i => i.propertyId));
+      const next = new Set(base);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next.size === insights.length ? null : next;
+    });
+  }
+
+  function selectAll() { setSelectedIds(null); }
+  function selectNone() { setSelectedIds(new Set()); }
 
   async function runAnalysis() {
     setLoading(true);
@@ -252,13 +300,16 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
       const res = await fetch('/api/send-newsletter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'calendar-intel', insights, plListings: pl.length ? pl : undefined }),
+        body: JSON.stringify({ action: 'calendar-intel', insights: activeInsights, plListings: pl.length ? pl : undefined }),
       });
       if (!res.ok) throw new Error(await res.text());
       const data: AIResult = await res.json();
+      const ts = new Date().toISOString();
       setAiResult(data);
+      setSavedAt(ts);
+      saveSettings({ lastIntelResult: data, lastIntelAt: ts }).catch(() => {});
       // Auto-expand first critical/warning property
-      const first = insights.find(i => {
+      const first = activeInsights.find(i => {
         const ai = data.analyses.find(a => a.propertyId === i.propertyId);
         const u = ai?.urgency ?? urgencyLevel(i);
         return u === 'critical' || u === 'warning';
@@ -283,16 +334,61 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
           <p className="text-sm text-slate-500">
             {insights.length} properties · {reservations.length} total reservations in data
           </p>
+          {savedAt && (
+            <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+              <Clock size={11} /> Last analysis: {formatAgo(savedAt)}
+            </p>
+          )}
         </div>
-        <button
-          onClick={runAnalysis}
-          disabled={loading || insights.length === 0}
-          className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? <RefreshCw size={15} className="animate-spin" /> : <Zap size={15} />}
-          {loading ? 'Analyzing…' : 'Run Analysis'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSelectorOpen(o => !o)}
+            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors ${selectorOpen || selectedIds ? 'bg-slate-100 border-slate-300 text-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'}`}
+          >
+            <SlidersHorizontal size={14} />
+            {selectedIds ? `${selectedIds.size} of ${insights.length}` : 'All'}
+          </button>
+          <button
+            onClick={runAnalysis}
+            disabled={loading || activeInsights.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? <RefreshCw size={15} className="animate-spin" /> : <Zap size={15} />}
+            {loading ? 'Analyzing…' : 'Run Analysis'}
+          </button>
+        </div>
       </div>
+
+      {/* Property selector */}
+      {selectorOpen && insights.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Select properties to analyze</p>
+            <div className="flex gap-2">
+              <button onClick={selectAll} className="text-xs text-teal-600 hover:underline">All</button>
+              <button onClick={selectNone} className="text-xs text-slate-400 hover:underline">None</button>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {insights.map(i => {
+              const checked = !selectedIds || selectedIds.has(i.propertyId);
+              return (
+                <label key={i.propertyId} className="flex items-center gap-2.5 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleProperty(i.propertyId)}
+                    className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <span className="text-sm text-slate-700 truncate group-hover:text-slate-900">
+                    {i.propertyAddress}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Alert banner */}
       {(criticalCount > 0 || warningCount > 0) && (
@@ -322,7 +418,7 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
       )}
 
       {/* Filter tabs */}
-      {insights.length > 0 && (
+      {activeInsights.length > 0 && (
         <div className="flex gap-1 overflow-x-auto">
           {['all', 'critical', 'warning', 'info', 'ok'].map(f => (
             <button
@@ -334,14 +430,14 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
                   : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-400'
               }`}
             >
-              {f === 'all' ? `All (${insights.length})` : f}
+              {f === 'all' ? `All (${activeInsights.length})` : f}
             </button>
           ))}
         </div>
       )}
 
       {/* Property cards */}
-      {insights.length === 0 ? (
+      {activeInsights.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
           <Brain size={32} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm">No properties with Uplisting data found.</p>

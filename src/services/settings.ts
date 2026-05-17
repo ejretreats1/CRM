@@ -13,6 +13,8 @@ export interface AppSettings {
   hostawayAccountId: string;
   hostawaySecret: string;
   priceLabsApiKey: string;
+  lastIntelResult: unknown;
+  lastIntelAt: string;
 }
 
 const DEFAULTS: AppSettings = {
@@ -23,6 +25,8 @@ const DEFAULTS: AppSettings = {
   hostawayAccountId: '',
   hostawaySecret: '',
   priceLabsApiKey: '',
+  lastIntelResult: null,
+  lastIntelAt: '',
 };
 
 export async function fetchSettings(): Promise<AppSettings> {
@@ -42,6 +46,8 @@ export async function fetchSettings(): Promise<AppSettings> {
     hostawayAccountId: data.hostaway_account_id ?? '',
     hostawaySecret: data.hostaway_secret ?? '',
     priceLabsApiKey: data.pricelabs_api_key ?? '',
+    lastIntelResult: data.last_intel_result ?? null,
+    lastIntelAt: data.last_intel_at ?? '',
   };
 }
 
@@ -54,6 +60,8 @@ export async function saveSettings(patch: Partial<AppSettings>): Promise<void> {
   if (patch.hostawayAccountId !== undefined) row.hostaway_account_id  = patch.hostawayAccountId;
   if (patch.hostawaySecret !== undefined)    row.hostaway_secret      = patch.hostawaySecret;
   if (patch.priceLabsApiKey !== undefined)   row.pricelabs_api_key    = patch.priceLabsApiKey;
+  if (patch.lastIntelResult !== undefined)   row.last_intel_result    = patch.lastIntelResult;
+  if (patch.lastIntelAt !== undefined)       row.last_intel_at        = patch.lastIntelAt;
 
   await supabase.from('settings').upsert(row);
 }
