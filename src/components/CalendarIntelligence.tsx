@@ -243,6 +243,16 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
     }).catch(() => {});
   }, []);
 
+  // Load saved analysis from Supabase on mount
+  useEffect(() => {
+    fetchSettings().then(s => {
+      if (s.lastIntelResult && s.lastIntelAt) {
+        setAiResult(s.lastIntelResult as AIResult);
+        setSavedAt(s.lastIntelAt);
+      }
+    }).catch(() => {});
+  }, []);
+
   // Tick every minute so "X ago" label stays current
   useEffect(() => {
     const id = setInterval(() => forceRefresh(n => n + 1), 60000);
