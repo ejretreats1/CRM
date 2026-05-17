@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// ── Calendar helpers ──────────────────────────────────────────────────────────
+// ── Calendar helpers ──────────────────────────────────────────────
 
 function parseICalDate(val: string): string | null {
   const dateOnly = val.match(/^(\d{4})(\d{2})(\d{2})$/);
@@ -55,14 +55,14 @@ function parseICal(ical: string) {
   return events;
 }
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+// ── Main handler ──────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
   const { service } = req.query;
 
-  // ── Calendar proxy ──────────────────────────────────────────────────────────
+  // ── Calendar proxy ──────────────────────────────────────────────
   if (service === 'calendar') {
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: 'Missing url param' });
@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // ── PriceLabs proxy ─────────────────────────────────────────────────────────
+  // ── PriceLabs proxy ─────────────────────────────────────────────
   if (service === 'pricelabs') {
     const { path } = req.query;
     const apiKey = req.headers['x-pricelabs-key'];
@@ -94,7 +94,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(upstream.status).setHeader('Content-Type', 'application/json').send(body);
   }
 
-  // ── Uplisting / Hostaway proxy (default) ────────────────────────────────────
+  // ── Hostaway proxy ──────────────────────────────────────────────
+  const hostawayAccountId = req.headers['x-hostaway-account-id'];
+  const hostawaySecret    = req.headers['x-hostaway-secret'];
+
+  if (hostawayAccountId && typeof hostawayAccountId === 'string' && hostawaySecret && typeof hostawaySecret === 'string') {
+    const { path: hostawayPath, ...hostawayParams } = req.query;
+    if (!hostawayPath || typeof hostawayPath !== 'string') return res.status(400).json({ error: 'Missing path' });
+
+    // Exchange credentials for OAuth2 access token
+    const tokenRes = await fetch('https://api.hostaway.com/v1/accessTokens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: hostawayAccountId,
+        client_secret: hostawaySecret,
+        scope: 'general',
+      }).toString(),
+    });
+    if (!tokenRes.ok) {
+      const txt = await tokenRes.text().catch(() => '');
+      return res.status(tokenRes.status).json({ error: `Hostaway auth failed: ${txt}` });
+    }
+    const { access_token } = await tokenRes.json();
+
+    const hwParams = new URLSearchParams();
+    for (const [k, v] of Object.entries(hostawayParams)) {
+      if (typeof v === 'string') hwParams.set(k, v);
+    }
+    const hwQuery = hwParams.toString() ? `?${hwParams}` : '';
+    const hwUpstream = await fetch(`https://api.hostaway.com/v1/${hostawayPath}${hwQuery}`, {
+      headers: { Authorization: `Bearer ${access_token}`, Accept: 'application/json' },
+    });
+    const hwBody = await hwUpstream.text();
+    return res.status(hwUpstream.status).setHeader('Content-Type', 'application/json').send(hwBody);
+  }
+
+  // ── Uplisting proxy (default) ────────────────────────────────────────────
   const { path, ...queryParams } = req.query;
   const apiKey = req.headers['x-uplisting-key'];
 
