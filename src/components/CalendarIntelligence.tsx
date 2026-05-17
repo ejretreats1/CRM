@@ -4,6 +4,7 @@ import type { Owner } from '../types';
 import type { UplistingReservation } from '../services/uplisting';
 import { analyzeProperty, urgencyLevel, type PropertyInsight } from '../services/calendarAnalysis';
 import { fetchPLListings, type PLListing } from '../services/pricelabs';
+import { fetchSettings, saveSettings } from '../services/settings';
 
 interface Props {
   owners: Owner[];
@@ -210,15 +211,6 @@ function PropertyCard({
   );
 }
 
-const STORAGE_KEY = 'revenue_intel_saved';
-
-function loadSaved(): { result: AIResult; savedAt: string } | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
 function formatAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
@@ -230,15 +222,24 @@ function formatAgo(iso: string): string {
 }
 
 export default function CalendarIntelligence({ owners, reservations, priceLabsApiKey }: Props) {
-  const saved = loadSaved();
-  const [aiResult, setAiResult] = useState<AIResult | null>(saved?.result ?? null);
-  const [savedAt, setSavedAt] = useState<string | null>(saved?.savedAt ?? null);
+  const [aiResult, setAiResult] = useState<AIResult | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterUrgency, setFilterUrgency] = useState<string>('all');
   const [plListings, setPlListings] = useState<PLListing[]>([]);
   const [, forceRefresh] = useState(0);
+
+  // Load saved analysis from Supabase on mount
+  useEffect(() => {
+    fetchSettings().then(s => {
+      if (s.lastIntelResult && s.lastIntelAt) {
+        setAiResult(s.lastIntelResult as AIResult);
+        setSavedAt(s.lastIntelAt);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Tick every minute so "X ago" label stays current
   useEffect(() => {
@@ -287,7 +288,7 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
       const ts = new Date().toISOString();
       setAiResult(data);
       setSavedAt(ts);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ result: data, savedAt: ts })); } catch { /* quota */ }
+      saveSettings({ lastIntelResult: data, lastIntelAt: ts }).catch(() => {});
       // Auto-expand first critical/warning property
       const first = insights.find(i => {
         const ai = data.analyses.find(a => a.propertyId === i.propertyId);
