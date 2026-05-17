@@ -3,8 +3,9 @@ import {
   ArrowLeft, Home, ChevronLeft, ChevronRight, Phone, Mail,
   Users, Bed, Calendar, ExternalLink, Edit2, Check, X, Wrench,
 } from 'lucide-react';
-import type { Owner, Property, PropertyStatus } from '../types';
+import type { Owner, Property, PropertyInfo, PropertyStatus } from '../types';
 import type { UplistingReservation, UplistingProperty } from '../services/uplisting';
+import PropertyInfoPanel from './PropertyInfoPanel';
 
 interface PropertyPortalProps {
   owner: Owner;
@@ -101,6 +102,11 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
     photoUrl: property.photoUrl ?? '',
   });
   const [savingDetails, setSavingDetails] = useState(false);
+
+  async function savePropertyInfo(info: PropertyInfo) {
+    if (!onUpdateProperty) return;
+    await onUpdateProperty({ ...property, propertyInfo: info });
+  }
 
   async function saveDetails() {
     if (!onUpdateProperty) return;
@@ -658,6 +664,16 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Property Info */}
+      {onUpdateProperty && (
+        <div className="mt-5">
+          <PropertyInfoPanel
+            info={property.propertyInfo ?? {}}
+            onSave={savePropertyInfo}
+          />
         </div>
       )}
     </div>

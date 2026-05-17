@@ -196,7 +196,7 @@ function normalizeReservation(r: any): UplistingReservation {
   };
 }
 
-/** Estimate monthly revenue from the last 30 days of reservations */
+/** Estimate monthly revenue from reservations that checked in during the last 30 days */
 export function estimateMonthlyRevenue(
   propertyId: string,
   reservations: UplistingReservation[]
@@ -204,13 +204,15 @@ export function estimateMonthlyRevenue(
   const today = new Date();
   const cutoff = new Date();
   cutoff.setDate(today.getDate() - 30);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const todayStr = today.toISOString().slice(0, 10);
   return reservations
     .filter(
       (r) =>
         r.listing_id === propertyId &&
         r.status !== 'cancelled' &&
-        new Date(r.check_out) >= cutoff &&
-        new Date(r.check_in) <= today
+        r.check_in.slice(0, 10) >= cutoffStr &&
+        r.check_in.slice(0, 10) <= todayStr
     )
     .reduce((sum, r) => sum + r.total_price, 0);
 }

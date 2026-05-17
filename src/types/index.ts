@@ -23,6 +23,35 @@ export interface Lead {
   updatedAt: string;
 }
 
+export interface PropertyInfo {
+  doorCode?: string;
+  lockboxCode?: string;
+  gateCode?: string;
+  garageCode?: string;
+  parkingNotes?: string;
+  wifiNetwork?: string;
+  wifiPassword?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  checkInInstructions?: string;
+  checkOutInstructions?: string;
+  thermostatNotes?: string;
+  breakerLocation?: string;
+  waterShutoffLocation?: string;
+  gasShutoffLocation?: string;
+  alarmCode?: string;
+  alarmCompany?: string;
+  trashPickupDays?: string;
+  trashBinLocation?: string;
+  trashNotes?: string;
+  quietHours?: string;
+  petPolicy?: string;
+  smokingPolicy?: string;
+  houseRulesNotes?: string;
+  applianceNotes?: string;
+  generalNotes?: string;
+}
+
 export interface Property {
   id: string;
   address: string;
@@ -39,6 +68,7 @@ export interface Property {
   joinedAt: string;
   photoUrl?: string;
   linkedListingIds?: string[];
+  propertyInfo?: PropertyInfo;
 }
 
 export interface Vendor {

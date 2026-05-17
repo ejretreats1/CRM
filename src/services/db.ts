@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
-import type { Lead, Owner, Property, OutreachEntry, Vendor } from '../types';
+import type { Lead, Owner, Property, PropertyInfo, OutreachEntry, Vendor } from '../types';
 
-// ─── Leads ───────────────────────────────────────────────────────────────────
+// ─── Leads ─────────────────────────────────────────────────────────────────────────────────
 
 export async function fetchLeads(): Promise<Lead[]> {
   const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
@@ -19,7 +19,7 @@ export async function deleteLead(id: string): Promise<void> {
   if (error) throw error;
 }
 
-// ─── Owners ──────────────────────────────────────────────────────────────────
+// ─── Owners ───────────────────────────────────────────────────────────────────────────────
 
 export async function fetchOwners(): Promise<Owner[]> {
   const { data: ownerRows, error: ownerError } = await supabase
@@ -67,7 +67,7 @@ export async function deleteOwner(id: string): Promise<void> {
   if (error) throw error;
 }
 
-// ─── Properties ──────────────────────────────────────────────────────────────
+// ─── Properties ──────────────────────────────────────────────────────────────────────────────
 
 export async function upsertProperty(ownerId: string, property: Property): Promise<void> {
   const { error } = await supabase.from('properties').upsert(propertyToRow(ownerId, property));
@@ -79,7 +79,7 @@ export async function deleteProperty(propertyId: string): Promise<void> {
   if (error) throw error;
 }
 
-// ─── Outreach ─────────────────────────────────────────────────────────────────
+// ─── Outreach ──────────────────────────────────────────────────────────────────────────────
 
 export async function fetchOutreach(): Promise<OutreachEntry[]> {
   const { data, error } = await supabase.from('outreach_entries').select('*').order('date', { ascending: false });
@@ -97,7 +97,7 @@ export async function deleteOutreach(id: string): Promise<void> {
   if (error) throw error;
 }
 
-// ─── Row mappers ─────────────────────────────────────────────────────────────
+// ─── Row mappers ────────────────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToLead(r: any): Lead {
@@ -156,6 +156,9 @@ function rowToProperty(r: any): Property {
     platforms: r.platforms ?? [],
     status: r.status,
     joinedAt: r.joined_at,
+    photoUrl: r.photo_url ?? undefined,
+    linkedListingIds: r.linked_listing_ids ?? undefined,
+    propertyInfo: (r.property_info as PropertyInfo | null) ?? undefined,
   };
 }
 
@@ -175,6 +178,9 @@ function propertyToRow(ownerId: string, p: Property) {
     platforms: p.platforms,
     status: p.status,
     joined_at: p.joinedAt,
+    photo_url: p.photoUrl ?? null,
+    linked_listing_ids: p.linkedListingIds ?? null,
+    property_info: p.propertyInfo ?? null,
   };
 }
 
