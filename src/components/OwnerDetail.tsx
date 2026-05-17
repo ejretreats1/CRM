@@ -77,12 +77,10 @@ function propMonthRevenue(propertyId: string, reservations: UplistingReservation
   const parts = propertyId.split('_');
   const uid = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
   if (!uid) return null;
-  const n = new Date();
-  const monthStart = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`;
-  const nextM = new Date(n.getFullYear(), n.getMonth() + 1, 1);
-  const monthEnd = `${nextM.getFullYear()}-${String(nextM.getMonth() + 1).padStart(2, '0')}-01`;
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const today  = new Date().toISOString().slice(0, 10);
   const total = reservations
-    .filter(r => r.listing_id === uid && r.status !== 'cancelled' && r.check_in.slice(0, 10) >= monthStart && r.check_in.slice(0, 10) < monthEnd)
+    .filter(r => r.listing_id === uid && r.status !== 'cancelled' && r.check_in.slice(0, 10) >= cutoff && r.check_in.slice(0, 10) <= today)
     .reduce((s, r) => s + (r.total_price ?? 0), 0);
   return total > 0 ? total : null;
 }
@@ -427,7 +425,7 @@ export default function OwnerDetail({
                       return live != null ? (
                         <>
                           <div className="font-bold text-teal-700">${live.toLocaleString()}</div>
-                          <div className="text-xs text-teal-500">this mo · live</div>
+                          <div className="text-xs text-teal-500">30d · live</div>
                         </>
                       ) : (
                         <>
