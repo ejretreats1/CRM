@@ -1,6 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateText, Output } from 'ai';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
+
+const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export const config = { maxDuration: 120 };
 
@@ -81,7 +84,7 @@ SEASONALITY & COMPARABLES (extract carefully from the PDF visuals):
 async function runGenerate(reportType: 'str' | 'mtr', prompt: string, pdfBase64: string) {
   const schema = reportType === 'mtr' ? MtrReportSchema : StrReportSchema;
   const { output } = await generateText({
-    model: 'anthropic/claude-sonnet-4.6',
+    model: anthropic('claude-sonnet-4-6'),
     output: Output.object({ schema }),
     messages: [{
       role: 'user',
@@ -97,7 +100,7 @@ async function runGenerate(reportType: 'str' | 'mtr', prompt: string, pdfBase64:
 async function runRefine(reportType: 'str' | 'mtr', prompt: string) {
   const schema = reportType === 'mtr' ? MtrReportSchema : StrReportSchema;
   const { output } = await generateText({
-    model: 'anthropic/claude-sonnet-4.6',
+    model: anthropic('claude-sonnet-4-6'),
     output: Output.object({ schema }),
     messages: [{ role: 'user', content: prompt }],
   });
