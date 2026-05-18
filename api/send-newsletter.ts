@@ -1,9 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
 import { generateText, Output } from 'ai';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { z } from 'zod';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -82,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let reportText = '';
     try {
       const { text } = await generateText({
-        model: 'anthropic/claude-sonnet-4.6',
+        model: anthropic('claude-sonnet-4-6'),
         maxTokens: 800,
         prompt: `Write a quarterly performance report email from E&J Retreats to one of their property management clients.
 
@@ -215,7 +217,7 @@ IMPORTANT:
 - ADR of 0 means no recent booking data available`;
     try {
       const { output } = await generateText({
-        model: 'anthropic/claude-sonnet-4.6',
+        model: anthropic('claude-sonnet-4-6'),
         output: Output.object({ schema: OutputSchema }),
         messages: [{ role: 'user', content: prompt }],
       });
