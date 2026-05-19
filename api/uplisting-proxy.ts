@@ -25,6 +25,9 @@ function extractMeetLink(block: string, description: string): string {
   if (confField && confField.startsWith('https://')) return confField;
   const confUri = block.match(/^CONFERENCE(?:;[^:\r\n]*)?:(\S+)/m);
   if (confUri && confUri[1].startsWith('https://')) return confUri[1];
+  const location = unescapeICal(extractField(block, 'LOCATION'));
+  const meetInLocation = location.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i);
+  if (meetInLocation) return meetInLocation[0];
   const meetInDesc = description.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i);
   if (meetInDesc) return meetInDesc[0];
   return '';

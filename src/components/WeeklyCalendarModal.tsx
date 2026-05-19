@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Video } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Video, MapPin, ExternalLink } from 'lucide-react';
 import type { Lead } from '../types';
 
 const HOUR_START = 7;
@@ -14,10 +14,11 @@ interface CalEvent {
   title: string;
   start: string;
   end: string;
+  description?: string;
+  location?: string;
   isCrmCall?: boolean;
   meetLink?: string;
   leadId?: string;
-  location?: string;
 }
 
 interface WeeklyCalendarModalProps {
@@ -73,6 +74,7 @@ function getEventPosition(event: CalEvent): { top: number; height: number } | nu
 
 export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, onClose }: WeeklyCalendarModalProps) {
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
+  const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to 8am on open
@@ -230,17 +232,18 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
                     return (
                       <div
                         key={event.id}
-                        className={`absolute left-0.5 right-0.5 rounded px-1.5 py-0.5 overflow-hidden z-20 transition-colors ${
+                        className={`absolute left-0.5 right-0.5 rounded px-1.5 py-0.5 overflow-hidden z-20 transition-colors cursor-pointer ${
                           isCrm
-                            ? 'bg-blue-100 border border-blue-300 hover:bg-blue-200 cursor-pointer'
+                            ? 'bg-blue-100 border border-blue-300 hover:bg-blue-200'
                             : 'bg-teal-100 border border-teal-200 hover:bg-teal-200'
                         }`}
                         style={{ top: pos.top + 1, height: pos.height - 2 }}
                         onClick={() => {
                           if (isCrm && event.leadId) {
                             const lead = leads.find(l => l.id === event.leadId);
-                            if (lead) onOpenLeadDetail(lead);
+                            if (lead) { onOpenLeadDetail(lead); return; }
                           }
+                          setSelectedEvent(event);
                         }}
                         title={event.title}
                       >
@@ -254,13 +257,13 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
                             {new Date(event.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                           </p>
                         )}
-                        {isCrm && event.meetLink && pos.height > 56 && (
+                        {event.meetLink && pos.height > 48 && (
                           <a
                             href={event.meetLink}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={e => e.stopPropagation()}
-                            className="flex items-center gap-0.5 text-xs text-blue-600 hover:underline mt-0.5"
+                            className={`flex items-center gap-0.5 text-xs hover:underline mt-0.5 ${isCrm ? 'text-blue-600' : 'text-teal-700'}`}
                           >
                             <Video size={9} /> Join
                           </a>
@@ -278,14 +281,69 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
         <div className="flex items-center gap-4 px-4 py-2 border-t border-slate-200 bg-slate-100 flex-shrink-0 rounded-b-2xl">
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded bg-blue-200 border border-blue-300" />
-            <span className="text-xs text-slate-500">CRM calls (click to view lead)</span>
+            <span className="text-xs text-slate-500">CRM calls</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded bg-teal-200 border border-teal-200" />
-            <span className="text-xs text-slate-500">Google Calendar</span>
+            <span className="text-xs text-slate-500">Calendar (click for details)</span>
           </div>
         </div>
       </div>
+
+      {/* Event detail popup */}
+      {selectedEvent && (
+        <div className="absolute inset-0 z-60 flex items-center justify-center p-4" onClick={() => setSelectedEvent(null)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-slate-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between px-5 pt-5 pb-3">
+              <div className="flex-1 min-w-0 pr-3">
+                <p className="font-semibold text-slate-900 text-sm leading-snug">{selectedEvent.title}</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {new Date(selectedEvent.start).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                  {selectedEvent.start.length > 10 && (
+                    <> · {new Date(selectedEvent.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    {selectedEvent.end && ` – ${new Date(selectedEvent.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`}</>
+                  )}
+                </p>
+              </div>
+              <button onClick={() => setSelectedEvent(null)} className="text-slate-400 hover:text-slate-600 flex-shrink-0">
+                <X size={16} />
+              </button>
+            </div>
+
+            {selectedEvent.meetLink && (
+              <div className="px-5 pb-3">
+                <a
+                  href={selectedEvent.meetLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+                >
+                  <Video size={15} /> Join Google Meet
+                  <ExternalLink size={12} className="opacity-70" />
+                </a>
+              </div>
+            )}
+
+            {selectedEvent.location && !selectedEvent.meetLink && (
+              <div className="px-5 pb-3">
+                <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                  <MapPin size={12} className="flex-shrink-0" /> {selectedEvent.location}
+                </p>
+              </div>
+            )}
+
+            {selectedEvent.description && (
+              <div className="px-5 pb-5">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Details</p>
+                <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">{selectedEvent.description}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -451,15 +451,18 @@ export default function Dashboard({
                             <Phone size={10} /> {nextEvent.location}
                           </a>
                         )}
-                        {nextEvent.isCrmCall && nextEvent.meetLink && (
-                          <a href={nextEvent.meetLink} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 mt-0.5 flex items-center gap-1 hover:underline font-medium">
+                        {nextEvent.meetLink && (
+                          <a href={nextEvent.meetLink} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-blue-600 mt-0.5 flex items-center gap-1 hover:underline font-medium">
                             <Video size={10} /> Join Meeting
                           </a>
                         )}
-                        {!nextEvent.isCrmCall && nextEvent.location && (
+                        {!nextEvent.isCrmCall && !nextEvent.meetLink && nextEvent.location && (
                           <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                             <MapPin size={10} /> {nextEvent.location}
                           </p>
+                        )}
+                        {!nextEvent.isCrmCall && nextEvent.description && (
+                          <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">{nextEvent.description}</p>
                         )}
                       </div>
                     </div>
@@ -491,7 +494,18 @@ export default function Dashboard({
                       <p className="text-sm text-slate-700 truncate font-medium">{event.title}</p>
                       <p className="text-xs text-slate-400">{day} · {time}</p>
                     </div>
-                    {event.isCrmCall && (
+                    {event.meetLink && (
+                      <a
+                        href={event.meetLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-full flex-shrink-0 font-medium transition-colors"
+                      >
+                        <Video size={10} /> Join
+                      </a>
+                    )}
+                    {event.isCrmCall && !event.meetLink && (
                       <span className="text-xs text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full flex-shrink-0">Call</span>
                     )}
                   </div>
