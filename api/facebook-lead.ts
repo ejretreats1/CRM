@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.VITE_SUPABASE_ANON_KEY!
 );
 
 async function insertLead(fields: {
@@ -28,7 +28,7 @@ async function insertLead(fields: {
     source: 'meta_ads',
     created_at: now,
     updated_at: now,
-  });
+  }).select('id, name');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -56,12 +56,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const state   = body.state ?? '';
     const address = [street, state].filter(Boolean).join(', ');
 
-    const { error } = await insertLead({ name, email, phone, address });
+    console.log('facebook-lead incoming:', { name, email, phone, address });
+    const { data, error } = await insertLead({ name, email, phone, address });
     if (error) {
       console.error('facebook-lead zapier insert error:', error);
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({ ok: false, error: error.message });
     }
-    return res.status(200).json({ ok: true });
+    console.log('facebook-lead inserted:', data);
+    return res.status(200).json({ ok: true, inserted: data?.[0] ?? null });
   }
 
   // Meta webhook format: fetch lead details from Graph API
