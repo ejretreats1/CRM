@@ -139,15 +139,15 @@ export default function App() {
     if (!uplistingApiKey) return;
     try {
       const today = new Date();
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 30);
+      const oneYearAgo = new Date(today);
+      oneYearAgo.setFullYear(today.getFullYear() - 1);
       const ninetyDaysAhead = new Date(today);
       ninetyDaysAhead.setDate(today.getDate() + 90);
       const [props, res] = await Promise.all([
         fetchProperties(uplistingApiKey),
         fetchReservations(
           uplistingApiKey,
-          thirtyDaysAgo.toISOString().slice(0, 10),
+          oneYearAgo.toISOString().slice(0, 10),
           ninetyDaysAhead.toISOString().slice(0, 10),
         ),
       ]);
@@ -184,15 +184,15 @@ export default function App() {
     if (!hostawayAccountId || !hostawaySecret) return;
     try {
       const today = new Date();
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 30);
+      const oneYearAgo = new Date(today);
+      oneYearAgo.setFullYear(today.getFullYear() - 1);
       const ninetyDaysAhead = new Date(today);
       ninetyDaysAhead.setDate(today.getDate() + 90);
       const [props, resv] = await Promise.all([
         fetchHostawayProperties(hostawayAccountId, hostawaySecret),
         fetchHostawayReservations(
           hostawayAccountId, hostawaySecret,
-          thirtyDaysAgo.toISOString().slice(0, 10),
+          oneYearAgo.toISOString().slice(0, 10),
           ninetyDaysAhead.toISOString().slice(0, 10),
         ),
       ]);
