@@ -50,6 +50,7 @@ export interface PropertyInfo {
   houseRulesNotes?: string;
   applianceNotes?: string;
   generalNotes?: string;
+  onboardingChecklist?: Record<string, boolean>;
 }
 
 export interface Property {

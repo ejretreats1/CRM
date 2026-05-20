@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import {
   ArrowLeft, Home, ChevronLeft, ChevronRight, Phone, Mail,
   Users, Bed, Calendar, ExternalLink, Edit2, Check, X, Wrench,
+  CheckSquare, Square, ClipboardList,
 } from 'lucide-react';
 import type { Owner, Property, PropertyInfo, PropertyStatus } from '../types';
 import type { UplistingReservation, UplistingProperty } from '../services/uplisting';
@@ -80,6 +81,21 @@ function vendorEmoji(role: string): string {
   }
 }
 
+const ONBOARDING_ITEMS: { id: string; label: string; note?: string }[] = [
+  { id: 'airbnb_uplisting',  label: 'Connect Airbnb to Uplisting' },
+  { id: 'stripe',            label: 'Connect Stripe' },
+  { id: 'hero_photo',        label: 'Collage hero photo' },
+  { id: 'title_desc',        label: 'Optimize title and description' },
+  { id: 'pricelabs',         label: 'Connect and set up PriceLabs' },
+  { id: 'vrbo_api',          label: 'Start VRBO API connection process', note: 'Can take up to 10 business days' },
+  { id: 'booking_com',       label: 'Connect / create Booking.com account through Uplisting' },
+  { id: 'contract',          label: 'Generate and send out contract' },
+  { id: 'google',            label: 'Connect to Google' },
+  { id: 'booking_promos',    label: 'Set up Booking.com promotions' },
+  { id: 'airbnb_promos',     label: 'Set up Airbnb promotions' },
+  { id: 'auto_messages',     label: 'Set up automated messages', note: 'Check-in instructions + add new listing to standard messages' },
+];
+
 type DetailForm = {
   bedrooms: string; bathrooms: string; maxGuests: string; type: string;
   monthlyRevenue: string; occupancyRate: string; status: PropertyStatus; photoUrl: string;
@@ -102,6 +118,22 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
     photoUrl: property.photoUrl ?? '',
   });
   const [savingDetails, setSavingDetails] = useState(false);
+  const [checklistSaving, setChecklistSaving] = useState(false);
+
+  const checklist: Record<string, boolean> = property.propertyInfo?.onboardingChecklist ?? {};
+  const doneCount = ONBOARDING_ITEMS.filter(item => checklist[item.id]).length;
+  const pct = Math.round((doneCount / ONBOARDING_ITEMS.length) * 100);
+
+  async function toggleChecklistItem(id: string) {
+    if (!onUpdateProperty) return;
+    setChecklistSaving(true);
+    const updated: Record<string, boolean> = { ...checklist, [id]: !checklist[id] };
+    await onUpdateProperty({
+      ...property,
+      propertyInfo: { ...(property.propertyInfo ?? {}), onboardingChecklist: updated },
+    });
+    setChecklistSaving(false);
+  }
 
   async function savePropertyInfo(info: PropertyInfo) {
     if (!onUpdateProperty) return;
@@ -275,6 +307,76 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
           </div>
         </div>
       )}
+
+      {/* Onboarding checklist — always visible when status is onboarding, collapsible otherwise */}
+      {(() => {
+        const isOnboarding = property.status === 'onboarding';
+        const [open, setOpen] = useState(isOnboarding);
+        return (
+          <div className={`mb-5 rounded-xl border ${isOnboarding ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'}`}>
+            <button
+              className="w-full flex items-center gap-3 px-5 py-4"
+              onClick={() => setOpen(v => !v)}
+            >
+              <ClipboardList size={16} className={isOnboarding ? 'text-amber-600' : 'text-slate-400'} />
+              <span className={`font-semibold text-sm ${isOnboarding ? 'text-amber-900' : 'text-slate-700'}`}>
+                Onboarding Checklist
+              </span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ml-1 ${
+                pct === 100 ? 'bg-emerald-100 text-emerald-700' : isOnboarding ? 'bg-amber-200 text-amber-800' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {doneCount}/{ONBOARDING_ITEMS.length}
+              </span>
+              {checklistSaving && <span className="text-xs text-slate-400 ml-1">Saving…</span>}
+              <div className="flex-1 mx-3">
+                <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : 'bg-amber-400'}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+              <span className="text-xs text-slate-400">{open ? '▲' : '▼'}</span>
+            </button>
+
+            {open && (
+              <div className="px-5 pb-4 space-y-2 border-t border-amber-100">
+                {ONBOARDING_ITEMS.map(item => {
+                  const done = !!checklist[item.id];
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => toggleChecklistItem(item.id)}
+                      disabled={!onUpdateProperty}
+                      className="w-full flex items-start gap-3 py-2 text-left group"
+                    >
+                      <span className="flex-shrink-0 mt-0.5">
+                        {done
+                          ? <CheckSquare size={16} className="text-emerald-500" />
+                          : <Square size={16} className="text-slate-300 group-hover:text-amber-400 transition-colors" />}
+                      </span>
+                      <span className="flex-1">
+                        <span className={`text-sm ${done ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+                          {item.label}
+                        </span>
+                        {item.note && (
+                          <span className="block text-xs text-slate-400 mt-0.5">{item.note}</span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+                {pct === 100 && (
+                  <div className="pt-2 flex items-center gap-2 text-emerald-600">
+                    <Check size={14} />
+                    <span className="text-sm font-medium">All done — ready to go live!</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Live revenue stats */}
       {liveRevenue && (
