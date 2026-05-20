@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { google } from 'googleapis';
 import { generateText } from 'ai';
+import { gateway } from '@ai-sdk/gateway';
 import { createClient } from '@supabase/supabase-js';
 
 export const config = { maxDuration: 60 };
@@ -115,34 +116,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-      const { text } = await generateText({
-        model: 'anthropic/claude-haiku-4.5',
-        maxTokens: 512,
-        prompt: `Fill in the blanks (____) in a short-term rental property management agreement.
+      // Build explicit per-blank instructions so Claude can't confuse positional order
+      const blankInstructions = blanks.map((b, i) => {
+        const ctx = b.context.toLowerCase();
+        let value = '';
+        if (/date|dated|as of|effective|agreement date|commencement/.test(ctx)) value = today;
+        else if (/owner.*name|client.*name|name.*owner|name.*client|party.*name|landlord.*name/.test(ctx)) value = ownerName;
+        else if (/email/.test(ctx)) value = ownerEmail ?? 'not provided';
+        else if (/phone|telephone|cell|mobile/.test(ctx)) value = ownerPhone ?? 'not provided';
+        else if (/address|property|premises|location/.test(ctx)) value = propertyAddress ?? 'not provided';
+        else if (/commission|percent|management fee|fee %/.test(ctx)) value = commissionPct ?? 'not provided';
+        else if (/state|governing law|jurisdiction/.test(ctx)) value = state ?? 'not provided';
+        return `Blank ${i + 1} — surrounding text: "...${b.context}..."\n  → The correct value for this blank is: "${value}"`;
+      }).join('\n\n');
 
-Available data:
+      const { text } = await generateText({
+        model: gateway('anthropic/claude-haiku-4-5-20251001'),
+        maxTokens: 512,
+        prompt: `You are filling blanks (____) in a property management agreement.
+
+For each blank below, the correct value has already been identified for you based on context. Your only job is to return these values as a JSON array in the same order (Blank 1, Blank 2, ...).
+
+DATA:
 - Today's date: ${today}
 - Client name: ${ownerName}
 - Client email: ${ownerEmail ?? 'not provided'}
 - Client phone: ${ownerPhone ?? 'not provided'}
 - Property address: ${propertyAddress ?? 'not provided'}
 - Commission %: ${commissionPct ?? 'not provided'}
-- Governing state: ${state ?? 'not provided'}
+- State: ${state ?? 'not provided'}
 
-Rules:
-- Any blank asking for a date (agreement date, commencement date, signature date) → use today's date
-- Any blank for owner/client name → use the client name
-- Any blank for owner email → use client email
-- Any blank for owner phone → use client phone
-- Any blank for property address → use property address
-- Any blank for commission percentage → use the commission % number only (no % symbol)
-- Any blank for state → use the governing state
+BLANKS WITH CORRECT VALUES:
+${blankInstructions}
 
-Blanks and their surrounding text:
-${blanksDesc}
-
-Return ONLY a JSON array of strings, one per blank in order. No markdown, no explanation.
-Example: ["May 1, 2026", "John Smith", "123 Ocean Ave", "john@email.com", "555-123-4567", "20", "Delaware"]`,
+Return ONLY a JSON array, one string per blank in order (Blank 1 first). No markdown, no explanation.
+Example for 4 blanks: ["May 20, 2026", "Gerard Corning", "3622 Murrow St", "20"]`,
       });
 
       const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
