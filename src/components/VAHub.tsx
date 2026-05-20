@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Plus, Trash2, Edit2, ChevronDown, ChevronRight,
-  CheckSquare, Square, ListTodo, FolderKanban, Hash, Bell,
+  CheckSquare, Square, ListTodo, FolderKanban, Hash, Bell, Clock,
 } from 'lucide-react';
 import type { Project, Todo, Priority, ProjectStatus, TodoAssignee } from '../types';
 
@@ -167,21 +167,46 @@ function TodoCard({
   onDelete: (id: string) => void;
   onDragStart: (id: string) => void;
 }) {
+  // Cycle: todo → in-progress → completed → todo
+  function cycleStatus() {
+    const now = new Date().toISOString();
+    if (!todo.inProgress && !todo.completed) {
+      onToggle({ ...todo, inProgress: true,  completed: false, updatedAt: now });
+    } else if (todo.inProgress) {
+      onToggle({ ...todo, inProgress: false, completed: true,  updatedAt: now });
+    } else {
+      onToggle({ ...todo, inProgress: false, completed: false, updatedAt: now });
+    }
+  }
+
+  const isInProgress = todo.inProgress && !todo.completed;
+  const borderCls = todo.completed ? 'border-slate-100' : isInProgress ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white';
+
   return (
     <div
       draggable
       onDragStart={() => onDragStart(todo.id)}
-      className="flex items-start gap-2 p-2.5 bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow cursor-grab active:cursor-grabbing group"
+      className={`flex items-start gap-2 p-2.5 rounded-lg border shadow-sm hover:shadow cursor-grab active:cursor-grabbing group ${borderCls}`}
     >
       <button
-        onClick={() => onToggle({ ...todo, completed: !todo.completed, updatedAt: new Date().toISOString() })}
-        className="flex-shrink-0 text-slate-400 hover:text-teal-600 transition-colors mt-0.5"
+        onClick={cycleStatus}
+        className="flex-shrink-0 transition-colors mt-0.5"
+        title={todo.completed ? 'Mark todo' : isInProgress ? 'Mark complete' : 'Mark in progress'}
       >
-        {todo.completed ? <CheckSquare size={15} className="text-teal-600" /> : <Square size={15} />}
+        {todo.completed
+          ? <CheckSquare size={15} className="text-teal-600" />
+          : isInProgress
+            ? <Clock size={15} className="text-amber-500" />
+            : <Square size={15} className="text-slate-400 hover:text-amber-500" />}
       </button>
-      <span className={`flex-1 text-sm leading-snug ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>
-        {todo.text}
-      </span>
+      <div className="flex-1 min-w-0">
+        <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+          {todo.text}
+        </span>
+        {isInProgress && (
+          <span className="ml-1.5 text-xs font-medium text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">In Progress</span>
+        )}
+      </div>
       <button
         onClick={() => onDelete(todo.id)}
         className="text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5"
@@ -199,17 +224,18 @@ function CompletedTodos({ todos, onToggle, onDelete, onDragStart }: {
   onDragStart: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  if (todos.length === 0) return null;
   return (
-    <div className="mt-3">
+    <div className="px-2 pb-2 mt-1 border-t border-slate-100 pt-2">
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors"
+        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 font-medium transition-colors"
       >
-        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        {todos.length} completed task{todos.length !== 1 ? 's' : ''}
+        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        {todos.length} completed
       </button>
       {open && (
-        <div className="mt-2 space-y-1.5">
+        <div className="mt-1.5 space-y-1.5">
           {todos.map(t => (
             <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
           ))}
@@ -233,7 +259,9 @@ function TodoColumn({
   const cfg = ASSIGNEE_CONFIG[assignee];
   const [over, setOver] = useState(false);
   const [addText, setAddText] = useState('');
-  const incomplete = todos.filter(t => !t.completed);
+  const completed   = todos.filter(t => t.completed);
+  const inProgress  = todos.filter(t => t.inProgress && !t.completed);
+  const todo        = todos.filter(t => !t.completed && !t.inProgress);
 
   function submit() {
     if (!addText.trim()) return;
@@ -251,15 +279,32 @@ function TodoColumn({
       {/* Column header */}
       <div className={`flex items-center gap-2 px-3 py-2.5 rounded-t-[10px] ${cfg.header}`}>
         <span className="font-semibold text-white text-sm">{cfg.label}</span>
-        <span className="ml-auto text-xs bg-white/20 text-white px-1.5 py-0.5 rounded-full font-medium">{incomplete.length}</span>
+        {inProgress.length > 0 && (
+          <span className="text-xs bg-amber-400 text-white px-1.5 py-0.5 rounded-full font-medium flex items-center gap-1">
+            <Clock size={10} /> {inProgress.length}
+          </span>
+        )}
+        <span className="ml-auto text-xs bg-white/20 text-white px-1.5 py-0.5 rounded-full font-medium">{todo.length + inProgress.length}</span>
       </div>
 
-      {/* Tasks */}
+      {/* In-progress tasks */}
+      {inProgress.length > 0 && (
+        <div className="px-2 pt-2 space-y-1.5">
+          {inProgress.map(t => (
+            <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
+          ))}
+        </div>
+      )}
+
+      {/* Todo tasks */}
       <div className="flex-1 p-2 space-y-1.5 min-h-[80px]">
-        {incomplete.map(t => (
+        {todo.map(t => (
           <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
         ))}
       </div>
+
+      {/* Per-person completed section */}
+      <CompletedTodos todos={completed} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
 
       {/* Inline add */}
       <div className="px-2 pb-2 flex gap-1">
@@ -629,12 +674,6 @@ export default function VAHub({
           ))}
         </div>
 
-        {/* Completed — single shared toggle */}
-        {(() => {
-          const allDone = todos.filter(t => t.completed);
-          if (allDone.length === 0) return null;
-          return <CompletedTodos todos={allDone} onToggle={onToggleTodo} onDelete={onDeleteTodo} onDragStart={id => { draggedId.current = id; }} />;
-        })()}
 
       </div>
 

@@ -149,6 +149,7 @@ export interface Todo {
   id: string;
   text: string;
   completed: boolean;
+  inProgress?: boolean;
   assignedTo?: TodoAssignee;
   projectId?: string;
   priority: Priority;
