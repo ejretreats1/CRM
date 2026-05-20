@@ -95,19 +95,26 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
     };
   }, [reservations, ownerListingIds, from, to]);
 
+  const upsellTotal = (r: UplistingReservation) =>
+    r.upsells?.reduce((s, u) => s + u.price, 0) ?? 0;
+
   const totals = useMemo(() => ({
     payout: filtered.reduce((s, r) => s + r.total_price, 0),
     accommodation: filtered.reduce((s, r) => s + (r.accommodation_total ?? 0), 0),
     cleaning: filtered.reduce((s, r) => s + (r.cleaning_fee ?? 0), 0),
+    upsells: filtered.reduce((s, r) => s + upsellTotal(r), 0),
     nights: filtered.reduce((s, r) => s + (r.nights ?? 0), 0),
     commission: filtered.reduce((s, r) => s + calcCommission(r, commission.rate, commission.basis), 0),
   }), [filtered, commission]);
 
   const showCommission = commission.rate > 0;
   const basisLabel = commission.basis === 'accommodation' ? 'Accommodation Total' : 'Total Payout';
+  const showUpsells = filtered.some(r => (r.upsells?.length ?? 0) > 0);
 
   function downloadCSV() {
-    const headers = ['Status', 'Property', 'Guest', 'Check-In', 'Check-Out', 'Nights', 'Channel', 'Accommodation', 'Cleaning Fee', 'Total Payout'];
+    const headers = ['Status', 'Property', 'Guest', 'Check-In', 'Check-Out', 'Nights', 'Channel', 'Accommodation', 'Cleaning Fee'];
+    if (showUpsells) headers.push('Upsells');
+    headers.push('Total Payout');
     if (showCommission) headers.push(`Commission (${commission.rate}% of ${basisLabel})`);
 
     const makeRow = (r: UplistingReservation, status: string) => {
@@ -121,19 +128,24 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
         CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? '',
         r.accommodation_total != null ? r.accommodation_total.toFixed(2) : '',
         r.cleaning_fee != null ? r.cleaning_fee.toFixed(2) : '',
-        r.total_price.toFixed(2),
       ];
+      if (showUpsells) {
+        const u = upsellTotal(r);
+        row.push(u > 0 ? u.toFixed(2) : '');
+      }
+      row.push(r.total_price.toFixed(2));
       if (showCommission) row.push(status === 'Cancelled' ? '' : calcCommission(r, commission.rate, commission.basis).toFixed(2));
       return row;
     };
 
-    const totalsRow = [
+    const totalsRow: (string | number)[] = [
       'TOTALS', '', '', '', '',
       totals.nights, '',
       totals.accommodation.toFixed(2),
       totals.cleaning.toFixed(2),
-      totals.payout.toFixed(2),
     ];
+    if (showUpsells) totalsRow.push(totals.upsells.toFixed(2));
+    totalsRow.push(totals.payout.toFixed(2));
     if (showCommission) totalsRow.push(totals.commission.toFixed(2));
 
     const rows = [
@@ -250,6 +262,9 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
                         <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Channel</th>
                         <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Accom.</th>
                         <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cleaning</th>
+                        {showUpsells && (
+                          <th className="text-right px-3 py-2.5 text-xs font-semibold text-amber-600 uppercase tracking-wide">Upsells</th>
+                        )}
                         <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Payout</th>
                         {showCommission && (
                           <th className="text-right px-3 py-2.5 text-xs font-semibold text-indigo-500 uppercase tracking-wide">Commission</th>
@@ -267,6 +282,15 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
                           <td className="px-3 py-2.5 text-slate-500 text-xs">{CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? ''}</td>
                           <td className="px-3 py-2.5 text-right text-slate-600">{r.accommodation_total != null ? fmt(r.accommodation_total) : ''}</td>
                           <td className="px-3 py-2.5 text-right text-slate-600">{r.cleaning_fee != null ? fmt(r.cleaning_fee) : ''}</td>
+                          {showUpsells && (() => {
+                            const u = upsellTotal(r);
+                            const tooltip = r.upsells?.map(x => `${x.name}: $${x.price.toFixed(2)}`).join('\n');
+                            return (
+                              <td className="px-3 py-2.5 text-right text-amber-700" title={tooltip}>
+                                {u > 0 ? fmt(u) : ''}
+                              </td>
+                            );
+                          })()}
                           <td className="px-3 py-2.5 text-right font-semibold text-teal-700">{fmt(r.total_price)}</td>
                           {showCommission && (
                             <td className="px-3 py-2.5 text-right font-semibold text-indigo-600">
@@ -283,6 +307,9 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
                         <td />
                         <td className="px-3 py-2.5 text-right text-slate-700">{totals.accommodation > 0 ? fmt(totals.accommodation) : ''}</td>
                         <td className="px-3 py-2.5 text-right text-slate-700">{totals.cleaning > 0 ? fmt(totals.cleaning) : ''}</td>
+                        {showUpsells && (
+                          <td className="px-3 py-2.5 text-right text-amber-700">{totals.upsells > 0 ? fmt(totals.upsells) : ''}</td>
+                        )}
                         <td className="px-3 py-2.5 text-right text-teal-700">{fmt(totals.payout)}</td>
                         {showCommission && (
                           <td className="px-3 py-2.5 text-right text-indigo-700">{fmt(totals.commission)}</td>

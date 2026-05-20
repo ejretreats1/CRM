@@ -21,6 +21,11 @@ export interface UplistingProperty {
   photo_url?: string;
 }
 
+export interface UplistingUpsell {
+  name: string;
+  price: number;
+}
+
 export interface UplistingReservation {
   id: string;
   listing_id: string;
@@ -31,6 +36,7 @@ export interface UplistingReservation {
   total_price: number;
   accommodation_total?: number;
   cleaning_fee?: number;
+  upsells?: UplistingUpsell[];
   status: string;
   channel?: string;
   nights?: number;
@@ -176,6 +182,16 @@ function normalizeProperty(p: any, included: any[] = []): UplistingProperty {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeUpsells(a: any): UplistingUpsell[] | undefined {
+  const raw = a.upsells ?? a.add_ons ?? a.extras ?? a.addons;
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  return raw.map((u: any) => ({
+    name: String(u.name ?? u.title ?? u.description ?? 'Upsell'),
+    price: Number(u.price ?? u.amount ?? u.total ?? 0),
+  }));
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeReservation(r: any): UplistingReservation {
   const a = r.attributes ?? r; // handle JSON:API format
   return {
@@ -190,6 +206,7 @@ function normalizeReservation(r: any): UplistingReservation {
       ? Number(a.accommodation_total ?? a.accomodation_total)
       : undefined,
     cleaning_fee: a.cleaning_fee != null ? Number(a.cleaning_fee) : undefined,
+    upsells: normalizeUpsells(a),
     status: a.status ?? 'confirmed',
     channel: a.channel ?? a.source ?? '',
     nights: Number(a.number_of_nights ?? a.nights ?? 0),
