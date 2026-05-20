@@ -115,23 +115,27 @@ export async function fetchReservations(
       const data = await apiFetch(`bookings/${prop.id}`, apiKey, params);
       const rawList: any[] = data?.bookings ?? data?.data ?? data ?? [];
 
-      // One-time: fetch detail for the first booking with extra_charges to see breakdown
-      if (!debuggedExtraCharge) {
-        const withExtra = rawList.find((r: any) => {
-          const a = r.attributes ?? r;
-          return Number(a.extra_charges ?? 0) > 0;
-        });
-        if (withExtra) {
-          debuggedExtraCharge = true;
-          const a = withExtra.attributes ?? withExtra;
-          const bookingId = withExtra.id ?? a.id;
-          try {
-            const detail = await apiFetch(`bookings/${bookingId}`, apiKey);
-            console.log('[Uplisting booking detail keys]', Object.keys(detail?.booking ?? detail?.data ?? detail ?? {}).join(', '));
-            console.log('[Uplisting booking detail]', JSON.stringify(detail).slice(0, 2000));
-          } catch (e) {
-            console.log('[Uplisting booking detail error]', e);
-          }
+      // One-time: fetch detail for the first booking to see full structure
+      if (!debuggedExtraCharge && rawList.length > 0) {
+        debuggedExtraCharge = true;
+        const first = rawList[0];
+        const a = first.attributes ?? first;
+        const bookingSlug = a.slug ?? first.id ?? a.id;
+        const bookingId = first.id ?? a.id;
+        console.log('[Uplisting booking list fields]', Object.keys(a).join(', '));
+        console.log('[Uplisting extra_charges sample]', a.extra_charges, '| slug:', bookingSlug, '| id:', bookingId);
+        try {
+          // Try slug-based path first (Uplisting uses slugs for individual bookings)
+          const detailSlug = await apiFetch(`bookings/${bookingSlug}`, apiKey);
+          console.log('[Uplisting booking/slug detail]', JSON.stringify(detailSlug).slice(0, 2000));
+        } catch (e) {
+          console.log('[Uplisting booking/slug error]', e);
+        }
+        try {
+          const detailId = await apiFetch(`bookings/${prop.id}/${bookingId}`, apiKey);
+          console.log('[Uplisting booking/prop/id detail]', JSON.stringify(detailId).slice(0, 2000));
+        } catch (e) {
+          console.log('[Uplisting booking/prop/id error]', e);
         }
       }
 
