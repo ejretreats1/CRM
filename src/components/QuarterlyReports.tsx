@@ -17,24 +17,33 @@ interface OwnerMetrics {
   avgLos: number;
 }
 
-function getQuarterBounds(quarter: number, year: number): [Date, Date] {
-  const start = new Date(year, (quarter - 1) * 3, 1);
-  const end = new Date(year, quarter * 3, 0, 23, 59, 59);
-  return [start, end];
+// Returns YYYY-MM-DD strings so all date comparisons are timezone-safe string ops
+function getQuarterBounds(quarter: number, year: number): [string, string] {
+  const startMonth = (quarter - 1) * 3 + 1;
+  const endMonthNum = quarter * 3;
+  const lastDay = new Date(year, endMonthNum, 0).getDate();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return [`${year}-${pad(startMonth)}-01`, `${year}-${pad(endMonthNum)}-${pad(lastDay)}`];
 }
 
-function computeMetrics(owner: Owner, reservations: UplistingReservation[], qStart: Date, qEnd: Date): OwnerMetrics {
+function computeMetrics(owner: Owner, reservations: UplistingReservation[], qStart: string, qEnd: string): OwnerMetrics {
   const uplistingIds = owner.properties.flatMap(p => {
     const parts = p.id.split('_');
     return parts[0] === 'p' && parts.length >= 3 ? [parts.slice(2).join('_')] : [];
   });
 
-  const qRes = reservations.filter(r =>
-    uplistingIds.includes(r.listing_id) &&
-    (r.status !== 'cancelled' || (r.total_price ?? 0) > 0) &&
-    new Date(r.check_in) >= qStart &&
-    new Date(r.check_in) <= qEnd
-  );
+  // Filter by checkout date: a stay "belongs" to the period in which it completes.
+  // This is correct for invoicing (revenue earned when stay is done) and avoids the
+  // timezone bug where new Date("2025-04-01") parses as UTC midnight = previous day local.
+  const qRes = reservations.filter(r => {
+    const cout = r.check_out.slice(0, 10);
+    return (
+      uplistingIds.includes(r.listing_id) &&
+      (r.status !== 'cancelled' || (r.total_price ?? 0) > 0) &&
+      cout > qStart &&   // checked out after period start (exclusive: 0-night checkout on day 1 doesn't count)
+      cout <= qEnd       // checked out on or before period end
+    );
+  });
 
   const totalRevenue = Math.round(qRes.reduce((s, r) => s + (r.total_price ?? 0), 0));
   const totalBookings = qRes.length;
@@ -47,7 +56,8 @@ function computeMetrics(owner: Owner, reservations: UplistingReservation[], qSta
     );
     return s + nights;
   }, 0);
-  const totalDays = Math.round((qEnd.getTime() - qStart.getTime()) / 86400000) + 1;
+  // Use noon to avoid DST edge cases when computing quarter length
+  const totalDays = Math.round((new Date(`${qEnd}T12:00:00`).getTime() - new Date(`${qStart}T12:00:00`).getTime()) / 86400000) + 1;
   const propCount = Math.max(uplistingIds.length, 1);
   const occupancyRate = totalDays > 0 ? Math.min(100, Math.round((totalNights / (totalDays * propCount)) * 100)) : 0;
   const avgNightlyRate = totalNights > 0 ? Math.round(totalRevenue / totalNights) : 0;
