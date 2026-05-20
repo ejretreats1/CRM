@@ -13,6 +13,8 @@ type CommissionBasis = 'accommodation' | 'payout';
 interface CommissionSettings {
   rate: number;
   basis: CommissionBasis;
+  excludeCleaning: boolean;
+  includeUpsells: boolean;
 }
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -42,12 +44,22 @@ function commissionKey(ownerId: string) {
   return `ej_commission_${ownerId}`;
 }
 
-function calcCommission(r: UplistingReservation, rate: number, basis: CommissionBasis): number {
-  if (rate === 0) return 0;
-  const base = basis === 'accommodation'
+function calcCommission(r: UplistingReservation, s: CommissionSettings, upsells: number): number {
+  if (s.rate === 0) return 0;
+  let base = s.basis === 'accommodation'
     ? (r.accommodation_total ?? r.total_price)
     : r.total_price;
-  return base * (rate / 100);
+  if (s.excludeCleaning) base = Math.max(0, base - (r.cleaning_fee ?? 0));
+  if (s.includeUpsells) base += upsells;
+  return base * (s.rate / 100);
+}
+
+function commissionBasisLabel(s: CommissionSettings): string {
+  const base = s.basis === 'accommodation' ? 'Accommodation' : 'Total Payout';
+  const parts = [base];
+  if (s.excludeCleaning) parts.push('− Cleaning');
+  if (s.includeUpsells) parts.push('+ Upsells');
+  return parts.join(' ');
 }
 
 export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenueReportProps) {
@@ -55,7 +67,7 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
   const [from, setFrom] = useState(defaultFrom);
   const [to, setTo] = useState(defaultTo);
 
-  const [commission, setCommission] = useState<CommissionSettings>({ rate: 0, basis: 'payout' });
+  const [commission, setCommission] = useState<CommissionSettings>({ rate: 0, basis: 'payout', excludeCleaning: false, includeUpsells: false });
 
   // Load saved commission settings for this owner
   useEffect(() => {
@@ -104,11 +116,11 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
     cleaning: filtered.reduce((s, r) => s + (r.cleaning_fee ?? 0), 0),
     upsells: filtered.reduce((s, r) => s + upsellTotal(r), 0),
     nights: filtered.reduce((s, r) => s + (r.nights ?? 0), 0),
-    commission: filtered.reduce((s, r) => s + calcCommission(r, commission.rate, commission.basis), 0),
+    commission: filtered.reduce((s, r) => s + calcCommission(r, commission, upsellTotal(r)), 0),
   }), [filtered, commission]);
 
   const showCommission = commission.rate > 0;
-  const basisLabel = commission.basis === 'accommodation' ? 'Accommodation Total' : 'Total Payout';
+  const basisLabel = commissionBasisLabel(commission);
   const showUpsells = filtered.some(r => (r.upsells?.length ?? 0) > 0);
 
   function downloadCSV() {
@@ -134,7 +146,7 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
         row.push(u > 0 ? u.toFixed(2) : '');
       }
       row.push(r.total_price.toFixed(2));
-      if (showCommission) row.push(status === 'Cancelled' ? '' : calcCommission(r, commission.rate, commission.basis).toFixed(2));
+      if (showCommission) row.push(status === 'Cancelled' ? '' : calcCommission(r, commission, upsellTotal(r)).toFixed(2));
       return row;
     };
 
@@ -209,30 +221,52 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
             </div>
 
             {/* Commission */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Percent size={14} className="text-slate-400 flex-shrink-0" />
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  placeholder="0"
-                  value={commission.rate || ''}
-                  onChange={e => updateCommission({ ...commission, rate: parseFloat(e.target.value) || 0 })}
-                  className="w-20 text-sm border border-slate-200 rounded-lg px-3 py-1.5 pr-6 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Percent size={14} className="text-slate-400 flex-shrink-0" />
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder="0"
+                    value={commission.rate || ''}
+                    onChange={e => updateCommission({ ...commission, rate: parseFloat(e.target.value) || 0 })}
+                    className="w-20 text-sm border border-slate-200 rounded-lg px-3 py-1.5 pr-6 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
+                </div>
+                <span className="text-slate-500 text-sm">of</span>
+                <select
+                  value={commission.basis}
+                  onChange={e => updateCommission({ ...commission, basis: e.target.value as CommissionBasis })}
+                  className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                >
+                  <option value="payout">Total Payout</option>
+                  <option value="accommodation">Accommodation</option>
+                </select>
               </div>
-              <span className="text-slate-500 text-sm">of</span>
-              <select
-                value={commission.basis}
-                onChange={e => updateCommission({ ...commission, basis: e.target.value as CommissionBasis })}
-                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-              >
-                <option value="payout">Total Payout</option>
-                <option value="accommodation">Accommodation Total</option>
-              </select>
+              <div className="flex items-center gap-4 pl-5">
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={commission.excludeCleaning}
+                    onChange={e => updateCommission({ ...commission, excludeCleaning: e.target.checked })}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Minus cleaning fee
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={commission.includeUpsells}
+                    onChange={e => updateCommission({ ...commission, includeUpsells: e.target.checked })}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Include upsells
+                </label>
+              </div>
             </div>
           </div>
 
@@ -294,7 +328,7 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
                           <td className="px-3 py-2.5 text-right font-semibold text-teal-700">{fmt(r.total_price)}</td>
                           {showCommission && (
                             <td className="px-3 py-2.5 text-right font-semibold text-indigo-600">
-                              {fmt(calcCommission(r, commission.rate, commission.basis))}
+                              {fmt(calcCommission(r, commission, upsellTotal(r)))}
                             </td>
                           )}
                         </tr>
