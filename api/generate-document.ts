@@ -1,8 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { google } from 'googleapis';
-import { generateObject } from 'ai';
-import { gateway } from '@ai-sdk/gateway';
-import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
 export const config = { maxDuration: 60 };
@@ -125,53 +122,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const doc = await docs.documents.get({ documentId: templateFileId });
     const blanks = findBlanks(doc.data.body?.content ?? []);
 
-    let values: string[] = [];
+    // 2. Pre-resolve each blank from its context; skip blanks with unrecognised context
+    //    so we never send an empty insertText (Google Docs rejects that).
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    type FillEntry = { blank: BlankLocation; value: string };
+    const fillPlan: FillEntry[] = blanks.flatMap(b => {
+      const ctx = b.context.toLowerCase();
+      let value = '';
+      if (/date|dated|as of|effective|agreement date|commencement/.test(ctx)) value = today;
+      else if (/owner.*name|client.*name|name.*owner|name.*client|party.*name|landlord.*name/.test(ctx)) value = ownerName;
+      else if (/email/.test(ctx)) value = ownerEmail ?? 'not provided';
+      else if (/phone|telephone|cell|mobile/.test(ctx)) value = ownerPhone ?? 'not provided';
+      else if (/address|property|premises|location/.test(ctx)) value = propertyAddress ?? 'not provided';
+      else if (/commission|percent|management fee|fee %/.test(ctx)) value = commissionPct ?? 'not provided';
+      else if (/state|governing law|jurisdiction/.test(ctx)) value = state ?? 'not provided';
+      return value ? [{ blank: b, value }] : [];
+    });
 
-    if (blanks.length > 0) {
-      // 2. Ask Claude to map each blank to the right value based on context
-      const blanksDesc = blanks
-        .map((b, i) => `Blank ${i + 1}: "...${b.context}..."`)
-        .join('\n');
-
-      const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
-      // Build explicit per-blank instructions so Claude can't confuse positional order
-      const blankInstructions = blanks.map((b, i) => {
-        const ctx = b.context.toLowerCase();
-        let value = '';
-        if (/date|dated|as of|effective|agreement date|commencement/.test(ctx)) value = today;
-        else if (/owner.*name|client.*name|name.*owner|name.*client|party.*name|landlord.*name/.test(ctx)) value = ownerName;
-        else if (/email/.test(ctx)) value = ownerEmail ?? 'not provided';
-        else if (/phone|telephone|cell|mobile/.test(ctx)) value = ownerPhone ?? 'not provided';
-        else if (/address|property|premises|location/.test(ctx)) value = propertyAddress ?? 'not provided';
-        else if (/commission|percent|management fee|fee %/.test(ctx)) value = commissionPct ?? 'not provided';
-        else if (/state|governing law|jurisdiction/.test(ctx)) value = state ?? 'not provided';
-        return `Blank ${i + 1} — surrounding text: "...${b.context}..."\n  → The correct value for this blank is: "${value}"`;
-      }).join('\n\n');
-
-      const { object } = await generateObject({
-        model: gateway('anthropic/claude-haiku-4-5-20251001'),
-        schema: z.object({ values: z.array(z.string()) }),
-        prompt: `Fill the blanks in a property management agreement. For each blank the correct value is already identified — just return them in order.
-
-${blankInstructions}`,
-      });
-
-      values = object.values;
-
-      // 3. Fill blanks in the ORIGINAL template (last→first so earlier indices stay valid)
-      // No Drive copy needed = no storage quota required
-      const fillRequests: object[] = [];
-      for (let i = blanks.length - 1; i >= 0; i--) {
-        fillRequests.push(
-          { deleteContentRange: { range: { startIndex: blanks[i].startIndex, endIndex: blanks[i].endIndex } } },
-          { insertText: { location: { index: blanks[i].startIndex }, text: values[i] ?? '' } },
-        );
-      }
-      await docs.documents.batchUpdate({
-        documentId: templateFileId,
-        requestBody: { requests: fillRequests },
-      });
+    // 3. Fill last→first so earlier indices stay valid; only apply entries with a value
+    if (fillPlan.length > 0) {
+      const fillRequests: object[] = fillPlan.slice().reverse().flatMap(({ blank, value }) => [
+        { deleteContentRange: { range: { startIndex: blank.startIndex, endIndex: blank.endIndex } } },
+        { insertText: { location: { index: blank.startIndex }, text: value } },
+      ]);
+      await docs.documents.batchUpdate({ documentId: templateFileId, requestBody: { requests: fillRequests } });
     }
 
     let pdfBuffer: Buffer;
@@ -183,18 +157,14 @@ ${blankInstructions}`,
       );
       pdfBuffer = Buffer.from(exported.data as ArrayBuffer);
     } finally {
-      if (blanks.length > 0) {
-        // 5. Restore original blanks (first→last, using original startIndex values)
-        // Math: processing first-to-last in the batch means each subsequent blank's
-        // original startIndex is still valid after restoring the preceding ones.
-        const restoreRequests: object[] = blanks.flatMap((blank, i) => [
-          { deleteContentRange: { range: { startIndex: blank.startIndex, endIndex: blank.startIndex + (values[i]?.length ?? 0) } } },
+      if (fillPlan.length > 0) {
+        // 5. Restore last→first (same direction as fill so positions stay valid)
+        const restoreRequests: object[] = fillPlan.slice().reverse().flatMap(({ blank, value }) => [
+          { deleteContentRange: { range: { startIndex: blank.startIndex, endIndex: blank.startIndex + value.length } } },
           { insertText: { location: { index: blank.startIndex }, text: blank.blankText } },
         ]);
-        await docs.documents.batchUpdate({
-          documentId: templateFileId,
-          requestBody: { requests: restoreRequests },
-        }).catch(err => console.error('Template restore failed:', err));
+        await docs.documents.batchUpdate({ documentId: templateFileId, requestBody: { requests: restoreRequests } })
+          .catch(err => console.error('Template restore failed:', err));
       }
     }
 
