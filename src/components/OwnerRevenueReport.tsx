@@ -16,7 +16,7 @@ interface CommissionSettings {
   rate: number;
   basis: CommissionBasis;
   excludeCleaning: boolean;
-  includeUpsells: boolean;
+  excludeUpsells: boolean;
 }
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -52,7 +52,7 @@ function calcCommission(r: UplistingReservation, s: CommissionSettings, upsells:
     ? (r.accommodation_total ?? r.total_price)
     : r.total_price;
   if (s.excludeCleaning) base = Math.max(0, base - (r.cleaning_fee ?? 0));
-  if (s.includeUpsells) base += upsells;
+  if (s.excludeUpsells) base = Math.max(0, base - upsells);
   return base * (s.rate / 100);
 }
 
@@ -60,7 +60,7 @@ function commissionBasisLabel(s: CommissionSettings): string {
   const base = s.basis === 'accommodation' ? 'Accommodation' : 'Total Payout';
   const parts = [base];
   if (s.excludeCleaning) parts.push('− Cleaning');
-  if (s.includeUpsells) parts.push('+ Upsells');
+  if (s.excludeUpsells) parts.push('− Upsells');
   return parts.join(' ');
 }
 
@@ -69,7 +69,7 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
   const [from, setFrom] = useState(defaultFrom);
   const [to, setTo] = useState(defaultTo);
 
-  const [commission, setCommission] = useState<CommissionSettings>({ rate: 0, basis: 'payout', excludeCleaning: false, includeUpsells: false });
+  const [commission, setCommission] = useState<CommissionSettings>({ rate: 0, basis: 'payout', excludeCleaning: false, excludeUpsells: false });
   const [saving, setSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
 
@@ -302,11 +302,11 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                 <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
                   <input
                     type="checkbox"
-                    checked={commission.includeUpsells}
-                    onChange={e => updateCommission({ ...commission, includeUpsells: e.target.checked })}
+                    checked={commission.excludeUpsells}
+                    onChange={e => updateCommission({ ...commission, excludeUpsells: e.target.checked })}
                     className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
-                  Include upsells
+                  Minus upsells
                 </label>
               </div>
             </div>
