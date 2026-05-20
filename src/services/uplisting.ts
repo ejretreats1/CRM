@@ -194,6 +194,12 @@ function normalizeUpsells(a: any): UplistingUpsell[] | undefined {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeReservation(r: any): UplistingReservation {
   const a = r.attributes ?? r; // handle JSON:API format
+  // Log all keys on the first booking so we can identify the upsells field name
+  console.log('[Uplisting booking keys]', Object.keys(a).join(', '));
+  const upsellCandidates = ['upsells','add_ons','extras','addons','extra_charges','services','fees','line_items'];
+  for (const k of upsellCandidates) {
+    if (a[k] !== undefined) console.log(`[Uplisting upsell candidate] ${k}:`, JSON.stringify(a[k]).slice(0, 200));
+  }
   return {
     id: String(r.id ?? a.id ?? ''),
     listing_id: String(a.property_id ?? a.listing_id ?? r.property_id ?? ''),
