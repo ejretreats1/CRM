@@ -516,6 +516,7 @@ export default function App() {
           }}
           priceLabsApiKey={priceLabsApiKey}
           onSavePriceLabsApiKey={handleSavePriceLabsApiKey}
+          isAdmin={isAdmin}
         />
       )}
 

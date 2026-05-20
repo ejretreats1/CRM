@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Key, CheckCircle, XCircle, Loader, Eye, EyeOff, RefreshCw, Trash2, CalendarDays, Save, Hash, Plus, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Key, CheckCircle, XCircle, Loader, Eye, EyeOff, RefreshCw, Trash2, CalendarDays, Save, Hash, Plus, X, Users, UserPlus, Copy, Check } from 'lucide-react';
 import { testConnection } from '../services/uplisting';
 import { testHostawayConnection } from '../services/hostaway';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
@@ -37,9 +37,13 @@ interface SettingsProps {
   onSaveSlackToken: (token: string) => void;
   slackChannels: SlackChannel[];
   onSaveSlackChannels: (channels: SlackChannel[]) => void;
+  isAdmin?: boolean;
 }
 
 type Status = 'idle' | 'testing' | 'success' | 'error';
+
+interface TeamMember { id: string; email: string; name: string; role: string; }
+interface CreatedCreds { email: string; password: string; name: string; }
 
 export default function Settings({
   apiKey, onSaveApiKey,
@@ -50,6 +54,7 @@ export default function Settings({
   hostawayAccountId, hostawaySecret, onSaveHostawayCredentials,
   hostawayLastSync, hostawayProperties, hostawayReservations, onHostawaySync, onClearHostawayData,
   priceLabsApiKey, onSavePriceLabsApiKey,
+  isAdmin,
 }: SettingsProps) {
   // Uplisting
   const [inputKey, setInputKey] = useState(apiKey);
@@ -79,6 +84,69 @@ export default function Settings({
     setPlSaved(true);
     setTimeout(() => setPlSaved(false), 2000);
   };
+
+  // Team management
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newFirstName, setNewFirstName] = useState('');
+  const [newLastName, setNewLastName] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [createdCreds, setCreatedCreds] = useState<CreatedCreds | null>(null);
+  const [copiedField, setCopiedField] = useState<'email' | 'password' | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    setTeamLoading(true);
+    fetch('/api/clerk-manage-users')
+      .then(r => r.json())
+      .then(d => setTeamMembers(d.users ?? []))
+      .catch(() => {})
+      .finally(() => setTeamLoading(false));
+  }, [isAdmin]);
+
+  async function handleCreateVA(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newEmail.trim() || !newPassword.trim()) return;
+    setCreating(true);
+    setCreateError('');
+    try {
+      const res = await fetch('/api/clerk-manage-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newEmail.trim(), firstName: newFirstName.trim(), lastName: newLastName.trim(), password: newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to create account');
+      setTeamMembers(m => [...m, data.user]);
+      setCreatedCreds({ email: newEmail.trim(), password: newPassword, name: data.user.name });
+      setNewEmail(''); setNewFirstName(''); setNewLastName(''); setNewPassword('');
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create account');
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleDeleteMember(userId: string) {
+    if (!confirm('Remove this team member? They will no longer be able to log in.')) return;
+    await fetch('/api/clerk-manage-users', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    setTeamMembers(m => m.filter(u => u.id !== userId));
+  }
+
+  function copyToClipboard(text: string, field: 'email' | 'password') {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
+  }
 
   // Calendar
   const [icalInput, setIcalInput] = useState(calendarUrl);
@@ -169,6 +237,99 @@ export default function Settings({
         <h1 className="text-xl font-bold text-slate-900">Settings</h1>
         <p className="text-sm text-slate-500 mt-0.5">Manage your integrations and connected services.</p>
       </div>
+
+      {/* Team Management — admin only */}
+      {isAdmin && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-5">
+          <div className="flex items-center gap-2">
+            <Users size={18} className="text-teal-600" />
+            <h2 className="font-semibold text-slate-900">Team Members</h2>
+          </div>
+
+          {/* Existing members */}
+          {teamLoading ? (
+            <p className="text-sm text-slate-400 flex items-center gap-2"><Loader size={13} className="animate-spin" /> Loading…</p>
+          ) : teamMembers.length > 0 ? (
+            <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden">
+              {teamMembers.map(m => (
+                <div key={m.id} className="flex items-center justify-between px-4 py-2.5">
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">{m.name}</p>
+                    <p className="text-xs text-slate-400">{m.email}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${m.role === 'admin' ? 'bg-violet-100 text-violet-700' : 'bg-teal-100 text-teal-700'}`}>
+                      {m.role}
+                    </span>
+                    {m.role !== 'admin' && (
+                      <button onClick={() => handleDeleteMember(m.id)} className="text-slate-300 hover:text-red-500 transition-colors">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">No team members yet.</p>
+          )}
+
+          {/* Created credentials banner */}
+          {createdCreds && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-emerald-800">Account created for {createdCreds.name} — share these credentials:</p>
+              <div className="space-y-2">
+                {[{ label: 'Email', value: createdCreds.email, field: 'email' as const }, { label: 'Password', value: createdCreds.password, field: 'password' as const }].map(({ label, value, field }) => (
+                  <div key={field} className="flex items-center gap-2 bg-white border border-emerald-200 rounded-lg px-3 py-2">
+                    <span className="text-xs text-slate-400 w-16 flex-shrink-0">{label}</span>
+                    <span className="text-sm font-mono text-slate-800 flex-1 truncate">{value}</span>
+                    <button onClick={() => copyToClipboard(value, field)} className="text-emerald-600 hover:text-emerald-700 flex-shrink-0">
+                      {copiedField === field ? <Check size={14} /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-emerald-600">Save the password now — it won't be shown again. The VA can change it after logging in.</p>
+              <button onClick={() => setCreatedCreds(null)} className="text-xs text-emerald-700 hover:text-emerald-900 underline">Dismiss</button>
+            </div>
+          )}
+
+          {/* Create new VA form */}
+          <div className="border-t border-slate-100 pt-4">
+            <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5 mb-3"><UserPlus size={14} className="text-teal-600" /> Create VA Account</p>
+            <form onSubmit={handleCreateVA} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">First name</label>
+                  <input value={newFirstName} onChange={e => setNewFirstName(e.target.value)} placeholder="Jane" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Last name</label>
+                  <input value={newLastName} onChange={e => setNewLastName(e.target.value)} placeholder="Smith" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Email *</label>
+                <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="va@yourcompany.com" required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Temporary password *</label>
+                <div className="relative">
+                  <input type={showNewPassword ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 8 characters" required className="w-full border border-slate-200 rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono" />
+                  <button type="button" onClick={() => setShowNewPassword(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    {showNewPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+              {createError && <p className="text-xs text-red-600 flex items-center gap-1"><XCircle size={12} /> {createError}</p>}
+              <button type="submit" disabled={creating || !newEmail.trim() || !newPassword.trim()} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                {creating ? <Loader size={13} className="animate-spin" /> : <UserPlus size={13} />}
+                {creating ? 'Creating…' : 'Create Account'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Google Calendar */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
