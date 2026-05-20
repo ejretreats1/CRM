@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Download, Calendar, Percent } from 'lucide-react';
+import { Download, Calendar, Percent, Save, CheckCircle } from 'lucide-react';
 import type { Owner } from '../types';
 import type { UplistingReservation } from '../services/uplisting';
+import { uploadOwnerDocument } from '../services/ownerDocuments';
 
 interface OwnerRevenueReportProps {
   owner: Owner;
   reservations: UplistingReservation[];
+  onDocumentSaved?: () => void;
 }
 
 type CommissionBasis = 'accommodation' | 'payout';
@@ -62,12 +64,14 @@ function commissionBasisLabel(s: CommissionSettings): string {
   return parts.join(' ');
 }
 
-export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenueReportProps) {
+export default function OwnerRevenueReport({ owner, reservations, onDocumentSaved }: OwnerRevenueReportProps) {
   const { from: defaultFrom, to: defaultTo } = defaultRange();
   const [from, setFrom] = useState(defaultFrom);
   const [to, setTo] = useState(defaultTo);
 
   const [commission, setCommission] = useState<CommissionSettings>({ rate: 0, basis: 'payout', excludeCleaning: false, includeUpsells: false });
+  const [saving, setSaving] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
 
   // Load saved commission settings for this owner
   useEffect(() => {
@@ -123,7 +127,11 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
   const basisLabel = commissionBasisLabel(commission);
   const showUpsells = filtered.some(r => (r.upsells?.length ?? 0) > 0);
 
-  function downloadCSV() {
+  function reportFileName() {
+    return `${owner.name.replace(/\s+/g, '-')}-Revenue-${from}-to-${to}.csv`;
+  }
+
+  function buildCSVBlob(): Blob {
     const headers = ['Status', 'Property', 'Guest', 'Check-In', 'Check-Out', 'Nights', 'Channel', 'Accommodation', 'Cleaning Fee'];
     if (showUpsells) headers.push('Upsells');
     headers.push('Total Payout');
@@ -170,13 +178,34 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
     const csv = [headers, ...rows]
       .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
       .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    return new Blob([csv], { type: 'text/csv' });
+  }
+
+  function downloadCSV() {
+    const blob = buildCSVBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${owner.name.replace(/\s+/g, '-')}-revenue-${from}-to-${to}.csv`;
+    a.download = reportFileName();
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function saveToDocuments() {
+    setSaving(true);
+    try {
+      const blob = buildCSVBlob();
+      const fileName = reportFileName();
+      const file = new File([blob], fileName, { type: 'text/csv' });
+      await uploadOwnerDocument(owner.id, file);
+      setSavedOk(true);
+      setTimeout(() => setSavedOk(false), 3000);
+      onDocumentSaved?.();
+    } catch (err) {
+      alert(`Failed to save: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   const hasUplisting = ownerListingIds.size > 0;
@@ -186,12 +215,25 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold text-slate-900">Revenue Report</h2>
         {(filtered.length > 0 || cancelled.length > 0) && (
-          <button
-            onClick={downloadCSV}
-            className="flex items-center gap-1.5 text-xs font-medium text-teal-700 border border-teal-200 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <Download size={13} /> Download CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={downloadCSV}
+              className="flex items-center gap-1.5 text-xs font-medium text-teal-700 border border-teal-200 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Download size={13} /> Download CSV
+            </button>
+            <button
+              onClick={saveToDocuments}
+              disabled={saving}
+              className="flex items-center gap-1.5 text-xs font-medium text-indigo-700 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              {savedOk
+                ? <><CheckCircle size={13} className="text-green-600" /> Saved!</>
+                : saving
+                  ? <><Save size={13} className="animate-pulse" /> Saving…</>
+                  : <><Save size={13} /> Save to Documents</>}
+            </button>
+          </div>
         )}
       </div>
 

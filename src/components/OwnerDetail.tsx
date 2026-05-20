@@ -453,7 +453,11 @@ export default function OwnerDetail({
       {/* Revenue tab */}
       {activeTab === 'revenue' && (
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <OwnerRevenueReport owner={owner} reservations={reservations} />
+          <OwnerRevenueReport
+            owner={owner}
+            reservations={reservations}
+            onDocumentSaved={() => fetchOwnerDocuments(owner.id).then(setOwnerDocs).catch(() => {})}
+          />
         </div>
       )}
 
