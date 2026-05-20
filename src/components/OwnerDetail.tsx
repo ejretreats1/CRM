@@ -15,6 +15,7 @@ import { fetchOwnerDriveLinks, saveOwnerDriveLink, deleteOwnerDriveLink } from '
 import type { OwnerDriveLink } from '../services/ownerDriveLinks';
 import { fetchRevenueReportsByOwner } from '../services/revenueReports';
 import OwnerRevenueReport from './OwnerRevenueReport';
+import ReportViewerModal from './modals/ReportViewerModal';
 import SignatureRequestModal from './modals/SignatureRequestModal';
 import DrivePickerModal from './modals/DrivePickerModal';
 import type { PickedDriveFile } from './modals/DrivePickerModal';
@@ -109,6 +110,7 @@ export default function OwnerDetail({
   const [ownerDocs, setOwnerDocs] = useState<OwnerDocument[]>([]);
   const [driveLinks, setDriveLinks] = useState<OwnerDriveLink[]>([]);
   const [revenueReports, setRevenueReports] = useState<RevenueReport[]>([]);
+  const [selectedReport, setSelectedReport] = useState<RevenueReport | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -504,7 +506,7 @@ export default function OwnerDetail({
             <p className="text-sm text-slate-400 text-center py-8">No documents yet.</p>
           )}
           {revenueReports.map(r => (
-            <div key={r.id} className="flex items-center gap-3 px-5 py-3.5">
+            <button key={r.id} onClick={() => setSelectedReport(r)} className="flex items-center gap-3 px-5 py-3.5 w-full text-left hover:bg-slate-50 transition-colors">
               <div className="w-9 h-9 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0"><FileBarChart2 size={16} className="text-teal-500" /></div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-900 truncate">{r.reportTitle ?? r.propertyAddress}</p>
@@ -519,7 +521,7 @@ export default function OwnerDetail({
                   }`}>{r.opportunityScore}/10</span>
                 )}
               </div>
-            </div>
+            </button>
           ))}
           {ownerDocs.map(doc => (
             <div key={doc.id} className="flex items-center gap-3 px-5 py-3.5">
@@ -766,6 +768,7 @@ export default function OwnerDetail({
         </div>
       </div>
     )}
+    {selectedReport && <ReportViewerModal report={selectedReport} onClose={() => setSelectedReport(null)} />}
     </>
   );
 }
