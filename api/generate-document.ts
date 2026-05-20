@@ -4,8 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 
 export const config = { maxDuration: 60 };
 
-const BLANK_RE = /_{3,}/g;
-
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   if (!raw) throw new Error('Missing GOOGLE_SERVICE_ACCOUNT_KEY');
@@ -16,69 +14,6 @@ function getAuth() {
       'https://www.googleapis.com/auth/documents',
     ],
   });
-}
-
-interface BlankLocation {
-  startIndex: number;
-  endIndex: number;
-  blankText: string;
-  context: string;
-}
-
-function findBlanks(elements: any[]): BlankLocation[] {
-  const blanks: BlankLocation[] = [];
-
-  function extractText(elems: any[]): string {
-    let t = '';
-    for (const elem of elems ?? []) {
-      if (elem.paragraph) {
-        for (const part of elem.paragraph.elements ?? []) t += part.textRun?.content ?? '';
-      }
-      if (elem.table) {
-        for (const row of (elem.table.tableRows ?? [])) {
-          for (const cell of (row.tableCells ?? [])) t += extractText(cell.content ?? []);
-        }
-      }
-    }
-    return t;
-  }
-
-  function traverseParagraph(elem: any, context: string) {
-    let paraText = '';
-    for (const part of elem.paragraph.elements ?? []) paraText += part.textRun?.content ?? '';
-    const ctx = (context || paraText).replace(/\n/g, ' ').trim().slice(0, 300);
-    for (const part of elem.paragraph.elements ?? []) {
-      const content: string = part.textRun?.content ?? '';
-      const runStart: number = part.startIndex ?? 0;
-      BLANK_RE.lastIndex = 0;
-      let match: RegExpExecArray | null;
-      while ((match = BLANK_RE.exec(content)) !== null) {
-        blanks.push({
-          startIndex: runStart + match.index,
-          endIndex: runStart + match.index + match[0].length,
-          blankText: match[0],
-          context: ctx,
-        });
-      }
-    }
-  }
-
-  function traverse(elems: any[], inheritedContext = '') {
-    for (const elem of elems ?? []) {
-      if (elem.paragraph) traverseParagraph(elem, inheritedContext);
-      if (elem.table) {
-        for (const row of elem.table.tableRows ?? []) {
-          const rowText = (row.tableCells ?? []).map((cell: any) => extractText(cell.content ?? [])).join(' ').replace(/\n/g, ' ').trim().slice(0, 300);
-          for (const cell of row.tableCells ?? []) {
-            traverse(cell.content ?? [], rowText);
-          }
-        }
-      }
-    }
-  }
-
-  traverse(elements);
-  return blanks.sort((a, b) => a.startIndex - b.startIndex);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -111,63 +46,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const docName = documentName || `${ownerName} - Management Agreement`;
+  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Named placeholders → values. Every placeholder in the template gets replaced.
+  const placeholders: Record<string, string> = {
+    '{{date}}':        today,
+    '{{owner_name}}':  ownerName,
+    '{{address}}':     propertyAddress ?? 'not provided',
+    '{{email}}':       ownerEmail      ?? 'not provided',
+    '{{phone}}':       ownerPhone      ?? 'not provided',
+    '{{commission}}':  commissionPct   ?? 'not provided',
+    '{{state}}':       state           ?? 'Florida',
+  };
 
   try {
     const auth = getAuth();
     const drive = google.drive({ version: 'v3', auth });
-    const docs = google.docs({ version: 'v1', auth });
+    const docs  = google.docs({ version: 'v1', auth });
 
-    // 1. Read template and find blanks
-    const templateDoc = await docs.documents.get({ documentId: templateFileId });
-    const blanks = findBlanks(templateDoc.data.body?.content ?? []);
-
-    // 2. Pre-resolve each blank from context; skip blanks with unrecognised context
-    //    so we never send an empty insertText (Google Docs rejects that).
-    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    type FillEntry = { blank: BlankLocation; value: string };
-    const fillPlan: FillEntry[] = blanks.flatMap(b => {
-      const ctx = b.context.toLowerCase();
-      let value = '';
-      if (/date|dated|as of|effective|agreement date|commencement/.test(ctx)) value = today;
-      else if (/owner.*name|client.*name|name.*owner|name.*client|party.*name|landlord.*name/.test(ctx)) value = ownerName;
-      else if (/email/.test(ctx)) value = ownerEmail ?? 'not provided';
-      else if (/phone|telephone|cell|mobile/.test(ctx)) value = ownerPhone ?? 'not provided';
-      else if (/address|property|premises|location/.test(ctx)) value = propertyAddress ?? 'not provided';
-      else if (/commission|percent|management fee|fee %/.test(ctx)) value = commissionPct ?? 'not provided';
-      else if (/state|governing law|jurisdiction/.test(ctx)) value = state ?? 'not provided';
-      return value ? [{ blank: b, value }] : [];
+    // 1. Fill every placeholder in one atomic batchUpdate
+    const fillRequests = Object.entries(placeholders).map(([placeholder, value]) => ({
+      replaceAllText: {
+        containsText: { text: placeholder, matchCase: true },
+        replaceText: value,
+      },
+    }));
+    await docs.documents.batchUpdate({
+      documentId: templateFileId,
+      requestBody: { requests: fillRequests },
     });
-
-    // 3. Fill last→first so earlier indices stay valid
-    if (fillPlan.length > 0) {
-      const fillRequests: object[] = fillPlan.slice().reverse().flatMap(({ blank, value }) => [
-        { deleteContentRange: { range: { startIndex: blank.startIndex, endIndex: blank.endIndex } } },
-        { insertText: { location: { index: blank.startIndex }, text: value } },
-      ]);
-      await docs.documents.batchUpdate({ documentId: templateFileId, requestBody: { requests: fillRequests } });
-    }
 
     let pdfBuffer: Buffer;
     try {
-      // 4. Export filled template as PDF
+      // 2. Export as PDF
       const exported = await drive.files.export(
         { fileId: templateFileId, mimeType: 'application/pdf', supportsAllDrives: true },
         { responseType: 'arraybuffer' },
       );
       pdfBuffer = Buffer.from(exported.data as ArrayBuffer);
     } finally {
-      // 5. Always restore last→first — same direction as fill keeps positions valid
-      if (fillPlan.length > 0) {
-        const restoreRequests: object[] = fillPlan.slice().reverse().flatMap(({ blank, value }) => [
-          { deleteContentRange: { range: { startIndex: blank.startIndex, endIndex: blank.startIndex + value.length } } },
-          { insertText: { location: { index: blank.startIndex }, text: blank.blankText } },
-        ]);
-        await docs.documents.batchUpdate({ documentId: templateFileId, requestBody: { requests: restoreRequests } })
-          .catch(err => console.error('Template restore failed — manual restore needed:', err));
-      }
+      // 3. Always restore — swap every filled value back to its placeholder
+      const restoreRequests = Object.entries(placeholders).map(([placeholder, value]) => ({
+        replaceAllText: {
+          containsText: { text: value, matchCase: true },
+          replaceText: placeholder,
+        },
+      }));
+      await docs.documents.batchUpdate({
+        documentId: templateFileId,
+        requestBody: { requests: restoreRequests },
+      }).catch(err => console.error('Template restore failed:', err));
     }
 
-    // 6. Upload PDF to Supabase
+    // 4. Upload PDF to Supabase
     const supabase = createClient(
       process.env.VITE_SUPABASE_URL!,
       process.env.VITE_SUPABASE_ANON_KEY!,
@@ -183,30 +114,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(storagePath);
 
-    // 7. Save record to owner_documents table
-    const id = `doc_${Date.now()}`;
+    // 5. Save record to owner_documents table
+    const id  = `doc_${Date.now()}`;
     const now = new Date().toISOString();
     const { error: dbErr } = await supabase.from('owner_documents').insert({
       id,
-      owner_id: ownerId,
-      name: docName,
-      file_url: publicUrl,
-      file_type: 'application/pdf',
-      file_size: pdfBuffer!.length,
+      owner_id:     ownerId,
+      name:         docName,
+      file_url:     publicUrl,
+      file_type:    'application/pdf',
+      file_size:    pdfBuffer!.length,
       storage_path: storagePath,
-      uploaded_at: now,
+      uploaded_at:  now,
     });
     if (dbErr) throw dbErr;
 
     return res.status(200).json({
       id,
       ownerId,
-      name: docName,
-      fileUrl: publicUrl,
-      fileType: 'application/pdf',
-      fileSize: pdfBuffer!.length,
+      name:        docName,
+      fileUrl:     publicUrl,
+      fileType:    'application/pdf',
+      fileSize:    pdfBuffer!.length,
       storagePath,
-      uploadedAt: now,
+      uploadedAt:  now,
     });
 
   } catch (err) {
