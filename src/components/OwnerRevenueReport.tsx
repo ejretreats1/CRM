@@ -16,7 +16,7 @@ interface CommissionSettings {
   rate: number;
   basis: CommissionBasis;
   excludeCleaning: boolean;
-  excludeUpsells: boolean;
+  commissionExtras: boolean; // add per-reservation commissionable extras to base
 }
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -42,17 +42,16 @@ function defaultRange() {
   return { from, to };
 }
 
-function commissionKey(ownerId: string) {
-  return `ej_commission_${ownerId}`;
-}
+function commissionKey(ownerId: string) { return `ej_commission_${ownerId}`; }
+function commExtrasKey(ownerId: string) { return `ej_comm_extras_${ownerId}`; }
 
-function calcCommission(r: UplistingReservation, s: CommissionSettings, upsells: number): number {
+function calcCommission(r: UplistingReservation, s: CommissionSettings, commExtra: number): number {
   if (s.rate === 0) return 0;
   let base = s.basis === 'accommodation'
     ? (r.accommodation_total ?? r.total_price)
     : r.total_price;
   if (s.excludeCleaning) base = Math.max(0, base - (r.cleaning_fee ?? 0));
-  if (s.excludeUpsells) base = Math.max(0, base - upsells);
+  if (s.commissionExtras) base += commExtra;
   return base * (s.rate / 100);
 }
 
@@ -60,7 +59,7 @@ function commissionBasisLabel(s: CommissionSettings): string {
   const base = s.basis === 'accommodation' ? 'Accommodation' : 'Total Payout';
   const parts = [base];
   if (s.excludeCleaning) parts.push('− Cleaning');
-  if (s.excludeUpsells) parts.push('− Upsells');
+  if (s.commissionExtras) parts.push('+ Pet/Extras');
   return parts.join(' ');
 }
 
@@ -69,21 +68,32 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
   const [from, setFrom] = useState(defaultFrom);
   const [to, setTo] = useState(defaultTo);
 
-  const [commission, setCommission] = useState<CommissionSettings>({ rate: 0, basis: 'payout', excludeCleaning: false, excludeUpsells: false });
+  const [commission, setCommission] = useState<CommissionSettings>({ rate: 0, basis: 'payout', excludeCleaning: false, commissionExtras: false });
+  const [commExtras, setCommExtras] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
 
-  // Load saved commission settings for this owner
+  // Load saved commission settings and per-reservation commissionable extras
   useEffect(() => {
     try {
       const saved = localStorage.getItem(commissionKey(owner.id));
       if (saved) setCommission(JSON.parse(saved));
+    } catch { /* ignore */ }
+    try {
+      const extras = localStorage.getItem(commExtrasKey(owner.id));
+      if (extras) setCommExtras(JSON.parse(extras));
     } catch { /* ignore */ }
   }, [owner.id]);
 
   function updateCommission(next: CommissionSettings) {
     setCommission(next);
     localStorage.setItem(commissionKey(owner.id), JSON.stringify(next));
+  }
+
+  function updateCommExtra(reservationId: string, value: number) {
+    const next = { ...commExtras, [reservationId]: value };
+    setCommExtras(next);
+    localStorage.setItem(commExtrasKey(owner.id), JSON.stringify(next));
   }
 
   // Build map: uplistingId -> property address
@@ -114,14 +124,16 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
   const upsellTotal = (r: UplistingReservation) =>
     r.upsells?.reduce((s, u) => s + u.price, 0) ?? 0;
 
+  const getCommExtra = (r: UplistingReservation) => commExtras[r.id] ?? 0;
+
   const totals = useMemo(() => ({
     payout: filtered.reduce((s, r) => s + r.total_price, 0),
     accommodation: filtered.reduce((s, r) => s + (r.accommodation_total ?? 0), 0),
     cleaning: filtered.reduce((s, r) => s + (r.cleaning_fee ?? 0), 0),
     upsells: filtered.reduce((s, r) => s + upsellTotal(r), 0),
     nights: filtered.reduce((s, r) => s + (r.nights ?? 0), 0),
-    commission: filtered.reduce((s, r) => s + calcCommission(r, commission, upsellTotal(r)), 0),
-  }), [filtered, commission]);
+    commission: filtered.reduce((s, r) => s + calcCommission(r, commission, getCommExtra(r)), 0),
+  }), [filtered, commission, commExtras]);
 
   const showCommission = commission.rate > 0;
   const basisLabel = commissionBasisLabel(commission);
@@ -151,10 +163,11 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
       ];
       if (showUpsells) {
         const u = upsellTotal(r);
-        row.push(u > 0 ? u.toFixed(2) : '');
+        const ce = getCommExtra(r);
+        row.push(u > 0 ? `${u.toFixed(2)}${ce > 0 ? ` (comm: ${ce.toFixed(2)})` : ''}` : '');
       }
       row.push(r.total_price.toFixed(2));
-      if (showCommission) row.push(status === 'Cancelled' ? '' : calcCommission(r, commission, upsellTotal(r)).toFixed(2));
+      if (showCommission) row.push(status === 'Cancelled' ? '' : calcCommission(r, commission, getCommExtra(r)).toFixed(2));
       return row;
     };
 
@@ -302,11 +315,11 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                 <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
                   <input
                     type="checkbox"
-                    checked={commission.excludeUpsells}
-                    onChange={e => updateCommission({ ...commission, excludeUpsells: e.target.checked })}
+                    checked={commission.commissionExtras}
+                    onChange={e => updateCommission({ ...commission, commissionExtras: e.target.checked })}
                     className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
-                  Minus upsells
+                  + Pet/extras per row
                 </label>
               </div>
             </div>
@@ -360,17 +373,35 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                           <td className="px-3 py-2.5 text-right text-slate-600">{r.cleaning_fee != null ? fmt(r.cleaning_fee) : ''}</td>
                           {showUpsells && (() => {
                             const u = upsellTotal(r);
-                            const tooltip = r.upsells?.map(x => `${x.name}: $${x.price.toFixed(2)}`).join('\n');
+                            const ce = getCommExtra(r);
                             return (
-                              <td className="px-3 py-2.5 text-right text-amber-700" title={tooltip}>
-                                {u > 0 ? fmt(u) : ''}
+                              <td className="px-3 py-2.5 text-right text-amber-700">
+                                {u > 0 ? <div className="font-medium">{fmt(u)}</div> : null}
+                                {showCommission && commission.commissionExtras && (
+                                  <div className="flex items-center justify-end gap-1 mt-1">
+                                    <span className="text-indigo-400 text-xs">comm:</span>
+                                    <div className="relative">
+                                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        value={ce || ''}
+                                        placeholder="0"
+                                        onClick={e => e.stopPropagation()}
+                                        onChange={e => updateCommExtra(r.id, parseFloat(e.target.value) || 0)}
+                                        className="w-16 text-xs text-right pl-4 pr-1 py-0.5 border border-indigo-200 rounded bg-indigo-50 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
                               </td>
                             );
                           })()}
                           <td className="px-3 py-2.5 text-right font-semibold text-teal-700">{fmt(r.total_price)}</td>
                           {showCommission && (
                             <td className="px-3 py-2.5 text-right font-semibold text-indigo-600">
-                              {fmt(calcCommission(r, commission, upsellTotal(r)))}
+                              {fmt(calcCommission(r, commission, getCommExtra(r)))}
                             </td>
                           )}
                         </tr>
