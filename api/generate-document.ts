@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { google } from 'googleapis';
-import { generateText } from 'ai';
+import { generateObject } from 'ai';
 import { gateway } from '@ai-sdk/gateway';
+import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 
 export const config = { maxDuration: 60 };
@@ -148,31 +149,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return `Blank ${i + 1} — surrounding text: "...${b.context}..."\n  → The correct value for this blank is: "${value}"`;
       }).join('\n\n');
 
-      const { text } = await generateText({
+      const { object } = await generateObject({
         model: gateway('anthropic/claude-haiku-4-5-20251001'),
-        maxTokens: 512,
-        prompt: `You are filling blanks (____) in a property management agreement.
+        schema: z.object({ values: z.array(z.string()) }),
+        prompt: `Fill the blanks in a property management agreement. For each blank the correct value is already identified — just return them in order.
 
-For each blank below, the correct value has already been identified for you based on context. Your only job is to return these values as a JSON array in the same order (Blank 1, Blank 2, ...).
-
-DATA:
-- Today's date: ${today}
-- Client name: ${ownerName}
-- Client email: ${ownerEmail ?? 'not provided'}
-- Client phone: ${ownerPhone ?? 'not provided'}
-- Property address: ${propertyAddress ?? 'not provided'}
-- Commission %: ${commissionPct ?? 'not provided'}
-- State: ${state ?? 'not provided'}
-
-BLANKS WITH CORRECT VALUES:
-${blankInstructions}
-
-Return ONLY a JSON array, one string per blank in order (Blank 1 first). No markdown, no explanation.
-Example for 4 blanks: ["May 20, 2026", "Gerard Corning", "3622 Murrow St", "20"]`,
+${blankInstructions}`,
       });
 
-      const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-      values = JSON.parse(cleaned);
+      values = object.values;
 
       // 3. Fill blanks in the ORIGINAL template (last→first so earlier indices stay valid)
       // No Drive copy needed = no storage quota required
