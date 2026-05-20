@@ -121,54 +121,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const templateDoc = await docs.documents.get({ documentId: templateFileId });
     const blanks = findBlanks(templateDoc.data.body?.content ?? []);
 
-    // 2. Copy the template — we fill the copy only, original is never modified
-    const copyRes = await drive.files.copy({
-      fileId: templateFileId,
-      supportsAllDrives: true,
-      requestBody: { name: `${docName}_tmp_${Date.now()}` },
+    // 2. Pre-resolve each blank from context; skip blanks with unrecognised context
+    //    so we never send an empty insertText (Google Docs rejects that).
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    type FillEntry = { blank: BlankLocation; value: string };
+    const fillPlan: FillEntry[] = blanks.flatMap(b => {
+      const ctx = b.context.toLowerCase();
+      let value = '';
+      if (/date|dated|as of|effective|agreement date|commencement/.test(ctx)) value = today;
+      else if (/owner.*name|client.*name|name.*owner|name.*client|party.*name|landlord.*name/.test(ctx)) value = ownerName;
+      else if (/email/.test(ctx)) value = ownerEmail ?? 'not provided';
+      else if (/phone|telephone|cell|mobile/.test(ctx)) value = ownerPhone ?? 'not provided';
+      else if (/address|property|premises|location/.test(ctx)) value = propertyAddress ?? 'not provided';
+      else if (/commission|percent|management fee|fee %/.test(ctx)) value = commissionPct ?? 'not provided';
+      else if (/state|governing law|jurisdiction/.test(ctx)) value = state ?? 'not provided';
+      return value ? [{ blank: b, value }] : [];
     });
-    const copyId = copyRes.data.id!;
+
+    // 3. Fill last→first so earlier indices stay valid
+    if (fillPlan.length > 0) {
+      const fillRequests: object[] = fillPlan.slice().reverse().flatMap(({ blank, value }) => [
+        { deleteContentRange: { range: { startIndex: blank.startIndex, endIndex: blank.endIndex } } },
+        { insertText: { location: { index: blank.startIndex }, text: value } },
+      ]);
+      await docs.documents.batchUpdate({ documentId: templateFileId, requestBody: { requests: fillRequests } });
+    }
 
     let pdfBuffer: Buffer;
     try {
-      // 3. Pre-resolve blanks from context and build fill plan (skip unrecognised blanks)
-      const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      type FillEntry = { blank: BlankLocation; value: string };
-      const fillPlan: FillEntry[] = blanks.flatMap(b => {
-        const ctx = b.context.toLowerCase();
-        let value = '';
-        if (/date|dated|as of|effective|agreement date|commencement/.test(ctx)) value = today;
-        else if (/owner.*name|client.*name|name.*owner|name.*client|party.*name|landlord.*name/.test(ctx)) value = ownerName;
-        else if (/email/.test(ctx)) value = ownerEmail ?? 'not provided';
-        else if (/phone|telephone|cell|mobile/.test(ctx)) value = ownerPhone ?? 'not provided';
-        else if (/address|property|premises|location/.test(ctx)) value = propertyAddress ?? 'not provided';
-        else if (/commission|percent|management fee|fee %/.test(ctx)) value = commissionPct ?? 'not provided';
-        else if (/state|governing law|jurisdiction/.test(ctx)) value = state ?? 'not provided';
-        return value ? [{ blank: b, value }] : [];
-      });
-
-      // 4. Fill blanks last→first so earlier indices stay valid
-      if (fillPlan.length > 0) {
-        const fillRequests: object[] = fillPlan.slice().reverse().flatMap(({ blank, value }) => [
-          { deleteContentRange: { range: { startIndex: blank.startIndex, endIndex: blank.endIndex } } },
-          { insertText: { location: { index: blank.startIndex }, text: value } },
-        ]);
-        await docs.documents.batchUpdate({ documentId: copyId, requestBody: { requests: fillRequests } });
-      }
-
-      // 5. Export filled copy as PDF
+      // 4. Export filled template as PDF
       const exported = await drive.files.export(
-        { fileId: copyId, mimeType: 'application/pdf', supportsAllDrives: true },
+        { fileId: templateFileId, mimeType: 'application/pdf', supportsAllDrives: true },
         { responseType: 'arraybuffer' },
       );
       pdfBuffer = Buffer.from(exported.data as ArrayBuffer);
     } finally {
-      // 6. Always delete the temporary copy — original template is untouched
-      await drive.files.delete({ fileId: copyId, supportsAllDrives: true })
-        .catch(err => console.error('Temp copy cleanup failed:', err));
+      // 5. Always restore last→first — same direction as fill keeps positions valid
+      if (fillPlan.length > 0) {
+        const restoreRequests: object[] = fillPlan.slice().reverse().flatMap(({ blank, value }) => [
+          { deleteContentRange: { range: { startIndex: blank.startIndex, endIndex: blank.startIndex + value.length } } },
+          { insertText: { location: { index: blank.startIndex }, text: blank.blankText } },
+        ]);
+        await docs.documents.batchUpdate({ documentId: templateFileId, requestBody: { requests: restoreRequests } })
+          .catch(err => console.error('Template restore failed — manual restore needed:', err));
+      }
     }
 
-    // 7. Upload PDF to Supabase
+    // 6. Upload PDF to Supabase
     const supabase = createClient(
       process.env.VITE_SUPABASE_URL!,
       process.env.VITE_SUPABASE_ANON_KEY!,
@@ -184,7 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(storagePath);
 
-    // 8. Save record to owner_documents table
+    // 7. Save record to owner_documents table
     const id = `doc_${Date.now()}`;
     const now = new Date().toISOString();
     const { error: dbErr } = await supabase.from('owner_documents').insert({
