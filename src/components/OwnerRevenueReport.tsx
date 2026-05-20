@@ -87,8 +87,7 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
     if (ownerListingIds.size === 0) return { filtered: [], cancelled: [] };
     const inRange = (r: UplistingReservation) => {
       const checkIn = r.check_in.slice(0, 10);
-      const checkOut = r.check_out.slice(0, 10);
-      return ownerListingIds.has(r.listing_id) && checkOut >= from && checkIn <= to;
+      return ownerListingIds.has(r.listing_id) && checkIn >= from && checkIn <= to;
     };
     return {
       filtered: reservations.filter(r => r.status !== 'cancelled' && inRange(r)),
@@ -178,9 +177,10 @@ export default function OwnerRevenueReport({ owner, reservations }: OwnerRevenue
         <>
           {/* Controls row */}
           <div className="flex flex-wrap gap-4 mb-5">
-            {/* Date range */}
+            {/* Date range — filters by check-in date */}
             <div className="flex items-center gap-2 flex-wrap">
               <Calendar size={14} className="text-slate-400 flex-shrink-0" />
+              <span className="text-xs text-slate-400">Check-in</span>
               <input
                 type="date"
                 value={from}
