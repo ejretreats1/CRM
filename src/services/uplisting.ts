@@ -109,10 +109,33 @@ export async function fetchReservations(
   // bookings endpoint requires a listing_id; fetch all properties first and aggregate
   const properties = await fetchProperties(apiKey);
   const allBookings: UplistingReservation[] = [];
+  let debuggedExtraCharge = false;
   for (const prop of properties) {
     try {
       const data = await apiFetch(`bookings/${prop.id}`, apiKey, params);
-      const bookings = (data?.bookings ?? data?.data ?? data ?? []).map(normalizeReservation);
+      const rawList: any[] = data?.bookings ?? data?.data ?? data ?? [];
+
+      // One-time: fetch detail for the first booking with extra_charges to see breakdown
+      if (!debuggedExtraCharge) {
+        const withExtra = rawList.find((r: any) => {
+          const a = r.attributes ?? r;
+          return Number(a.extra_charges ?? 0) > 0;
+        });
+        if (withExtra) {
+          debuggedExtraCharge = true;
+          const a = withExtra.attributes ?? withExtra;
+          const bookingId = withExtra.id ?? a.id;
+          try {
+            const detail = await apiFetch(`bookings/${bookingId}`, apiKey);
+            console.log('[Uplisting booking detail keys]', Object.keys(detail?.booking ?? detail?.data ?? detail ?? {}).join(', '));
+            console.log('[Uplisting booking detail]', JSON.stringify(detail).slice(0, 2000));
+          } catch (e) {
+            console.log('[Uplisting booking detail error]', e);
+          }
+        }
+      }
+
+      const bookings = rawList.map(normalizeReservation);
       allBookings.push(...bookings);
     } catch {
       // skip properties that fail
