@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
 import type { Lead, RevenueReport } from '../../types';
-import { MapPin, Phone, Mail, DollarSign, Clock, Video, FileText, Home, UploadCloud, File, Loader, Trash2, ExternalLink, FileBarChart2, TrendingUp, X } from 'lucide-react';
+import { MapPin, Phone, Mail, DollarSign, Clock, Video, FileText, Home, UploadCloud, File, Loader, Trash2, ExternalLink, FileBarChart2, TrendingUp } from 'lucide-react';
 import { fetchLeadDocuments, uploadLeadDocument, deleteLeadDocument } from '../../services/leadDocuments';
 import type { LeadDocument } from '../../services/leadDocuments';
 import { fetchRevenueReportsByLead } from '../../services/revenueReports';
