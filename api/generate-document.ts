@@ -30,32 +30,50 @@ interface BlankLocation {
 function findBlanks(elements: any[]): BlankLocation[] {
   const blanks: BlankLocation[] = [];
 
-  function traverse(elems: any[]) {
+  function extractText(elems: any[]): string {
+    let t = '';
     for (const elem of elems ?? []) {
       if (elem.paragraph) {
-        let paraText = '';
-        for (const part of elem.paragraph.elements ?? []) {
-          paraText += part.textRun?.content ?? '';
-        }
-        for (const part of elem.paragraph.elements ?? []) {
-          const content: string = part.textRun?.content ?? '';
-          const runStart: number = part.startIndex ?? 0;
-          let match: RegExpExecArray | null;
-          BLANK_RE.lastIndex = 0;
-          while ((match = BLANK_RE.exec(content)) !== null) {
-            blanks.push({
-              startIndex: runStart + match.index,
-              endIndex: runStart + match.index + match[0].length,
-              blankText: match[0],
-              context: paraText.replace(/\n/g, ' ').trim().slice(0, 200),
-            });
-          }
-        }
+        for (const part of elem.paragraph.elements ?? []) t += part.textRun?.content ?? '';
       }
       if (elem.table) {
+        for (const row of (elem.table.tableRows ?? [])) {
+          for (const cell of (row.tableCells ?? [])) t += extractText(cell.content ?? []);
+        }
+      }
+    }
+    return t;
+  }
+
+  function traverseParagraph(elem: any, context: string) {
+    let paraText = '';
+    for (const part of elem.paragraph.elements ?? []) paraText += part.textRun?.content ?? '';
+    const ctx = (context || paraText).replace(/\n/g, ' ').trim().slice(0, 300);
+    for (const part of elem.paragraph.elements ?? []) {
+      const content: string = part.textRun?.content ?? '';
+      const runStart: number = part.startIndex ?? 0;
+      BLANK_RE.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = BLANK_RE.exec(content)) !== null) {
+        blanks.push({
+          startIndex: runStart + match.index,
+          endIndex: runStart + match.index + match[0].length,
+          blankText: match[0],
+          context: ctx,
+        });
+      }
+    }
+  }
+
+  function traverse(elems: any[], inheritedContext = '') {
+    for (const elem of elems ?? []) {
+      if (elem.paragraph) traverseParagraph(elem, inheritedContext);
+      if (elem.table) {
         for (const row of elem.table.tableRows ?? []) {
+          // Build full row text so blanks in value-cells get the label from adjacent cells
+          const rowText = (row.tableCells ?? []).map((cell: any) => extractText(cell.content ?? [])).join(' ').replace(/\n/g, ' ').trim().slice(0, 300);
           for (const cell of row.tableCells ?? []) {
-            traverse(cell.content ?? []);
+            traverse(cell.content ?? [], rowText);
           }
         }
       }
