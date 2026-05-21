@@ -53,7 +53,7 @@ function normalizeProperty(p: any): UplistingProperty {
 function normalizeReservation(r: any): UplistingReservation {
   return {
     id:          String(r.id ?? ''),
-    listing_id:  String(r.listingMapId ?? r.listingId ?? r.listing_id ?? ''),
+    listing_id:  String(r.listingId ?? r.listing_id ?? r.listingMapId ?? ''),
     guest_name:  r.guestName ?? 'Guest',
     guest_email: r.guestEmail ?? '',
     check_in:    r.checkInDate  ?? r.arrivalDate   ?? '',
