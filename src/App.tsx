@@ -199,6 +199,21 @@ export default function App() {
       setHostawayProperties(props);
       setHostawayReservations(resv);
       setHostawayLastSync(new Date().toISOString());
+
+      setOwners(prev => prev.map(owner => {
+        const updatedProps = owner.properties.map(prop => {
+          const parts = prop.id.split('_');
+          const hostawayId = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
+          if (!hostawayId) return prop;
+          const monthlyRevenue = estimateMonthlyRevenue(hostawayId, resv);
+          const occupancyRate  = estimateOccupancy(hostawayId, resv);
+          if (monthlyRevenue === prop.monthlyRevenue && occupancyRate === prop.occupancyRate) return prop;
+          const updated = { ...prop, monthlyRevenue, occupancyRate };
+          upsertProperty(owner.id, updated);
+          return updated;
+        });
+        return { ...owner, properties: updatedProps };
+      }));
     } catch {
       // sync errors shown in Settings
     }
