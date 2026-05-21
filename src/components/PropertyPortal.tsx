@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import {
   ArrowLeft, Home, ChevronLeft, ChevronRight, Phone, Mail,
   Users, Bed, Calendar, ExternalLink, Edit2, Check, X, Wrench,
-  CheckSquare, Square, ClipboardList,
+  CheckSquare, Square, ClipboardList, Plus, Trash2,
 } from 'lucide-react';
 import type { Owner, Property, PropertyInfo, PropertyStatus } from '../types';
 import type { UplistingReservation, UplistingProperty } from '../services/uplisting';
@@ -119,10 +119,13 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
   });
   const [savingDetails, setSavingDetails] = useState(false);
   const [checklistSaving, setChecklistSaving] = useState(false);
+  const [newItemText, setNewItemText] = useState('');
 
   const checklist: Record<string, boolean> = property.propertyInfo?.onboardingChecklist ?? {};
-  const doneCount = ONBOARDING_ITEMS.filter(item => checklist[item.id]).length;
-  const pct = Math.round((doneCount / ONBOARDING_ITEMS.length) * 100);
+  const customItems: { id: string; label: string }[] = property.propertyInfo?.onboardingCustomItems ?? [];
+  const allItems = [...ONBOARDING_ITEMS, ...customItems];
+  const doneCount = allItems.filter(item => checklist[item.id]).length;
+  const pct = allItems.length === 0 ? 0 : Math.round((doneCount / allItems.length) * 100);
 
   async function toggleChecklistItem(id: string) {
     if (!onUpdateProperty) return;
@@ -131,6 +134,32 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
     await onUpdateProperty({
       ...property,
       propertyInfo: { ...(property.propertyInfo ?? {}), onboardingChecklist: updated },
+    });
+    setChecklistSaving(false);
+  }
+
+  async function addCustomItem() {
+    if (!onUpdateProperty || !newItemText.trim()) return;
+    setChecklistSaving(true);
+    const id = `custom_${Date.now()}`;
+    const next = [...customItems, { id, label: newItemText.trim() }];
+    await onUpdateProperty({
+      ...property,
+      propertyInfo: { ...(property.propertyInfo ?? {}), onboardingCustomItems: next },
+    });
+    setNewItemText('');
+    setChecklistSaving(false);
+  }
+
+  async function removeCustomItem(id: string) {
+    if (!onUpdateProperty) return;
+    setChecklistSaving(true);
+    const nextItems = customItems.filter(i => i.id !== id);
+    const nextChecklist = { ...checklist };
+    delete nextChecklist[id];
+    await onUpdateProperty({
+      ...property,
+      propertyInfo: { ...(property.propertyInfo ?? {}), onboardingCustomItems: nextItems, onboardingChecklist: nextChecklist },
     });
     setChecklistSaving(false);
   }
@@ -325,7 +354,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ml-1 ${
                 pct === 100 ? 'bg-emerald-100 text-emerald-700' : isOnboarding ? 'bg-amber-200 text-amber-800' : 'bg-slate-100 text-slate-500'
               }`}>
-                {doneCount}/{ONBOARDING_ITEMS.length}
+                {doneCount}/{allItems.length}
               </span>
               {checklistSaving && <span className="text-xs text-slate-400 ml-1">Saving…</span>}
               <div className="flex-1 mx-3">
@@ -340,32 +369,62 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
             </button>
 
             {open && (
-              <div className="px-5 pb-4 space-y-2 border-t border-amber-100">
-                {ONBOARDING_ITEMS.map(item => {
+              <div className="px-5 pb-4 space-y-1 border-t border-amber-100 pt-2">
+                {allItems.map(item => {
                   const done = !!checklist[item.id];
+                  const isCustom = item.id.startsWith('custom_');
                   return (
-                    <button
-                      key={item.id}
-                      onClick={() => toggleChecklistItem(item.id)}
-                      disabled={!onUpdateProperty}
-                      className="w-full flex items-start gap-3 py-2 text-left group"
-                    >
-                      <span className="flex-shrink-0 mt-0.5">
+                    <div key={item.id} className="flex items-start gap-2 py-1.5 group">
+                      <button
+                        onClick={() => toggleChecklistItem(item.id)}
+                        disabled={!onUpdateProperty}
+                        className="flex-shrink-0 mt-0.5"
+                      >
                         {done
                           ? <CheckSquare size={16} className="text-emerald-500" />
-                          : <Square size={16} className="text-slate-300 group-hover:text-amber-400 transition-colors" />}
-                      </span>
-                      <span className="flex-1">
+                          : <Square size={16} className="text-slate-300 hover:text-amber-400 transition-colors" />}
+                      </button>
+                      <div className="flex-1 text-left">
                         <span className={`text-sm ${done ? 'line-through text-slate-400' : 'text-slate-700'}`}>
                           {item.label}
                         </span>
-                        {item.note && (
-                          <span className="block text-xs text-slate-400 mt-0.5">{item.note}</span>
+                        {'note' in item && (item as { note?: string }).note && (
+                          <span className="block text-xs text-slate-400 mt-0.5">{(item as { note?: string }).note}</span>
                         )}
-                      </span>
-                    </button>
+                      </div>
+                      {isCustom && onUpdateProperty && (
+                        <button
+                          onClick={() => removeCustomItem(item.id)}
+                          className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all flex-shrink-0 mt-0.5"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
+
+                {/* Add custom item */}
+                {onUpdateProperty && (
+                  <div className="flex items-center gap-2 pt-2 border-t border-amber-100 mt-2">
+                    <input
+                      type="text"
+                      value={newItemText}
+                      onChange={e => setNewItemText(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && addCustomItem()}
+                      placeholder="Add checklist item…"
+                      className="flex-1 text-sm border border-amber-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    />
+                    <button
+                      onClick={addCustomItem}
+                      disabled={!newItemText.trim()}
+                      className="flex items-center gap-1 text-xs font-medium text-amber-700 border border-amber-300 bg-amber-50 hover:bg-amber-100 disabled:opacity-40 px-2.5 py-1.5 rounded-lg transition-colors"
+                    >
+                      <Plus size={13} /> Add
+                    </button>
+                  </div>
+                )}
+
                 {pct === 100 && (
                   <div className="pt-2 flex items-center gap-2 text-emerald-600">
                     <Check size={14} />

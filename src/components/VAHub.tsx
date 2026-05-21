@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Plus, Trash2, Edit2, ChevronDown, ChevronRight,
-  CheckSquare, Square, ListTodo, FolderKanban, Hash, Bell, Clock,
+  CheckSquare, Square, ListTodo, FolderKanban, Hash, Bell, Clock, ClipboardList,
 } from 'lucide-react';
+import type { View } from '../types';
 import type { Project, Todo, Priority, ProjectStatus, TodoAssignee } from '../types';
 
 interface SlackChannel { id: string; name: string; }
@@ -19,6 +20,7 @@ interface VAHubProps {
   onAddTodo: (todo: Todo) => void;
   onToggleTodo: (todo: Todo) => void;
   onDeleteTodo: (id: string) => void;
+  onNavigate?: (view: View, extra?: string) => void;
 }
 
 const STATUS_CONFIG: Record<ProjectStatus, { label: string; cls: string }> = {
@@ -160,12 +162,13 @@ const ASSIGNEE_CONFIG: Record<TodoAssignee, { label: string; color: string; head
 };
 
 function TodoCard({
-  todo, onToggle, onDelete, onDragStart,
+  todo, onToggle, onDelete, onDragStart, onNavigate,
 }: {
   todo: Todo;
   onToggle: (t: Todo) => void;
   onDelete: (id: string) => void;
   onDragStart: (id: string) => void;
+  onNavigate?: (view: View, extra?: string) => void;
 }) {
   // Cycle: todo → in-progress → completed → todo
   function cycleStatus() {
@@ -180,6 +183,7 @@ function TodoCard({
   }
 
   const isInProgress = todo.inProgress && !todo.completed;
+  const isOnboarding = !!(todo.linkedOwnerId && todo.linkedPropertyId);
   const borderCls = todo.completed ? 'border-slate-100' : isInProgress ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white';
 
   return (
@@ -203,9 +207,19 @@ function TodoCard({
         <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>
           {todo.text}
         </span>
-        {isInProgress && (
-          <span className="ml-1.5 text-xs font-medium text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">In Progress</span>
-        )}
+        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+          {isInProgress && (
+            <span className="text-xs font-medium text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">In Progress</span>
+          )}
+          {isOnboarding && onNavigate && !todo.completed && (
+            <button
+              onClick={e => { e.stopPropagation(); onNavigate('property-portal', `${todo.linkedOwnerId}::${todo.linkedPropertyId}`); }}
+              className="flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded-full hover:bg-teal-100 transition-colors"
+            >
+              <ClipboardList size={10} /> View Checklist
+            </button>
+          )}
+        </div>
       </div>
       <button
         onClick={() => onDelete(todo.id)}
@@ -217,11 +231,12 @@ function TodoCard({
   );
 }
 
-function CompletedTodos({ todos, onToggle, onDelete, onDragStart }: {
+function CompletedTodos({ todos, onToggle, onDelete, onDragStart, onNavigate }: {
   todos: Todo[];
   onToggle: (t: Todo) => void;
   onDelete: (id: string) => void;
   onDragStart: (id: string) => void;
+  onNavigate?: (view: View, extra?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   if (todos.length === 0) return null;
@@ -237,7 +252,7 @@ function CompletedTodos({ todos, onToggle, onDelete, onDragStart }: {
       {open && (
         <div className="mt-1.5 space-y-1.5">
           {todos.map(t => (
-            <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
+            <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} onNavigate={onNavigate} />
           ))}
         </div>
       )}
@@ -246,7 +261,7 @@ function CompletedTodos({ todos, onToggle, onDelete, onDragStart }: {
 }
 
 function TodoColumn({
-  assignee, todos, onToggle, onDelete, onDragStart, onDrop, onAddInColumn,
+  assignee, todos, onToggle, onDelete, onDragStart, onDrop, onAddInColumn, onNavigate,
 }: {
   assignee: TodoAssignee;
   todos: Todo[];
@@ -255,6 +270,7 @@ function TodoColumn({
   onDragStart: (id: string) => void;
   onDrop: (assignee: TodoAssignee) => void;
   onAddInColumn: (assignee: TodoAssignee, text: string) => void;
+  onNavigate?: (view: View, extra?: string) => void;
 }) {
   const cfg = ASSIGNEE_CONFIG[assignee];
   const [over, setOver] = useState(false);
@@ -291,7 +307,7 @@ function TodoColumn({
       {inProgress.length > 0 && (
         <div className="px-2 pt-2 space-y-1.5">
           {inProgress.map(t => (
-            <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
+            <TodoCard key={t.id} todo={t} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} onNavigate={onNavigate} />
           ))}
         </div>
       )}
@@ -304,7 +320,7 @@ function TodoColumn({
       </div>
 
       {/* Per-person completed section */}
-      <CompletedTodos todos={completed} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} />
+      <CompletedTodos todos={completed} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} onNavigate={onNavigate} />
 
       {/* Inline add */}
       <div className="px-2 pb-2 flex gap-1">
@@ -340,7 +356,7 @@ function timeAgoShort(ts: string): string {
 export default function VAHub({
   projects, todos, slackToken, slackChannels,
   onAddProject, onUpdateProject, onDeleteProject,
-  onAddTodo, onToggleTodo, onDeleteTodo,
+  onAddTodo, onToggleTodo, onDeleteTodo, onNavigate,
 }: VAHubProps) {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [showForm, setShowForm] = useState(false);
@@ -670,6 +686,7 @@ export default function VAHub({
               onDragStart={id => { draggedId.current = id; }}
               onDrop={handleDropOnColumn}
               onAddInColumn={handleAddInColumn}
+              onNavigate={onNavigate}
             />
           ))}
         </div>

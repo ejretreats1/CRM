@@ -291,6 +291,10 @@ export default function App() {
 
   // Property CRUD
   const savePropertyHandler = async (ownerId: string, property: Property) => {
+    // Find previous status to detect onboarding transitions
+    const prevOwner = owners.find(o => o.id === ownerId);
+    const prevStatus = prevOwner?.properties.find(p => p.id === property.id)?.status;
+
     await upsertProperty(ownerId, property);
     setOwners(prev => prev.map(o => {
       if (o.id !== ownerId) return o;
@@ -302,6 +306,31 @@ export default function App() {
           : [...o.properties, property],
       };
     }));
+
+    // Auto-manage onboarding todo
+    const existingTodo = todos.find(t => t.linkedPropertyId === property.id && !t.completed);
+    if (property.status === 'onboarding' && prevStatus !== 'onboarding' && !existingTodo) {
+      // Becoming onboarding — create in-progress todo for Ethan
+      const owner = owners.find(o => o.id === ownerId);
+      const now = new Date().toISOString();
+      const todo: Todo = {
+        id: `todo_${Date.now()}`,
+        text: `Onboarding: ${property.address}${owner ? ` (${owner.name})` : ''}`,
+        completed: false,
+        inProgress: true,
+        assignedTo: 'ethan',
+        priority: 'high',
+        createdAt: now,
+        updatedAt: now,
+        linkedOwnerId: ownerId,
+        linkedPropertyId: property.id,
+      };
+      await handleAddTodo(todo);
+    } else if (property.status !== 'onboarding' && existingTodo) {
+      // Leaving onboarding — mark todo complete
+      await handleToggleTodo({ ...existingTodo, completed: true, inProgress: false, updatedAt: new Date().toISOString() });
+    }
+
     setModal(null);
   };
   const deletePropertyHandler = async (ownerId: string, propertyId: string) => {
@@ -532,6 +561,7 @@ export default function App() {
           onAddTodo={handleAddTodo}
           onToggleTodo={handleToggleTodo}
           onDeleteTodo={handleDeleteTodo}
+          onNavigate={navigate}
         />
       )}
 

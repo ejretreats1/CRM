@@ -51,6 +51,7 @@ export interface PropertyInfo {
   applianceNotes?: string;
   generalNotes?: string;
   onboardingChecklist?: Record<string, boolean>;
+  onboardingCustomItems?: { id: string; label: string }[];
 }
 
 export interface Property {
@@ -157,6 +158,8 @@ export interface Todo {
   dueDate?: string;
   createdAt: string;
   updatedAt: string;
+  linkedOwnerId?: string;
+  linkedPropertyId?: string;
 }
 
 export type SignatureRequestStatus = 'pending' | 'signed' | 'expired';

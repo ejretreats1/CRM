@@ -29,6 +29,8 @@ function rowToTodo(r: any): Todo {
     dueDate: r.due_date ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    linkedOwnerId: r.linked_owner_id ?? undefined,
+    linkedPropertyId: r.linked_property_id ?? undefined,
   };
 }
 
@@ -82,6 +84,8 @@ export async function upsertTodo(todo: Todo): Promise<void> {
     due_date: todo.dueDate ?? null,
     created_at: todo.createdAt,
     updated_at: todo.updatedAt,
+    linked_owner_id: todo.linkedOwnerId ?? null,
+    linked_property_id: todo.linkedPropertyId ?? null,
   });
   if (error) throw error;
 }
