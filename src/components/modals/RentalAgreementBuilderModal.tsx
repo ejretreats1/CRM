@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import {
   X, Upload, Plus, Trash2, Send, FileText, ChevronLeft, ChevronRight,
-  Type, PenLine, CreditCard, Calendar, Pen,
+  Type, PenLine, CreditCard, Calendar, Pen, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import type { AgreementField, AgreementTemplate, AgreementSubmission, FieldType } from '../../services/rentalAgreements';
 import {
@@ -65,6 +65,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [zoom, setZoom] = useState(1);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
@@ -92,7 +93,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
   }
 
   // Render a PDF page onto the canvas
-  const renderPage = useCallback(async (doc: pdfjsLib.PDFDocumentProxy, pageIndex: number) => {
+  const renderPage = useCallback(async (doc: pdfjsLib.PDFDocumentProxy, pageIndex: number, z: number) => {
     if (!canvasRef.current) return;
     if (renderTaskRef.current) {
       try { renderTaskRef.current.cancel(); } catch {}
@@ -102,8 +103,8 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
     const canvas = canvasRef.current;
     const containerWidth = canvas.parentElement?.clientWidth ?? 700;
     const viewport = page.getViewport({ scale: 1 });
-    const scale = containerWidth / viewport.width;
-    const scaledViewport = page.getViewport({ scale });
+    const baseScale = containerWidth / viewport.width;
+    const scaledViewport = page.getViewport({ scale: baseScale * z });
 
     canvas.width  = scaledViewport.width;
     canvas.height = scaledViewport.height;
@@ -116,8 +117,8 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
   }, []);
 
   useEffect(() => {
-    if (pdfDoc) renderPage(pdfDoc, currentPage);
-  }, [pdfDoc, currentPage, renderPage]);
+    if (pdfDoc) renderPage(pdfDoc, currentPage, zoom);
+  }, [pdfDoc, currentPage, zoom, renderPage]);
 
   async function handleFileUpload(file: File) {
     if (file.type !== 'application/pdf') return;
@@ -245,6 +246,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
   }
 
   function openBuilder(template?: AgreementTemplate) {
+    setZoom(1);
     if (template) {
       setEditingTemplate(template);
       setTemplateName(template.name);
@@ -604,26 +606,52 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
             </label>
           ) : (
             <div className="flex flex-col items-center gap-3">
-              {/* Page navigation */}
-              {pageCount > 1 && (
-                <div className="flex items-center gap-3 bg-white rounded-lg px-4 py-2 shadow-sm">
-                  <button
-                    onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-                    disabled={currentPage === 0}
-                    className="text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <span className="text-sm text-slate-600">Page {currentPage + 1} of {pageCount}</span>
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(pageCount - 1, p + 1))}
-                    disabled={currentPage === pageCount - 1}
-                    className="text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-              )}
+              {/* Page navigation + zoom controls */}
+              <div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 shadow-sm">
+                {pageCount > 1 && (
+                  <>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                      disabled={currentPage === 0}
+                      className="text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <span className="text-sm text-slate-600">Page {currentPage + 1} of {pageCount}</span>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(pageCount - 1, p + 1))}
+                      disabled={currentPage === pageCount - 1}
+                      className="text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                    <div className="w-px h-4 bg-slate-200 mx-1" />
+                  </>
+                )}
+                <button
+                  onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
+                  disabled={zoom <= 0.5}
+                  className="text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors p-0.5"
+                  title="Zoom out"
+                >
+                  <ZoomOut size={15} />
+                </button>
+                <button
+                  onClick={() => setZoom(1)}
+                  className="text-xs text-slate-500 hover:text-teal-600 font-medium w-10 text-center transition-colors"
+                  title="Reset zoom"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button
+                  onClick={() => setZoom(z => Math.min(3, parseFloat((z + 0.25).toFixed(2))))}
+                  disabled={zoom >= 3}
+                  className="text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors p-0.5"
+                  title="Zoom in"
+                >
+                  <ZoomIn size={15} />
+                </button>
+              </div>
 
               {/* PDF canvas + field overlay */}
               <div className="relative shadow-xl rounded-sm overflow-hidden" style={{ maxWidth: '100%' }}>
