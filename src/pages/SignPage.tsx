@@ -37,7 +37,7 @@ export default function SignPage({ token }: SignPageProps) {
 
     try {
       setStatus('submitting');
-      const res = await fetch('/api/signing', {
+      const res = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'complete', token, signatureDataUrl: dataUrl }),

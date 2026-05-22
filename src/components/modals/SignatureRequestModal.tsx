@@ -100,7 +100,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
       setStep('sending');
       const documentUrl = prefillDocUrl ?? await uploadDocument(owner.id, file!);
 
-      const res = await fetch('/api/signing', {
+      const res = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

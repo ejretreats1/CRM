@@ -108,10 +108,10 @@ export default function AgreementFillPage({ token }: Props) {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/rental-agreement', {
+      const res = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'complete', token, fieldValues: finalValues }),
+        body: JSON.stringify({ flow: 'agreement', action: 'complete', token, fieldValues: finalValues }),
       });
       if (!res.ok) throw new Error(await res.text());
       setDone(true);

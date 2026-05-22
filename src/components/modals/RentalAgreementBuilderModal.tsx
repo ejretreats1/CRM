@@ -283,10 +283,11 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
     if (!sendTemplate || !sendGuestName.trim() || !sendGuestEmail.trim()) return;
     setSending(true);
     try {
-      const res = await fetch('/api/rental-agreement', {
+      const res = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          flow:       'agreement',
           action:     'send',
           templateId: sendTemplate.id,
           propertyId,
