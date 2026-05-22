@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import {
   X, Upload, Plus, Trash2, Send, FileText, ChevronLeft, ChevronRight,
-  Type, PenLine, CreditCard, Calendar, Pen, ZoomIn, ZoomOut,
+  Type, PenLine, CreditCard, Calendar, Pen, ZoomIn, ZoomOut, Copy, Check,
 } from 'lucide-react';
 import type { AgreementField, AgreementTemplate, AgreementSubmission, FieldType } from '../../services/rentalAgreements';
 import {
@@ -76,6 +76,8 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
   const [sendGuestEmail, setSendGuestEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [sendDone, setSendDone] = useState(false);
+  const [sentToken, setSentToken] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchTemplates(propertyId)
@@ -300,6 +302,8 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
         }),
       });
       if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setSentToken(data.token ?? '');
       setSendDone(true);
       // Refresh submissions
       setSubmissions(prev => ({ ...prev, [sendTemplate.id]: [] }));
@@ -410,6 +414,15 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                                   : s.status === 'expired'  ? 'bg-slate-100 text-slate-500'
                                   : 'bg-amber-100 text-amber-700'
                                 }`}>{s.status}</span>
+                                {s.status === 'pending' && (
+                                  <button
+                                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/fill/${s.token}`)}
+                                    className="text-slate-400 hover:text-teal-600 transition-colors"
+                                    title="Copy guest link"
+                                  >
+                                    <Copy size={11} />
+                                  </button>
+                                )}
                                 {s.filledDocumentUrl && (
                                   <a href={s.filledDocumentUrl} target="_blank" rel="noreferrer"
                                     className="text-teal-600 hover:underline">Download</a>
@@ -447,17 +460,30 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
           </div>
 
           {sendDone ? (
-            <div className="text-center py-10">
+            <div className="text-center py-8">
               <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Send size={24} className="text-emerald-600" />
               </div>
               <p className="font-semibold text-slate-900">Agreement Sent!</p>
-              <p className="text-sm text-slate-500 mt-1">
-                Sent to {sendGuestEmail} — they'll receive a link to fill it out.
+              <p className="text-sm text-slate-500 mt-1 mb-5">
+                Email sent to {sendGuestEmail}. You can also copy the link to share directly:
               </p>
+              {sentToken && (
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/fill/${sentToken}`);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="flex items-center gap-2 mx-auto bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+                >
+                  {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                  {copied ? 'Copied!' : 'Copy Guest Link'}
+                </button>
+              )}
               <button
                 onClick={() => setScreen('list')}
-                className="mt-6 text-sm font-medium text-teal-600 hover:text-teal-700"
+                className="mt-5 text-sm font-medium text-teal-600 hover:text-teal-700 block mx-auto"
               >
                 Back to templates
               </button>
