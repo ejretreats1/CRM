@@ -2,11 +2,12 @@ import { useState, useMemo } from 'react';
 import {
   ArrowLeft, Home, ChevronLeft, ChevronRight, Phone, Mail,
   Users, Bed, Calendar, ExternalLink, Edit2, Check, X, Wrench,
-  CheckSquare, Square, ClipboardList, Plus, Trash2,
+  CheckSquare, Square, ClipboardList, Plus, Trash2, FileText,
 } from 'lucide-react';
 import type { Owner, Property, PropertyInfo, PropertyStatus } from '../types';
 import type { UplistingReservation, UplistingProperty } from '../services/uplisting';
 import PropertyInfoPanel from './PropertyInfoPanel';
+import RentalAgreementBuilderModal from './modals/RentalAgreementBuilderModal';
 
 interface PropertyPortalProps {
   owner: Owner;
@@ -120,6 +121,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
   const [savingDetails, setSavingDetails] = useState(false);
   const [checklistSaving, setChecklistSaving] = useState(false);
   const [newItemText, setNewItemText] = useState('');
+  const [showAgreements, setShowAgreements] = useState(false);
 
   const checklist: Record<string, boolean> = property.propertyInfo?.onboardingChecklist ?? {};
   const customItems: { id: string; label: string }[] = property.propertyInfo?.onboardingCustomItems ?? [];
@@ -836,6 +838,33 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
             onSave={savePropertyInfo}
           />
         </div>
+      )}
+
+      {/* Rental Agreements */}
+      <div className="mt-5 bg-white border border-slate-200 rounded-2xl p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText size={14} className="text-slate-400" />
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Rental Agreements</p>
+          </div>
+          <button
+            onClick={() => setShowAgreements(true)}
+            className="flex items-center gap-1.5 text-xs font-medium text-teal-600 border border-teal-200 hover:bg-teal-50 px-2.5 py-1.5 rounded-lg transition-colors"
+          >
+            <FileText size={11} /> Manage Agreements
+          </button>
+        </div>
+        <p className="text-xs text-slate-400 mt-2">
+          Upload PDF templates, add custom fields (signature, text, credit card), and send to guests for completion.
+        </p>
+      </div>
+
+      {showAgreements && (
+        <RentalAgreementBuilderModal
+          propertyId={property.id}
+          ownerId={owner.id}
+          onClose={() => setShowAgreements(false)}
+        />
       )}
     </div>
   );
