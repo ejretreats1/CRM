@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, FileText, Send, X, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Upload, FileText, Send, X, ArrowRight, ArrowLeft, Copy, Check } from 'lucide-react';
 import Modal from './Modal';
 import { uploadDocument } from '../../services/signatures';
 import type { Owner } from '../../types';
@@ -25,6 +25,8 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
   const [email, setEmail] = useState(owner.email);
   const [step, setStep] = useState<Step>(prefillDocUrl ? 'placement' : 'form');
   const [errorMsg, setErrorMsg] = useState('');
+  const [sentToken, setSentToken] = useState('');
+  const [copied, setCopied] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState('');
   const [scrollMode, setScrollMode] = useState(true); // true = scroll PDF, false = place fields
   const [dragOver, setDragOver] = useState(false);
@@ -123,8 +125,10 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
         throw new Error(data.error ?? 'Failed to send.');
       }
 
+      const data = await res.json();
+      setSentToken(data.token ?? '');
       setStep('done');
-      setTimeout(() => { onSent(); onClose(); }, 1500);
+      onSent();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Something went wrong.');
       setStep('error');
@@ -140,7 +144,23 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
             <Send size={20} className="text-emerald-600" />
           </div>
           <p className="font-semibold text-slate-900">Sent successfully!</p>
-          <p className="text-sm text-slate-500">Signing link sent to {email}</p>
+          <p className="text-sm text-slate-500 text-center">Email sent to {email}. You can also share the link directly:</p>
+          {sentToken && (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/sign/${sentToken}`);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+            >
+              {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              {copied ? 'Copied!' : 'Copy Signing Link'}
+            </button>
+          )}
+          <button onClick={onClose} className="text-sm text-teal-600 hover:text-teal-700 font-medium mt-1">
+            Done
+          </button>
         </div>
       </Modal>
     );
