@@ -10,6 +10,28 @@ function getSupabase() {
   return createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);
 }
 
+async function logEmail(
+  emailId: string,
+  emailType: string,
+  recipientEmail: string,
+  subject: string,
+  recordId?: string,
+  recipientName?: string,
+) {
+  try {
+    await getSupabase().from('email_logs').insert({
+      id: emailId,
+      email_type: emailType,
+      record_id: recordId ?? null,
+      recipient_email: recipientEmail,
+      recipient_name: recipientName ?? null,
+      subject,
+      sent_at: new Date().toISOString(),
+      status: 'sent',
+    });
+  } catch {}
+}
+
 // ── SIGNATURE REQUESTS (owner contract signing) ───────────────────────────────
 
 async function sigSend(body: any, res: VercelResponse) {
@@ -40,10 +62,11 @@ async function sigSend(body: any, res: VercelResponse) {
 
   const signingUrl = `${appUrl}/sign/${token}`;
 
-  const { error: emailError } = await resend.emails.send({
+  const sigSubject = `Please sign: ${documentName}`;
+  const { data: emailData, error: emailError } = await resend.emails.send({
     from: 'E&J Retreats <signatures@ejretreats.com>',
     to: sentToEmail,
-    subject: `Please sign: ${documentName}`,
+    subject: sigSubject,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
         <h2 style="color:#0f766e">Document Signature Request</h2>
@@ -62,6 +85,7 @@ async function sigSend(body: any, res: VercelResponse) {
   });
 
   if (emailError) return res.status(500).json({ error: 'Document saved but email failed to send.' });
+  if (emailData?.id) await logEmail(emailData.id, 'signing', sentToEmail, sigSubject, id, ownerName);
   return res.status(200).json({ id, token });
 }
 
@@ -203,10 +227,11 @@ async function agreementSend(body: any, res: VercelResponse) {
 
   const fillUrl = `${appUrl}/fill/${token}`;
 
-  await resend.emails.send({
+  const agSubject = `Please review and sign: ${tmpl.name}`;
+  const { data: agEmailData } = await resend.emails.send({
     from: 'E&J Retreats <signatures@ejretreats.com>',
     to: guestEmail,
-    subject: `Please review and sign: ${tmpl.name}`,
+    subject: agSubject,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
         <h2 style="color:#0f766e">Rental Agreement</h2>
@@ -223,6 +248,7 @@ async function agreementSend(body: any, res: VercelResponse) {
       </div>
     `,
   });
+  if (agEmailData?.id) await logEmail(agEmailData.id, 'agreement', guestEmail, agSubject, id, guestName);
 
   return res.status(200).json({ id, token });
 }
@@ -333,19 +359,88 @@ async function agreementComplete(body: any, res: VercelResponse) {
   return res.status(200).json({ filledDocumentUrl: publicUrl });
 }
 
+// ── RESEND WEBHOOK ────────────────────────────────────────────────────────────
+
+async function handleResendWebhook(body: any, res: VercelResponse) {
+  const type: string = body.type ?? '';
+  const emailId: string = body.data?.email_id ?? '';
+  if (!emailId) return res.status(200).end();
+
+  const supabase = getSupabase();
+  const now = new Date().toISOString();
+
+  const statusMap: Record<string, string> = {
+    'email.delivered':  'delivered',
+    'email.opened':     'opened',
+    'email.clicked':    'clicked',
+    'email.bounced':    'bounced',
+    'email.complained': 'complained',
+  };
+  const newStatus = statusMap[type];
+  if (!newStatus) return res.status(200).end();
+
+  // Fetch current record to avoid downgrading status
+  const { data: existing } = await supabase
+    .from('email_logs')
+    .select('status, open_count, click_count')
+    .eq('id', emailId)
+    .single();
+
+  const STATUS_RANK: Record<string, number> = {
+    sent: 0, delivered: 1, opened: 2, clicked: 3, bounced: 4, complained: 5,
+  };
+  const currentRank = STATUS_RANK[existing?.status ?? 'sent'] ?? 0;
+  const newRank = STATUS_RANK[newStatus] ?? 0;
+
+  const updates: Record<string, unknown> = {};
+  if (newRank > currentRank || newStatus === 'bounced' || newStatus === 'complained') {
+    updates.status = newStatus;
+  }
+
+  if (type === 'email.delivered') updates.delivered_at = now;
+  if (type === 'email.opened') {
+    updates.opened_at = existing?.status !== 'opened' ? now : undefined;
+    updates.open_count = (existing?.open_count ?? 0) + 1;
+  }
+  if (type === 'email.clicked') {
+    updates.clicked_at = existing?.status !== 'clicked' ? now : undefined;
+    updates.click_count = (existing?.click_count ?? 0) + 1;
+    const clickUrl = body.data?.click?.link ?? body.data?.url ?? null;
+    if (clickUrl) updates.last_clicked_url = clickUrl;
+  }
+  if (type === 'email.bounced')    updates.bounced_at = now;
+  if (type === 'email.complained') updates.bounced_at = now;
+
+  // Remove undefined values
+  for (const k of Object.keys(updates)) {
+    if (updates[k] === undefined) delete updates[k];
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await supabase.from('email_logs').update(updates).eq('id', emailId);
+  }
+
+  return res.status(200).end();
+}
+
 // ── ROUTER ────────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
-  const { action, flow } = req.body;
+  const body = req.body;
 
+  // Resend webhook: body has { type: 'email.opened', data: { email_id: '...' } }
+  if (typeof body.type === 'string' && body.type.startsWith('email.') && body.data?.email_id) {
+    return handleResendWebhook(body, res);
+  }
+
+  const { action, flow } = body;
   if (flow === 'agreement') {
-    if (action === 'send')     return agreementSend(req.body, res);
-    if (action === 'complete') return agreementComplete(req.body, res);
+    if (action === 'send')     return agreementSend(body, res);
+    if (action === 'complete') return agreementComplete(body, res);
   } else {
-    // Default: signature request flow (existing /api/signing behaviour)
-    if (action === 'send')     return sigSend(req.body, res);
-    if (action === 'complete') return sigComplete(req.body, res);
+    if (action === 'send')     return sigSend(body, res);
+    if (action === 'complete') return sigComplete(body, res);
   }
 
   return res.status(400).json({ error: 'Unknown action.' });

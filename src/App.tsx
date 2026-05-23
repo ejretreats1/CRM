@@ -18,6 +18,7 @@ import QuarterlyReports from './components/QuarterlyReports';
 import Properties from './components/Properties';
 import PropertyPortal from './components/PropertyPortal';
 import CalendarIntelligence from './components/CalendarIntelligence';
+import EmailTracking from './components/EmailTracking';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -628,6 +629,8 @@ export default function App() {
       {view === 'calendar-intel' && (
         <CalendarIntelligence owners={owners} reservations={allReservations} priceLabsApiKey={priceLabsApiKey || undefined} />
       )}
+
+      {view === 'email-tracking' && <EmailTracking />}
 
       {modal?.type === 'lead-detail' && (
         <LeadDetailModal

@@ -1,10 +1,36 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
+import { createClient } from '@supabase/supabase-js';
 import { generateText, Output } from 'ai';
 import { gateway } from '@ai-sdk/gateway';
 import { z } from 'zod';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+function getSupabase() {
+  return createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);
+}
+
+async function logEmails(
+  ids: string[],
+  emailType: string,
+  recipients: { email: string; name: string }[],
+  subject: string,
+) {
+  if (!ids.length) return;
+  try {
+    const rows = ids.map((id, i) => ({
+      id,
+      email_type: emailType,
+      recipient_email: recipients[i]?.email ?? '',
+      recipient_name:  recipients[i]?.name  ?? null,
+      subject,
+      sent_at: new Date().toISOString(),
+      status: 'sent',
+    }));
+    await getSupabase().from('email_logs').insert(rows);
+  } catch {}
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -33,13 +59,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'to, reportSubject, and reportHtml are required' });
     }
     try {
-      await resend.emails.send({
+      const { data: rd } = await resend.emails.send({
         from: reportFrom,
         to,
         subject: reportSubject,
         html: reportHtml,
         replyTo: 'ejretreats1@gmail.com',
       });
+      if (rd?.id) await logEmails([rd.id], 'report', [{ email: to, name: toName ?? '' }], reportSubject);
       return res.status(200).json({ sent: 1 });
     } catch (err) {
       console.error('Resend report email error:', err);
@@ -155,13 +182,14 @@ Rules:
     }
 
     try {
-      await resend.emails.send({
+      const { data: qd } = await resend.emails.send({
         from: reportFrom,
         to: ownerEmail,
         subject,
         html,
         replyTo: 'ejretreats1@gmail.com',
       });
+      if (qd?.id) await logEmails([qd.id], 'quarterly', [{ email: ownerEmail, name: ownerName }], subject);
       return res.status(200).json({ html, subject, sent: 1 });
     } catch (err) {
       console.error('Quarterly Resend error:', err);
@@ -251,8 +279,12 @@ IMPORTANT:
       ...(replyTo && { reply_to: replyTo }),
     }));
     try {
-      await resend.batch.send(batch);
+      const { data: batchData } = await resend.batch.send(batch) as { data: Array<{ id: string }> | null; error: unknown };
       sent += chunk.length;
+      if (batchData?.length) {
+        const ids = batchData.map(e => e.id).filter(Boolean);
+        await logEmails(ids, 'newsletter', chunk, subject!);
+      }
     } catch (err) {
       console.error('Resend batch error:', err);
       failed += chunk.length;

@@ -13,6 +13,7 @@ import {
   FileBarChart2,
   Sparkles,
   Mail,
+  MailOpen,
   LogOut,
   BarChart3,
   Home,
@@ -40,6 +41,7 @@ const navItems = [
   { id: 'newsletter' as View, label: 'Newsletter', icon: Mail },
   { id: 'guest-marketing' as View, label: 'Guest Marketing', icon: Users },
   { id: 'quarterly-reports' as View, label: 'Quarterly Reports', icon: BarChart3 },
+  { id: 'email-tracking' as View, label: 'Email Tracking', icon: MailOpen },
 ];
 
 export default function Layout({ currentView, onNavigate, isAdmin, children }: LayoutProps) {
