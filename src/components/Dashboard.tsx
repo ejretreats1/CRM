@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  TrendingUp, Users, Home, Phone, ArrowRight, Wifi, WifiOff,
+  TrendingUp, Users, Home, Phone, ArrowRight, Wifi, WifiOff, X,
   RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash, Video, CalendarRange, Bell,
 } from 'lucide-react';
 import type { Lead, Owner, OutreachEntry, Todo } from '../types';
@@ -141,6 +141,7 @@ export default function Dashboard({
   const [slackError, setSlackError] = useState('');
   const [slackExpanded, setSlackExpanded] = useState(false);
   const [showWeekly, setShowWeekly] = useState(false);
+  const [showRevenueBreakdown, setShowRevenueBreakdown] = useState(false);
 
   // Fetch calendar events when calendarUrl is set
   useEffect(() => {
@@ -203,6 +204,27 @@ export default function Dashboard({
     ? uplistingProperties.filter(p => p.status !== 'inactive').length
     : activeProperties.length;
 
+  // Per-owner last-30-day revenue using linkedListingIds when PMS is connected
+  const ownerRevenueBreakdown = owners
+    .map(owner => {
+      let rev = 0;
+      if (uplistingProperties.length > 0) {
+        for (const prop of owner.properties) {
+          for (const lid of (prop.linkedListingIds ?? [])) {
+            rev += estimateMonthlyRevenue(lid, uplistingReservations);
+          }
+        }
+      } else {
+        rev = owner.properties
+          .filter(p => p.status === 'active')
+          .reduce((s, p) => s + p.monthlyRevenue, 0);
+      }
+      const activeCount = owner.properties.filter(p => p.status === 'active').length;
+      return { owner, rev, activeCount };
+    })
+    .filter(x => x.rev > 0 || x.activeCount > 0)
+    .sort((a, b) => b.rev - a.rev);
+
   const pipelineLeads = leads.filter(l => l.stage !== 'won');
   const recentOutreach = [...outreach].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   const recentLeads = [...leads].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 4);
@@ -224,14 +246,14 @@ export default function Dashboard({
     setNewTodoText('');
   }
 
-  const stats: { label: string; value: string | number; sub: string; icon: React.ElementType; color: string; view?: Parameters<typeof onNavigate>[0] }[] = [
+  const stats: { label: string; value: string | number; sub: string; icon: React.ElementType; color: string; view?: Parameters<typeof onNavigate>[0]; onClick?: () => void }[] = [
     {
       label: 'Monthly Revenue',
       value: `$${totalMonthlyRevenue.toLocaleString()}`,
-      sub: `across ${activePropertyCount} active properties`,
+      sub: `last 30 days · ${activePropertyCount} properties`,
       icon: TrendingUp,
       color: 'bg-teal-600',
-      view: 'revenue-reports',
+      onClick: () => setShowRevenueBreakdown(true),
     },
     {
       label: 'Total Clients',
@@ -330,7 +352,8 @@ export default function Dashboard({
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(({ label, value, sub, icon: Icon, color, view }) => {
+        {stats.map(({ label, value, sub, icon: Icon, color, view, onClick }) => {
+          const handler = onClick ?? (view ? () => onNavigate(view) : undefined);
           const inner = (
             <>
               <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center mb-3`}>
@@ -339,13 +362,13 @@ export default function Dashboard({
               <div className="text-2xl font-bold text-slate-900">{value}</div>
               <div className="text-sm font-medium text-slate-700 mt-0.5">{label}</div>
               <div className="text-xs text-slate-400 mt-0.5">{sub}</div>
-              {view && <div className="text-xs text-teal-600 font-medium mt-2 flex items-center gap-0.5">View <ArrowRight size={11} /></div>}
+              {handler && <div className="text-xs text-teal-600 font-medium mt-2 flex items-center gap-0.5">View <ArrowRight size={11} /></div>}
             </>
           );
-          return view ? (
+          return handler ? (
             <button
               key={label}
-              onClick={() => onNavigate(view)}
+              onClick={handler}
               className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm text-left hover:border-teal-300 hover:shadow-md transition-all"
             >
               {inner}
@@ -833,6 +856,47 @@ export default function Dashboard({
           onOpenLeadDetail={onOpenLeadDetail}
           onClose={() => setShowWeekly(false)}
         />
+      )}
+
+      {showRevenueBreakdown && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setShowRevenueBreakdown(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+              <div>
+                <h2 className="font-bold text-slate-900">Revenue Breakdown</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Last 30 days per client</p>
+              </div>
+              <button onClick={() => setShowRevenueBreakdown(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
+              {ownerRevenueBreakdown.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-10">No revenue data yet.</p>
+              ) : ownerRevenueBreakdown.map(({ owner, rev, activeCount }) => (
+                <div key={owner.id} className="flex items-center gap-3 px-5 py-3.5">
+                  <div className="w-9 h-9 rounded-full bg-teal-600 flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-semibold text-sm">{owner.name.charAt(0)}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">{owner.name}</p>
+                    <p className="text-xs text-slate-400">
+                      {activeCount} active {activeCount === 1 ? 'property' : 'properties'}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-semibold text-teal-700">${rev.toLocaleString()}</p>
+                    <p className="text-xs text-slate-400">last 30d</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-3.5 border-t border-slate-200 flex items-center justify-between bg-slate-50 rounded-b-2xl">
+              <span className="text-xs font-medium text-slate-500">Portfolio total</span>
+              <span className="text-sm font-bold text-slate-900">${totalMonthlyRevenue.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
