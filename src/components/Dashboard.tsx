@@ -204,12 +204,23 @@ export default function Dashboard({
     ? uplistingProperties.filter(p => p.status !== 'inactive').length
     : activeProperties.length;
 
-  // Per-owner last-30-day revenue — monthlyRevenue is kept current by the PMS sync
+  // Per-owner last-30-day revenue computed directly from reservation data
   const ownerRevenueBreakdown = owners
     .map(owner => {
-      const rev = owner.properties
-        .filter(p => p.status === 'active')
-        .reduce((s, p) => s + p.monthlyRevenue, 0);
+      let rev = 0;
+      for (const prop of owner.properties) {
+        if (prop.status !== 'active') continue;
+        if (uplistingProperties.length > 0) {
+          // Extract PMS listing ID from property ID (format: p_{timestamp}_{listingId})
+          const parts = prop.id.split('_');
+          const listingId = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
+          rev += listingId
+            ? estimateMonthlyRevenue(listingId, uplistingReservations)
+            : prop.monthlyRevenue;
+        } else {
+          rev += prop.monthlyRevenue;
+        }
+      }
       const activeCount = owner.properties.filter(p => p.status === 'active').length;
       return { owner, rev, activeCount };
     })
