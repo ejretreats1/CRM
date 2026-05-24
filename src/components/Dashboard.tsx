@@ -193,23 +193,23 @@ export default function Dashboard({
 
   // Prefer live PMS data when any properties are synced, fall back to manual data
   const allProperties = owners.flatMap(o => o.properties);
-  const activeProperties = allProperties.filter(p => p.status === 'active');
-  const activeOwners = owners.filter(o => o.properties.some(p => p.status === 'active'));
+  const revenueProperties = allProperties.filter(p => p.status !== 'inactive');
+  const activeOwners = owners.filter(o => o.properties.some(p => p.status !== 'inactive'));
 
   const totalMonthlyRevenue = uplistingProperties.length > 0
     ? uplistingProperties.reduce((sum, p) => sum + estimateMonthlyRevenue(p.id, uplistingReservations), 0)
-    : activeProperties.reduce((sum, p) => sum + p.monthlyRevenue, 0);
+    : revenueProperties.reduce((sum, p) => sum + p.monthlyRevenue, 0);
 
   const activePropertyCount = uplistingProperties.length > 0
     ? uplistingProperties.filter(p => p.status !== 'inactive').length
-    : activeProperties.length;
+    : revenueProperties.length;
 
   // Per-owner last-30-day revenue computed directly from reservation data
   const ownerRevenueBreakdown = owners
     .map(owner => {
       let rev = 0;
       for (const prop of owner.properties) {
-        if (prop.status !== 'active') continue;
+        if (prop.status === 'inactive') continue;
         if (uplistingProperties.length > 0) {
           // Extract PMS listing ID from property ID (format: p_{timestamp}_{listingId})
           const parts = prop.id.split('_');
@@ -221,7 +221,7 @@ export default function Dashboard({
           rev += prop.monthlyRevenue;
         }
       }
-      const activeCount = owner.properties.filter(p => p.status === 'active').length;
+      const activeCount = owner.properties.filter(p => p.status !== 'inactive').length;
       return { owner, rev, activeCount };
     })
     .filter(x => x.rev > 0 || x.activeCount > 0)

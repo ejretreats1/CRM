@@ -56,7 +56,12 @@ export default function Properties({ owners, reservations, uplistingProperties, 
       }
     }
 
-    return result.sort((a, b) => a.property.address.localeCompare(b.property.address));
+    const STATUS_ORDER: Record<string, number> = { onboarding: 0, active: 1, inactive: 2 };
+    return result.sort((a, b) => {
+      const so = (STATUS_ORDER[a.property.status] ?? 3) - (STATUS_ORDER[b.property.status] ?? 3);
+      if (so !== 0) return so;
+      return a.property.address.localeCompare(b.property.address);
+    });
   }, [owners, reservations, uplistingPhotoMap, today]);
 
   const activeCount = allProperties.filter(p => p.property.status === 'active').length;
