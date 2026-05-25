@@ -95,9 +95,10 @@ interface ReportOutputProps {
 
 function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?: number, personalNote?: string): string {
   const isMtr = data.reportType === 'mtr';
-  const headerBg = isMtr ? '#3730a3' : '#0f766e';
-  const accentColor = isMtr ? '#4f46e5' : '#0f766e';
-  const barColor = isMtr ? '#4f46e5' : '#0f766e';
+  const isDeal = data.reportType === 'deal';
+  const headerBg = isDeal ? '#b45309' : isMtr ? '#3730a3' : '#0f766e';
+  const accentColor = isDeal ? '#b45309' : isMtr ? '#4f46e5' : '#0f766e';
+  const barColor = isDeal ? '#b45309' : isMtr ? '#4f46e5' : '#0f766e';
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const fmtN = (n: number | null | undefined) => n == null ? '' : `$${Math.round(n).toLocaleString()}`;
@@ -106,9 +107,84 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
 
   const sectionTitle = (t: string) => `<div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:10px;">${t}</div>`;
 
-  // ── Metrics ────────────────────────────────────────────────────────────────────────
+  // ── Deal: recommendation banner + metrics ─────────────────────────────────
+  const DEAL_REC_COLORS: Record<string, string> = {
+    'strong-buy': '#059669', 'buy': '#0f766e', 'neutral': '#d97706', 'pass': '#ea580c', 'strong-pass': '#b91c1c',
+  };
+  const DEAL_REC_LABELS: Record<string, string> = {
+    'strong-buy': '🟢 Strong Buy', 'buy': '✅ Buy', 'neutral': '🔶 Neutral', 'pass': '🔴 Pass', 'strong-pass': '❌ Strong Pass',
+  };
+
+  const dealRecHtml = isDeal && data.recommendation ? `
+    <div style="background:${DEAL_REC_COLORS[data.recommendation] ?? '#334155'};border-radius:8px;padding:20px 24px;margin-bottom:20px;color:#fff;">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;opacity:0.75;margin-bottom:4px;">Investment Recommendation</div>
+      <div style="font-size:20px;font-weight:900;">${DEAL_REC_LABELS[data.recommendation] ?? data.recommendation}</div>
+      ${data.recommendationReason ? `<div style="font-size:12px;opacity:0.9;margin-top:6px;line-height:1.5;">${data.recommendationReason}</div>` : ''}
+    </div>` : '';
+
+  const dealMetricsHtml = isDeal ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;"><tr>
+      ${[
+        ['Listing Price', fmtN(data.listingPrice)],
+        ['Combined Annual Revenue', fmtN(data.combinedAnnualRevenue)],
+        ['Gross Yield', data.grossYield != null ? `${data.grossYield.toFixed(1)}%` : ''],
+      ].map(([l, v]) => `
+        <td width="33%" style="padding:4px;"><div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:18px;font-weight:900;color:#b45309;">${v}</div>
+          <div style="font-size:10px;font-weight:600;color:#334155;margin-top:2px;">${l}</div>
+        </div></td>`).join('')}
+    </tr></table>` : '';
+
+  const dealUnitsHtml = isDeal && data.units && data.units.length > 0 ? `
+    <div style="margin-bottom:24px;">
+      ${sectionTitle(data.units.length > 1 ? 'Per-Unit Breakdown' : 'Unit Revenue Breakdown')}
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;">
+        <tr style="background:#fef3c7;">
+          <td style="padding:8px 12px;font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;">Unit</td>
+          <td style="padding:8px 12px;font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;text-align:center;">Beds/Baths</td>
+          <td style="padding:8px 12px;font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;text-align:right;">Proj. Annual Rev</td>
+          <td style="padding:8px 12px;font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;text-align:right;">Occupancy</td>
+          <td style="padding:8px 12px;font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;text-align:right;">ADR</td>
+        </tr>
+        ${data.units.map((u, i) => `
+          <tr style="background:${i % 2 === 0 ? '#ffffff' : '#fafafa'};">
+            <td style="padding:8px 12px;font-size:12px;color:#1e293b;font-weight:600;">${u.unitLabel}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:center;">${[u.bedrooms != null ? `${u.bedrooms}bd` : null, u.bathrooms != null ? `${u.bathrooms}ba` : null].filter(Boolean).join('/') || '—'}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#b45309;font-weight:700;text-align:right;">${fmtN(u.projectedAnnualRevenue)}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:right;">${fmtP(u.occupancyRate)}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:right;">${u.adr != null ? `$${Math.round(u.adr)}` : ''}</td>
+          </tr>`).join('')}
+        ${data.units.length > 1 ? `
+          <tr style="background:#fef3c7;border-top:2px solid #fde68a;">
+            <td style="padding:8px 12px;font-size:12px;color:#92400e;font-weight:700;" colspan="2">Combined Total</td>
+            <td style="padding:8px 12px;font-size:12px;color:#92400e;font-weight:700;text-align:right;">${fmtN(data.combinedAnnualRevenue)}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#92400e;text-align:right;">${fmtP(data.combinedOccupancyRate)}</td>
+            <td style="padding:8px 12px;"></td>
+          </tr>` : ''}
+      </table>
+    </div>` : '';
+
+  const dealHLCHtml = isDeal && ((data.propertyHighlights?.length ?? 0) > 0 || (data.concerns?.length ?? 0) > 0) ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;"><tr valign="top">
+      ${data.propertyHighlights?.length ? `
+        <td width="50%" style="padding-right:6px;">
+          <div style="background:#f0fdf4;border-radius:8px;padding:14px;">
+            <div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:8px;">Property Highlights</div>
+            ${data.propertyHighlights.map(h => `<div style="font-size:11px;color:#374151;margin-bottom:5px;"><span style="color:#059669;font-weight:700;">✓</span> ${h}</div>`).join('')}
+          </div>
+        </td>` : ''}
+      ${data.concerns?.length ? `
+        <td width="50%" style="padding-left:6px;">
+          <div style="background:#fff7ed;border-radius:8px;padding:14px;">
+            <div style="font-size:11px;font-weight:700;color:#9a3412;margin-bottom:8px;">Concerns / Risks</div>
+            ${data.concerns.map(c => `<div style="font-size:11px;color:#374151;margin-bottom:5px;"><span style="color:#ea580c;font-weight:700;">!</span> ${c}</div>`).join('')}
+          </div>
+        </td>` : ''}
+    </tr></table>` : '';
+
+  // ── Metrics (STR / MTR) ────────────────────────────────────────────────────────────────────────
   let metricsHtml = '';
-  if (!isMtr && data.extracted) {
+  if (!isMtr && !isDeal && data.extracted) {
     metricsHtml = `
       <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;"><tr>
         ${[['Projected Annual', fmtN(data.extracted.projectedAnnualRevenue)],['Occupancy Rate', fmtP(data.extracted.occupancyRate)],['Avg Daily Rate', fmtN(data.extracted.adr)],['RevPAR', fmtN(data.extracted.revpar)]].map(([l,v])=>`
@@ -302,18 +378,24 @@ function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?
       </tr></table>
     </div>` : '';
 
+  const headerLabel = isDeal ? 'Deal Analyzer' : isMtr ? 'Mid-Term Rental Analysis' : 'Revenue Analysis';
+
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:20px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;margin:0 auto;"><tr><td>
     <div style="background:${headerBg};border-radius:12px 12px 0 0;padding:32px;">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.6);margin-bottom:8px;">E&amp;J Retreats · ${isMtr?'Mid-Term Rental Analysis':'Revenue Analysis'}</div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.6);margin-bottom:8px;">E&amp;J Retreats · ${headerLabel}</div>
       <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;">${data.reportTitle}</div>
       <div style="font-size:13px;color:rgba(255,255,255,0.7);">${address}</div>
       <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;">${date}</div>
     </div>
     <div style="background:#ffffff;border-radius:0 0 12px 12px;padding:28px;">
       ${personalNote?.trim() ? `<div style="margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #e2e8f0;"><div style="font-size:14px;color:#475569;line-height:1.8;white-space:pre-wrap;">${personalNote.trim()}</div></div>` : ''}
+      ${dealRecHtml}
+      ${dealMetricsHtml}
+      ${dealUnitsHtml}
+      ${dealHLCHtml}
       ${metricsHtml}
       ${ownerHtml}
       ${scoreHtml}
@@ -544,8 +626,8 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
     const first = name.trim().split(' ')[0] || '';
     setEmailTo(recipientEmail ?? '');
     setEmailName(name);
-    setEmailSubject(`Your Revenue Analysis: ${data.reportTitle}`);
-    setPersonalNote(defaultEmailNote(first, address));
+    setEmailSubject(isDeal ? `Deal Analysis: ${data.reportTitle}` : `Your Revenue Analysis: ${data.reportTitle}`);
+    setPersonalNote(isDeal ? '' : defaultEmailNote(first, address));
     setEmailSent(false);
     setEmailError('');
     setEmailOpen(true);
@@ -740,14 +822,12 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           <ArrowLeft size={15} /> Back
         </button>
         <div className="flex items-center gap-2">
-          {!isDeal && (
-            <button
-              onClick={openEmailModal}
-              className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-lg transition-colors"
-            >
-              <Mail size={14} /> Email Report
-            </button>
-          )}
+          <button
+            onClick={openEmailModal}
+            className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-lg transition-colors"
+          >
+            <Mail size={14} /> {isDeal ? 'Email Analysis' : 'Email Report'}
+          </button>
           <button
             onClick={() => window.print()}
             className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-lg transition-colors"
