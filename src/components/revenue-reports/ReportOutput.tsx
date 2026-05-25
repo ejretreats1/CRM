@@ -36,8 +36,17 @@ interface CompData {
   adr: number | null;
 }
 
+interface UnitData {
+  unitLabel: string;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  projectedAnnualRevenue: number | null;
+  occupancyRate: number | null;
+  adr: number | null;
+}
+
 interface ReportData {
-  reportType?: 'str' | 'mtr';
+  reportType?: 'str' | 'mtr' | 'deal';
   // STR
   extracted?: StrExtracted;
   revenueProjections?: { conservative: number; realistic: number; optimistic: number };
@@ -46,13 +55,23 @@ interface ReportData {
   mtrProjected?: MtrProjected;
   strVsMtr?: StrVsMtr;
   recommendedPlatforms?: string[];
+  // Deal
+  recommendation?: 'strong-buy' | 'buy' | 'neutral' | 'pass' | 'strong-pass';
+  recommendationReason?: string;
+  listingPrice?: number;
+  units?: UnitData[];
+  combinedAnnualRevenue?: number;
+  combinedOccupancyRate?: number | null;
+  grossYield?: number;
+  propertyHighlights?: string[];
+  concerns?: string[];
   // Shared
   monthlySeasonality?: MonthData[];
   comparables?: CompData[];
   reportTitle: string;
   executiveSummary: string;
   marketOpportunity: string;
-  performanceGap: string | null;
+  performanceGap?: string | null;
   recommendations: { title: string; description: string }[];
   keyFindings: string[];
   opportunityScore: number;
@@ -480,9 +499,18 @@ const RECOMMENDATION_LABELS: Record<string, { label: string; color: string }> = 
   hybrid: { label: '⚖️ Hybrid STR + MTR Strategy',    color: 'bg-amber-50 text-amber-800 border-amber-200' },
 };
 
+const DEAL_REC: Record<string, { label: string; bg: string }> = {
+  'strong-buy':  { label: '🟢 Strong Buy',   bg: 'bg-emerald-600' },
+  'buy':         { label: '✅ Buy',           bg: 'bg-teal-600' },
+  'neutral':     { label: '🔶 Neutral',       bg: 'bg-amber-500' },
+  'pass':        { label: '🔴 Pass',          bg: 'bg-orange-600' },
+  'strong-pass': { label: '❌ Strong Pass',   bg: 'bg-red-700' },
+};
+
 export default function ReportOutput({ address, data, ownerActualRevenue, onSave, onBack, saving, saved, onRefine, recipientEmail, recipientName, recipientPhone, onMarkContacted }: ReportOutputProps) {
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const isMtr = data.reportType === 'mtr';
+  const isDeal = data.reportType === 'deal';
   const [refineOpen, setRefineOpen] = useState(false);
   const [refineMsg, setRefineMsg] = useState('');
   const [refining, setRefining] = useState(false);
@@ -712,12 +740,14 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           <ArrowLeft size={15} /> Back
         </button>
         <div className="flex items-center gap-2">
-          <button
-            onClick={openEmailModal}
-            className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-lg transition-colors"
-          >
-            <Mail size={14} /> Email Report
-          </button>
+          {!isDeal && (
+            <button
+              onClick={openEmailModal}
+              className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-lg transition-colors"
+            >
+              <Mail size={14} /> Email Report
+            </button>
+          )}
           <button
             onClick={() => window.print()}
             className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-lg transition-colors"
@@ -737,21 +767,47 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
       <div className="bg-white mx-6 mb-6 rounded-2xl border border-slate-200 overflow-hidden print:overflow-visible print:border-none print:rounded-none print:mx-0 print:mb-0">
 
         {/* Header */}
-        <div className={`text-white px-8 py-6 ${isMtr ? 'bg-indigo-700' : 'bg-teal-700'}`}>
+        <div className={`text-white px-8 py-6 ${isDeal ? 'bg-amber-700' : isMtr ? 'bg-indigo-700' : 'bg-teal-700'}`}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className={`text-xs font-semibold uppercase tracking-widest mb-1 ${isMtr ? 'text-indigo-200' : 'text-teal-200'}`}>
-                E&J Retreats · {isMtr ? 'Mid-Term Rental Analysis' : 'Revenue Analysis'}
+              <div className={`text-xs font-semibold uppercase tracking-widest mb-1 ${isDeal ? 'text-amber-200' : isMtr ? 'text-indigo-200' : 'text-teal-200'}`}>
+                E&J Retreats · {isDeal ? 'Deal Analyzer' : isMtr ? 'Mid-Term Rental Analysis' : 'Revenue Analysis'}
               </div>
               <h1 className="text-2xl font-bold leading-tight">{data.reportTitle}</h1>
-              <p className={`text-sm mt-1 ${isMtr ? 'text-indigo-200' : 'text-teal-200'}`}>{address}</p>
+              <p className={`text-sm mt-1 ${isDeal ? 'text-amber-200' : isMtr ? 'text-indigo-200' : 'text-teal-200'}`}>{address}</p>
             </div>
             <div className="text-right flex-shrink-0">
-              <div className={`text-xs ${isMtr ? 'text-indigo-200' : 'text-teal-200'}`}>{date}</div>
+              <div className={`text-xs ${isDeal ? 'text-amber-200' : isMtr ? 'text-indigo-200' : 'text-teal-200'}`}>{date}</div>
               {isMtr && <div className="text-xs font-bold mt-1 bg-white/20 px-2 py-0.5 rounded-full">MTR Report</div>}
+              {isDeal && <div className="text-xs font-bold mt-1 bg-white/20 px-2 py-0.5 rounded-full">Deal Analyzer</div>}
             </div>
           </div>
         </div>
+
+        {/* Deal: recommendation banner */}
+        {isDeal && data.recommendation && (() => {
+          const rec = DEAL_REC[data.recommendation] ?? { label: data.recommendation, bg: 'bg-slate-600' };
+          return (
+            <div className={`${rec.bg} text-white px-8 py-4 flex items-center justify-between`}>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-widest mb-0.5 opacity-75">Investment Recommendation</div>
+                <div className="text-xl font-black">{rec.label}</div>
+                {data.recommendationReason && (
+                  <p className="text-sm mt-1 opacity-90 max-w-xl">{data.recommendationReason}</p>
+                )}
+              </div>
+              {data.listingPrice != null && (
+                <div className="text-right flex-shrink-0 ml-4">
+                  <div className="text-xs opacity-75">Asking Price</div>
+                  <div className="text-2xl font-black">{fmt(data.listingPrice)}</div>
+                  {data.grossYield != null && (
+                    <div className="text-sm font-semibold opacity-90">{data.grossYield.toFixed(1)}% gross yield</div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <div className="p-8 space-y-8">
 
@@ -787,6 +843,100 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                   <div className="text-xs text-slate-400">{s.sub}</div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ── Deal ROI metrics ── */}
+          {isDeal && (
+            <div className="print-section grid grid-cols-3 gap-3">
+              <div className="bg-amber-50 rounded-xl p-4">
+                <div className="text-xl font-black text-amber-700">{fmt(data.listingPrice)}</div>
+                <div className="text-xs font-semibold text-slate-700 mt-0.5">Listing Price</div>
+              </div>
+              <div className="bg-amber-50 rounded-xl p-4">
+                <div className="text-xl font-black text-amber-700">{fmt(data.combinedAnnualRevenue)}</div>
+                <div className="text-xs font-semibold text-slate-700 mt-0.5">Combined Annual Revenue</div>
+                <div className="text-xs text-slate-400">all units projected</div>
+              </div>
+              <div className="bg-amber-50 rounded-xl p-4">
+                <div className="text-xl font-black text-amber-700">{data.grossYield != null ? `${data.grossYield.toFixed(1)}%` : '—'}</div>
+                <div className="text-xs font-semibold text-slate-700 mt-0.5">Gross Yield</div>
+                <div className="text-xs text-slate-400">annual rev ÷ price</div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Deal per-unit breakdown ── */}
+          {isDeal && data.units && data.units.length > 0 && (
+            <div className="print-section">
+              <h3 className="text-sm font-bold text-slate-900 mb-3">Per-Unit Breakdown</h3>
+              <div className="bg-slate-100 rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      <th className="px-4 py-2.5 text-left">Unit</th>
+                      <th className="px-4 py-2.5 text-center">Beds / Baths</th>
+                      <th className="px-4 py-2.5 text-right">Proj. Annual Rev</th>
+                      <th className="px-4 py-2.5 text-right">Occupancy</th>
+                      <th className="px-4 py-2.5 text-right">ADR</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {data.units.map((u, i) => (
+                      <tr key={i} className="bg-white">
+                        <td className="px-4 py-2.5 font-semibold text-slate-900">{u.unitLabel}</td>
+                        <td className="px-4 py-2.5 text-center text-slate-600">
+                          {[u.bedrooms != null ? `${u.bedrooms}bd` : null, u.bathrooms != null ? `${u.bathrooms}ba` : null].filter(Boolean).join(' / ') || '—'}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-amber-700">{fmt(u.projectedAnnualRevenue)}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-600">{fmtPct(u.occupancyRate)}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-600">{u.adr != null ? `$${Math.round(u.adr)}` : ''}</td>
+                      </tr>
+                    ))}
+                    {data.units.length > 1 && (
+                      <tr className="bg-amber-50 border-t-2 border-amber-200">
+                        <td className="px-4 py-2.5 font-bold text-amber-800">Combined Total</td>
+                        <td className="px-4 py-2.5" />
+                        <td className="px-4 py-2.5 text-right font-bold text-amber-800">{fmt(data.combinedAnnualRevenue)}</td>
+                        <td className="px-4 py-2.5 text-right font-semibold text-amber-700">{fmtPct(data.combinedOccupancyRate)}</td>
+                        <td className="px-4 py-2.5" />
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── Deal highlights & concerns ── */}
+          {isDeal && ((data.propertyHighlights?.length ?? 0) > 0 || (data.concerns?.length ?? 0) > 0) && (
+            <div className="print-section grid sm:grid-cols-2 gap-4">
+              {data.propertyHighlights && data.propertyHighlights.length > 0 && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                  <h3 className="text-sm font-bold text-emerald-800 mb-3">Property Highlights</h3>
+                  <ul className="space-y-2">
+                    {data.propertyHighlights.map((h, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                        <span className="text-emerald-500 flex-shrink-0 font-bold mt-0.5">✓</span>
+                        {h}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {data.concerns && data.concerns.length > 0 && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                  <h3 className="text-sm font-bold text-orange-800 mb-3">Concerns / Risks</h3>
+                  <ul className="space-y-2">
+                    {data.concerns.map((c, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                        <span className="text-orange-400 flex-shrink-0 font-bold mt-0.5">!</span>
+                        {c}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 
@@ -946,10 +1096,10 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
           )}
 
-          {/* STR revenue projections */}
+          {/* Revenue projections (STR + Deal) */}
           {!isMtr && data.revenueProjections && (
             <div className="print-section">
-              <h3 className="text-sm font-bold text-slate-900 mb-3">Revenue Projections with E&J Retreats</h3>
+              <h3 className="text-sm font-bold text-slate-900 mb-3">{isDeal ? 'Revenue Projections (All Units Combined)' : 'Revenue Projections with E&J Retreats'}</h3>
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { label: 'Conservative', value: data.revenueProjections.conservative, color: 'bg-slate-100 text-slate-700' },

@@ -21,18 +21,31 @@ interface PendingReport {
   ownerNotes?: string;
   additionalContext?: string;
   data: {
-    reportType?: 'str' | 'mtr';
+    reportType?: 'str' | 'mtr' | 'deal';
+    // STR
     extracted?: { projectedAnnualRevenue: number | null; occupancyRate: number | null; adr: number | null; revpar: number | null };
+    // MTR
     strExtracted?: { projectedAnnualRevenue: number | null; occupancyRate: number | null; adr: number | null };
     mtrProjected?: { monthlyRent: number; annualRevenue: number; occupancyRate: number; recommendedLeaseLength: string; targetTenantProfile: string };
     strVsMtr?: { recommendation: 'str' | 'mtr' | 'hybrid'; strAnnualEstimate: number | null; mtrAnnualEstimate: number; reasoning: string };
     recommendedPlatforms?: string[];
+    // Deal
+    recommendation?: 'strong-buy' | 'buy' | 'neutral' | 'pass' | 'strong-pass';
+    recommendationReason?: string;
+    listingPrice?: number;
+    units?: Array<{ unitLabel: string; bedrooms: number | null; bathrooms: number | null; projectedAnnualRevenue: number | null; occupancyRate: number | null; adr: number | null }>;
+    combinedAnnualRevenue?: number;
+    combinedOccupancyRate?: number | null;
+    grossYield?: number;
+    propertyHighlights?: string[];
+    concerns?: string[];
+    // Shared
     monthlySeasonality?: { month: string; revenue: number | null; occupancy: number | null }[];
     comparables?: { bedrooms: number | null; annualRevenue: number | null; occupancyRate: number | null; adr: number | null }[];
     reportTitle: string;
     executiveSummary: string;
     marketOpportunity: string;
-    performanceGap: string | null;
+    performanceGap?: string | null;
     recommendations: { title: string; description: string }[];
     revenueProjections?: { conservative: number; realistic: number; optimistic: number };
     keyFindings: string[];
@@ -94,16 +107,21 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
     if (!pending) return;
     setSaving(true);
     try {
+      const isDeal = pending.data.reportType === 'deal';
       const saved = await saveRevenueReport({
         propertyAddress: pending.address,
         leadId: pending.leadId,
         ownerId: pending.ownerId,
         reportType: pending.data.reportType ?? 'str',
         reportData: { ...pending.data, _additionalContext: pending.additionalContext } as Record<string, unknown>,
-        airdnaProjectedRevenue: pending.data.extracted?.projectedAnnualRevenue ?? pending.data.strExtracted?.projectedAnnualRevenue ?? undefined,
-        airdnaOccupancyRate: pending.data.extracted?.occupancyRate ?? pending.data.strExtracted?.occupancyRate ?? undefined,
-        airdnaAdr: pending.data.extracted?.adr ?? pending.data.strExtracted?.adr ?? undefined,
-        airdnaRevpar: pending.data.extracted?.revpar ?? undefined,
+        airdnaProjectedRevenue: isDeal
+          ? pending.data.combinedAnnualRevenue ?? undefined
+          : (pending.data.extracted?.projectedAnnualRevenue ?? pending.data.strExtracted?.projectedAnnualRevenue ?? undefined),
+        airdnaOccupancyRate: isDeal
+          ? (pending.data.combinedOccupancyRate ?? undefined)
+          : (pending.data.extracted?.occupancyRate ?? pending.data.strExtracted?.occupancyRate ?? undefined),
+        airdnaAdr: isDeal ? undefined : (pending.data.extracted?.adr ?? pending.data.strExtracted?.adr ?? undefined),
+        airdnaRevpar: isDeal ? undefined : pending.data.extracted?.revpar ?? undefined,
         ownerActualRevenue: pending.ownerActualRevenue,
         ownerNotes: pending.ownerNotes,
         claudeNarrative: pending.data.executiveSummary,

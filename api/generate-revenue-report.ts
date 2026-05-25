@@ -68,6 +68,37 @@ const MtrReportSchema = z.object({
   opportunityScore: z.number().int().min(1).max(10),
 });
 
+const UnitSchema = z.object({
+  unitLabel: z.string(),
+  bedrooms: z.number().nullable(),
+  bathrooms: z.number().nullable(),
+  projectedAnnualRevenue: z.number().nullable(),
+  occupancyRate: z.number().nullable(),
+  adr: z.number().nullable(),
+  monthlySeasonality: z.array(MonthSchema).optional(),
+  comparables: z.array(CompSchema).optional(),
+});
+
+const DealReportSchema = z.object({
+  reportType: z.literal('deal'),
+  reportTitle: z.string(),
+  recommendation: z.enum(['strong-buy', 'buy', 'neutral', 'pass', 'strong-pass']),
+  recommendationReason: z.string(),
+  listingPrice: z.number(),
+  units: z.array(UnitSchema),
+  combinedAnnualRevenue: z.number(),
+  combinedOccupancyRate: z.number().nullable(),
+  grossYield: z.number(),
+  revenueProjections: z.object({ conservative: z.number(), realistic: z.number(), optimistic: z.number() }),
+  propertyHighlights: z.array(z.string()),
+  concerns: z.array(z.string()),
+  executiveSummary: z.string(),
+  marketOpportunity: z.string(),
+  recommendations: z.array(z.object({ title: z.string(), description: z.string() })),
+  keyFindings: z.array(z.string()),
+  opportunityScore: z.number().int().min(1).max(10),
+});
+
 const globalRules = `
 RULES (apply to all sections):
 - If the property already has an amenity mentioned in the context, do NOT recommend adding it — acknowledge it as a strength.
@@ -95,28 +126,22 @@ async function runGenerate(reportType: 'str' | 'mtr', prompt: string, pdfBase64:
   return { ...output, reportType };
 }
 
-async function runRefine(reportType: 'str' | 'mtr', prompt: string) {
-  const schema = reportType === 'mtr' ? MtrReportSchema : StrReportSchema;
-  const { output } = await generateText({
-    model: gateway('anthropic/claude-sonnet-4-6'),
-    output: Output.object({ schema }),
-    messages: [{ role: 'user', content: prompt }],
-  });
-  return { ...output, reportType };
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const body = req.body as {
     address: string;
-    reportType?: 'str' | 'mtr';
-    // generate mode
+    reportType?: 'str' | 'mtr' | 'deal';
+    // STR/MTR generate
     pdfBase64?: string;
     ownerActualRevenue?: number;
     ownerNotes?: string;
     additionalContext?: string;
-    // refine mode
+    // Deal generate
+    pdfFiles?: Array<{ base64: string; unitLabel: string; bedrooms?: number; bathrooms?: number }>;
+    listingPrice?: number;
+    zillowDescription?: string;
+    // Refine
     existingReport?: Record<string, unknown>;
     refinementMessage?: string;
   };
@@ -131,7 +156,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const originalCtx = additionalContext?.trim()
         ? `\nORIGINAL CONTEXT (established facts about the property):\n${additionalContext.trim()}\n`
         : '';
-      const prompt = `You are a ${reportType === 'mtr' ? 'mid-term' : 'short-term'} rental revenue consultant for E&J Retreats.
+
+      let schema: typeof StrReportSchema | typeof MtrReportSchema | typeof DealReportSchema;
+      let typeLabel: string;
+      if (reportType === 'deal') {
+        schema = DealReportSchema;
+        typeLabel = 'investment deal analyst';
+      } else if (reportType === 'mtr') {
+        schema = MtrReportSchema;
+        typeLabel = 'mid-term rental consultant';
+      } else {
+        schema = StrReportSchema;
+        typeLabel = 'short-term rental revenue consultant';
+      }
+
+      const prompt = `You are a ${typeLabel} for E&J Retreats.
 
 Property: ${address}
 ${originalCtx}
@@ -139,16 +178,83 @@ Existing report (JSON):
 ${JSON.stringify(existingReport, null, 2)}
 
 New correction/context from user:
-"${refinementMessage.trim()}"
+"${refinementMessage!.trim()}"
 
 Revise the report to incorporate this. Update affected sections; keep unaffected ones. Return the complete updated report.
 ${globalRules}`;
 
-      const output = await runRefine(reportType, prompt);
+      const { output } = await generateText({
+        model: gateway('anthropic/claude-sonnet-4-6'),
+        output: Output.object({ schema }),
+        messages: [{ role: 'user', content: prompt }],
+      });
+      return res.status(200).json({ ...output, reportType });
+    }
+
+    // ── DEAL MODE ────────────────────────────────────────────────────────────
+    if (reportType === 'deal') {
+      const { pdfFiles, listingPrice, zillowDescription, additionalContext } = body;
+      if (!pdfFiles || pdfFiles.length === 0) {
+        return res.status(400).json({ error: 'pdfFiles is required for deal analysis' });
+      }
+      if (!listingPrice) {
+        return res.status(400).json({ error: 'listingPrice is required for deal analysis' });
+      }
+
+      const unitDescriptions = pdfFiles
+        .map((pf, i) => `  Unit ${i + 1} — ${pf.unitLabel}${pf.bedrooms != null ? `: ${pf.bedrooms} bed` : ''}${pf.bathrooms != null ? `/${pf.bathrooms} bath` : ''}`)
+        .join('\n');
+
+      const zillowSection = zillowDescription?.trim()
+        ? `\nZILLOW LISTING DESCRIPTION:\n${zillowDescription.trim()}\n`
+        : '';
+
+      const contextSection = additionalContext?.trim()
+        ? `\nADDITIONAL CONTEXT:\n${additionalContext.trim()}\n`
+        : '';
+
+      const dealPrompt = `You are a short-term rental investment analyst for E&J Retreats. Analyze this property acquisition opportunity.
+
+Property Address: ${address}
+Asking Price: $${Number(listingPrice).toLocaleString()}
+Number of Units: ${pdfFiles.length}
+${unitDescriptions}
+${zillowSection}${contextSection}
+${pdfFiles.length > 1 ? `There are ${pdfFiles.length} AirDNA Rentalizer PDF reports attached, one per unit (in order listed above).` : 'The AirDNA Rentalizer PDF for this property is attached.'}
+
+ANALYZE:
+1. Extract per-unit metrics from each PDF: projected annual revenue, occupancy rate, ADR, monthly seasonality, comparable properties.
+2. Sum unit revenues for combinedAnnualRevenue.
+3. Calculate grossYield = combinedAnnualRevenue / listingPrice × 100 (round to 1 decimal).
+4. Make a clear investment recommendation: strong-buy / buy / neutral / pass / strong-pass based on yield, market demand, and property strengths.
+5. Write a concise recommendationReason (2–3 sentences).
+6. List 3–5 property highlights/strengths from the Zillow description and AirDNA data.
+7. List 2–4 concerns or risks.
+8. Project conservative, realistic, and optimistic combined annual revenue (all units).
+9. Write 3–5 STR optimization recommendations to maximize revenue.
+10. Write an executive summary and market opportunity paragraph.
+11. List 3–5 key findings.
+12. Assign an opportunityScore 1–10.
+${seasonalityInstructions}
+${globalRules}
+
+Focus on gross revenue and ROI only. Write as if presenting to investors evaluating an STR acquisition.`;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const content: any[] = [
+        ...pdfFiles.map(pf => ({ type: 'file' as const, data: pf.base64, mediaType: 'application/pdf' as const })),
+        { type: 'text' as const, text: dealPrompt },
+      ];
+
+      const { output } = await generateText({
+        model: gateway('anthropic/claude-sonnet-4-6'),
+        output: Output.object({ schema: DealReportSchema }),
+        messages: [{ role: 'user', content }],
+      });
       return res.status(200).json(output);
     }
 
-    // ── GENERATE MODE ────────────────────────────────────────────────────────
+    // ── GENERATE MODE (STR / MTR) ────────────────────────────────────────────
     if (!body.pdfBase64) return res.status(400).json({ error: 'pdfBase64 is required for report generation' });
 
     const { pdfBase64, ownerActualRevenue, ownerNotes, additionalContext } = body;
@@ -198,7 +304,7 @@ ${globalRules}
 
 Write in a confident, professional tone for a property owner considering mid-term rentals.`;
 
-    const output = await runGenerate(reportType, reportType === 'mtr' ? mtrPrompt : strPrompt, pdfBase64);
+    const output = await runGenerate(reportType as 'str' | 'mtr', reportType === 'mtr' ? mtrPrompt : strPrompt, pdfBase64);
     return res.status(200).json(output);
 
   } catch (err) {

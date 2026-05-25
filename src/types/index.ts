@@ -116,7 +116,7 @@ export interface RevenueReport {
   propertyAddress: string;
   leadId?: string;
   ownerId?: string;
-  reportType?: 'str' | 'mtr';
+  reportType?: 'str' | 'mtr' | 'deal';
   reportData?: Record<string, unknown>;
   airdnaProjectedRevenue?: number;
   airdnaOccupancyRate?: number;
