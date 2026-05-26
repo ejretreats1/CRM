@@ -647,7 +647,10 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const shareUrl = savedReportId ? `${window.location.origin}/?share=${savedReportId}` : null;
+  const addressSlug = address.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const shareUrl = savedReportId
+    ? `${window.location.origin}/?share=${savedReportId}&address=${addressSlug}`
+    : null;
 
   const previewHtml = buildReportEmail(address, data, ownerActualRevenue, personalNote, noteTemplate === 'sales');
 
