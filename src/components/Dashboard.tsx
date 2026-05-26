@@ -304,7 +304,7 @@ export default function Dashboard({
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Welcome back to E&amp;J Retreats CRM</p>
+          <p className="hidden sm:block text-slate-500 text-sm mt-0.5">Welcome back to E&amp;J Retreats CRM</p>
         </div>
         {uplistingConnected ? (
           <div className="flex items-center gap-3">
@@ -363,7 +363,7 @@ export default function Dashboard({
               </div>
               <div className="text-lg font-bold text-slate-900 sm:text-2xl truncate">{value}</div>
               <div className="text-sm font-medium text-slate-700 mt-0.5">{label}</div>
-              <div className="text-xs text-slate-400 mt-0.5">{sub}</div>
+              <div className="text-xs text-slate-400 mt-0.5 truncate">{sub}</div>
               {handler && <div className="text-xs text-teal-600 font-medium mt-2 flex items-center gap-0.5">View <ArrowRight size={11} /></div>}
             </>
           );
@@ -456,7 +456,7 @@ export default function Dashboard({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-slate-900 text-sm">{nextEvent.title}</p>
+                          <p className="font-semibold text-slate-900 text-sm truncate">{nextEvent.title}</p>
                           {(isToday || isTomorrow) && (
                             <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
                               isToday ? 'bg-teal-100 text-teal-700' : 'bg-amber-100 text-amber-700'
@@ -764,8 +764,8 @@ export default function Dashboard({
                   <span className="text-white font-semibold text-sm">{owner.name.charAt(0)}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900">{owner.name}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm font-semibold text-slate-900 truncate">{owner.name}</p>
+                  <p className="text-xs text-slate-400 truncate">
                     {owner.properties.length} {owner.properties.length === 1 ? 'property' : 'properties'}
                     {activeProps.length > 0 && ` · ${activeProps.length} active`}
                   </p>
