@@ -655,7 +655,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
   const previewHtml = buildReportEmail(address, data, ownerActualRevenue, personalNote, noteTemplate === 'sales');
 
   const firstName = (emailName || recipientName || '').trim().split(' ')[0] || 'there';
-  const followUpText = `Hey ${firstName}! This is Ethan, I just ran your revenue analysis for your property at ${address} and emailed it to you at ${emailTo || recipientEmail || ''}. Please check your promotions/spam folder as they sometimes end up there.${shareUrl ? `\n\nYou can also view it online here: ${shareUrl}` : ''}\n\nPlease message us here if you have any questions about management or your property in general. 😊`;
+  const followUpText = `Hey ${firstName}! This is Ethan, I just ran your revenue analysis for your property at ${address} and emailed it to you at ${emailTo || recipientEmail || ''}. Please check your promotions/spam folder as they sometimes end up there.${shareUrl ? `\n\nYou can also view it online here: ${shareUrl}` : ''}\n\nIf you want, we can implement this for you and manage everything end-to-end. Book a 15-minute call here: https://calendly.com/ejretreats1/30min`;
 
   function copyText(text: string, setCopied: (v: boolean) => void) {
     navigator.clipboard.writeText(text).then(() => {
