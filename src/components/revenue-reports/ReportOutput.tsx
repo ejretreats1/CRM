@@ -84,6 +84,7 @@ interface ReportOutputProps {
   ownerNotes?: string;
   saving?: boolean;
   saved?: boolean;
+  savedReportId?: string;
   onSave: () => void;
   onBack: () => void;
   onRefine?: (message: string) => Promise<void>;
@@ -93,7 +94,7 @@ interface ReportOutputProps {
   onMarkContacted?: () => void;
 }
 
-function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?: number, personalNote?: string): string {
+export function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?: number, personalNote?: string): string {
   const isMtr = data.reportType === 'mtr';
   const isDeal = data.reportType === 'deal';
   const headerBg = isDeal ? '#b45309' : isMtr ? '#3730a3' : '#0f766e';
@@ -589,7 +590,7 @@ const DEAL_REC: Record<string, { label: string; bg: string }> = {
   'strong-pass': { label: '❌ Strong Pass',   bg: 'bg-red-700' },
 };
 
-export default function ReportOutput({ address, data, ownerActualRevenue, onSave, onBack, saving, saved, onRefine, recipientEmail, recipientName, recipientPhone, onMarkContacted }: ReportOutputProps) {
+export default function ReportOutput({ address, data, ownerActualRevenue, onSave, onBack, saving, saved, savedReportId, onRefine, recipientEmail, recipientName, recipientPhone, onMarkContacted }: ReportOutputProps) {
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const isMtr = data.reportType === 'mtr';
   const isDeal = data.reportType === 'deal';
@@ -608,11 +609,14 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
   const [emailError, setEmailError] = useState('');
   const [copiedMsg, setCopiedMsg] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const shareUrl = savedReportId ? `${window.location.origin}/?share=${savedReportId}` : null;
 
   const previewHtml = buildReportEmail(address, data, ownerActualRevenue, personalNote);
 
   const firstName = (emailName || recipientName || '').trim().split(' ')[0] || 'there';
-  const followUpText = `Hey ${firstName}! This is Ethan, I just ran your revenue analysis for your property at ${address} and emailed it to you at ${emailTo || recipientEmail || ''}. Please check your promotions/spam folder as they sometimes end up there. Please message us here if you have any questions about management or your property in general. 😊`;
+  const followUpText = `Hey ${firstName}! This is Ethan, I just ran your revenue analysis for your property at ${address} and emailed it to you at ${emailTo || recipientEmail || ''}. Please check your promotions/spam folder as they sometimes end up there.${shareUrl ? `\n\nYou can also view it online here: ${shareUrl}` : ''}\n\nPlease message us here if you have any questions about management or your property in general. 😊`;
 
   function copyText(text: string, setCopied: (v: boolean) => void) {
     navigator.clipboard.writeText(text).then(() => {
@@ -822,6 +826,14 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           <ArrowLeft size={15} /> Back
         </button>
         <div className="flex items-center gap-2">
+          {shareUrl && (
+            <button
+              onClick={() => copyText(shareUrl, setCopiedLink)}
+              className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-lg transition-colors"
+            >
+              {copiedLink ? <><CheckIcon size={14} className="text-emerald-500" /> Copied!</> : <><Copy size={14} /> Copy Link</>}
+            </button>
+          )}
           <button
             onClick={openEmailModal}
             className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-lg transition-colors"
@@ -832,7 +844,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             onClick={() => window.print()}
             className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-lg transition-colors"
           >
-            <Printer size={14} /> Print / PDF
+            <Printer size={14} /> Download PDF
           </button>
           <button
             onClick={onSave}

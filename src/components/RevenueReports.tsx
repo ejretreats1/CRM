@@ -66,6 +66,7 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
   const [viewingReport, setViewingReport] = useState<RevenueReport | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savedReportId, setSavedReportId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredReports = useMemo(() => {
@@ -100,6 +101,7 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
   ) {
     setPending({ address, data, ownerActualRevenue, ownerNotes, leadId, ownerId, additionalContext });
     setSaved(false);
+    setSavedReportId(null);
     setPageView('output');
   }
 
@@ -108,7 +110,7 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
     setSaving(true);
     try {
       const isDeal = pending.data.reportType === 'deal';
-      const saved = await saveRevenueReport({
+      const savedReport = await saveRevenueReport({
         propertyAddress: pending.address,
         leadId: pending.leadId,
         ownerId: pending.ownerId,
@@ -129,7 +131,8 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
         opportunityScore: pending.data.opportunityScore,
         reportTitle: pending.data.reportTitle,
       });
-      setReports(prev => [saved, ...prev]);
+      setReports(prev => [savedReport, ...prev]);
+      setSavedReportId(savedReport.id);
       setSaved(true);
     } catch {
       // silent
@@ -193,8 +196,9 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
         ownerNotes={pending.ownerNotes}
         saving={saving}
         saved={saved}
+        savedReportId={savedReportId ?? undefined}
         onSave={handleSave}
-        onBack={() => { setPageView('list'); setPending(null); }}
+        onBack={() => { setPageView('list'); setPending(null); setSavedReportId(null); }}
         onRefine={handleRefinePending}
         recipientEmail={recipientEmail}
         recipientName={recipientName}
@@ -260,6 +264,7 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
         ownerActualRevenue={report.ownerActualRevenue}
         saving={false}
         saved={true}
+        savedReportId={report.id}
         onSave={() => {}}
         onBack={() => { setPageView('list'); setViewingReport(null); }}
         onRefine={handleRefineSaved}

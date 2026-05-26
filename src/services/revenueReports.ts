@@ -24,6 +24,16 @@ function rowToReport(r: any): RevenueReport {
   };
 }
 
+export async function fetchRevenueReportById(id: string): Promise<RevenueReport> {
+  const { data, error } = await supabase
+    .from('revenue_reports')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return rowToReport(data);
+}
+
 export async function fetchRevenueReports(): Promise<RevenueReport[]> {
   const { data, error } = await supabase
     .from('revenue_reports')
