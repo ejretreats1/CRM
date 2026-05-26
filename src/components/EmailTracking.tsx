@@ -372,8 +372,8 @@ export default function EmailTracking() {
   // Summary stats
   const stats = useMemo(() => {
     const total   = logs.length;
-    const opened  = logs.filter(l => STATUS_RANK[effectiveStatus(l)] >= STATUS_RANK.opened).length;
-    const clicked = logs.filter(l => STATUS_RANK[effectiveStatus(l)] >= STATUS_RANK.clicked).length;
+    const opened  = logs.filter(l => { const s = effectiveStatus(l); return s !== 'bounced' && s !== 'complained' && STATUS_RANK[s] >= STATUS_RANK.opened; }).length;
+    const clicked = logs.filter(l => { const s = effectiveStatus(l); return s !== 'bounced' && s !== 'complained' && STATUS_RANK[s] >= STATUS_RANK.clicked; }).length;
     const bounced = logs.filter(l => l.status === 'bounced' || l.status === 'complained').length;
     const openRate   = total ? Math.round((opened  / total) * 100) : 0;
     const clickRate  = total ? Math.round((clicked / total) * 100) : 0;
