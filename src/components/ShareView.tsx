@@ -45,6 +45,18 @@ export default function ShareView({ reportId }: { reportId: string }) {
     .replace(/^[\s\S]*<body[^>]*>/i, '')
     .replace(/<\/body>[\s\S]*$/i, '');
 
+  // Prepend mobile-responsive overrides. These are only applied when the
+  // report renders in-page (share view); email clients ignore media queries.
+  const mobileStyle = `<style>
+    * { box-sizing: border-box; }
+    table { max-width: 100% !important; }
+    @media (max-width: 520px) {
+      td[width="25%"] { width: 50% !important; display: inline-block !important; }
+      td[width="28%"], td[width="72%"] { display: block !important; width: 100% !important; padding-right: 0 !important; }
+      td[style*="padding:8px 12px"] { padding: 6px 8px !important; font-size: 11px !important; }
+    }
+  </style>`;
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
       {/* Top bar */}
@@ -77,11 +89,13 @@ export default function ShareView({ reportId }: { reportId: string }) {
         </button>
       </div>
 
-      {/* Report — rendered directly to respect mobile viewport */}
+      {/* Report — rendered directly to respect mobile viewport.
+          overflow-x: auto lets wide tables scroll within this div
+          rather than being clipped by the global html/body overflow:hidden. */}
       <div
         className="flex-1"
-        style={{ margin: 0, padding: '20px', background: '#f1f5f9', fontFamily: 'Arial, Helvetica, sans-serif' }}
-        dangerouslySetInnerHTML={{ __html: bodyContent }}
+        style={{ margin: 0, padding: '12px', background: '#f1f5f9', fontFamily: 'Arial, Helvetica, sans-serif', overflowX: 'auto' }}
+        dangerouslySetInnerHTML={{ __html: mobileStyle + bodyContent }}
       />
     </div>
   );
