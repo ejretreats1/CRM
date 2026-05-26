@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   Columns3,
   Users,
-  Menu,
   X,
   Building2,
   Settings,
@@ -18,6 +17,7 @@ import {
   BarChart3,
   Home,
   Brain,
+  MoreHorizontal,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -29,23 +29,43 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { id: 'dashboard' as View, label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'pipeline' as View, label: 'Pipeline', icon: Columns3 },
-  { id: 'owners' as View, label: 'Clients', icon: Users },
-  { id: 'properties' as View, label: 'Properties', icon: Home },
-  { id: 'va-hub' as View, label: 'VA Hub', icon: FolderKanban },
-  { id: 'drive' as View, label: 'Google Drive', icon: HardDrive },
-  { id: 'calendar-intel' as View, label: 'Revenue Intelligence', icon: Brain },
-  { id: 'revenue-reports' as View, label: 'AI Rev Projection Reports', icon: FileBarChart2 },
-  { id: 'listing-optimizer' as View, label: 'Listing Optimizer', icon: Sparkles },
-  { id: 'newsletter' as View, label: 'Newsletter', icon: Mail },
-  { id: 'guest-marketing' as View, label: 'Guest Marketing', icon: Users },
-  { id: 'quarterly-reports' as View, label: 'Quarterly Reports', icon: BarChart3 },
-  { id: 'email-tracking' as View, label: 'Email Tracking', icon: MailOpen },
+  { id: 'dashboard' as View,        label: 'Dashboard',            icon: LayoutDashboard },
+  { id: 'pipeline' as View,         label: 'Pipeline',             icon: Columns3 },
+  { id: 'owners' as View,           label: 'Clients',              icon: Users },
+  { id: 'properties' as View,       label: 'Properties',           icon: Home },
+  { id: 'va-hub' as View,           label: 'VA Hub',               icon: FolderKanban },
+  { id: 'drive' as View,            label: 'Google Drive',         icon: HardDrive },
+  { id: 'calendar-intel' as View,   label: 'Revenue Intelligence', icon: Brain },
+  { id: 'revenue-reports' as View,  label: 'AI Rev Projection Reports', icon: FileBarChart2 },
+  { id: 'listing-optimizer' as View,'label': 'Listing Optimizer',  icon: Sparkles },
+  { id: 'newsletter' as View,       label: 'Newsletter',           icon: Mail },
+  { id: 'guest-marketing' as View,  label: 'Guest Marketing',      icon: Users },
+  { id: 'quarterly-reports' as View,'label': 'Quarterly Reports',  icon: BarChart3 },
+  { id: 'email-tracking' as View,   label: 'Email Tracking',       icon: MailOpen },
 ];
 
+// Bottom 4 tabs
+const TAB_IDS: View[] = ['dashboard', 'pipeline', 'owners', 'properties'];
+const tabItems = navItems.filter(i => TAB_IDS.includes(i.id));
+const moreItems = navItems.filter(i => !TAB_IDS.includes(i.id));
+
+// Short labels for bottom tab bar
+const TAB_LABELS: Partial<Record<View, string>> = {
+  dashboard: 'Home',
+  pipeline: 'Pipeline',
+  owners: 'Clients',
+  properties: 'Properties',
+};
+
+// Top header label per view
+const TOP_LABELS: Partial<Record<View, string>> = {
+  'owner-detail':    'Client Detail',
+  'property-portal': 'Property',
+  'settings':        'Settings',
+};
+
 export default function Layout({ currentView, onNavigate, isAdmin, children }: LayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const { signOut } = useClerk();
   const { user } = useUser();
 
@@ -53,9 +73,16 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
     : currentView === 'property-portal' ? 'properties'
     : currentView;
 
+  const topLabel = TOP_LABELS[currentView]
+    ?? navItems.find(i => i.id === activeView)?.label
+    ?? 'E&J CRM';
+
+  // "More" tab is highlighted when active view isn't one of the 4 tabs
+  const isMoreActive = !TAB_IDS.includes(activeView);
+
   function handleNav(id: View) {
     onNavigate(id);
-    setSidebarOpen(false);
+    setMoreOpen(false);
   }
 
   const initials = (
@@ -70,22 +97,9 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
 
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden print:block print:h-auto print:overflow-visible">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-20 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
 
-      {/* Sidebar */}
-      <aside
-        className={`
-          fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200
-          flex flex-col transform transition-transform duration-200 ease-in-out print:hidden
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
-      >
+      {/* ── Desktop sidebar (lg+) ── */}
+      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col flex-shrink-0 print:hidden">
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-200">
           <img
@@ -127,7 +141,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
           ))}
         </nav>
 
-        {/* Bottom: Settings (admin only) + user row */}
+        {/* Bottom: Settings + user row */}
         <div className="px-3 py-3 border-t border-slate-200 space-y-0.5">
           {isAdmin && (
             <button
@@ -143,8 +157,6 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
               Settings
             </button>
           )}
-
-          {/* User row */}
           <div className="flex items-center gap-2.5 px-3 py-2 mt-1">
             {user?.imageUrl ? (
               <img src={user.imageUrl} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
@@ -165,28 +177,165 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
               <LogOut size={14} />
             </button>
           </div>
-
           <p className="text-xs text-slate-400 px-3 pt-1">E&amp;J Retreats © 2026</p>
         </div>
       </aside>
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible print:h-auto">
-        {/* Top bar (mobile) */}
-        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-200">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
+      {/* ── Mobile: "More" bottom sheet ── */}
+      {moreOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 print:hidden">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMoreOpen(false)} />
+          {/* Sheet */}
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl tab-bar-safe"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 72px)' }}
           >
-            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-          <div className="font-semibold text-slate-800 text-sm">E&J Retreats CRM</div>
+            {/* Drag handle */}
+            <div className="flex justify-center pt-2.5 pb-0.5">
+              <div className="w-9 h-1 rounded-full bg-slate-300" />
+            </div>
+            {/* Sheet header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+              <span className="text-sm font-bold text-slate-900">More</span>
+              <button
+                onClick={() => setMoreOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            {/* Grid of extra nav items */}
+            <div className="px-4 pt-3 pb-1 grid grid-cols-3 gap-2">
+              {moreItems.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => handleNav(id)}
+                  className={`flex flex-col items-center gap-1.5 px-2 py-3.5 rounded-xl text-xs font-medium transition-colors ${
+                    activeView === id
+                      ? 'bg-teal-50 text-teal-700'
+                      : 'bg-slate-50 text-slate-600 active:bg-slate-100'
+                  }`}
+                >
+                  <Icon size={22} />
+                  <span className="text-center leading-tight">{label}</span>
+                </button>
+              ))}
+              {isAdmin && (
+                <button
+                  onClick={() => handleNav('settings')}
+                  className={`flex flex-col items-center gap-1.5 px-2 py-3.5 rounded-xl text-xs font-medium transition-colors ${
+                    activeView === 'settings'
+                      ? 'bg-teal-50 text-teal-700'
+                      : 'bg-slate-50 text-slate-600 active:bg-slate-100'
+                  }`}
+                >
+                  <Settings size={22} />
+                  <span>Settings</span>
+                </button>
+              )}
+            </div>
+            {/* User row + sign out */}
+            <div className="mx-4 mt-3 pt-3 border-t border-slate-100 flex items-center gap-2.5">
+              {user?.imageUrl ? (
+                <img src={user.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-semibold text-teal-700">{initials}</span>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-800 truncate">{displayName}</p>
+                <p className="text-xs text-slate-400">{isAdmin ? 'Admin' : 'VA'}</p>
+              </div>
+              <button
+                onClick={() => signOut()}
+                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50"
+              >
+                <LogOut size={14} />
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Main area ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible print:h-auto">
+
+        {/* Mobile top header */}
+        <header className="lg:hidden bg-white border-b border-slate-200 print:hidden mobile-header-safe">
+          <div className="flex items-center justify-between px-4 pb-3">
+            <div className="flex items-center gap-2">
+              <img
+                src="/logo.png"
+                alt="E&J Retreats"
+                className="w-7 h-7 rounded-lg object-cover flex-shrink-0"
+                onError={e => {
+                  const img = e.currentTarget;
+                  img.style.display = 'none';
+                  const fallback = img.nextElementSibling as HTMLElement | null;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+              <div className="w-7 h-7 rounded-lg bg-teal-600 items-center justify-center flex-shrink-0 hidden">
+                <Building2 size={14} className="text-white" />
+              </div>
+              <span className="font-bold text-slate-900 text-sm">{topLabel}</span>
+            </div>
+            {/* Avatar taps open More sheet */}
+            <button
+              onClick={() => setMoreOpen(true)}
+              className="flex-shrink-0"
+            >
+              {user?.imageUrl ? (
+                <img src={user.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
+                  <span className="text-xs font-semibold text-teal-700">{initials}</span>
+                </div>
+              )}
+            </button>
+          </div>
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto print:overflow-visible print:h-auto">
+        <main className="flex-1 overflow-y-auto print:overflow-visible print:h-auto main-scroll-area">
           {children}
         </main>
+
+        {/* ── Mobile bottom tab bar ── */}
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-30 print:hidden tab-bar-safe">
+          <div className="flex" style={{ height: 56 }}>
+            {tabItems.map(({ id, icon: Icon }) => {
+              const active = activeView === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => handleNav(id)}
+                  className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
+                    active ? 'text-teal-600' : 'text-slate-400'
+                  }`}
+                >
+                  <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
+                  <span className="text-[10px] font-medium leading-none">
+                    {TAB_LABELS[id] ?? id}
+                  </span>
+                </button>
+              );
+            })}
+            {/* More */}
+            <button
+              onClick={() => setMoreOpen(true)}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
+                isMoreActive ? 'text-teal-600' : 'text-slate-400'
+              }`}
+            >
+              <MoreHorizontal size={22} strokeWidth={isMoreActive ? 2.5 : 1.8} />
+              <span className="text-[10px] font-medium leading-none">More</span>
+            </button>
+          </div>
+        </nav>
       </div>
     </div>
   );
