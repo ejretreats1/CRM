@@ -94,7 +94,7 @@ interface ReportOutputProps {
   onMarkContacted?: () => void;
 }
 
-export function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?: number, personalNote?: string): string {
+export function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?: number, personalNote?: string, showCalendlyCta?: boolean): string {
   const isMtr = data.reportType === 'mtr';
   const isDeal = data.reportType === 'deal';
   const headerBg = isDeal ? '#b45309' : isMtr ? '#3730a3' : '#0f766e';
@@ -379,15 +379,15 @@ export function buildReportEmail(address: string, data: ReportData, ownerActualR
       </tr></table>
     </div>` : '';
 
-  // ── Calendly CTA ──────────────────────────────────────────────────────────
+  // ── Calendly CTA (only when explicitly requested) ─────────────────────────
   const ctaBg = isDeal ? '#fffbeb' : isMtr ? '#eef2ff' : '#f0fdfa';
   const ctaBtnBg = isDeal ? '#b45309' : isMtr ? '#4338ca' : '#0f766e';
-  const ctaHtml = `
+  const ctaHtml = showCalendlyCta ? `
     <div style="margin-bottom:24px;background:${ctaBg};border-radius:12px;padding:24px;text-align:center;">
       <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:6px;">Want us to implement this for you?</div>
       <div style="font-size:12px;color:#475569;line-height:1.6;margin-bottom:16px;">If you want, we can implement this for you and manage everything end-to-end. Book a 15-minute walkthrough here.</div>
       <a href="https://calendly.com/ejretreats1/30min" style="display:inline-block;background:${ctaBtnBg};color:#ffffff;font-size:13px;font-weight:700;padding:12px 28px;border-radius:8px;text-decoration:none;">📅 Book a 15-Minute Walkthrough →</a>
-    </div>`;
+    </div>` : '';
 
   const headerLabel = isDeal ? 'Deal Analyzer' : isMtr ? 'Mid-Term Rental Analysis' : 'Revenue Analysis';
 
@@ -649,7 +649,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
   const shareUrl = savedReportId ? `${window.location.origin}/?share=${savedReportId}` : null;
 
-  const previewHtml = buildReportEmail(address, data, ownerActualRevenue, personalNote);
+  const previewHtml = buildReportEmail(address, data, ownerActualRevenue, personalNote, noteTemplate === 'sales');
 
   const firstName = (emailName || recipientName || '').trim().split(' ')[0] || 'there';
   const followUpText = `Hey ${firstName}! This is Ethan, I just ran your revenue analysis for your property at ${address} and emailed it to you at ${emailTo || recipientEmail || ''}. Please check your promotions/spam folder as they sometimes end up there.${shareUrl ? `\n\nYou can also view it online here: ${shareUrl}` : ''}\n\nPlease message us here if you have any questions about management or your property in general. 😊`;
