@@ -237,10 +237,10 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
           { label: 'Have Email', value: withEmail, icon: '📧' },
           { label: 'Total Stays', value: allReservations.filter(r => r.status !== 'cancelled').length, icon: '🏠' },
         ].map(s => (
-          <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-4">
-            <div className="text-xl mb-1">{s.icon}</div>
-            <div className="text-xl font-bold text-slate-900">{s.value}</div>
-            <div className="text-xs text-slate-500">{s.label}</div>
+          <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-3 overflow-hidden">
+            <div className="text-lg mb-1">{s.icon}</div>
+            <div className="text-sm font-bold text-slate-900">{s.value}</div>
+            <div className="text-xs text-slate-500 leading-tight mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
@@ -287,10 +287,10 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
         </div>
       )}
 
-      {/* Guest table */}
+      {/* Guest list — card layout on mobile, table on sm+ */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        {/* Table header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-slate-100">
+        {/* Table header — hidden on mobile */}
+        <div className="hidden sm:flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-slate-100">
           <button onClick={toggleAll} className="text-slate-400 hover:text-teal-600 flex-shrink-0">
             {allSelected ? <CheckSquare size={16} className="text-teal-600" /> : <Square size={16} />}
           </button>
@@ -307,40 +307,57 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
         ) : (
           <div className="divide-y divide-slate-200">
             {filtered.map(g => (
-              <div key={g.email || g.name} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-100">
-                <div className="flex-shrink-0">
-                  {g.email ? (
-                    <button onClick={() => toggle(g.email)} className="text-slate-400 hover:text-teal-600">
-                      {selected.has(g.email)
-                        ? <CheckSquare size={16} className="text-teal-600" />
-                        : <Square size={16} />}
-                    </button>
-                  ) : (
-                    <Square size={16} className="text-slate-200" />
-                  )}
-                </div>
-                <div className="grid grid-cols-4 flex-1 gap-2 items-center min-w-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-teal-700 font-bold text-xs">{g.name.charAt(0)}</span>
-                    </div>
-                    <span className="text-sm font-medium text-slate-900 truncate">{g.name}</span>
-                  </div>
-                  <div className="min-w-0">
+              <div key={g.email || g.name}>
+                {/* Mobile card layout */}
+                <div className="sm:hidden flex items-start gap-3 px-4 py-3 hover:bg-slate-50">
+                  <div className="flex-shrink-0 pt-0.5">
                     {g.email ? (
-                      <span className="text-sm text-slate-600 truncate block">{g.email}</span>
-                    ) : (
-                      <span className="text-xs text-slate-400 italic">No email</span>
-                    )}
+                      <button onClick={() => toggle(g.email)} className="text-slate-400 hover:text-teal-600">
+                        {selected.has(g.email) ? <CheckSquare size={16} className="text-teal-600" /> : <Square size={16} />}
+                      </button>
+                    ) : <Square size={16} className="text-slate-200" />}
                   </div>
-                  <div className="text-sm text-slate-500">
-                    {g.lastStay ? new Date(g.lastStay + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-teal-700 font-bold text-xs">{g.name.charAt(0)}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-slate-900 truncate">{g.name}</span>
+                      <span className="text-xs text-slate-400 flex-shrink-0">{g.stays.length} stay{g.stays.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    {g.email && <p className="text-xs text-slate-500 truncate mt-0.5 ml-9">{g.email}</p>}
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {g.channels.slice(0, 2).map(c => (
-                      <span key={c} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{c}</span>
-                    ))}
-                    <span className="text-xs text-slate-400">{g.stays.length} stay{g.stays.length !== 1 ? 's' : ''}</span>
+                </div>
+
+                {/* Desktop table row */}
+                <div className="hidden sm:flex items-center gap-3 px-4 py-3 hover:bg-slate-100">
+                  <div className="flex-shrink-0">
+                    {g.email ? (
+                      <button onClick={() => toggle(g.email)} className="text-slate-400 hover:text-teal-600">
+                        {selected.has(g.email) ? <CheckSquare size={16} className="text-teal-600" /> : <Square size={16} />}
+                      </button>
+                    ) : <Square size={16} className="text-slate-200" />}
+                  </div>
+                  <div className="grid grid-cols-4 flex-1 gap-2 items-center min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-teal-700 font-bold text-xs">{g.name.charAt(0)}</span>
+                      </div>
+                      <span className="text-sm font-medium text-slate-900 truncate">{g.name}</span>
+                    </div>
+                    <div className="min-w-0">
+                      {g.email ? <span className="text-sm text-slate-600 truncate block">{g.email}</span>
+                        : <span className="text-xs text-slate-400 italic">No email</span>}
+                    </div>
+                    <div className="text-sm text-slate-500">
+                      {g.lastStay ? new Date(g.lastStay + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {g.channels.slice(0, 2).map(c => (
+                        <span key={c} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{c}</span>
+                      ))}
+                      <span className="text-xs text-slate-400">{g.stays.length} stay{g.stays.length !== 1 ? 's' : ''}</span>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -441,20 +441,20 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
 
       {/* Live revenue stats */}
       {liveRevenue && (
-        <div className="grid grid-cols-3 gap-4 mb-5">
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <p className="text-xs text-slate-400 mb-1">Revenue (30d)</p>
-            <p className="text-xl font-bold text-teal-700">{fmt(liveRevenue.rolling)}</p>
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
+            <p className="text-xs text-slate-400 mb-1 leading-tight">Revenue (30d)</p>
+            <p className="text-sm font-bold text-teal-700 truncate">{fmt(liveRevenue.rolling)}</p>
             <p className="text-xs text-teal-500 mt-0.5">live from PMS</p>
           </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <p className="text-xs text-slate-400 mb-1">Reservations</p>
-            <p className="text-xl font-bold text-slate-800">{liveRevenue.activeCount}</p>
+          <div className="bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
+            <p className="text-xs text-slate-400 mb-1 leading-tight">Reservations</p>
+            <p className="text-sm font-bold text-slate-800">{liveRevenue.activeCount}</p>
             <p className="text-xs text-slate-400 mt-0.5">total booked</p>
           </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <p className="text-xs text-slate-400 mb-1">Occupancy (30d)</p>
-            <p className="text-xl font-bold text-slate-800">{liveRevenue.occRate}%</p>
+          <div className="bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
+            <p className="text-xs text-slate-400 mb-1 leading-tight">Occupancy (30d)</p>
+            <p className="text-sm font-bold text-slate-800">{liveRevenue.occRate}%</p>
             <p className="text-xs text-slate-400 mt-0.5">last 30 days</p>
           </div>
         </div>
