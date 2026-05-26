@@ -41,6 +41,10 @@ export default function ShareView({ reportId }: { reportId: string }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const html = buildReportEmail(report.propertyAddress, report.reportData as any, report.ownerActualRevenue, '');
 
+  const bodyContent = html
+    .replace(/^[\s\S]*<body[^>]*>/i, '')
+    .replace(/<\/body>[\s\S]*$/i, '');
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
       {/* Top bar */}
@@ -73,13 +77,11 @@ export default function ShareView({ reportId }: { reportId: string }) {
         </button>
       </div>
 
-      {/* Report iframe */}
-      <iframe
-        srcDoc={html}
-        sandbox="allow-same-origin"
-        title={report.reportTitle ?? report.propertyAddress}
-        className="flex-1 w-full border-none"
-        style={{ minHeight: 'calc(100vh - 57px)' }}
+      {/* Report — rendered directly to respect mobile viewport */}
+      <div
+        className="flex-1"
+        style={{ margin: 0, padding: '20px', background: '#f1f5f9', fontFamily: 'Arial, Helvetica, sans-serif' }}
+        dangerouslySetInnerHTML={{ __html: bodyContent }}
       />
     </div>
   );
