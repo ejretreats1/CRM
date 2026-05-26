@@ -103,7 +103,8 @@ const globalRules = `
 RULES (apply to all sections):
 - If the property already has an amenity mentioned in the context, do NOT recommend adding it — acknowledge it as a strength.
 - When referencing property management software, refer to Uplisting only.
-- Do NOT include operating expenses, net operating income (NOI), or cap rate. Focus on gross revenue metrics only.`;
+- Do NOT include operating expenses, net operating income (NOI), or cap rate. Focus on gross revenue metrics only.
+- Do NOT use em dashes (—) anywhere in the output. Use commas, colons, or rewrite the sentence instead.`;
 
 const seasonalityInstructions = `
 SEASONALITY & COMPARABLES (extract carefully from the PDF visuals):
