@@ -9,6 +9,24 @@ export default function ShareView({ reportId }: { reportId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // The global CSS sets overflow-x:hidden on html/body to prevent CRM dashboard
+  // horizontal scroll. For share pages (no Layout wrapper) that restriction blocks
+  // normal page scrolling — override it for the lifetime of this view.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    html.style.overflowX = 'visible';
+    html.style.maxWidth = '';
+    body.style.overflowX = 'visible';
+    body.style.maxWidth = '';
+    return () => {
+      html.style.overflowX = '';
+      html.style.maxWidth = '';
+      body.style.overflowX = '';
+      body.style.maxWidth = '';
+    };
+  }, []);
+
   useEffect(() => {
     fetchRevenueReportById(reportId)
       .then(r => { setReport(r); })
@@ -94,7 +112,7 @@ export default function ShareView({ reportId }: { reportId: string }) {
           rather than being clipped by the global html/body overflow:hidden. */}
       <div
         className="flex-1"
-        style={{ margin: 0, padding: '12px', background: '#f1f5f9', fontFamily: 'Arial, Helvetica, sans-serif', overflowX: 'auto' }}
+        style={{ margin: 0, padding: '12px', background: '#f1f5f9', fontFamily: 'Arial, Helvetica, sans-serif' }}
         dangerouslySetInnerHTML={{ __html: mobileStyle + bodyContent }}
       />
     </div>
