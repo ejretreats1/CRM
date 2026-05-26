@@ -29,7 +29,7 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDelete
   const activeProperties = owners.flatMap(o => o.properties).filter(p => p.status === 'active').length;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -53,10 +53,10 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDelete
           { label: 'Active Properties', value: activeProperties, icon: '🏠' },
           { label: 'Monthly Revenue', value: `$${totalRevenue.toLocaleString()}`, icon: '💰' },
         ].map(s => (
-          <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-4">
-            <div className="text-xl mb-1">{s.icon}</div>
-            <div className="text-xl font-bold text-slate-900">{s.value}</div>
-            <div className="text-xs text-slate-500">{s.label}</div>
+          <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-3 overflow-hidden">
+            <div className="text-lg mb-1">{s.icon}</div>
+            <div className="text-sm font-bold text-slate-900 truncate">{s.value}</div>
+            <div className="text-xs text-slate-500 leading-tight mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>

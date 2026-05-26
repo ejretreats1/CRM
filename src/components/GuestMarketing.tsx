@@ -198,7 +198,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
   const withoutEmail = guests.filter(g => !g.email).length;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

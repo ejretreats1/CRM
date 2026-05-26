@@ -281,7 +281,7 @@ export default function OwnerDetail({
 
   return (
     <>
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       {/* Back + header */}
       <div>
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-600 mb-4 transition-colors">
@@ -329,10 +329,10 @@ export default function OwnerDetail({
           { label: 'Properties',      value: owner.properties.length,              icon: Home,       color: 'text-indigo-500' },
           { label: 'Avg Occupancy',   value: avgOccupancy ? `${avgOccupancy}%` : '—', icon: Wifi, color: 'text-amber-500' },
         ].map(s => (
-          <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-4">
-            <s.icon size={18} className={`${s.color} mb-2`} />
-            <div className="text-xl font-bold text-slate-900">{s.value}</div>
-            <div className="text-xs text-slate-500">{s.label}</div>
+          <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-3 overflow-hidden">
+            <s.icon size={16} className={`${s.color} mb-1.5`} />
+            <div className="text-sm font-bold text-slate-900 truncate">{s.value}</div>
+            <div className="text-xs text-slate-500 leading-tight mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>

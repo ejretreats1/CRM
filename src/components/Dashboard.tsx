@@ -299,7 +299,7 @@ export default function Dashboard({
   const uncontactedNewLeads = leads.filter(l => l.stage === 'new').length;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -361,7 +361,7 @@ export default function Dashboard({
               <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center mb-3`}>
                 <Icon size={18} className="text-white" />
               </div>
-              <div className="text-2xl font-bold text-slate-900">{value}</div>
+              <div className="text-lg font-bold text-slate-900 sm:text-2xl truncate">{value}</div>
               <div className="text-sm font-medium text-slate-700 mt-0.5">{label}</div>
               <div className="text-xs text-slate-400 mt-0.5">{sub}</div>
               {handler && <div className="text-xs text-teal-600 font-medium mt-2 flex items-center gap-0.5">View <ArrowRight size={11} /></div>}
@@ -371,12 +371,12 @@ export default function Dashboard({
             <button
               key={label}
               onClick={handler}
-              className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm text-left hover:border-teal-300 hover:shadow-md transition-all"
+              className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm text-left hover:border-teal-300 hover:shadow-md transition-all overflow-hidden"
             >
               {inner}
             </button>
           ) : (
-            <div key={label} className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+            <div key={label} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm overflow-hidden">
               {inner}
             </div>
           );

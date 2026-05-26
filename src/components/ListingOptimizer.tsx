@@ -156,7 +156,7 @@ export default function ListingOptimizer() {
 
   if (analysis) {
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -243,7 +243,7 @@ export default function ListingOptimizer() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
           <Sparkles size={20} className="text-teal-600" /> Listing Optimizer

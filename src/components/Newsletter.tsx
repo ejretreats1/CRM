@@ -326,7 +326,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
         <p className="text-sm text-slate-500 mt-0.5">Send monthly updates to your clients and leads</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="max-w-2xl mx-auto space-y-5">
 
           {/* Recipients */}

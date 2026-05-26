@@ -225,7 +225,7 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {error && (
           <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4">
             <AlertCircle size={16} className="flex-shrink-0" />

@@ -67,7 +67,7 @@ export default function Properties({ owners, reservations, uplistingProperties, 
   const activeCount = allProperties.filter(p => p.property.status === 'active').length;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center">
           <Home size={18} className="text-white" />

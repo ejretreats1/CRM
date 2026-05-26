@@ -313,7 +313,7 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {loadingReports ? (
           <div className="flex items-center justify-center py-20">
             <Loader size={24} className="text-slate-300 animate-spin" />
