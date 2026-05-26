@@ -385,8 +385,8 @@ export function buildReportEmail(address: string, data: ReportData, ownerActualR
   const ctaHtml = showCalendlyCta ? `
     <div style="margin-bottom:24px;background:${ctaBg};border-radius:12px;padding:24px;text-align:center;">
       <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:6px;">Want us to implement this for you?</div>
-      <div style="font-size:12px;color:#475569;line-height:1.6;margin-bottom:16px;">If you want, we can implement this for you and manage everything end-to-end. Book a 15-minute walkthrough here.</div>
-      <a href="https://calendly.com/ejretreats1/30min" style="display:inline-block;background:${ctaBtnBg};color:#ffffff;font-size:13px;font-weight:700;padding:12px 28px;border-radius:8px;text-decoration:none;">📅 Book a 15-Minute Walkthrough →</a>
+      <div style="font-size:12px;color:#475569;line-height:1.6;margin-bottom:16px;">If you want, we can implement this for you and manage everything end-to-end. Pick a time for a 15-minute call and we'll walk through it together.</div>
+      <a href="https://calendly.com/ejretreats1/30min" style="display:inline-block;background:${ctaBtnBg};color:#ffffff;font-size:13px;font-weight:700;padding:12px 28px;border-radius:8px;text-decoration:none;">📅 Pick a Time for a 15-Minute Call →</a>
     </div>` : '';
 
   const headerLabel = isDeal ? 'Deal Analyzer' : isMtr ? 'Mid-Term Rental Analysis' : 'Revenue Analysis';
