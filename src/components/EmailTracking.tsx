@@ -284,28 +284,29 @@ const TYPE_COLORS: Record<EmailType, string> = {
 };
 
 function StatusBadge({ log }: { log: EmailLog }) {
-  if (log.status === 'bounced' || log.status === 'complained') {
+  const status = effectiveStatus(log);
+  if (status === 'bounced' || status === 'complained') {
     return (
       <span className="flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
         <AlertCircle size={10} /> Bounced
       </span>
     );
   }
-  if (log.status === 'clicked') {
+  if (status === 'clicked') {
     return (
       <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
         <MousePointer size={10} /> Clicked {log.clickCount > 1 ? `×${log.clickCount}` : ''}
       </span>
     );
   }
-  if (log.status === 'opened') {
+  if (status === 'opened') {
     return (
       <span className="flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
         <MailOpen size={10} /> Opened {log.openCount > 1 ? `×${log.openCount}` : ''}
       </span>
     );
   }
-  if (log.status === 'delivered') {
+  if (status === 'delivered') {
     return (
       <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
         <CheckCircle size={10} /> Delivered
@@ -329,6 +330,16 @@ function fmtDate(iso: string) {
 const STATUS_RANK: Record<EmailStatus, number> = {
   complained: 5, bounced: 4, clicked: 3, opened: 2, delivered: 1, sent: 0,
 };
+
+// Derive the true status from whichever is higher: the status column OR the
+// raw open/click counts. The webhook sometimes updates counts but fails to
+// promote status (race condition or rank guard misfiring).
+function effectiveStatus(log: EmailLog): EmailStatus {
+  if (log.status === 'bounced' || log.status === 'complained') return log.status;
+  if (log.clickCount > 0 && STATUS_RANK[log.status] < STATUS_RANK.clicked) return 'clicked';
+  if (log.openCount  > 0 && STATUS_RANK[log.status] < STATUS_RANK.opened)  return 'opened';
+  return log.status;
+}
 
 export default function EmailTracking() {
   const [tab, setTab] = useState<'logs' | 'warmup'>('logs');
@@ -361,8 +372,8 @@ export default function EmailTracking() {
   // Summary stats
   const stats = useMemo(() => {
     const total   = logs.length;
-    const opened  = logs.filter(l => STATUS_RANK[l.status] >= STATUS_RANK.opened).length;
-    const clicked = logs.filter(l => STATUS_RANK[l.status] >= STATUS_RANK.clicked).length;
+    const opened  = logs.filter(l => STATUS_RANK[effectiveStatus(l)] >= STATUS_RANK.opened).length;
+    const clicked = logs.filter(l => STATUS_RANK[effectiveStatus(l)] >= STATUS_RANK.clicked).length;
     const bounced = logs.filter(l => l.status === 'bounced' || l.status === 'complained').length;
     const openRate   = total ? Math.round((opened  / total) * 100) : 0;
     const clickRate  = total ? Math.round((clicked / total) * 100) : 0;
