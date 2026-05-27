@@ -99,6 +99,17 @@ const DealReportSchema = z.object({
   opportunityScore: z.number().int().min(1).max(10),
 });
 
+const DealScoreSchema = z.object({
+  projectedAnnualRevenue: z.number().nullable(),
+  projectedGrossYield: z.number().nullable(),
+  opportunityScore: z.number().int().min(1).max(10),
+  reasoning: z.string(),
+  strRegulatoryNote: z.string().nullable(),
+  recommendation: z.enum(['strong-buy', 'buy', 'neutral', 'pass', 'strong-pass']),
+  keyStrengths: z.array(z.string()),
+  keyConcerns: z.array(z.string()),
+});
+
 const globalRules = `
 RULES (apply to all sections):
 - If the property already has an amenity mentioned in the context, do NOT recommend adding it — acknowledge it as a strength.
@@ -132,7 +143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body = req.body as {
     address: string;
-    reportType?: 'str' | 'mtr' | 'deal';
+    reportType?: 'str' | 'mtr' | 'deal' | 'score';
     // STR/MTR generate
     pdfBase64?: string;
     ownerActualRevenue?: number;
@@ -253,6 +264,58 @@ Focus on gross revenue and ROI only. Write as if presenting to investors evaluat
         messages: [{ role: 'user', content }],
       });
       return res.status(200).json(output);
+    }
+
+    // ── SCORE MODE (quick AI deal score, no PDF) ─────────────────────────────
+    if (reportType === 'score') {
+      const { listingPrice, bedrooms, bathrooms, propertyType, additionalContext, zillowDescription } = body as {
+        listingPrice?: number;
+        bedrooms?: number;
+        bathrooms?: number;
+        propertyType?: string;
+        additionalContext?: string;
+        zillowDescription?: string;
+      } & typeof body;
+
+      if (!listingPrice) return res.status(400).json({ error: 'listingPrice is required for score' });
+
+      const marketLine = address ? `Market/Location: ${address}` : '';
+      const bedsLine = bedrooms != null ? `Bedrooms: ${bedrooms}` : '';
+      const bathsLine = bathrooms != null ? `Bathrooms: ${bathrooms}` : '';
+      const typeLine = propertyType ? `Property Type: ${propertyType}` : '';
+      const zillowSection = zillowDescription?.trim()
+        ? `\nZillow Listing Description:\n${zillowDescription.trim()}\n`
+        : '';
+      const contextSection = additionalContext?.trim()
+        ? `\nAdditional Context:\n${additionalContext.trim()}\n`
+        : '';
+
+      const scorePrompt = `You are a short-term rental investment analyst for E&J Retreats.
+
+Property: ${address}
+Asking Price: $${Number(listingPrice).toLocaleString()}
+${[bedsLine, bathsLine, typeLine, marketLine].filter(Boolean).join('\n')}
+${zillowSection}${contextSection}
+Analyze this property as an STR investment opportunity based on typical STR performance for this market and property type:
+
+1. Estimate projected annual STR gross revenue.
+2. Calculate gross STR yield = projected revenue / listing price x 100 (round to 1 decimal).
+3. Assign an opportunity score 1-10 (scoring guide: gross yield >=12% = 9-10, 9-12% = 7-8, 7-9% = 5-6, <7% = 1-4).
+4. Write 2-3 sentence reasoning covering why this market and property type performs the way it does.
+5. Note any STR regulatory considerations for this area (1-2 sentences, or null if unknown).
+6. Give a recommendation: strong-buy / buy / neutral / pass / strong-pass.
+7. List 2-3 key investment strengths.
+8. List 1-2 key concerns or risks.
+
+Focus on gross revenue only. No operating expenses, NOI, or cap rate.
+Do not use em dashes.`;
+
+      const { output } = await generateText({
+        model: gateway('anthropic/claude-sonnet-4-6'),
+        output: Output.object({ schema: DealScoreSchema }),
+        messages: [{ role: 'user', content: scorePrompt }],
+      });
+      return res.status(200).json({ ...output, reportType: 'score' });
     }
 
     // ── GENERATE MODE (STR / MTR) ────────────────────────────────────────────

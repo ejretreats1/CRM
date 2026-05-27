@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   TrendingUp, Users, Home, Phone, ArrowRight, Wifi, WifiOff, X,
-  RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash, Video, CalendarRange, Bell,
+  RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash, Video, CalendarRange, Bell, ScanSearch,
 } from 'lucide-react';
 import type { Lead, Owner, OutreachEntry, Todo } from '../types';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
@@ -41,7 +41,7 @@ interface DashboardProps {
   calendarUrl: string;
   slackToken: string;
   slackChannels: SlackChannel[];
-  onNavigate: (view: 'pipeline' | 'owners' | 'outreach' | 'owner-detail' | 'settings' | 'va-hub' | 'revenue-reports', extra?: string) => void;
+  onNavigate: (view: 'pipeline' | 'owners' | 'outreach' | 'owner-detail' | 'settings' | 'va-hub' | 'revenue-reports' | 'deal-scanner', extra?: string) => void;
   onToggleTodo: (todo: Todo) => void;
   onAddTodo: (todo: Todo) => void;
   onOpenLeadDetail: (lead: Lead) => void;
@@ -272,6 +272,14 @@ export default function Dashboard({
       icon: Phone,
       color: 'bg-rose-500',
       view: 'pipeline',
+    },
+    {
+      label: 'Deal Scanner',
+      value: 'Scan',
+      sub: 'find & score STR deals',
+      icon: ScanSearch,
+      color: 'bg-amber-500',
+      view: 'deal-scanner',
     },
   ];
 

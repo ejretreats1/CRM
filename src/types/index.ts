@@ -108,7 +108,38 @@ export interface OutreachEntry {
   followUpDate?: string;
 }
 
-export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings' | 'va-hub' | 'drive' | 'revenue-reports' | 'listing-optimizer' | 'newsletter' | 'guest-marketing' | 'quarterly-reports' | 'properties' | 'property-portal' | 'calendar-intel' | 'email-tracking';
+export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings' | 'va-hub' | 'drive' | 'revenue-reports' | 'listing-optimizer' | 'newsletter' | 'guest-marketing' | 'quarterly-reports' | 'properties' | 'property-portal' | 'calendar-intel' | 'email-tracking' | 'deal-scanner';
+
+export type DealStage = 'new' | 'analyzing' | 'sent_to_client' | 'client_interested' | 'offer_submitted' | 'under_contract' | 'closed' | 'passed';
+export type StrRegStatus = 'allowed' | 'permit_required' | 'restricted' | 'prohibited' | 'unknown';
+
+export interface Deal {
+  id: string;
+  address: string;
+  city: string;
+  state: string;
+  market: string;
+  listingPrice: number;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  propertyType: string;
+  zillowUrl?: string;
+  zillowDescription?: string;
+  projectedAnnualRevenue: number | null;
+  grossYield: number | null;
+  opportunityScore: number | null;
+  aiScoreReasoning?: string;
+  aiKeyStrengths?: string[];
+  aiKeyConcerns?: string[];
+  aiRecommendation?: string;
+  strStatus: StrRegStatus;
+  strNote?: string;
+  stage: DealStage;
+  notes?: string;
+  linkedReportId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface RevenueReport {
   id: string;

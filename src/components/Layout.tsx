@@ -18,6 +18,7 @@ import {
   Home,
   Brain,
   MoreHorizontal,
+  ScanSearch,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -42,6 +43,7 @@ const navItems = [
   { id: 'guest-marketing' as View,  label: 'Guest Marketing',      icon: Users },
   { id: 'quarterly-reports' as View,'label': 'Quarterly Reports',  icon: BarChart3 },
   { id: 'email-tracking' as View,   label: 'Email Tracking',       icon: MailOpen },
+  { id: 'deal-scanner' as View,     label: 'Deal Scanner',         icon: ScanSearch },
 ];
 
 // Bottom 4 tabs
@@ -62,6 +64,7 @@ const TOP_LABELS: Partial<Record<View, string>> = {
   'owner-detail':    'Client Detail',
   'property-portal': 'Property',
   'settings':        'Settings',
+  'deal-scanner':    'Deal Scanner',
 };
 
 export default function Layout({ currentView, onNavigate, isAdmin, children }: LayoutProps) {
