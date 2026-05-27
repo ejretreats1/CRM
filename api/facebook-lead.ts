@@ -12,6 +12,7 @@ async function insertLead(fields: {
   email: string;
   phone: string;
   address: string;
+  estimatedRevenue: number;
 }) {
   const now = new Date().toISOString();
   return supabase.from('leads').insert({
@@ -22,13 +23,19 @@ async function insertLead(fields: {
     property_address: fields.address,
     property_type: '',
     bedrooms: 0,
-    estimated_revenue: 0,
+    estimated_revenue: fields.estimatedRevenue,
     stage: 'new',
     notes: '',
     source: 'meta_ads',
     created_at: now,
     updated_at: now,
   }).select('id, name');
+}
+
+function parseRevenue(raw: string | number | undefined): number {
+  if (!raw) return 0;
+  const n = parseFloat(String(raw).replace(/[$,\s]/g, ''));
+  return isNaN(n) ? 0 : Math.round(n);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -55,9 +62,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const street  = body.street_address ?? body.property_address ?? body.address ?? '';
     const state   = body.state ?? '';
     const address = [street, state].filter(Boolean).join(', ');
+    const estimatedRevenue = parseRevenue(body.estimated_revenue);
 
-    console.log('facebook-lead incoming:', { name, email, phone, address });
-    const { data, error } = await insertLead({ name, email, phone, address });
+    console.log('facebook-lead incoming:', { name, email, phone, address, estimatedRevenue });
+    const { data, error } = await insertLead({ name, email, phone, address, estimatedRevenue });
     if (error) {
       console.error('facebook-lead zapier insert error:', error);
       return res.status(500).json({ ok: false, error: error.message });
@@ -96,8 +104,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const street    = fields['street_address'] ?? fields['property_address'] ?? '';
         const state     = fields['state'] ?? '';
         const address   = [street, state].filter(Boolean).join(', ');
+        const estimatedRevenue = parseRevenue(fields['estimated_revenue'] ?? fields['last_12_months_revenue'] ?? fields['annual_revenue']);
 
-        await insertLead({ name, email, phone, address });
+        await insertLead({ name, email, phone, address, estimatedRevenue });
       } catch (err) {
         console.error('facebook-lead handler error:', err);
       }
