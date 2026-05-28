@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Plus, Search, Sparkles, Loader, Edit2, Trash2, ExternalLink,
-  X, ChevronDown, MapPin, TrendingUp, AlertTriangle, CheckCircle2,
-  Building2, DollarSign, ArrowRight, Info,
+  X, ChevronDown, MapPin, AlertTriangle, CheckCircle2,
+  Building2, Info,
 } from 'lucide-react';
 import type { Deal, DealStage, StrRegStatus } from '../types';
 import { fetchDeals, upsertDeal, deleteDeal } from '../services/deals';
