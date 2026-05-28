@@ -81,15 +81,15 @@ const UnitSchema = z.object({
 
 const DealReportSchema = z.object({
   reportType: z.literal('deal'),
-  reportTitle: z.string(),
-  recommendation: z.enum(['strong-buy', 'buy', 'neutral', 'pass', 'strong-pass']),
-  recommendationReason: z.string(),
   listingPrice: z.number(),
   units: z.array(UnitSchema),
   combinedAnnualRevenue: z.number(),
   combinedOccupancyRate: z.number().nullable(),
   grossYield: z.number(),
   revenueProjections: z.object({ conservative: z.number(), realistic: z.number(), optimistic: z.number() }),
+  recommendation: z.enum(['strong-buy', 'buy', 'neutral', 'pass', 'strong-pass']),
+  recommendationReason: z.string(),
+  reportTitle: z.string(),
   propertyHighlights: z.array(z.string()),
   concerns: z.array(z.string()),
   executiveSummary: z.string(),
@@ -234,12 +234,12 @@ ${unitDescriptions}
 ${zillowSection}${contextSection}
 ${pdfFiles.length > 1 ? `There are ${pdfFiles.length} AirDNA Rentalizer PDF reports attached, one per unit (in order listed above).` : 'The AirDNA Rentalizer PDF for this property is attached.'}
 
-ANALYZE:
+ANALYZE (complete steps 1–3 first before writing any text fields):
 1. Extract per-unit metrics from each PDF: projected annual revenue, occupancy rate, ADR, monthly seasonality, comparable properties.
-2. Sum unit revenues for combinedAnnualRevenue.
+2. Sum ALL unit revenues for combinedAnnualRevenue. Double-check: combinedAnnualRevenue MUST equal the exact sum of every unit's projectedAnnualRevenue.
 3. Calculate grossYield = combinedAnnualRevenue / listingPrice × 100 (round to 1 decimal).
 4. Make a clear investment recommendation: strong-buy / buy / neutral / pass / strong-pass based on yield, market demand, and property strengths.
-5. Write a concise recommendationReason (2–3 sentences).
+5. Write a concise recommendationReason (2–3 sentences). IMPORTANT: cite the exact combinedAnnualRevenue figure computed in step 2. Never use a different revenue number here.
 6. List 3–5 property highlights/strengths from the Zillow description and AirDNA data.
 7. List 2–4 concerns or risks.
 8. Project conservative, realistic, and optimistic combined annual revenue (all units).
