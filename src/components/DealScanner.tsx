@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Plus, Search, Sparkles, Loader, Edit2, Trash2, ExternalLink,
   X, ChevronDown, MapPin, AlertTriangle, CheckCircle2,
-  Building2, Info,
+  Building2, Info, ScanSearch, Home,
 } from 'lucide-react';
 import type { Deal, DealStage, StrRegStatus } from '../types';
 import { fetchDeals, upsertDeal, deleteDeal } from '../services/deals';
@@ -687,10 +687,27 @@ function MarketModal({
   );
 }
 
+// ── Scan result type ──────────────────────────────────────────────────────
+
+interface ScanResult {
+  zpid: string;
+  address: string;
+  price: number;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  homeType: string;
+  imgSrc: string | null;
+  zillowUrl: string;
+  zestimate: number | null;
+  rentZestimate: number | null;
+  daysOnZillow: number | null;
+  listingType: string;
+}
+
 // ── Main Component ────────────────────────────────────────────────────────
 
 export default function DealScanner() {
-  const [tab, setTab] = useState<'deals' | 'pipeline' | 'markets'>('deals');
+  const [tab, setTab] = useState<'scan' | 'deals' | 'pipeline' | 'markets'>('scan');
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -699,10 +716,20 @@ export default function DealScanner() {
   const [filterStage, setFilterStage] = useState<DealStage | ''>('');
   const [filterStr, setFilterStr] = useState<StrRegStatus | ''>('');
   const [showDealModal, setShowDealModal] = useState(false);
-  const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
+  const [editingDeal, setEditingDeal] = useState<(Omit<Deal, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) | null>(null);
   const [showMarketModal, setShowMarketModal] = useState(false);
   const [editingMarket, setEditingMarket] = useState<Market | undefined>(undefined);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  // Scan state
+  const [scanLocation, setScanLocation] = useState('');
+  const [scanMaxPrice, setScanMaxPrice] = useState('');
+  const [scanMinBeds, setScanMinBeds] = useState('2');
+  const [scanHomeType, setScanHomeType] = useState('');
+  const [scanResults, setScanResults] = useState<ScanResult[]>([]);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState('');
+  const [scanTotal, setScanTotal] = useState<number | null>(null);
 
   useEffect(() => {
     fetchDeals()
@@ -760,6 +787,56 @@ export default function DealScanner() {
     saveMarkets(next);
   }
 
+  async function runScan() {
+    if (!scanLocation.trim()) return;
+    setScanning(true);
+    setScanError('');
+    setScanResults([]);
+    setScanTotal(null);
+    try {
+      const params = new URLSearchParams({ service: 'zillow-scan', location: scanLocation.trim() });
+      if (scanMinBeds)   params.set('bedsMin', scanMinBeds);
+      if (scanMaxPrice)  params.set('priceMax', scanMaxPrice.replace(/,/g, ''));
+      if (scanHomeType)  params.set('homeType', scanHomeType);
+      const r = await fetch(`/api/uplisting-proxy?${params}`);
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error ?? 'Scan failed');
+      setScanResults(data.listings ?? []);
+      setScanTotal(data.total ?? null);
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : 'Scan failed');
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  function prefillFromScan(result: ScanResult): Omit<Deal, 'id' | 'createdAt' | 'updatedAt'> {
+    const parts = result.address.split(', ');
+    const stateMatch = result.address.match(/,\s*([A-Z]{2})(?:\s+\d{5})?(?:\s*,\s*USA)?$/);
+    const state = stateMatch ? stateMatch[1] : '';
+    const city = parts.length >= 2 ? parts[parts.length - 2].replace(/\s+\d{5}.*$/, '').trim() : '';
+    const mkt = markets.find(m => state && m.state === state);
+    return {
+      address: result.address,
+      city,
+      state,
+      market: mkt?.name ?? '',
+      listingPrice: result.price,
+      bedrooms: result.bedrooms,
+      bathrooms: result.bathrooms,
+      propertyType: result.homeType || 'House',
+      zillowUrl: result.zillowUrl,
+      zillowDescription: '',
+      projectedAnnualRevenue: null,
+      grossYield: null,
+      opportunityScore: null,
+      strStatus: mkt?.strStatus ?? 'unknown',
+      strNote: mkt?.strNote ?? '',
+      stage: 'new',
+      notes: '',
+    };
+  }
+
   const hotDeals = useMemo(() =>
     deals.filter(d => d.opportunityScore != null && d.opportunityScore >= 8)
       .sort((a, b) => (b.opportunityScore ?? 0) - (a.opportunityScore ?? 0))
@@ -806,15 +883,16 @@ export default function DealScanner() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-5 w-fit">
-        {(['deals', 'pipeline', 'markets'] as const).map(t => (
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-5 overflow-x-auto">
+        {(['scan', 'deals', 'pipeline', 'markets'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors capitalize ${
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
               tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
+            {t === 'scan' && <><ScanSearch size={13} /> Scan Zillow</>}
             {t === 'deals' && `Deals (${deals.length})`}
             {t === 'pipeline' && 'Pipeline'}
             {t === 'markets' && `Markets (${markets.length})`}
@@ -827,6 +905,157 @@ export default function DealScanner() {
           <p className="font-semibold mb-1">Setup required</p>
           <p className="text-xs">{error}</p>
           <p className="text-xs mt-1">Run the Supabase SQL from the setup guide to create the deals table.</p>
+        </div>
+      )}
+
+      {/* ── Scan Tab ── */}
+      {tab === 'scan' && (
+        <div>
+          {/* Setup info */}
+          <div className="mb-5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm">
+            <p className="font-semibold text-blue-800 mb-1">Setup: Add your RapidAPI key</p>
+            <p className="text-blue-700 text-xs leading-relaxed">
+              Sign up free at <strong>rapidapi.com</strong>, subscribe to the <strong>"Zillow56" or "zillow-com1"</strong> API (free tier: ~50 req/day),
+              then add <code className="bg-blue-100 px-1 rounded">RAPIDAPI_KEY=your_key</code> to your Vercel environment variables.
+            </p>
+          </div>
+
+          {/* Scan filters */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4 mb-5">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Search Criteria</p>
+            <div className="flex flex-wrap gap-2">
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-xs text-slate-500 mb-1 block">Location (zip code or "City, State")</label>
+                <div className="relative">
+                  <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    className="w-full border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    placeholder="e.g. 33304 or Scottsdale, AZ"
+                    value={scanLocation}
+                    onChange={e => setScanLocation(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && runScan()}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Max Price ($)</label>
+                <input
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  placeholder="e.g. 800000"
+                  value={scanMaxPrice}
+                  onChange={e => setScanMaxPrice(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Min Beds</label>
+                <select
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  value={scanMinBeds}
+                  onChange={e => setScanMinBeds(e.target.value)}
+                >
+                  {['1','2','3','4','5'].map(n => <option key={n} value={n}>{n}+</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Home Type</label>
+                <select
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  value={scanHomeType}
+                  onChange={e => setScanHomeType(e.target.value)}
+                >
+                  <option value="">Any</option>
+                  <option value="Houses">Houses</option>
+                  <option value="Multi-family">Multi-family</option>
+                  <option value="Condos/Co-ops">Condos</option>
+                  <option value="Townhomes">Townhomes</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={runScan}
+                  disabled={scanning || !scanLocation.trim()}
+                  className="flex items-center gap-2 bg-teal-600 text-white text-sm font-medium px-5 py-2 rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {scanning ? <Loader size={14} className="animate-spin" /> : <ScanSearch size={14} />}
+                  {scanning ? 'Scanning...' : 'Scan'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {scanError && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{scanError}</div>
+          )}
+
+          {/* Results */}
+          {scanResults.length > 0 && (
+            <div>
+              <p className="text-xs text-slate-500 mb-3">
+                Showing {scanResults.length} listings{scanTotal != null ? ` of ${scanTotal.toLocaleString()} total` : ''} — click <strong>Add to Pipeline</strong> to save a deal
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {scanResults.map(r => (
+                  <div key={r.zpid} className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+                    {r.imgSrc && (
+                      <img src={r.imgSrc} alt={r.address} className="w-full h-36 object-cover" />
+                    )}
+                    {!r.imgSrc && (
+                      <div className="w-full h-24 bg-slate-100 flex items-center justify-center">
+                        <Home size={28} className="text-slate-300" />
+                      </div>
+                    )}
+                    <div className="p-3">
+                      <p className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">{r.address}</p>
+                      <div className="mt-2 flex items-center gap-3 flex-wrap">
+                        <span className="text-base font-bold text-slate-800">${r.price.toLocaleString()}</span>
+                        {r.bedrooms != null && (
+                          <span className="text-xs text-slate-500">{r.bedrooms}bd{r.bathrooms != null ? ` / ${r.bathrooms}ba` : ''}</span>
+                        )}
+                        {r.homeType && (
+                          <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full">{r.homeType}</span>
+                        )}
+                      </div>
+                      {r.daysOnZillow != null && (
+                        <p className="text-xs text-slate-400 mt-1">{r.daysOnZillow === 0 ? 'Listed today' : `${r.daysOnZillow}d on Zillow`}</p>
+                      )}
+                      <div className="mt-3 flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingDeal(prefillFromScan(r));
+                            setShowDealModal(true);
+                          }}
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-teal-600 text-white text-xs font-medium py-2 rounded-lg hover:bg-teal-700 transition-colors"
+                        >
+                          <Plus size={12} /> Add to Pipeline
+                        </button>
+                        {r.zillowUrl && (
+                          <a
+                            href={r.zillowUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300 transition-colors"
+                            title="View on Zillow"
+                          >
+                            <ExternalLink size={13} />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!scanning && scanResults.length === 0 && !scanError && (
+            <div className="text-center py-14">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                <ScanSearch size={24} className="text-slate-300" />
+              </div>
+              <p className="text-slate-500 font-medium">Enter a location to scan</p>
+              <p className="text-slate-400 text-sm mt-1">Try a zip code like "33304" or "Scottsdale, AZ"</p>
+            </div>
+          )}
         </div>
       )}
 

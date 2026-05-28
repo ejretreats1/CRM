@@ -83,6 +83,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // ── Zillow scan proxy ──────────────────────────────────────────
+  if (service === 'zillow-scan') {
+    const rapidApiKey = process.env.RAPIDAPI_KEY;
+    if (!rapidApiKey) return res.status(500).json({ error: 'RAPIDAPI_KEY not configured' });
+
+    const { location, bedsMin, priceMin, priceMax, homeType, sort } = req.query;
+    if (!location || typeof location !== 'string') return res.status(400).json({ error: 'location is required' });
+
+    const params = new URLSearchParams({ location });
+    if (bedsMin && typeof bedsMin === 'string')   params.set('beds_min', bedsMin);
+    if (priceMin && typeof priceMin === 'string') params.set('price_min', priceMin);
+    if (priceMax && typeof priceMax === 'string') params.set('price_max', priceMax);
+    if (homeType && typeof homeType === 'string') params.set('home_type', homeType);
+    if (sort && typeof sort === 'string')         params.set('sort', sort);
+
+    try {
+      const zillowRes = await fetch(
+        `https://zillow-com1.p.rapidapi.com/propertyExtendedSearch?${params}`,
+        {
+          headers: {
+            'x-rapidapi-key': rapidApiKey,
+            'x-rapidapi-host': 'zillow-com1.p.rapidapi.com',
+          },
+        }
+      );
+      if (!zillowRes.ok) {
+        const txt = await zillowRes.text().catch(() => '');
+        return res.status(zillowRes.status).json({ error: `Zillow API error: ${txt}` });
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: any = await zillowRes.json();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const listings = (data.props ?? []).map((p: any) => ({
+        zpid: String(p.zpid ?? ''),
+        address: p.address ?? '',
+        price: Number(p.price) || 0,
+        bedrooms: p.bedrooms != null ? Number(p.bedrooms) : null,
+        bathrooms: p.bathrooms != null ? Number(p.bathrooms) : null,
+        homeType: p.homeType ?? '',
+        imgSrc: p.imgSrc ?? null,
+        zillowUrl: p.zpid ? `https://www.zillow.com/homedetails/${p.zpid}_zpid/` : '',
+        zestimate: p.zestimate ? Number(p.zestimate) : null,
+        rentZestimate: p.rentZestimate ? Number(p.rentZestimate) : null,
+        daysOnZillow: p.daysOnZillow ?? null,
+        listingType: p.listingType ?? '',
+      }));
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.status(200).json({ listings, total: data.totalResultCount ?? listings.length });
+    } catch (err) {
+      return res.status(500).json({ error: err instanceof Error ? err.message : 'Zillow scan failed' });
+    }
+  }
+
   // ── PriceLabs proxy ─────────────────────────────────────────────
   if (service === 'pricelabs') {
     const { path } = req.query;
