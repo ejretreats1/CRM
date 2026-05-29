@@ -81,7 +81,9 @@ const UNIT_LABELS: Record<number, string[]> = {
 };
 
 function makeUnits(count: number): DealUnit[] {
-  return (UNIT_LABELS[count] ?? UNIT_LABELS[1]).map(label => ({ label, bedrooms: '', bathrooms: '', file: null }));
+  const labels = UNIT_LABELS[count]
+    ?? Array.from({ length: count }, (_, i) => `Unit ${i + 1}`);
+  return labels.map(label => ({ label, bedrooms: '', bathrooms: '', file: null }));
 }
 
 export default function ReportBuilder({ leads, owners, onReportGenerated, onCancel }: ReportBuilderProps) {
