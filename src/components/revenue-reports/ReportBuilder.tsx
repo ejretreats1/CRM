@@ -490,7 +490,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
 
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Property Type</label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {[
                 { value: 1, label: 'Single Family' },
                 { value: 2, label: 'Duplex' },
@@ -510,6 +510,25 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
                   {label}
                 </button>
               ))}
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min="5"
+                  max="50"
+                  placeholder="5+"
+                  value={unitCount > 4 ? unitCount : ''}
+                  onChange={e => {
+                    const n = parseInt(e.target.value, 10);
+                    if (!isNaN(n) && n >= 5) handleUnitCountChange(n);
+                  }}
+                  className={`w-14 py-2 rounded-lg text-xs font-semibold border text-center transition-all focus:outline-none focus:ring-2 focus:ring-amber-400 ${
+                    unitCount > 4
+                      ? 'bg-amber-600 text-white border-amber-600 placeholder-amber-200'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-amber-300 placeholder-slate-400'
+                  }`}
+                />
+                <span className="text-xs text-slate-400 whitespace-nowrap">units</span>
+              </div>
             </div>
           </div>
 
