@@ -147,7 +147,31 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
   }
 
   function updateUnit(index: number, field: keyof DealUnit, value: string) {
-    setDealUnits(prev => prev.map((u, i) => i === index ? { ...u, [field]: value } : u));
+    if (field !== 'quantity') {
+      setDealUnits(prev => prev.map((u, i) => i === index ? { ...u, [field]: value } : u));
+      return;
+    }
+    // Quantity change: absorb delta from other rows (back-to-front) so total stays = unitCount
+    const newQty = Math.min(unitCount, Math.max(1, parseInt(value) || 1));
+    setDealUnits(prev => {
+      const oldQty = prev[index]?.quantity ?? 1;
+      const delta = newQty - oldQty;
+      const withNew = prev.map((u, i) => i === index ? { ...u, quantity: newQty } : u);
+      if (delta <= 0) return withNew;
+      // Remove `delta` units from other rows, starting from the last row
+      let toAbsorb = delta;
+      const result: DealUnit[] = [];
+      for (let i = withNew.length - 1; i >= 0; i--) {
+        if (i === index || toAbsorb <= 0) { result.unshift(withNew[i]); continue; }
+        if (withNew[i].quantity <= toAbsorb) {
+          toAbsorb -= withNew[i].quantity; // remove this row entirely
+        } else {
+          result.unshift({ ...withNew[i], quantity: withNew[i].quantity - toAbsorb });
+          toAbsorb = 0;
+        }
+      }
+      return result;
+    });
   }
 
   async function handleGenerate(e: React.FormEvent) {
@@ -517,13 +541,13 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
               <div className="flex items-center gap-1.5">
                 <input
                   type="number"
-                  min="5"
+                  min="1"
                   max="50"
-                  placeholder="5+"
+                  placeholder="other"
                   value={unitCount > 4 ? unitCount : ''}
                   onChange={e => {
                     const n = parseInt(e.target.value, 10);
-                    if (!isNaN(n) && n >= 5) handleUnitCountChange(n);
+                    if (!isNaN(n) && n >= 1) handleUnitCountChange(n);
                   }}
                   className={`w-14 py-2 rounded-lg text-xs font-semibold border text-center transition-all focus:outline-none focus:ring-2 focus:ring-amber-400 ${
                     unitCount > 4
