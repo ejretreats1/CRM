@@ -70,6 +70,7 @@ const MtrReportSchema = z.object({
 
 const UnitSchema = z.object({
   unitLabel: z.string(),
+  quantity: z.number().int().min(1),
   bedrooms: z.number().nullable(),
   bathrooms: z.number().nullable(),
   projectedAnnualRevenue: z.number().nullable(),
@@ -150,7 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ownerNotes?: string;
     additionalContext?: string;
     // Deal generate
-    pdfFiles?: Array<{ base64: string; unitLabel: string; bedrooms?: number; bathrooms?: number }>;
+    pdfFiles?: Array<{ base64: string; unitLabel: string; bedrooms?: number; bathrooms?: number; quantity?: number }>;
     listingPrice?: number;
     zillowDescription?: string;
     // Refine
@@ -213,8 +214,14 @@ ${globalRules}`;
         return res.status(400).json({ error: 'listingPrice is required for deal analysis' });
       }
 
+      const totalUnits = pdfFiles.reduce((sum, pf) => sum + (pf.quantity ?? 1), 0);
+
       const unitDescriptions = pdfFiles
-        .map((pf, i) => `  Unit ${i + 1} — ${pf.unitLabel}${pf.bedrooms != null ? `: ${pf.bedrooms} bed` : ''}${pf.bathrooms != null ? `/${pf.bathrooms} bath` : ''}`)
+        .map((pf, i) => {
+          const qty = pf.quantity ?? 1;
+          const qtyStr = qty > 1 ? ` × ${qty} identical units (1 PDF covers 1; multiply revenue by ${qty})` : '';
+          return `  Unit type ${i + 1} — ${pf.unitLabel}${pf.bedrooms != null ? `: ${pf.bedrooms} bed` : ''}${pf.bathrooms != null ? `/${pf.bathrooms} bath` : ''}${qtyStr}`;
+        })
         .join('\n');
 
       const zillowSection = zillowDescription?.trim()
@@ -229,14 +236,14 @@ ${globalRules}`;
 
 Property Address: ${address}
 Asking Price: $${Number(listingPrice).toLocaleString()}
-Number of Units: ${pdfFiles.length}
+Total Units: ${totalUnits} across ${pdfFiles.length} unit type${pdfFiles.length !== 1 ? 's' : ''}
 ${unitDescriptions}
 ${zillowSection}${contextSection}
-${pdfFiles.length > 1 ? `There are ${pdfFiles.length} AirDNA Rentalizer PDF reports attached, one per unit (in order listed above).` : 'The AirDNA Rentalizer PDF for this property is attached.'}
+${pdfFiles.length > 1 ? `There are ${pdfFiles.length} AirDNA Rentalizer PDF reports attached, one per unit type (in order listed above).` : 'The AirDNA Rentalizer PDF for this property is attached.'}
 
 ANALYZE (complete steps 1–3 first before writing any text fields):
-1. Extract per-unit metrics from each PDF: projected annual revenue, occupancy rate, ADR, monthly seasonality, comparable properties.
-2. Sum ALL unit revenues for combinedAnnualRevenue. Double-check: combinedAnnualRevenue MUST equal the exact sum of every unit's projectedAnnualRevenue.
+1. Extract per-unit-type metrics from each PDF: projected annual revenue (per single unit), occupancy rate, ADR, monthly seasonality, comparable properties. Return the quantity for each unit type as provided above.
+2. Compute combinedAnnualRevenue = sum of (each unit type's projectedAnnualRevenue × its quantity). Double-check: combinedAnnualRevenue MUST equal this weighted sum.
 3. Calculate grossYield = combinedAnnualRevenue / listingPrice × 100 (round to 1 decimal).
 4. Make a clear investment recommendation: strong-buy / buy / neutral / pass / strong-pass based on yield, market demand, and property strengths.
 5. Write a concise recommendationReason (2–3 sentences). IMPORTANT: cite the exact combinedAnnualRevenue figure computed in step 2. Never use a different revenue number here.

@@ -64,6 +64,7 @@ interface DealUnit {
   bedrooms: string;
   bathrooms: string;
   file: File | null;
+  quantity: number;
 }
 
 interface ReportBuilderProps {
@@ -83,7 +84,7 @@ const UNIT_LABELS: Record<number, string[]> = {
 function makeUnits(count: number): DealUnit[] {
   const labels = UNIT_LABELS[count]
     ?? Array.from({ length: count }, (_, i) => `Unit ${i + 1}`);
-  return labels.map(label => ({ label, bedrooms: '', bathrooms: '', file: null }));
+  return labels.map(label => ({ label, bedrooms: '', bathrooms: '', file: null, quantity: 1 }));
 }
 
 export default function ReportBuilder({ leads, owners, onReportGenerated, onCancel }: ReportBuilderProps) {
@@ -213,6 +214,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
         unitLabel: u.label,
         bedrooms: u.bedrooms ? parseInt(u.bedrooms) : undefined,
         bathrooms: u.bathrooms ? parseFloat(u.bathrooms) : undefined,
+        quantity: u.quantity > 1 ? u.quantity : undefined,
       })));
 
       const res = await fetch('/api/generate-revenue-report', {
@@ -536,21 +538,28 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
 
           {/* Per-unit rows */}
           <div className="space-y-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              {unitCount === 1 ? 'AirDNA Report' : `AirDNA Reports — one per unit (${unitCount} total)`}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                {unitCount === 1 ? 'AirDNA Report' : `AirDNA Reports — 1 PDF per unit type`}
+              </p>
+              {unitCount > 1 && (
+                <p className="text-xs text-slate-400">
+                  {dealUnits.reduce((s, u) => s + u.quantity, 0)} total units · {unitCount} PDF{unitCount !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
             {dealUnits.map((unit, idx) => (
               <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="text-sm font-semibold text-slate-700">{unit.label}</span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <input
                       value={unit.bedrooms}
                       onChange={e => updateUnit(idx, 'bedrooms', e.target.value)}
                       placeholder="Beds"
                       type="number"
                       min="0"
-                      className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-amber-400"
                     />
                     <span className="text-xs text-slate-400">bd</span>
                     <input
@@ -560,9 +569,22 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
                       type="number"
                       min="0"
                       step="0.5"
-                      className="w-16 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-amber-400"
                     />
                     <span className="text-xs text-slate-400">ba</span>
+                    <span className="text-xs text-slate-400 ml-1">×</span>
+                    <input
+                      value={unit.quantity}
+                      onChange={e => {
+                        const n = parseInt(e.target.value, 10);
+                        updateUnit(idx, 'quantity', isNaN(n) || n < 1 ? '1' : String(n));
+                      }}
+                      type="number"
+                      min="1"
+                      title="How many identical units of this type?"
+                      className="w-14 border border-amber-200 bg-amber-50 rounded-lg px-2 py-1 text-xs text-center font-semibold focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                    <span className="text-xs text-slate-400">units</span>
                   </div>
                 </div>
 

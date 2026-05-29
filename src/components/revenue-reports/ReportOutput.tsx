@@ -38,6 +38,7 @@ interface CompData {
 
 interface UnitData {
   unitLabel: string;
+  quantity?: number;
   bedrooms: number | null;
   bathrooms: number | null;
   projectedAnnualRevenue: number | null;
@@ -147,14 +148,21 @@ export function buildReportEmail(address: string, data: ReportData, ownerActualR
           <td style="padding:8px 12px;font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;text-align:right;">Occupancy</td>
           <td style="padding:8px 12px;font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;text-align:right;">ADR</td>
         </tr>
-        ${data.units.map((u, i) => `
+        ${data.units.map((u, i) => {
+          const qty = u.quantity ?? 1;
+          const labelSuffix = qty > 1 ? ` <span style="color:#b45309;">×${qty}</span>` : '';
+          const revDisplay = qty > 1 && u.projectedAnnualRevenue != null
+            ? `${fmtN(u.projectedAnnualRevenue)} <span style="font-size:10px;color:#92400e;">× ${qty} = ${fmtN(u.projectedAnnualRevenue * qty)}</span>`
+            : fmtN(u.projectedAnnualRevenue);
+          return `
           <tr style="background:${i % 2 === 0 ? '#ffffff' : '#fafafa'};">
-            <td style="padding:8px 12px;font-size:12px;color:#1e293b;font-weight:600;">${u.unitLabel}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#1e293b;font-weight:600;">${u.unitLabel}${labelSuffix}</td>
             <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:center;">${[u.bedrooms != null ? `${u.bedrooms}bd` : null, u.bathrooms != null ? `${u.bathrooms}ba` : null].filter(Boolean).join('/') || '—'}</td>
-            <td style="padding:8px 12px;font-size:12px;color:#b45309;font-weight:700;text-align:right;">${fmtN(u.projectedAnnualRevenue)}</td>
+            <td style="padding:8px 12px;font-size:12px;color:#b45309;font-weight:700;text-align:right;">${revDisplay}</td>
             <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:right;">${fmtP(u.occupancyRate)}</td>
             <td style="padding:8px 12px;font-size:12px;color:#475569;text-align:right;">${u.adr != null ? `$${Math.round(u.adr)}` : ''}</td>
-          </tr>`).join('')}
+          </tr>`;
+        }).join('')}
         ${data.units.length > 1 ? `
           <tr style="background:#fef3c7;border-top:2px solid #fde68a;">
             <td style="padding:8px 12px;font-size:12px;color:#92400e;font-weight:700;" colspan="2">Combined Total</td>
@@ -1032,17 +1040,27 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {data.units.map((u, i) => (
-                      <tr key={i} className="bg-white">
-                        <td className="px-4 py-2.5 font-semibold text-slate-900">{u.unitLabel}</td>
-                        <td className="px-4 py-2.5 text-center text-slate-600">
-                          {[u.bedrooms != null ? `${u.bedrooms}bd` : null, u.bathrooms != null ? `${u.bathrooms}ba` : null].filter(Boolean).join(' / ') || '—'}
-                        </td>
-                        <td className="px-4 py-2.5 text-right font-semibold text-amber-700">{fmt(u.projectedAnnualRevenue)}</td>
-                        <td className="px-4 py-2.5 text-right text-slate-600">{fmtPct(u.occupancyRate)}</td>
-                        <td className="px-4 py-2.5 text-right text-slate-600">{u.adr != null ? `$${Math.round(u.adr)}` : ''}</td>
-                      </tr>
-                    ))}
+                    {data.units.map((u, i) => {
+                      const qty = u.quantity ?? 1;
+                      return (
+                        <tr key={i} className="bg-white">
+                          <td className="px-4 py-2.5 font-semibold text-slate-900">
+                            {u.unitLabel}{qty > 1 && <span className="ml-1.5 text-xs font-bold text-amber-600">×{qty}</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-center text-slate-600">
+                            {[u.bedrooms != null ? `${u.bedrooms}bd` : null, u.bathrooms != null ? `${u.bathrooms}ba` : null].filter(Boolean).join(' / ') || '—'}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-semibold text-amber-700">
+                            {fmt(u.projectedAnnualRevenue)}
+                            {qty > 1 && u.projectedAnnualRevenue != null && (
+                              <div className="text-xs text-amber-500 font-normal">×{qty} = {fmt(u.projectedAnnualRevenue * qty)}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-slate-600">{fmtPct(u.occupancyRate)}</td>
+                          <td className="px-4 py-2.5 text-right text-slate-600">{u.adr != null ? `$${Math.round(u.adr)}` : ''}</td>
+                        </tr>
+                      );
+                    })}
                     {data.units.length > 1 && (
                       <tr className="bg-amber-50 border-t-2 border-amber-200">
                         <td className="px-4 py-2.5 font-bold text-amber-800">Combined Total</td>
