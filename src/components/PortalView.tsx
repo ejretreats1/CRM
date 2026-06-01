@@ -12,6 +12,26 @@ export default function PortalView({ personId }: PortalViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Global CSS sets overflow-x:hidden + overscroll-behavior-y:none on html/body
+  // for the CRM dashboard. On standalone pages without Layout these block trackpad
+  // scrolling — override for the lifetime of this view.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    html.style.overflowX = 'visible';
+    html.style.maxWidth = '';
+    body.style.overflowX = 'visible';
+    body.style.maxWidth = '';
+    body.style.overscrollBehaviorY = 'auto';
+    return () => {
+      html.style.overflowX = '';
+      html.style.maxWidth = '';
+      body.style.overflowX = '';
+      body.style.maxWidth = '';
+      body.style.overscrollBehaviorY = '';
+    };
+  }, []);
+
   useEffect(() => {
     async function load() {
       try {
