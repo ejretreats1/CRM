@@ -206,6 +206,8 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
         onMarkContacted={pendingLead && onUpdateLead ? () => {
           onUpdateLead({ ...pendingLead, stage: 'contacted', updatedAt: new Date().toISOString() });
         } : undefined}
+        leadId={pending.leadId}
+        ownerId={pending.ownerId}
       />
     );
   }
@@ -270,6 +272,8 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
         onRefine={handleRefineSaved}
         recipientEmail={savedLead?.email || savedOwner?.email}
         recipientName={savedLead?.name || savedOwner?.name}
+        leadId={report.leadId}
+        ownerId={report.ownerId}
       />
     );
   }

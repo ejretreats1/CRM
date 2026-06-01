@@ -21,6 +21,7 @@ import CalendarIntelligence from './components/CalendarIntelligence';
 import EmailTracking from './components/EmailTracking';
 import DealScanner from './components/DealScanner';
 import ShareView from './components/ShareView';
+import PortalView from './components/PortalView';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -436,9 +437,12 @@ export default function App() {
   const selectedOwner = owners.find(o => o.id === selectedOwnerId);
   const uplistingConnected = !!uplistingApiKey;
 
-  // Public share links — render without auth
-  const shareId = new URLSearchParams(window.location.search).get('share');
+  // Public share/portal links — render without auth
+  const searchParams = new URLSearchParams(window.location.search);
+  const shareId = searchParams.get('share');
   if (shareId) return <ShareView reportId={shareId} />;
+  const portalId = searchParams.get('portal');
+  if (portalId) return <PortalView personId={portalId} />;
 
   if (!isLoaded) {
     return (

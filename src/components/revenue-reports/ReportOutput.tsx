@@ -93,6 +93,8 @@ interface ReportOutputProps {
   recipientName?: string;
   recipientPhone?: string;
   onMarkContacted?: () => void;
+  leadId?: string;
+  ownerId?: string;
 }
 
 export function buildReportEmail(address: string, data: ReportData, ownerActualRevenue?: number, personalNote?: string, showCalendlyCta?: boolean): string {
@@ -633,7 +635,7 @@ const DEAL_REC: Record<string, { label: string; bg: string }> = {
   'strong-pass': { label: '❌ Strong Pass',   bg: 'bg-red-700' },
 };
 
-export default function ReportOutput({ address, data, ownerActualRevenue, onSave, onBack, saving, saved, savedReportId, onRefine, recipientEmail, recipientName, recipientPhone, onMarkContacted }: ReportOutputProps) {
+export default function ReportOutput({ address, data, ownerActualRevenue, onSave, onBack, saving, saved, savedReportId, onRefine, recipientEmail, recipientName, recipientPhone, onMarkContacted, leadId, ownerId }: ReportOutputProps) {
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const isMtr = data.reportType === 'mtr';
   const isDeal = data.reportType === 'deal';
@@ -654,11 +656,15 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
   const [copiedMsg, setCopiedMsg] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [shorteningLink, setShorteningLink] = useState(false);
+  const [copiedPortal, setCopiedPortal] = useState(false);
 
   const addressSlug = address.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   const shareUrl = savedReportId
     ? `${window.location.origin}/?share=${savedReportId}&address=${addressSlug}`
     : null;
+  const portalPersonId = leadId || ownerId || null;
+  const portalUrl = portalPersonId ? `${window.location.origin}/?portal=${portalPersonId}` : null;
 
   const previewHtml = buildReportEmail(address, data, ownerActualRevenue, personalNote, noteTemplate === 'sales');
 
@@ -670,6 +676,23 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  }
+
+  async function shortenAndCopy() {
+    if (!shareUrl) return;
+    setShorteningLink(true);
+    let finalUrl = shareUrl;
+    try {
+      const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(shareUrl)}`);
+      const json = await res.json();
+      if (json.shorturl) finalUrl = json.shorturl;
+    } catch { /* fall back to original */ }
+    try {
+      await navigator.clipboard.writeText(`${address}: ${finalUrl}`);
+    } catch { /* ignore clipboard errors */ }
+    setShorteningLink(false);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   }
 
   function openEmailModal() {
@@ -892,12 +915,21 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           <ArrowLeft size={15} /> Back
         </button>
         <div className="flex items-center gap-2">
-          {shareUrl && (
+          {portalUrl && (
             <button
-              onClick={() => copyText(`${address}: ${shareUrl}`, setCopiedLink)}
+              onClick={() => copyText(portalUrl, setCopiedPortal)}
               className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-lg transition-colors"
             >
-              {copiedLink ? <><CheckIcon size={14} className="text-emerald-500" /> Copied!</> : <><Copy size={14} /> Copy Link</>}
+              {copiedPortal ? <><CheckIcon size={14} className="text-emerald-500" /> Copied!</> : <><Copy size={14} /> Copy Portal Link</>}
+            </button>
+          )}
+          {shareUrl && (
+            <button
+              onClick={shortenAndCopy}
+              disabled={shorteningLink}
+              className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-60 px-3 py-2 rounded-lg transition-colors"
+            >
+              {copiedLink ? <><CheckIcon size={14} className="text-emerald-500" /> Copied!</> : shorteningLink ? <><Loader size={14} className="animate-spin" /> Shortening...</> : <><Copy size={14} /> Copy Link</>}
             </button>
           )}
           <button
