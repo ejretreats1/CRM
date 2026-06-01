@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FileBarChart2, ExternalLink, Loader, AlertCircle } from 'lucide-react';
+import { FileBarChart2, ExternalLink, Loader, AlertCircle, Search, X } from 'lucide-react';
 import { fetchRevenueReportsByLead, fetchRevenueReportsByOwner } from '../services/revenueReports';
 import type { RevenueReport } from '../types';
 
@@ -11,6 +11,7 @@ export default function PortalView({ personId }: PortalViewProps) {
   const [reports, setReports] = useState<RevenueReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
 
   // Global CSS sets overflow-x:hidden + overscroll-behavior-y:none on html/body
   // for the CRM dashboard. On standalone pages without Layout these block trackpad
@@ -67,6 +68,14 @@ export default function PortalView({ personId }: PortalViewProps) {
     deal: 'Deal Analysis',
   };
 
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? reports.filter(r =>
+        r.propertyAddress.toLowerCase().includes(q) ||
+        (r.reportTitle ?? '').toLowerCase().includes(q)
+      )
+    : reports;
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -79,6 +88,27 @@ export default function PortalView({ personId }: PortalViewProps) {
       </div>
 
       <div className="max-w-2xl mx-auto px-6 py-8">
+        {!loading && !error && reports.length > 0 && (
+          <div className="relative mb-6">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by address…"
+              className="w-full pl-9 pr-9 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader size={24} className="text-slate-300 animate-spin" />
@@ -88,15 +118,24 @@ export default function PortalView({ personId }: PortalViewProps) {
             <AlertCircle size={20} />
             <span className="text-sm">{error}</span>
           </div>
-        ) : reports.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-slate-500">
             <FileBarChart2 size={36} className="mx-auto text-slate-300 mb-4" />
-            <p className="font-medium">No reports yet</p>
-            <p className="text-sm text-slate-400 mt-1">Reports will appear here once they're ready.</p>
+            {search ? (
+              <>
+                <p className="font-medium">No reports match "{search}"</p>
+                <button onClick={() => setSearch('')} className="mt-3 text-sm text-teal-600 hover:underline">Clear search</button>
+              </>
+            ) : (
+              <>
+                <p className="font-medium">No reports yet</p>
+                <p className="text-sm text-slate-400 mt-1">Reports will appear here once they're ready.</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
-            {reports.map(r => {
+            {filtered.map(r => {
               const addressSlug = r.propertyAddress.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
               const shareHref = `/?share=${r.id}&address=${addressSlug}`;
               const revenue = fmtRevenue(r.airdnaProjectedRevenue);
