@@ -44,9 +44,12 @@ const MIN_BEDS     = parseInt(process.env.SCAN_MIN_BEDS   ?? '2');
 const MAX_PRICE    = parseInt(process.env.SCAN_MAX_PRICE  ?? '600000');
 const MIN_SCORE    = parseInt(process.env.SCAN_MIN_SCORE  ?? '6');
 const MODEL        = process.env.SCAN_MODEL ?? 'claude-haiku-4-5-20251001';
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY ?? '';
-const RENTCAST_KEY = process.env.RENTCAST_API_KEY ?? '';
-const BATCH_SIZE   = 8;
+const RAPIDAPI_KEY          = process.env.RAPIDAPI_KEY ?? '';
+const RENTCAST_KEY          = process.env.RENTCAST_API_KEY ?? '';
+const BATCH_SIZE            = 8;
+// Rentcast free tier: 50 calls/month. Default limit leaves 10 for manual Deal Scanner use.
+// Override via GitHub Variable: RENTCAST_MONTHLY_LIMIT
+const RENTCAST_MONTHLY_LIMIT = parseInt(process.env.RENTCAST_MONTHLY_LIMIT ?? '40');
 
 if (!RAPIDAPI_KEY && !RENTCAST_KEY) {
   console.error('No data source configured. Provide either RAPIDAPI_KEY (Zillow) or RENTCAST_API_KEY (Rentcast).');
@@ -233,6 +236,47 @@ async function saveDeal(listing: Listing, score: DealScore, market: string) {
   if (error) console.error(`  [DB] Failed to save ${listing.address}: ${error.message}`);
 }
 
+// ── Rentcast usage tracking ───────────────────────────────────────────────────
+/*
+ * Requires this table in Supabase (run once in the SQL editor):
+ *
+ *   create table if not exists rentcast_api_usage (
+ *     year_month text primary key,
+ *     count integer not null default 0
+ *   );
+ *
+ * The service role key used by this script bypasses RLS automatically.
+ */
+
+async function getRentcastUsageThisMonth(): Promise<number> {
+  const yearMonth = new Date().toISOString().slice(0, 7);
+  const { data } = await supabase
+    .from('rentcast_api_usage')
+    .select('count')
+    .eq('year_month', yearMonth)
+    .maybeSingle();
+  return (data as { count: number } | null)?.count ?? 0;
+}
+
+async function incrementRentcastUsage(): Promise<void> {
+  const yearMonth = new Date().toISOString().slice(0, 7);
+  const { data } = await supabase
+    .from('rentcast_api_usage')
+    .select('count')
+    .eq('year_month', yearMonth)
+    .maybeSingle();
+  if (data) {
+    await supabase
+      .from('rentcast_api_usage')
+      .update({ count: ((data as { count: number }).count ?? 0) + 1 })
+      .eq('year_month', yearMonth);
+  } else {
+    await supabase
+      .from('rentcast_api_usage')
+      .insert({ year_month: yearMonth, count: 1 });
+  }
+}
+
 // ── Claude batch scoring ──────────────────────────────────────────────────────
 
 async function scoreBatch(listings: Listing[], market: string): Promise<DealScore[]> {
@@ -329,17 +373,46 @@ async function main() {
   const existingKeys = await getExistingAddresses();
   console.log(`Existing deals in CRM: ${existingKeys.size / 2 | 0}`); // rough count
 
+  // ── Rentcast monthly budget check ──────────────────────────────────────────
+  let rentcastUsed = 0;
+  let rentcastRemaining = Infinity;
+  if (SOURCE === 'rentcast') {
+    rentcastUsed      = await getRentcastUsageThisMonth();
+    rentcastRemaining = Math.max(0, RENTCAST_MONTHLY_LIMIT - rentcastUsed);
+    const symbol = rentcastRemaining === 0 ? '🚫' : rentcastRemaining <= 5 ? '⚠️ ' : '✅';
+    console.log(`${symbol} Rentcast: ${rentcastUsed}/${RENTCAST_MONTHLY_LIMIT} calls used this month (${rentcastRemaining} remaining)`);
+    if (rentcastRemaining === 0) {
+      console.warn(`Monthly Rentcast limit reached (${RENTCAST_MONTHLY_LIMIT}). Skipping scan to avoid overage.`);
+      console.warn(`Increase RENTCAST_MONTHLY_LIMIT or wait until next month.`);
+      process.exit(0);
+    }
+  }
+
   const allHotDeals:    string[] = [];
   const marketSummaries: string[] = [];
   let totalSaved = 0;
+  let marketsScanned = 0;
 
   for (const market of MARKETS) {
+    // Skip if Rentcast budget exhausted
+    if (SOURCE === 'rentcast' && marketsScanned >= rentcastRemaining) {
+      console.log(`\n⚠️  Skipping ${market} — Rentcast monthly limit reached (${RENTCAST_MONTHLY_LIMIT} calls/month). Set RENTCAST_MONTHLY_LIMIT to allow more.`);
+      marketSummaries.push(`${market}: skipped (Rentcast limit)`);
+      continue;
+    }
+
     console.log(`\n${'─'.repeat(55)}`);
     console.log(`📍  ${market}`);
     console.log(`${'─'.repeat(55)}`);
 
     const listings = await searchListings(market);
-    console.log(`  Fetched: ${listings.length} listings`);
+    if (SOURCE === 'rentcast') {
+      await incrementRentcastUsage();
+      marketsScanned++;
+      console.log(`  Fetched: ${listings.length} listings  (Rentcast: ${rentcastUsed + marketsScanned}/${RENTCAST_MONTHLY_LIMIT} calls this month)`);
+    } else {
+      console.log(`  Fetched: ${listings.length} listings`);
+    }
 
     const newListings = listings.filter(l =>
       l.price > 0 &&

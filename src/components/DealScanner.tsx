@@ -732,6 +732,16 @@ export default function DealScanner() {
   const [scanError, setScanError] = useState('');
   const [scanTotal, setScanTotal] = useState<number | null>(null);
 
+  const rentcastMonthKey = (() => {
+    const d = new Date();
+    return `ej_rentcast_count_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  })();
+  const RENTCAST_LIMIT = 50;
+  const RENTCAST_WARN  = 40;
+  const [rentcastMonthlyCount, setRentcastMonthlyCount] = useState(() =>
+    parseInt(localStorage.getItem(rentcastMonthKey) ?? '0')
+  );
+
   useEffect(() => {
     fetchDeals()
       .then(setDeals)
@@ -791,6 +801,10 @@ export default function DealScanner() {
   async function runScan() {
     if (!scanLocation.trim()) return;
     if (!rentcastKey) { setScanError('Enter your Rentcast API key to scan.'); return; }
+    if (rentcastMonthlyCount >= RENTCAST_LIMIT) {
+      setScanError(`Monthly Rentcast limit reached (${RENTCAST_LIMIT} searches/month). Resets on the 1st.`);
+      return;
+    }
     setScanning(true);
     setScanError('');
     setScanResults([]);
@@ -806,6 +820,10 @@ export default function DealScanner() {
       if (!r.ok) throw new Error(data.error ?? 'Scan failed');
       setScanResults(data.listings ?? []);
       setScanTotal(data.total ?? null);
+      // Track usage
+      const newCount = rentcastMonthlyCount + 1;
+      setRentcastMonthlyCount(newCount);
+      localStorage.setItem(rentcastMonthKey, String(newCount));
     } catch (err) {
       setScanError(err instanceof Error ? err.message : 'Scan failed');
     } finally {
@@ -947,16 +965,48 @@ export default function DealScanner() {
               </div>
             </div>
           ) : (
-            <div className="mb-5 flex items-center justify-between bg-teal-50 border border-teal-200 rounded-xl px-4 py-2.5">
-              <span className="text-xs text-teal-700 font-medium flex items-center gap-1.5">
-                <CheckCircle2 size={13} className="text-teal-500" /> Rentcast connected
-              </span>
-              <button
-                onClick={() => { localStorage.removeItem('ej_rentcast_key'); setRentcastKey(''); }}
-                className="text-xs text-slate-400 hover:text-red-500 transition-colors"
-              >
-                Disconnect
-              </button>
+            <div className={`mb-5 border rounded-xl px-4 py-2.5 ${
+              rentcastMonthlyCount >= RENTCAST_LIMIT
+                ? 'bg-red-50 border-red-200'
+                : rentcastMonthlyCount >= RENTCAST_WARN
+                ? 'bg-amber-50 border-amber-200'
+                : 'bg-teal-50 border-teal-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-medium flex items-center gap-1.5 ${
+                  rentcastMonthlyCount >= RENTCAST_LIMIT ? 'text-red-700'
+                  : rentcastMonthlyCount >= RENTCAST_WARN ? 'text-amber-700'
+                  : 'text-teal-700'
+                }`}>
+                  <CheckCircle2 size={13} className={
+                    rentcastMonthlyCount >= RENTCAST_LIMIT ? 'text-red-500'
+                    : rentcastMonthlyCount >= RENTCAST_WARN ? 'text-amber-500'
+                    : 'text-teal-500'
+                  } />
+                  Rentcast connected
+                  <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                    rentcastMonthlyCount >= RENTCAST_LIMIT
+                      ? 'bg-red-100 text-red-700'
+                      : rentcastMonthlyCount >= RENTCAST_WARN
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-teal-100 text-teal-700'
+                  }`}>
+                    {rentcastMonthlyCount}/{RENTCAST_LIMIT} this month
+                  </span>
+                </span>
+                <button
+                  onClick={() => { localStorage.removeItem('ej_rentcast_key'); setRentcastKey(''); }}
+                  className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                >
+                  Disconnect
+                </button>
+              </div>
+              {rentcastMonthlyCount >= RENTCAST_LIMIT && (
+                <p className="text-xs text-red-600 mt-1">Monthly limit reached — scanning disabled until the 1st. Upgrade to $9/mo at rentcast.io for 500 calls/month.</p>
+              )}
+              {rentcastMonthlyCount >= RENTCAST_WARN && rentcastMonthlyCount < RENTCAST_LIMIT && (
+                <p className="text-xs text-amber-600 mt-1">Approaching monthly limit — {RENTCAST_LIMIT - rentcastMonthlyCount} searches remaining.</p>
+              )}
             </div>
           )}
 
@@ -999,7 +1049,7 @@ export default function DealScanner() {
               <div className="flex items-end">
                 <button
                   onClick={runScan}
-                  disabled={scanning || !scanLocation.trim() || !rentcastKey}
+                  disabled={scanning || !scanLocation.trim() || !rentcastKey || rentcastMonthlyCount >= RENTCAST_LIMIT}
                   className="flex items-center gap-2 bg-teal-600 text-white text-sm font-medium px-5 py-2 rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {scanning ? <Loader size={14} className="animate-spin" /> : <ScanSearch size={14} />}
