@@ -97,6 +97,71 @@ export async function deleteOutreach(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ─── Morning Scan Config ────────────────────────────────────────────────────────────────────
+/*
+ * Run once in Supabase SQL editor:
+ *
+ *   create table if not exists scan_config (
+ *     id integer primary key default 1,
+ *     markets text not null default '',
+ *     min_beds integer not null default 2,
+ *     max_price integer not null default 600000,
+ *     min_score integer not null default 6,
+ *     rentcast_monthly_limit integer not null default 40,
+ *     enabled boolean not null default true,
+ *     updated_at timestamptz default now()
+ *   );
+ *   insert into scan_config (id) values (1) on conflict do nothing;
+ *   alter table scan_config enable row level security;
+ *   create policy "anon read" on scan_config for select to anon using (true);
+ *   create policy "anon write" on scan_config for all to anon using (true);
+ */
+
+export interface ScanConfig {
+  markets: string[];
+  minBeds: number;
+  maxPrice: number;
+  minScore: number;
+  rentcastMonthlyLimit: number;
+  enabled: boolean;
+}
+
+export const DEFAULT_SCAN_CONFIG: ScanConfig = {
+  markets: [],
+  minBeds: 2,
+  maxPrice: 600000,
+  minScore: 6,
+  rentcastMonthlyLimit: 40,
+  enabled: true,
+};
+
+export async function fetchScanConfig(): Promise<ScanConfig> {
+  const { data } = await supabase.from('scan_config').select('*').eq('id', 1).maybeSingle();
+  if (!data) return { ...DEFAULT_SCAN_CONFIG };
+  return {
+    markets: (data.markets ?? '').split(',').map((m: string) => m.trim()).filter(Boolean),
+    minBeds: data.min_beds ?? 2,
+    maxPrice: data.max_price ?? 600000,
+    minScore: data.min_score ?? 6,
+    rentcastMonthlyLimit: data.rentcast_monthly_limit ?? 40,
+    enabled: data.enabled ?? true,
+  };
+}
+
+export async function saveScanConfig(config: ScanConfig): Promise<void> {
+  const { error } = await supabase.from('scan_config').upsert({
+    id: 1,
+    markets: config.markets.join(', '),
+    min_beds: config.minBeds,
+    max_price: config.maxPrice,
+    min_score: config.minScore,
+    rentcast_monthly_limit: config.rentcastMonthlyLimit,
+    enabled: config.enabled,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
+
 // ─── Row mappers ────────────────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

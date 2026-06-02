@@ -39,17 +39,18 @@ import { createClient } from '@supabase/supabase-js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const MARKETS      = (process.env.SCAN_MARKETS ?? '').split(',').map(m => m.trim()).filter(Boolean);
-const MIN_BEDS     = parseInt(process.env.SCAN_MIN_BEDS   ?? '2');
-const MAX_PRICE    = parseInt(process.env.SCAN_MAX_PRICE  ?? '600000');
-const MIN_SCORE    = parseInt(process.env.SCAN_MIN_SCORE  ?? '6');
+// These are overridden at runtime by Supabase scan_config if available; env vars are fallback.
+let MARKETS      = (process.env.SCAN_MARKETS ?? '').split(',').map(m => m.trim()).filter(Boolean);
+let MIN_BEDS     = parseInt(process.env.SCAN_MIN_BEDS   ?? '2');
+let MAX_PRICE    = parseInt(process.env.SCAN_MAX_PRICE  ?? '600000');
+let MIN_SCORE    = parseInt(process.env.SCAN_MIN_SCORE  ?? '6');
 const MODEL        = process.env.SCAN_MODEL ?? 'claude-haiku-4-5-20251001';
 const RAPIDAPI_KEY          = process.env.RAPIDAPI_KEY ?? '';
 const RENTCAST_KEY          = process.env.RENTCAST_API_KEY ?? '';
 const BATCH_SIZE            = 8;
 // Rentcast free tier: 50 calls/month. Default limit leaves 10 for manual Deal Scanner use.
-// Override via GitHub Variable: RENTCAST_MONTHLY_LIMIT
-const RENTCAST_MONTHLY_LIMIT = parseInt(process.env.RENTCAST_MONTHLY_LIMIT ?? '40');
+// Overridden by Supabase scan_config.rentcast_monthly_limit if set; else env var or default 40.
+let RENTCAST_MONTHLY_LIMIT = parseInt(process.env.RENTCAST_MONTHLY_LIMIT ?? '40');
 
 if (!RAPIDAPI_KEY && !RENTCAST_KEY) {
   console.error('No data source configured. Provide either RAPIDAPI_KEY (Zillow) or RENTCAST_API_KEY (Rentcast).');
@@ -351,11 +352,40 @@ async function sendEmailSummary(body: string, hotDeals: string[]) {
   });
 }
 
+// ── Load scan config from Supabase (CRM settings override env vars) ───────────
+
+async function loadScanConfigFromDB(): Promise<void> {
+  try {
+    const { data } = await supabase
+      .from('scan_config')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+    if (!data) { console.log('  [Config] No scan_config row found — using env vars.'); return; }
+    if (data.enabled === false) {
+      console.log('Morning scan is disabled in CRM settings. Set "Scan Enabled" to ON in the Deal Scanner → Settings tab.');
+      process.exit(0);
+    }
+    const dbMarkets = (data.markets ?? '').split(',').map((m: string) => m.trim()).filter(Boolean);
+    if (dbMarkets.length > 0)  MARKETS = dbMarkets;
+    if (data.min_beds  != null) MIN_BEDS  = data.min_beds;
+    if (data.max_price != null) MAX_PRICE = data.max_price;
+    if (data.min_score != null) MIN_SCORE = data.min_score;
+    if (data.rentcast_monthly_limit != null) RENTCAST_MONTHLY_LIMIT = data.rentcast_monthly_limit;
+    console.log('  [Config] Loaded settings from CRM (Supabase scan_config).');
+  } catch (err) {
+    console.warn(`  [Config] Could not load CRM settings: ${err instanceof Error ? err.message : err}. Using env vars.`);
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
+  // Load CRM settings (overrides GitHub Variables if scan_config table is populated)
+  await loadScanConfigFromDB();
+
   if (MARKETS.length === 0) {
-    console.error('No markets configured. Set SCAN_MARKETS in GitHub Variables.');
+    console.error('No markets configured. Add markets in the CRM Deal Scanner → Settings tab, or set SCAN_MARKETS in GitHub Variables.');
     console.error('Example: "Gatlinburg TN, Blue Ridge GA, Asheville NC"');
     process.exit(1);
   }

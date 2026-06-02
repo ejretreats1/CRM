@@ -2,10 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Plus, Search, Sparkles, Loader, Edit2, Trash2, ExternalLink,
   X, ChevronDown, MapPin, AlertTriangle, CheckCircle2,
-  Building2, Info, ScanSearch, Home,
+  Building2, Info, ScanSearch, Home, Settings, ToggleLeft, ToggleRight, Save,
 } from 'lucide-react';
 import type { Deal, DealStage, StrRegStatus } from '../types';
 import { fetchDeals, upsertDeal, deleteDeal } from '../services/deals';
+import { fetchScanConfig, saveScanConfig, DEFAULT_SCAN_CONFIG } from '../services/db';
+import type { ScanConfig } from '../services/db';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -707,7 +709,7 @@ interface ScanResult {
 // ── Main Component ────────────────────────────────────────────────────────
 
 export default function DealScanner() {
-  const [tab, setTab] = useState<'scan' | 'deals' | 'pipeline' | 'markets'>('scan');
+  const [tab, setTab] = useState<'scan' | 'deals' | 'pipeline' | 'markets' | 'settings'>('scan');
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -742,11 +744,18 @@ export default function DealScanner() {
     parseInt(localStorage.getItem(rentcastMonthKey) ?? '0')
   );
 
+  const [scanConfig, setScanConfig] = useState<ScanConfig>({ ...DEFAULT_SCAN_CONFIG });
+  const [scanConfigSaving, setScanConfigSaving] = useState(false);
+  const [scanConfigSaved, setScanConfigSaved] = useState(false);
+  const [scanConfigError, setScanConfigError] = useState('');
+  const [newMarketInput, setNewMarketInput] = useState('');
+
   useEffect(() => {
     fetchDeals()
       .then(setDeals)
       .catch(e => setError(e.message ?? 'Failed to load deals. Make sure the deals table exists in Supabase.'))
       .finally(() => setLoading(false));
+    fetchScanConfig().then(setScanConfig).catch(() => {});
   }, []);
 
   const filteredDeals = useMemo(() => {
@@ -905,7 +914,7 @@ export default function DealScanner() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-5 overflow-x-auto">
-        {(['scan', 'deals', 'pipeline', 'markets'] as const).map(t => (
+        {(['scan', 'deals', 'pipeline', 'markets', 'settings'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -913,10 +922,11 @@ export default function DealScanner() {
               tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            {t === 'scan' && <><ScanSearch size={13} /> Scan Zillow</>}
+            {t === 'scan' && <><ScanSearch size={13} /> Scan</>}
             {t === 'deals' && `Deals (${deals.length})`}
             {t === 'pipeline' && 'Pipeline'}
             {t === 'markets' && `Markets (${markets.length})`}
+            {t === 'settings' && <><Settings size={13} /> Morning Scan</>}
           </button>
         ))}
       </div>
@@ -1352,6 +1362,187 @@ export default function DealScanner() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Morning Scan Settings Tab ── */}
+      {tab === 'settings' && (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-slate-800">Morning Scan Settings</p>
+              <p className="text-xs text-slate-500 mt-0.5">Runs daily at 8am EST. Changes take effect on the next run.</p>
+            </div>
+            <button
+              onClick={() => {
+                setScanConfig(c => ({ ...c, enabled: !c.enabled }));
+              }}
+              className="flex items-center gap-2 text-sm font-medium"
+            >
+              {scanConfig.enabled
+                ? <><ToggleRight size={24} className="text-teal-500" /><span className="text-teal-700">Enabled</span></>
+                : <><ToggleLeft size={24} className="text-slate-400" /><span className="text-slate-500">Disabled</span></>
+              }
+            </button>
+          </div>
+
+          {/* Markets */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Markets to Scan</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {scanConfig.markets.map((m, i) => (
+                <span key={i} className="flex items-center gap-1 bg-teal-50 text-teal-800 text-xs font-medium px-2.5 py-1 rounded-full border border-teal-200">
+                  {m}
+                  <button
+                    onClick={() => setScanConfig(c => ({ ...c, markets: c.markets.filter((_, j) => j !== i) }))}
+                    className="ml-0.5 text-teal-400 hover:text-red-500 transition-colors"
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+              {scanConfig.markets.length === 0 && (
+                <p className="text-xs text-slate-400 italic">No markets added yet.</p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newMarketInput}
+                onChange={e => setNewMarketInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newMarketInput.trim()) {
+                    setScanConfig(c => ({ ...c, markets: [...c.markets, newMarketInput.trim()] }));
+                    setNewMarketInput('');
+                  }
+                }}
+                placeholder='e.g. Gatlinburg TN'
+                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-400"
+              />
+              <button
+                onClick={() => {
+                  if (!newMarketInput.trim()) return;
+                  setScanConfig(c => ({ ...c, markets: [...c.markets, newMarketInput.trim()] }));
+                  setNewMarketInput('');
+                }}
+                disabled={!newMarketInput.trim()}
+                className="bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
+              >
+                <Plus size={12} /> Add
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-2">Format: <code className="bg-slate-100 px-1 rounded">City ST</code> — e.g. <em>Gatlinburg TN</em>, <em>Blue Ridge GA</em>. Each market = 1 Rentcast call per day.</p>
+          </div>
+
+          {/* Criteria */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">Scan Criteria</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Min Bedrooms</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" min={1} max={10}
+                    value={scanConfig.minBeds}
+                    onChange={e => setScanConfig(c => ({ ...c, minBeds: parseInt(e.target.value) || 2 }))}
+                    className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  />
+                  <span className="text-xs text-slate-400">beds+</span>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Max Price</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                  <input
+                    type="text"
+                    value={scanConfig.maxPrice.toLocaleString()}
+                    onChange={e => {
+                      const v = parseInt(e.target.value.replace(/,/g, ''));
+                      if (!isNaN(v)) setScanConfig(c => ({ ...c, maxPrice: v }));
+                    }}
+                    className="w-full border border-slate-200 rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Min AI Score (1–10)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" min={1} max={10}
+                    value={scanConfig.minScore}
+                    onChange={e => setScanConfig(c => ({ ...c, minScore: parseInt(e.target.value) || 6 }))}
+                    className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  />
+                  <span className="text-xs text-slate-400">/ 10</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Rentcast budget */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Rentcast Monthly Budget</p>
+            <p className="text-xs text-slate-400 mb-3">Max automated scan calls per month. Free tier = 50 total. Leave room for manual scans.</p>
+            <div className="flex items-center gap-3">
+              <input
+                type="number" min={1} max={50}
+                value={scanConfig.rentcastMonthlyLimit}
+                onChange={e => setScanConfig(c => ({ ...c, rentcastMonthlyLimit: parseInt(e.target.value) || 40 }))}
+                className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-400"
+              />
+              <span className="text-xs text-slate-500">/ 50 automated calls per month</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-2">
+              Tip: with {scanConfig.markets.length || 1} market{scanConfig.markets.length !== 1 ? 's' : ''}, daily scanning uses ~{(scanConfig.markets.length || 1) * 30} calls/month.
+              {(scanConfig.markets.length || 1) * 30 > scanConfig.rentcastMonthlyLimit && (
+                <span className="text-amber-600 font-medium"> Reduce markets or increase the budget.</span>
+              )}
+            </p>
+          </div>
+
+          {/* Save */}
+          {scanConfigError && <p className="text-xs text-red-600">{scanConfigError}</p>}
+          <button
+            onClick={async () => {
+              setScanConfigSaving(true);
+              setScanConfigError('');
+              setScanConfigSaved(false);
+              try {
+                await saveScanConfig(scanConfig);
+                setScanConfigSaved(true);
+                setTimeout(() => setScanConfigSaved(false), 3000);
+              } catch (err) {
+                setScanConfigError(err instanceof Error ? err.message : 'Save failed. Make sure the scan_config table exists in Supabase.');
+              } finally {
+                setScanConfigSaving(false);
+              }
+            }}
+            disabled={scanConfigSaving}
+            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+          >
+            {scanConfigSaving ? <Loader size={14} className="animate-spin" /> : <Save size={14} />}
+            {scanConfigSaved ? 'Saved!' : scanConfigSaving ? 'Saving…' : 'Save Settings'}
+          </button>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <p className="text-xs font-semibold text-slate-600 mb-2">One-time Supabase setup</p>
+            <p className="text-xs text-slate-500 mb-2">Run this SQL once in your Supabase SQL editor to create the settings table:</p>
+            <pre className="text-[10px] bg-white border border-slate-200 rounded-lg p-3 overflow-x-auto text-slate-700 leading-relaxed">{`create table if not exists scan_config (
+  id integer primary key default 1,
+  markets text not null default '',
+  min_beds integer not null default 2,
+  max_price integer not null default 600000,
+  min_score integer not null default 6,
+  rentcast_monthly_limit integer not null default 40,
+  enabled boolean not null default true,
+  updated_at timestamptz default now()
+);
+insert into scan_config (id) values (1) on conflict do nothing;
+alter table scan_config enable row level security;
+create policy "anon read" on scan_config for select to anon using (true);
+create policy "anon write" on scan_config for all to anon using (true);`}</pre>
           </div>
         </div>
       )}
