@@ -83,6 +83,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // ── Rentcast scan proxy (free tier — sign up at rentcast.io) ─────────────
+  if (service === 'rentcast-scan') {
+    const rentcastKey = req.headers['x-rentcast-key'];
+    if (!rentcastKey || typeof rentcastKey !== 'string')
+      return res.status(401).json({ error: 'Missing Rentcast API key. Sign up free at rentcast.io.' });
+
+    const { location, bedsMin, priceMax } = req.query;
+    if (!location || typeof location !== 'string') return res.status(400).json({ error: 'location is required' });
+
+    const params = new URLSearchParams({ status: 'Active', limit: '50' });
+
+    // Parse "City ST", "City, ST", or 5-digit zip
+    const loc = location.trim();
+    if (/^\d{5}$/.test(loc)) {
+      params.set('zipCode', loc);
+    } else {
+      // Split on last 2-letter token (state abbreviation)
+      const m = loc.match(/^(.+?)[\s,]+([A-Za-z]{2})$/);
+      if (m) { params.set('city', m[1].trim()); params.set('state', m[2].toUpperCase()); }
+      else { params.set('city', loc); }
+    }
+
+    if (bedsMin && typeof bedsMin === 'string') params.set('bedrooms', bedsMin);
+
+    try {
+      const rc = await fetch(`https://api.rentcast.io/v1/listings/sale?${params}`, {
+        headers: { 'X-Api-Key': rentcastKey, Accept: 'application/json' },
+      });
+      if (!rc.ok) {
+        const txt = await rc.text().catch(() => '');
+        return res.status(rc.status).json({ error: `Rentcast error: ${txt.slice(0, 200)}` });
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: any = await rc.json();
+      const items: any[] = Array.isArray(data) ? data : (data.listings ?? data.results ?? []);
+      const maxP = priceMax ? parseInt(String(priceMax).replace(/,/g, '')) : null;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const listings = items.filter((p: any) => !maxP || (p.price ?? 0) <= maxP).map((p: any) => ({
+        zpid:          p.id ?? '',
+        address:       p.formattedAddress ?? `${p.addressLine1 ?? ''}, ${p.city ?? ''}, ${p.state ?? ''}`,
+        price:         Number(p.price) || 0,
+        bedrooms:      p.bedrooms  != null ? Number(p.bedrooms)  : null,
+        bathrooms:     p.bathrooms != null ? Number(p.bathrooms) : null,
+        homeType:      p.propertyType ?? '',
+        imgSrc:        null,
+        zillowUrl:     p.listingUrl ?? '',
+        zestimate:     null,
+        rentZestimate: null,
+        daysOnZillow:  p.daysOnMarket ?? null,
+        listingType:   'Standard',
+      }));
+
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.status(200).json({ listings, total: listings.length });
+    } catch (err) {
+      return res.status(500).json({ error: err instanceof Error ? err.message : 'Rentcast scan failed' });
+    }
+  }
+
   // ── Zillow scan proxy ──────────────────────────────────────────
   if (service === 'zillow-scan') {
     const rapidApiKey = process.env.RAPIDAPI_KEY;

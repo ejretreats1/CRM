@@ -725,9 +725,10 @@ export default function DealScanner() {
   const [scanLocation, setScanLocation] = useState('');
   const [scanMaxPrice, setScanMaxPrice] = useState('');
   const [scanMinBeds, setScanMinBeds] = useState('2');
-  const [scanHomeType, setScanHomeType] = useState('');
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [rentcastKey, setRentcastKey] = useState(() => localStorage.getItem('ej_rentcast_key') ?? '');
+  const [rentcastInput, setRentcastInput] = useState('');
   const [scanError, setScanError] = useState('');
   const [scanTotal, setScanTotal] = useState<number | null>(null);
 
@@ -789,16 +790,18 @@ export default function DealScanner() {
 
   async function runScan() {
     if (!scanLocation.trim()) return;
+    if (!rentcastKey) { setScanError('Enter your Rentcast API key to scan.'); return; }
     setScanning(true);
     setScanError('');
     setScanResults([]);
     setScanTotal(null);
     try {
-      const params = new URLSearchParams({ service: 'zillow-scan', location: scanLocation.trim() });
-      if (scanMinBeds)   params.set('bedsMin', scanMinBeds);
-      if (scanMaxPrice)  params.set('priceMax', scanMaxPrice.replace(/,/g, ''));
-      if (scanHomeType)  params.set('homeType', scanHomeType);
-      const r = await fetch(`/api/uplisting-proxy?${params}`);
+      const params = new URLSearchParams({ service: 'rentcast-scan', location: scanLocation.trim() });
+      if (scanMinBeds)  params.set('bedsMin', scanMinBeds);
+      if (scanMaxPrice) params.set('priceMax', scanMaxPrice.replace(/,/g, ''));
+      const r = await fetch(`/api/uplisting-proxy?${params}`, {
+        headers: { 'x-rentcast-key': rentcastKey },
+      });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? 'Scan failed');
       setScanResults(data.listings ?? []);
@@ -911,14 +914,51 @@ export default function DealScanner() {
       {/* ── Scan Tab ── */}
       {tab === 'scan' && (
         <div>
-          {/* Setup info */}
-          <div className="mb-5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm">
-            <p className="font-semibold text-blue-800 mb-1">Setup: Add your RapidAPI key</p>
-            <p className="text-blue-700 text-xs leading-relaxed">
-              Sign up free at <strong>rapidapi.com</strong>, subscribe to the <strong>"Zillow56" or "zillow-com1"</strong> API (free tier: ~50 req/day),
-              then add <code className="bg-blue-100 px-1 rounded">RAPIDAPI_KEY=your_key</code> to your Vercel environment variables.
-            </p>
-          </div>
+          {/* Rentcast key setup */}
+          {!rentcastKey ? (
+            <div className="mb-5 bg-teal-50 border border-teal-200 rounded-xl px-4 py-4 text-sm">
+              <p className="font-semibold text-teal-800 mb-1">Connect Rentcast to start scanning</p>
+              <p className="text-teal-700 text-xs leading-relaxed mb-3">
+                Rentcast is <strong>free</strong> — sign up with just your email at{' '}
+                <a href="https://rentcast.io" target="_blank" rel="noopener noreferrer" className="underline font-medium">rentcast.io</a>,
+                grab your API key from the dashboard, and paste it below. Free tier: 50 searches/month.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={rentcastInput}
+                  onChange={e => setRentcastInput(e.target.value)}
+                  placeholder="Paste your Rentcast API key…"
+                  className="flex-1 border border-teal-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                />
+                <button
+                  onClick={() => {
+                    const k = rentcastInput.trim();
+                    if (!k) return;
+                    localStorage.setItem('ej_rentcast_key', k);
+                    setRentcastKey(k);
+                    setRentcastInput('');
+                  }}
+                  disabled={!rentcastInput.trim()}
+                  className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
+                >
+                  Save Key
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-5 flex items-center justify-between bg-teal-50 border border-teal-200 rounded-xl px-4 py-2.5">
+              <span className="text-xs text-teal-700 font-medium flex items-center gap-1.5">
+                <CheckCircle2 size={13} className="text-teal-500" /> Rentcast connected
+              </span>
+              <button
+                onClick={() => { localStorage.removeItem('ej_rentcast_key'); setRentcastKey(''); }}
+                className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+              >
+                Disconnect
+              </button>
+            </div>
+          )}
 
           {/* Scan filters */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 mb-5">
@@ -956,24 +996,10 @@ export default function DealScanner() {
                   {['1','2','3','4','5'].map(n => <option key={n} value={n}>{n}+</option>)}
                 </select>
               </div>
-              <div>
-                <label className="text-xs text-slate-500 mb-1 block">Home Type</label>
-                <select
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
-                  value={scanHomeType}
-                  onChange={e => setScanHomeType(e.target.value)}
-                >
-                  <option value="">Any</option>
-                  <option value="Houses">Houses</option>
-                  <option value="Multi-family">Multi-family</option>
-                  <option value="Condos/Co-ops">Condos</option>
-                  <option value="Townhomes">Townhomes</option>
-                </select>
-              </div>
               <div className="flex items-end">
                 <button
                   onClick={runScan}
-                  disabled={scanning || !scanLocation.trim()}
+                  disabled={scanning || !scanLocation.trim() || !rentcastKey}
                   className="flex items-center gap-2 bg-teal-600 text-white text-sm font-medium px-5 py-2 rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {scanning ? <Loader size={14} className="animate-spin" /> : <ScanSearch size={14} />}
