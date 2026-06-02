@@ -1,22 +1,14 @@
 name: Morning Deal Scan
 
 on:
-  # 8:00 AM Eastern time = 13:00 UTC (during EST, UTC-5)
-  # Change to 12:00 UTC in summer (EDT, UTC-4)
   schedule:
-    - cron: '0 13 * * *'
-
-  # Allow manual trigger from the GitHub Actions UI at any time
+    - cron: '0 13 * * *'   # 8:00 AM EST (UTC-5). Change to '0 12 * * *' in summer (EDT)
   workflow_dispatch:
     inputs:
       markets:
-        description: 'Override markets (comma-separated). Leave blank to use SCAN_MARKETS variable.'
+        description: 'Override markets (comma-separated). Blank = use SCAN_MARKETS variable.'
         required: false
         default: ''
-      dry_run:
-        description: 'Dry run — score deals but do not save to CRM'
-        type: boolean
-        default: false
 
 jobs:
   scan:
@@ -40,25 +32,37 @@ jobs:
       - name: Run morning deal scan
         run: npx tsx scripts/morning-deal-scan.ts
         env:
-          # Required secrets — set these in GitHub → Settings → Secrets → Actions
+          # ── Required secrets ──────────────────────────────────────────────
+          # Set these in: GitHub repo → Settings → Secrets → Actions
           ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
-          RAPIDAPI_KEY:         ${{ secrets.RAPIDAPI_KEY }}
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
-          # Required variable — set in GitHub → Settings → Variables → Actions
-          # Example: "Gatlinburg TN, Blue Ridge GA, Asheville NC"
+          # ── Data source: provide ONE of these two ─────────────────────────
+          #
+          # Option A — Zillow via RapidAPI (free tier: 100 req/month)
+          #   Already in your Vercel env if the CRM's Deal Scanner works.
+          #   Just copy it to GitHub Secrets with the name RAPIDAPI_KEY.
+          #   RapidAPI signup (free): https://rapidapi.com
+          #
+          # Option B — Rentcast (free tier: 50 req/month, ~$9/mo for 500)
+          #   Sign up free at https://rentcast.io — email only, no credit card.
+          #   Add your key to GitHub Secrets as RENTCAST_API_KEY.
+          #
+          RAPIDAPI_KEY:         ${{ secrets.RAPIDAPI_KEY }}
+          RENTCAST_API_KEY:     ${{ secrets.RENTCAST_API_KEY }}
+
+          # ── Required variable ─────────────────────────────────────────────
+          # Set in: GitHub repo → Settings → Variables → Actions
+          # Example value: "Gatlinburg TN, Blue Ridge GA, Asheville NC"
           SCAN_MARKETS: ${{ inputs.markets || vars.SCAN_MARKETS }}
 
-          # Optional variables (all have defaults)
+          # ── Optional variables (all have defaults) ────────────────────────
           SCAN_MIN_BEDS:   ${{ vars.SCAN_MIN_BEDS }}    # default: 2
           SCAN_MAX_PRICE:  ${{ vars.SCAN_MAX_PRICE }}   # default: 600000
           SCAN_MIN_SCORE:  ${{ vars.SCAN_MIN_SCORE }}   # default: 6
           SCAN_MODEL:      ${{ vars.SCAN_MODEL }}       # default: claude-haiku-4-5-20251001
-          REDFIN_ENABLED:  ${{ vars.REDFIN_ENABLED }}   # set to "true" to also scan Redfin
 
-          # Optional email notification (both required if you want email)
+          # ── Optional email notification ───────────────────────────────────
           NOTIFY_EMAIL:    ${{ secrets.NOTIFY_EMAIL }}
           RESEND_API_KEY:  ${{ secrets.RESEND_API_KEY }}
-
-          DRY_RUN: ${{ inputs.dry_run }}
