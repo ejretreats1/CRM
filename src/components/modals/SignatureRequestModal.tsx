@@ -1,8 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, FileText, Send, X, ArrowRight, ArrowLeft, Copy, Check } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+import { Upload, FileText, Send, X, ArrowRight, ArrowLeft, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import Modal from './Modal';
 import { uploadDocument } from '../../services/signatures';
 import type { Owner } from '../../types';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).href;
 
 interface SignatureRequestModalProps {
   owner: Owner;
@@ -13,31 +19,39 @@ interface SignatureRequestModalProps {
 }
 
 interface FieldPos {
-  x: number; // 0–1 fraction of page width from left
-  y: number; // 0–1 fraction of page height from top
+  x: number; // 0–1 fraction of page width
+  y: number; // 0–1 fraction of page height
 }
 
 type Step = 'form' | 'placement' | 'sending' | 'done' | 'error';
 
 export default function SignatureRequestModal({ owner, onSent, onClose, prefillDocUrl, prefillDocName }: SignatureRequestModalProps) {
-  const [file, setFile] = useState<File | null>(null);
+  const [file, setFile]               = useState<File | null>(null);
   const [documentName, setDocumentName] = useState(prefillDocName ?? 'Management Agreement');
-  const [email, setEmail] = useState(owner.email);
-  const [step, setStep] = useState<Step>(prefillDocUrl ? 'placement' : 'form');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [sentToken, setSentToken] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState('');
-  const [scrollMode, setScrollMode] = useState(true); // true = scroll PDF, false = place fields
-  const [dragOver, setDragOver] = useState(false);
+  const [email, setEmail]             = useState(owner.email);
+  const [step, setStep]               = useState<Step>(prefillDocUrl ? 'placement' : 'form');
+  const [errorMsg, setErrorMsg]       = useState('');
+  const [sentToken, setSentToken]     = useState('');
+  const [copied, setCopied]           = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl]   = useState('');
+  const [dragOver, setDragOver]       = useState(false);
+
+  // PDF.js state
+  const [pdfDoc, setPdfDoc]       = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0); // 0-indexed
+  const canvasRef     = useRef<HTMLCanvasElement>(null);
+  const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
 
   // Drag positions (fraction 0–1 from top-left of page)
-  const [sigPos, setSigPos] = useState<FieldPos>({ x: 0.08, y: 0.78 });
+  const [sigPos, setSigPos]   = useState<FieldPos>({ x: 0.08, y: 0.78 });
   const [datePos, setDatePos] = useState<FieldPos>({ x: 0.55, y: 0.78 });
 
-  const fileRef = useRef<HTMLInputElement>(null);
-  const pageRef = useRef<HTMLDivElement>(null);
-  const dragging = useRef<'sig' | 'date' | null>(null);
+  const fileRef    = useRef<HTMLInputElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const dragging   = useRef<'sig' | 'date' | null>(null);
+
+  // ── Create blob URL when file changes ─────────────────────────────────────
 
   useEffect(() => {
     if (!file) return;
@@ -46,10 +60,61 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  // ── Load PDF with pdfjs ───────────────────────────────────────────────────
+
+  useEffect(() => {
+    const src = prefillDocUrl || pdfBlobUrl;
+    if (!src) return;
+
+    let cancelled = false;
+    pdfjsLib.getDocument(src).promise
+      .then(doc => {
+        if (cancelled) return;
+        setPdfDoc(doc);
+        setTotalPages(doc.numPages);
+        setCurrentPage(doc.numPages - 1); // default to last page — where sigs go
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [prefillDocUrl, pdfBlobUrl]);
+
+  // ── Render current page onto canvas ──────────────────────────────────────
+
+  const renderPage = useCallback(async (doc: pdfjsLib.PDFDocumentProxy, pageIdx: number) => {
+    if (!canvasRef.current) return;
+
+    if (renderTaskRef.current) {
+      try { renderTaskRef.current.cancel(); } catch {}
+      renderTaskRef.current = null;
+    }
+
+    const page      = await doc.getPage(pageIdx + 1);
+    const canvas    = canvasRef.current;
+    const container = canvas.parentElement;
+    const containerWidth = container?.clientWidth ?? 400;
+
+    const baseVP     = page.getViewport({ scale: 1 });
+    const scale      = containerWidth / baseVP.width;
+    const scaledVP   = page.getViewport({ scale });
+
+    canvas.width  = scaledVP.width;
+    canvas.height = scaledVP.height;
+
+    const ctx = canvas.getContext('2d')!;
+    renderTaskRef.current = page.render({ canvas, canvasContext: ctx, viewport: scaledVP });
+    try { await renderTaskRef.current.promise; } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (pdfDoc) renderPage(pdfDoc, currentPage);
+  }, [pdfDoc, currentPage, renderPage]);
+
+  // ── File handling ─────────────────────────────────────────────────────────
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (!f) return;
-    acceptFile(f);
+    if (f) acceptFile(f);
   };
 
   function acceptFile(f: File) {
@@ -69,18 +134,21 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
     setStep('placement');
   };
 
+  // ── Drag logic ────────────────────────────────────────────────────────────
+
   const getRelativePos = useCallback((e: MouseEvent): FieldPos | null => {
-    if (!pageRef.current) return null;
-    const rect = pageRef.current.getBoundingClientRect();
+    if (!overlayRef.current) return null;
+    const rect = overlayRef.current.getBoundingClientRect();
     return {
-      x: Math.max(0.01, Math.min(0.95, (e.clientX - rect.left) / rect.width)),
-      y: Math.max(0.01, Math.min(0.97, (e.clientY - rect.top) / rect.height)),
+      x: Math.max(0.01, Math.min(0.95, (e.clientX - rect.left)  / rect.width)),
+      y: Math.max(0.01, Math.min(0.97, (e.clientY - rect.top)   / rect.height)),
     };
   }, []);
 
   const startDrag = useCallback((type: 'sig' | 'date') => (e: React.MouseEvent) => {
     e.preventDefault();
     dragging.current = type;
+
     const onMove = (ev: MouseEvent) => {
       const pos = getRelativePos(ev);
       if (!pos) return;
@@ -96,6 +164,8 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
     window.addEventListener('mouseup', onUp);
   }, [getRelativePos]);
 
+  // ── Submit ────────────────────────────────────────────────────────────────
+
   const handleSubmit = async () => {
     if (!prefillDocUrl && !file) return;
     try {
@@ -107,14 +177,14 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'send',
-          ownerId: owner.id,
-          ownerName: owner.name,
+          ownerId:      owner.id,
+          ownerName:    owner.name,
           documentUrl,
           documentName,
-          sentToEmail: email,
-          appUrl: window.location.origin,
-          sigX: sigPos.x,
-          sigY: sigPos.y,
+          sentToEmail:  email,
+          appUrl:       window.location.origin,
+          sigX:  sigPos.x,
+          sigY:  sigPos.y,
           dateX: datePos.x,
           dateY: datePos.y,
         }),
@@ -135,7 +205,8 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
     }
   };
 
-  // ── Done ────────────────────────────────────────────────────────────────────
+  // ── Done ──────────────────────────────────────────────────────────────────
+
   if (step === 'done') {
     return (
       <Modal title="Send Document for Signature" onClose={onClose}>
@@ -158,80 +229,71 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
               {copied ? 'Copied!' : 'Copy Signing Link'}
             </button>
           )}
-          <button onClick={onClose} className="text-sm text-teal-600 hover:text-teal-700 font-medium mt-1">
-            Done
-          </button>
+          <button onClick={onClose} className="text-sm text-teal-600 hover:text-teal-700 font-medium mt-1">Done</button>
         </div>
       </Modal>
     );
   }
 
-  // ── Placement step ───────────────────────────────────────────────────────────
+  // ── Placement ─────────────────────────────────────────────────────────────
+
   if (step === 'placement' || step === 'sending' || step === 'error') {
     return (
       <Modal title="Place Signature Fields" onClose={onClose} size="lg">
         <div className="space-y-3">
-          {/* Mode toggle */}
-          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setScrollMode(true)}
-              className={`flex-1 py-2 transition-colors ${scrollMode ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
-            >
-              Scroll PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => setScrollMode(false)}
-              className={`flex-1 py-2 transition-colors ${!scrollMode ? 'bg-teal-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
-            >
-              Place Fields
-            </button>
-          </div>
-
           <p className="text-xs text-slate-500">
-            {scrollMode
-              ? 'Scroll to the signature page, then click "Place Fields" to drag the boxes.'
-              : <>Drag the <span className="font-medium text-teal-700">Signature</span> and <span className="font-medium text-blue-600">Date</span> boxes to where you want them.</>
-            }
+            Drag the <span className="font-medium text-teal-700">✍ Signature</span> and <span className="font-medium text-blue-600">📅 Date</span> boxes to their exact positions on the page. Navigate pages with the arrows below if needed.
           </p>
 
-          {/* Page preview: PDF iframe behind + drag overlay in front */}
+          {/* PDF canvas + drag overlay */}
           <div className="flex justify-center">
-            <div
-              className="relative border border-slate-200 shadow-lg bg-white overflow-hidden"
-              style={{ width: '100%', maxWidth: 400, aspectRatio: '8.5 / 11' }}
-            >
-              {(prefillDocUrl || pdfBlobUrl) && (
-                <iframe
-                  src={prefillDocUrl ? `${prefillDocUrl}#toolbar=0&navpanes=0` : `${pdfBlobUrl}#toolbar=0&navpanes=0`}
-                  className="absolute inset-0 w-full h-full border-none"
-                  style={{ pointerEvents: scrollMode ? 'auto' : 'none' }}
-                  title="PDF preview"
-                />
-              )}
+            <div className="relative border border-slate-200 shadow-md bg-white w-full" style={{ maxWidth: 400 }}>
+              {/* Rendered PDF page */}
+              <canvas ref={canvasRef} style={{ display: 'block', width: '100%' }} />
 
-              {/* Drag capture layer */}
+              {/* Field drag layer — sits exactly on top of the canvas */}
               <div
-                ref={pageRef}
-                className="absolute inset-0"
-                style={{ pointerEvents: scrollMode ? 'none' : 'auto' }}
+                ref={overlayRef}
+                className="absolute inset-0 cursor-crosshair"
                 onDragStart={e => e.preventDefault()}
               >
-                <DragBox label="✍ Signature" color="teal" pos={sigPos} onMouseDown={startDrag('sig')} dimmed={scrollMode} />
-                <DragBox label="📅 Date"      color="blue" pos={datePos} onMouseDown={startDrag('date')} dimmed={scrollMode} />
+                <DragBox label="✍ Signature" color="teal" pos={sigPos} onMouseDown={startDrag('sig')} />
+                <DragBox label="📅 Date"      color="blue" pos={datePos} onMouseDown={startDrag('date')} />
               </div>
             </div>
           </div>
 
-          {(step === 'error' && errorMsg) && (
+          {/* Page navigation */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 text-sm text-slate-600">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="p-1 rounded hover:bg-slate-100 disabled:opacity-30 transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-xs font-medium">Page {currentPage + 1} of {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage === totalPages - 1}
+                className="p-1 rounded hover:bg-slate-100 disabled:opacity-30 transition-colors"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+
+          {step === 'error' && errorMsg && (
             <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{errorMsg}</p>
           )}
 
           <div className="flex gap-3 pt-1">
             <button
               type="button"
-              onClick={() => { if (prefillDocUrl) { onClose(); } else { setStep('form'); setErrorMsg(''); } }}
+              onClick={() => { if (prefillDocUrl) onClose(); else { setStep('form'); setErrorMsg(''); } }}
               className="flex items-center gap-1.5 border border-slate-200 text-slate-600 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-slate-100 transition-colors"
             >
               <ArrowLeft size={14} /> {prefillDocUrl ? 'Cancel' : 'Back'}
@@ -251,7 +313,8 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
     );
   }
 
-  // ── Form step ────────────────────────────────────────────────────────────────
+  // ── Form ──────────────────────────────────────────────────────────────────
+
   return (
     <Modal title="Send Document for Signature" onClose={onClose}>
       <form onSubmit={handleNextToPlacement} className="space-y-4">
@@ -268,9 +331,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
               if (f) acceptFile(f);
             }}
             className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-              dragOver
-                ? 'border-teal-400 bg-teal-50'
-                : 'border-slate-200 hover:border-teal-400 hover:bg-teal-50'
+              dragOver ? 'border-teal-400 bg-teal-50' : 'border-slate-200 hover:border-teal-400 hover:bg-teal-50'
             }`}
           >
             {file ? (
@@ -341,13 +402,12 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
 }
 
 function DragBox({
-  label, color, pos, onMouseDown, dimmed,
+  label, color, pos, onMouseDown,
 }: {
   label: string;
   color: 'teal' | 'blue';
   pos: FieldPos;
   onMouseDown: (e: React.MouseEvent) => void;
-  dimmed?: boolean;
 }) {
   const cls = color === 'teal'
     ? 'bg-teal-500/90 border-teal-600 text-white'
@@ -357,15 +417,13 @@ function DragBox({
     <div
       onMouseDown={onMouseDown}
       style={{
-        position: 'absolute',
-        left: `${pos.x * 100}%`,
-        top: `${pos.y * 100}%`,
+        position:  'absolute',
+        left:      `${pos.x * 100}%`,
+        top:       `${pos.y * 100}%`,
         transform: 'translate(-50%, -50%)',
-        cursor: dimmed ? 'default' : 'grab',
+        cursor:    'grab',
         userSelect: 'none',
         touchAction: 'none',
-        opacity: dimmed ? 0.45 : 1,
-        transition: 'opacity 0.15s',
       }}
       className={`${cls} border text-xs font-semibold px-3 py-1.5 rounded-md shadow-lg whitespace-nowrap`}
     >
