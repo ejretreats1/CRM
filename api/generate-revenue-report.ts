@@ -5,23 +5,26 @@ import { z } from 'zod';
 
 export const config = { maxDuration: 120 };
 
+const OccupancyField    = z.number().min(0).max(100).nullable(); // whole number %, e.g. 65 not 0.65
+const OccupancyRequired = z.number().min(0).max(100);            // non-nullable version
+
 const MonthSchema = z.object({
   month: z.string(),
   revenue: z.number().nullable(),
-  occupancy: z.number().nullable(),
+  occupancy: OccupancyField,
 });
 
 const CompSchema = z.object({
   bedrooms: z.number().nullable(),
   annualRevenue: z.number().nullable(),
-  occupancyRate: z.number().nullable(),
+  occupancyRate: OccupancyField,
   adr: z.number().nullable(),
 });
 
 const StrReportSchema = z.object({
   extracted: z.object({
     projectedAnnualRevenue: z.number().nullable(),
-    occupancyRate: z.number().nullable(),
+    occupancyRate: OccupancyField,
     adr: z.number().nullable(),
     revpar: z.number().nullable(),
   }),
@@ -44,7 +47,7 @@ const MtrReportSchema = z.object({
   performanceGap: z.string().nullable(),
   strExtracted: z.object({
     projectedAnnualRevenue: z.number().nullable(),
-    occupancyRate: z.number().nullable(),
+    occupancyRate: OccupancyField,
     adr: z.number().nullable(),
   }),
   monthlySeasonality: z.array(MonthSchema).optional(),
@@ -52,7 +55,7 @@ const MtrReportSchema = z.object({
   mtrProjected: z.object({
     monthlyRent: z.number(),
     annualRevenue: z.number(),
-    occupancyRate: z.number(),
+    occupancyRate: OccupancyRequired,
     recommendedLeaseLength: z.string(),
     targetTenantProfile: z.string(),
   }),
@@ -74,7 +77,7 @@ const UnitSchema = z.object({
   bedrooms: z.number().nullable(),
   bathrooms: z.number().nullable(),
   projectedAnnualRevenue: z.number().nullable(),
-  occupancyRate: z.number().nullable(),
+  occupancyRate: OccupancyField,
   adr: z.number().nullable(),
   monthlySeasonality: z.array(MonthSchema).optional(),
   comparables: z.array(CompSchema).optional(),
@@ -85,7 +88,7 @@ const DealReportSchema = z.object({
   listingPrice: z.number(),
   units: z.array(UnitSchema),
   combinedAnnualRevenue: z.number(),
-  combinedOccupancyRate: z.number().nullable(),
+  combinedOccupancyRate: OccupancyField,
   grossYield: z.number(),
   revenueProjections: z.object({ conservative: z.number(), realistic: z.number(), optimistic: z.number() }),
   recommendation: z.enum(['strong-buy', 'buy', 'neutral', 'pass', 'strong-pass']),
@@ -116,7 +119,8 @@ RULES (apply to all sections):
 - If the property already has an amenity mentioned in the context, do NOT recommend adding it — acknowledge it as a strength.
 - When referencing property management software, refer to Uplisting only.
 - Do NOT include operating expenses, net operating income (NOI), or cap rate. Focus on gross revenue metrics only.
-- Do NOT use em dashes (—) anywhere in the output. Use commas, colons, or rewrite the sentence instead.`;
+- Do NOT use em dashes (—) anywhere in the output. Use commas, colons, or rewrite the sentence instead.
+- ALL occupancy rates must be whole number percentages between 0 and 100 (e.g. 65 for 65%). NEVER use decimals like 0.65.`;
 
 const seasonalityInstructions = `
 SEASONALITY & COMPARABLES (extract carefully from the PDF visuals):
