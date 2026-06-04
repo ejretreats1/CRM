@@ -120,8 +120,10 @@ export async function deleteOutreach(id: string): Promise<void> {
 export interface ScanConfig {
   markets: string[];
   minBeds: number;
+  minPrice: number;
   maxPrice: number;
   minScore: number;
+  propertyTypes: string[];
   rentcastMonthlyLimit: number;
   enabled: boolean;
 }
@@ -129,8 +131,10 @@ export interface ScanConfig {
 export const DEFAULT_SCAN_CONFIG: ScanConfig = {
   markets: [],
   minBeds: 2,
+  minPrice: 0,
   maxPrice: 600000,
   minScore: 6,
+  propertyTypes: [],
   rentcastMonthlyLimit: 40,
   enabled: true,
 };
@@ -139,25 +143,29 @@ export async function fetchScanConfig(): Promise<ScanConfig> {
   const { data } = await supabase.from('scan_config').select('*').eq('id', 1).maybeSingle();
   if (!data) return { ...DEFAULT_SCAN_CONFIG };
   return {
-    markets: (data.markets ?? '').split(',').map((m: string) => m.trim()).filter(Boolean),
-    minBeds: data.min_beds ?? 2,
-    maxPrice: data.max_price ?? 600000,
-    minScore: data.min_score ?? 6,
+    markets:              (data.markets ?? '').split(',').map((m: string) => m.trim()).filter(Boolean),
+    minBeds:              data.min_beds ?? 2,
+    minPrice:             data.min_price ?? 0,
+    maxPrice:             data.max_price ?? 600000,
+    minScore:             data.min_score ?? 6,
+    propertyTypes:        (data.property_types ?? '').split(',').map((t: string) => t.trim()).filter(Boolean),
     rentcastMonthlyLimit: data.rentcast_monthly_limit ?? 40,
-    enabled: data.enabled ?? true,
+    enabled:              data.enabled ?? true,
   };
 }
 
 export async function saveScanConfig(config: ScanConfig): Promise<void> {
   const { error } = await supabase.from('scan_config').upsert({
     id: 1,
-    markets: config.markets.join(', '),
-    min_beds: config.minBeds,
-    max_price: config.maxPrice,
-    min_score: config.minScore,
+    markets:                config.markets.join(', '),
+    min_beds:               config.minBeds,
+    min_price:              config.minPrice,
+    max_price:              config.maxPrice,
+    min_score:              config.minScore,
+    property_types:         config.propertyTypes.join(', '),
     rentcast_monthly_limit: config.rentcastMonthlyLimit,
-    enabled: config.enabled,
-    updated_at: new Date().toISOString(),
+    enabled:                config.enabled,
+    updated_at:             new Date().toISOString(),
   });
   if (error) throw error;
 }

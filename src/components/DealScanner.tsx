@@ -725,8 +725,10 @@ export default function DealScanner() {
 
   // Scan state
   const [scanLocation, setScanLocation] = useState('');
+  const [scanMinPrice, setScanMinPrice] = useState('');
   const [scanMaxPrice, setScanMaxPrice] = useState('');
   const [scanMinBeds, setScanMinBeds] = useState('2');
+  const [scanPropertyTypes, setScanPropertyTypes] = useState<string[]>([]);
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [scanning, setScanning] = useState(false);
   const [rentcastKey, setRentcastKey] = useState(() => localStorage.getItem('ej_rentcast_key') ?? '');
@@ -820,8 +822,10 @@ export default function DealScanner() {
     setScanTotal(null);
     try {
       const params = new URLSearchParams({ service: 'rentcast-scan', location: scanLocation.trim() });
-      if (scanMinBeds)  params.set('bedsMin', scanMinBeds);
-      if (scanMaxPrice) params.set('priceMax', scanMaxPrice.replace(/,/g, ''));
+      if (scanMinBeds)                    params.set('bedsMin', scanMinBeds);
+      if (scanMinPrice)                   params.set('priceMin', scanMinPrice.replace(/,/g, ''));
+      if (scanMaxPrice)                   params.set('priceMax', scanMaxPrice.replace(/,/g, ''));
+      if (scanPropertyTypes.length > 0)   params.set('propertyTypes', scanPropertyTypes.join(','));
       const r = await fetch(`/api/uplisting-proxy?${params}`, {
         headers: { 'x-rentcast-key': rentcastKey },
       });
@@ -1023,9 +1027,9 @@ export default function DealScanner() {
           {/* Scan filters */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 mb-5">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Search Criteria</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mb-3">
               <div className="flex-1 min-w-[200px]">
-                <label className="text-xs text-slate-500 mb-1 block">Location (zip code or "City, State")</label>
+                <label className="text-xs text-slate-500 mb-1 block">Location (zip or "City, State")</label>
                 <div className="relative">
                   <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -1038,9 +1042,18 @@ export default function DealScanner() {
                 </div>
               </div>
               <div>
+                <label className="text-xs text-slate-500 mb-1 block">Min Price ($)</label>
+                <input
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  placeholder="e.g. 100000"
+                  value={scanMinPrice}
+                  onChange={e => setScanMinPrice(e.target.value)}
+                />
+              </div>
+              <div>
                 <label className="text-xs text-slate-500 mb-1 block">Max Price ($)</label>
                 <input
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-teal-400"
                   placeholder="e.g. 800000"
                   value={scanMaxPrice}
                   onChange={e => setScanMaxPrice(e.target.value)}
@@ -1065,6 +1078,35 @@ export default function DealScanner() {
                   {scanning ? <Loader size={14} className="animate-spin" /> : <ScanSearch size={14} />}
                   {scanning ? 'Scanning...' : 'Scan'}
                 </button>
+              </div>
+            </div>
+            {/* Property type filter */}
+            <div>
+              <label className="text-xs text-slate-500 mb-1.5 block">Property Type <span className="font-normal">(leave blank for all)</span></label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { label: 'Single Family', value: 'Single Family' },
+                  { label: 'Multi-Family (Duplex/Triplex/Quad+)', value: 'Multi-Family' },
+                  { label: 'Condo', value: 'Condo' },
+                  { label: 'Townhouse', value: 'Townhouse' },
+                ].map(({ label, value }) => {
+                  const active = scanPropertyTypes.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setScanPropertyTypes(prev =>
+                        active ? prev.filter(t => t !== value) : [...prev, value]
+                      )}
+                      className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+                        active
+                          ? 'bg-teal-600 text-white border-teal-600'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-teal-400'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1438,9 +1480,9 @@ export default function DealScanner() {
           {/* Criteria */}
           <div className="bg-white rounded-xl border border-slate-200 p-4">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">Scan Criteria</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
               <div>
-                <label className="text-xs text-slate-500 block mb-1">Min Bedrooms</label>
+                <label className="text-xs text-slate-500 block mb-1">Min Beds</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number" min={1} max={10}
@@ -1448,7 +1490,23 @@ export default function DealScanner() {
                     onChange={e => setScanConfig(c => ({ ...c, minBeds: parseInt(e.target.value) || 2 }))}
                     className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-400"
                   />
-                  <span className="text-xs text-slate-400">beds+</span>
+                  <span className="text-xs text-slate-400">+</span>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">Min Price</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                  <input
+                    type="text"
+                    value={scanConfig.minPrice > 0 ? scanConfig.minPrice.toLocaleString() : ''}
+                    placeholder="0"
+                    onChange={e => {
+                      const v = parseInt(e.target.value.replace(/,/g, ''));
+                      setScanConfig(c => ({ ...c, minPrice: isNaN(v) ? 0 : v }));
+                    }}
+                    className="w-full border border-slate-200 rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  />
                 </div>
               </div>
               <div>
@@ -1467,7 +1525,7 @@ export default function DealScanner() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-slate-500 block mb-1">Min AI Score (1–10)</label>
+                <label className="text-xs text-slate-500 block mb-1">Min AI Score</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number" min={1} max={10}
@@ -1477,6 +1535,37 @@ export default function DealScanner() {
                   />
                   <span className="text-xs text-slate-400">/ 10</span>
                 </div>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 block mb-1.5">Property Types <span className="font-normal">(leave blank for all)</span></label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { label: 'Single Family', value: 'Single Family' },
+                  { label: 'Multi-Family (Duplex/Triplex/Quad+)', value: 'Multi-Family' },
+                  { label: 'Condo', value: 'Condo' },
+                  { label: 'Townhouse', value: 'Townhouse' },
+                ].map(({ label, value }) => {
+                  const active = scanConfig.propertyTypes.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setScanConfig(c => ({
+                        ...c,
+                        propertyTypes: active
+                          ? c.propertyTypes.filter(t => t !== value)
+                          : [...c.propertyTypes, value],
+                      }))}
+                      className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+                        active
+                          ? 'bg-teal-600 text-white border-teal-600'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-teal-400'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1533,8 +1622,10 @@ export default function DealScanner() {
   id integer primary key default 1,
   markets text not null default '',
   min_beds integer not null default 2,
+  min_price integer not null default 0,
   max_price integer not null default 600000,
   min_score integer not null default 6,
+  property_types text not null default '',
   rentcast_monthly_limit integer not null default 40,
   enabled boolean not null default true,
   updated_at timestamptz default now()
@@ -1542,7 +1633,11 @@ export default function DealScanner() {
 insert into scan_config (id) values (1) on conflict do nothing;
 alter table scan_config enable row level security;
 create policy "anon read" on scan_config for select to anon using (true);
-create policy "anon write" on scan_config for all to anon using (true);`}</pre>
+create policy "anon write" on scan_config for all to anon using (true);
+
+-- If you already ran the old SQL, add the new columns:
+alter table scan_config add column if not exists min_price integer not null default 0;
+alter table scan_config add column if not exists property_types text not null default '';`}</pre>
           </div>
         </div>
       )}

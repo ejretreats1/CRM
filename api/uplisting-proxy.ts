@@ -89,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rentcastKey || typeof rentcastKey !== 'string')
       return res.status(401).json({ error: 'Missing Rentcast API key. Sign up free at rentcast.io.' });
 
-    const { location, bedsMin, priceMax } = req.query;
+    const { location, bedsMin, priceMin, priceMax, propertyTypes } = req.query;
     if (!location || typeof location !== 'string') return res.status(400).json({ error: 'location is required' });
 
     const params = new URLSearchParams({ status: 'Active', limit: '50' });
@@ -106,6 +106,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (bedsMin && typeof bedsMin === 'string') params.set('bedrooms', bedsMin);
+    if (priceMin && typeof priceMin === 'string') params.set('minPrice', priceMin.replace(/,/g, ''));
+    if (priceMax && typeof priceMax === 'string') params.set('maxPrice', priceMax.replace(/,/g, ''));
+
+    // Property type filter — Rentcast accepts repeated propertyType params
+    if (propertyTypes && typeof propertyTypes === 'string') {
+      propertyTypes.split(',').map(t => t.trim()).filter(Boolean).forEach(t => params.append('propertyType', t));
+    }
 
     try {
       const rc = await fetch(`https://api.rentcast.io/v1/listings/sale?${params}`, {
@@ -118,10 +125,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data: any = await rc.json();
       const items: any[] = Array.isArray(data) ? data : (data.listings ?? data.results ?? []);
-      const maxP = priceMax ? parseInt(String(priceMax).replace(/,/g, '')) : null;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const listings = items.filter((p: any) => !maxP || (p.price ?? 0) <= maxP).map((p: any) => ({
+      const listings = items.map((p: any) => ({
         zpid:          p.id ?? '',
         address:       p.formattedAddress ?? `${p.addressLine1 ?? ''}, ${p.city ?? ''}, ${p.state ?? ''}`,
         price:         Number(p.price) || 0,

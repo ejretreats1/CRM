@@ -40,10 +40,12 @@ import { createClient } from '@supabase/supabase-js';
 // ── Config ────────────────────────────────────────────────────────────────────
 
 // These are overridden at runtime by Supabase scan_config if available; env vars are fallback.
-let MARKETS      = (process.env.SCAN_MARKETS ?? '').split(',').map(m => m.trim()).filter(Boolean);
-let MIN_BEDS     = parseInt(process.env.SCAN_MIN_BEDS   ?? '2');
-let MAX_PRICE    = parseInt(process.env.SCAN_MAX_PRICE  ?? '600000');
-let MIN_SCORE    = parseInt(process.env.SCAN_MIN_SCORE  ?? '6');
+let MARKETS        = (process.env.SCAN_MARKETS ?? '').split(',').map(m => m.trim()).filter(Boolean);
+let MIN_BEDS       = parseInt(process.env.SCAN_MIN_BEDS   ?? '2');
+let MIN_PRICE      = parseInt(process.env.SCAN_MIN_PRICE  ?? '0');
+let MAX_PRICE      = parseInt(process.env.SCAN_MAX_PRICE  ?? '600000');
+let MIN_SCORE      = parseInt(process.env.SCAN_MIN_SCORE  ?? '6');
+let PROPERTY_TYPES = (process.env.SCAN_PROPERTY_TYPES ?? '').split(',').map(t => t.trim()).filter(Boolean);
 const MODEL        = process.env.SCAN_MODEL ?? 'claude-haiku-4-5-20251001';
 const RAPIDAPI_KEY          = process.env.RAPIDAPI_KEY ?? '';
 const RENTCAST_KEY          = process.env.RENTCAST_API_KEY ?? '';
@@ -149,8 +151,11 @@ async function searchRentcast(market: string): Promise<Listing[]> {
     state,
     status:   'Active',
     bedrooms: String(MIN_BEDS),
+    maxPrice: String(MAX_PRICE),
     limit:    '50',
   });
+  if (MIN_PRICE > 0) params.set('minPrice', String(MIN_PRICE));
+  PROPERTY_TYPES.forEach(t => params.append('propertyType', t));
 
   const res = await fetch(
     `https://api.rentcast.io/v1/listings/sale?${params}`,
@@ -171,7 +176,7 @@ async function searchRentcast(market: string): Promise<Listing[]> {
   const items = Array.isArray(data) ? data : (data.listings ?? data.results ?? []);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return items.filter((p: any) => (p.price ?? 0) <= MAX_PRICE).map((p: any): Listing => ({
+  return items.map((p: any): Listing => ({
     id:           p.id ?? String(Math.random()),
     address:      p.formattedAddress ?? `${p.addressLine1 ?? ''}, ${p.city ?? ''}, ${p.state ?? ''}`,
     city:         p.city ?? city,
@@ -367,10 +372,12 @@ async function loadScanConfigFromDB(): Promise<void> {
       process.exit(0);
     }
     const dbMarkets = (data.markets ?? '').split(',').map((m: string) => m.trim()).filter(Boolean);
-    if (dbMarkets.length > 0)  MARKETS = dbMarkets;
-    if (data.min_beds  != null) MIN_BEDS  = data.min_beds;
-    if (data.max_price != null) MAX_PRICE = data.max_price;
-    if (data.min_score != null) MIN_SCORE = data.min_score;
+    if (dbMarkets.length > 0)            MARKETS        = dbMarkets;
+    if (data.min_beds  != null)          MIN_BEDS       = data.min_beds;
+    if (data.min_price != null)          MIN_PRICE      = data.min_price;
+    if (data.max_price != null)          MAX_PRICE      = data.max_price;
+    if (data.min_score != null)          MIN_SCORE      = data.min_score;
+    if (data.property_types)             PROPERTY_TYPES = (data.property_types as string).split(',').map((t: string) => t.trim()).filter(Boolean);
     if (data.rentcast_monthly_limit != null) RENTCAST_MONTHLY_LIMIT = data.rentcast_monthly_limit;
     console.log('  [Config] Loaded settings from CRM (Supabase scan_config).');
   } catch (err) {
@@ -397,7 +404,11 @@ async function main() {
   console.log(`${'═'.repeat(55)}`);
   console.log(`Source:   ${SOURCE === 'zillow' ? 'Zillow (RapidAPI)' : 'Rentcast'}`);
   console.log(`Markets:  ${MARKETS.join(' · ')}`);
-  console.log(`Criteria: ${MIN_BEDS}+ beds  ·  max $${MAX_PRICE.toLocaleString()}  ·  min score ${MIN_SCORE}/10`);
+  const priceRange = MIN_PRICE > 0
+    ? `$${MIN_PRICE.toLocaleString()} – $${MAX_PRICE.toLocaleString()}`
+    : `max $${MAX_PRICE.toLocaleString()}`;
+  const typeLabel = PROPERTY_TYPES.length > 0 ? PROPERTY_TYPES.join(', ') : 'All types';
+  console.log(`Criteria: ${MIN_BEDS}+ beds  ·  ${priceRange}  ·  ${typeLabel}  ·  min score ${MIN_SCORE}/10`);
   console.log(`Model:    ${MODEL}`);
 
   const existingKeys = await getExistingAddresses();
