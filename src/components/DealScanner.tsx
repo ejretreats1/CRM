@@ -729,12 +729,16 @@ export default function DealScanner() {
   const [scanMaxPrice, setScanMaxPrice] = useState('');
   const [scanMinBeds, setScanMinBeds] = useState('2');
   const [scanPropertyTypes, setScanPropertyTypes] = useState<string[]>([]);
-  const [scanResults, setScanResults] = useState<ScanResult[]>([]);
+  const [scanResults, setScanResults] = useState<ScanResult[]>(() => {
+    try { return JSON.parse(localStorage.getItem(LAST_SCAN_KEY) ?? 'null')?.results ?? []; } catch { return []; }
+  });
   const [scanning, setScanning] = useState(false);
   const [rentcastKey, setRentcastKey] = useState(() => localStorage.getItem('ej_rentcast_key') ?? '');
   const [rentcastInput, setRentcastInput] = useState('');
   const [scanError, setScanError] = useState('');
-  const [scanTotal, setScanTotal] = useState<number | null>(null);
+  const [scanTotal, setScanTotal] = useState<number | null>(() => {
+    try { return JSON.parse(localStorage.getItem(LAST_SCAN_KEY) ?? 'null')?.total ?? null; } catch { return null; }
+  });
 
   const rentcastMonthKey = (() => {
     const d = new Date();
@@ -746,7 +750,11 @@ export default function DealScanner() {
     parseInt(localStorage.getItem(rentcastMonthKey) ?? '0')
   );
 
-  const [scanSaveStatus, setScanSaveStatus] = useState<{ saved: number; skipped: number } | null>(null);
+  const LAST_SCAN_KEY = 'ej_last_scan';
+  type LastScan = { results: ScanResult[]; total: number | null; location: string; date: string };
+  const [lastScan, setLastScan] = useState<LastScan | null>(() => {
+    try { return JSON.parse(localStorage.getItem(LAST_SCAN_KEY) ?? 'null'); } catch { return null; }
+  });
   const [scanConfig, setScanConfig] = useState<ScanConfig>({ ...DEFAULT_SCAN_CONFIG });
   const [scanConfigSaving, setScanConfigSaving] = useState(false);
   const [scanConfigSaved, setScanConfigSaved] = useState(false);
@@ -833,29 +841,17 @@ export default function DealScanner() {
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? 'Scan failed');
       const listings: ScanResult[] = data.listings ?? [];
+      const total: number | null = data.total ?? null;
+      const dateLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const saved: LastScan = { results: listings, total, location: scanLocation.trim(), date: dateLabel };
       setScanResults(listings);
-      setScanTotal(data.total ?? null);
-      setScanSaveStatus(null);
+      setScanTotal(total);
+      setLastScan(saved);
+      localStorage.setItem(LAST_SCAN_KEY, JSON.stringify(saved));
       // Track usage
       const newCount = rentcastMonthlyCount + 1;
       setRentcastMonthlyCount(newCount);
       localStorage.setItem(rentcastMonthKey, String(newCount));
-      // Auto-save new results to Deals tab (skip addresses already saved)
-      const existingAddrs = new Set(deals.map(d => d.address.toLowerCase().trim()));
-      const newListings = listings.filter(l => !existingAddrs.has(l.address.toLowerCase().trim()));
-      const dateLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      let savedCount = 0;
-      await Promise.all(newListings.map(async (l) => {
-        try {
-          await upsertDeal({ ...prefillFromScan(l), notes: `Found in manual scan on ${dateLabel}` });
-          savedCount++;
-        } catch { /* skip individual failures silently */ }
-      }));
-      if (savedCount > 0) {
-        const refreshed = await fetchDeals();
-        setDeals(refreshed);
-      }
-      setScanSaveStatus({ saved: savedCount, skipped: listings.length - newListings.length });
     } catch (err) {
       setScanError(err instanceof Error ? err.message : 'Scan failed');
     } finally {
@@ -1139,18 +1135,16 @@ export default function DealScanner() {
             <div>
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <p className="text-xs text-slate-500">
-                  Showing {scanResults.length} listings{scanTotal != null ? ` of ${scanTotal.toLocaleString()} total` : ''}
+                  {scanResults.length} listing{scanResults.length !== 1 ? 's' : ''}
+                  {scanTotal != null ? ` of ${scanTotal.toLocaleString()} total` : ''}
+                  {lastScan && <span className="text-slate-400"> · Last scan: {lastScan.location} on {lastScan.date}</span>}
                 </p>
-                {scanSaveStatus && (
-                  <p className={`text-xs font-medium ${scanSaveStatus.saved > 0 ? 'text-teal-700' : 'text-slate-500'}`}>
-                    {scanSaveStatus.saved > 0
-                      ? `✓ ${scanSaveStatus.saved} new deal${scanSaveStatus.saved !== 1 ? 's' : ''} saved to Deals tab`
-                      : ''}
-                    {scanSaveStatus.skipped > 0
-                      ? `${scanSaveStatus.saved > 0 ? ' · ' : ''}${scanSaveStatus.skipped} already saved`
-                      : ''}
-                  </p>
-                )}
+                <button
+                  onClick={() => { setScanResults([]); setScanTotal(null); setLastScan(null); localStorage.removeItem(LAST_SCAN_KEY); }}
+                  className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                >
+                  Clear
+                </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {scanResults.map(r => (
