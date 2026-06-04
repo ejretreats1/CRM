@@ -746,6 +746,7 @@ export default function DealScanner() {
     parseInt(localStorage.getItem(rentcastMonthKey) ?? '0')
   );
 
+  const [scanSaveStatus, setScanSaveStatus] = useState<{ saved: number; skipped: number } | null>(null);
   const [scanConfig, setScanConfig] = useState<ScanConfig>({ ...DEFAULT_SCAN_CONFIG });
   const [scanConfigSaving, setScanConfigSaving] = useState(false);
   const [scanConfigSaved, setScanConfigSaved] = useState(false);
@@ -831,12 +832,30 @@ export default function DealScanner() {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? 'Scan failed');
-      setScanResults(data.listings ?? []);
+      const listings: ScanResult[] = data.listings ?? [];
+      setScanResults(listings);
       setScanTotal(data.total ?? null);
+      setScanSaveStatus(null);
       // Track usage
       const newCount = rentcastMonthlyCount + 1;
       setRentcastMonthlyCount(newCount);
       localStorage.setItem(rentcastMonthKey, String(newCount));
+      // Auto-save new results to Deals tab (skip addresses already saved)
+      const existingAddrs = new Set(deals.map(d => d.address.toLowerCase().trim()));
+      const newListings = listings.filter(l => !existingAddrs.has(l.address.toLowerCase().trim()));
+      const dateLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      let savedCount = 0;
+      await Promise.all(newListings.map(async (l) => {
+        try {
+          await upsertDeal({ ...prefillFromScan(l), notes: `Found in manual scan on ${dateLabel}` });
+          savedCount++;
+        } catch { /* skip individual failures silently */ }
+      }));
+      if (savedCount > 0) {
+        const refreshed = await fetchDeals();
+        setDeals(refreshed);
+      }
+      setScanSaveStatus({ saved: savedCount, skipped: listings.length - newListings.length });
     } catch (err) {
       setScanError(err instanceof Error ? err.message : 'Scan failed');
     } finally {
@@ -1118,9 +1137,21 @@ export default function DealScanner() {
           {/* Results */}
           {scanResults.length > 0 && (
             <div>
-              <p className="text-xs text-slate-500 mb-3">
-                Showing {scanResults.length} listings{scanTotal != null ? ` of ${scanTotal.toLocaleString()} total` : ''} — click <strong>Add to Pipeline</strong> to save a deal
-              </p>
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <p className="text-xs text-slate-500">
+                  Showing {scanResults.length} listings{scanTotal != null ? ` of ${scanTotal.toLocaleString()} total` : ''}
+                </p>
+                {scanSaveStatus && (
+                  <p className={`text-xs font-medium ${scanSaveStatus.saved > 0 ? 'text-teal-700' : 'text-slate-500'}`}>
+                    {scanSaveStatus.saved > 0
+                      ? `✓ ${scanSaveStatus.saved} new deal${scanSaveStatus.saved !== 1 ? 's' : ''} saved to Deals tab`
+                      : ''}
+                    {scanSaveStatus.skipped > 0
+                      ? `${scanSaveStatus.saved > 0 ? ' · ' : ''}${scanSaveStatus.skipped} already saved`
+                      : ''}
+                  </p>
+                )}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {scanResults.map(r => (
                   <div key={r.zpid} className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
