@@ -185,7 +185,7 @@ async function searchRentcast(market: string): Promise<Listing[]> {
     bedrooms:     p.bedrooms  != null ? Number(p.bedrooms)  : null,
     bathrooms:    p.bathrooms != null ? Number(p.bathrooms) : null,
     homeType:     p.propertyType ?? '',
-    listingUrl:   p.listingUrl ?? '',
+    listingUrl:   `https://www.zillow.com/homes/${encodeURIComponent(p.formattedAddress ?? `${p.addressLine1 ?? ''}, ${p.city ?? ''}, ${p.state ?? ''}`)}_rb/`,
     rentEstimate: null,
     daysOnMarket: p.daysOnMarket ?? null,
   }));

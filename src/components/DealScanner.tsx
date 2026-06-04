@@ -1181,17 +1181,15 @@ export default function DealScanner() {
                         >
                           <Plus size={12} /> Add to Pipeline
                         </button>
-                        {r.zillowUrl && (
-                          <a
-                            href={r.zillowUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300 transition-colors"
-                            title="View on Zillow"
-                          >
-                            <ExternalLink size={13} />
-                          </a>
-                        )}
+                        <a
+                          href={r.zillowUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300 transition-colors"
+                          title="Search on Zillow"
+                        >
+                          <ExternalLink size={13} />
+                        </a>
                       </div>
                     </div>
                   </div>

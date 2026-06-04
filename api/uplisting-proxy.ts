@@ -127,20 +127,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const items: any[] = Array.isArray(data) ? data : (data.listings ?? data.results ?? []);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const listings = items.map((p: any) => ({
-        zpid:          p.id ?? '',
-        address:       p.formattedAddress ?? `${p.addressLine1 ?? ''}, ${p.city ?? ''}, ${p.state ?? ''}`,
-        price:         Number(p.price) || 0,
-        bedrooms:      p.bedrooms  != null ? Number(p.bedrooms)  : null,
-        bathrooms:     p.bathrooms != null ? Number(p.bathrooms) : null,
-        homeType:      p.propertyType ?? '',
-        imgSrc:        null,
-        zillowUrl:     p.listingUrl ?? '',
-        zestimate:     null,
-        rentZestimate: null,
-        daysOnZillow:  p.daysOnMarket ?? null,
-        listingType:   'Standard',
-      }));
+      const listings = items.map((p: any) => {
+        const address = p.formattedAddress ?? `${p.addressLine1 ?? ''}, ${p.city ?? ''}, ${p.state ?? ''}`;
+        const zillowUrl = `https://www.zillow.com/homes/${encodeURIComponent(address)}_rb/`;
+        return {
+          zpid:          p.id ?? '',
+          address,
+          price:         Number(p.price) || 0,
+          bedrooms:      p.bedrooms  != null ? Number(p.bedrooms)  : null,
+          bathrooms:     p.bathrooms != null ? Number(p.bathrooms) : null,
+          homeType:      p.propertyType ?? '',
+          imgSrc:        null,
+          zillowUrl,
+          rentcastUrl:   p.listingUrl ?? '',
+          zestimate:     null,
+          rentZestimate: null,
+          daysOnZillow:  p.daysOnMarket ?? null,
+          listingType:   'Standard',
+        };
+      });
 
       res.setHeader('Cache-Control', 'public, max-age=300');
       return res.status(200).json({ listings, total: listings.length });
