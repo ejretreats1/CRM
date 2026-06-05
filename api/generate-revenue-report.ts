@@ -257,7 +257,7 @@ ANALYZE (complete steps 1–3 first before writing any text fields):
 9. Write 3–5 STR optimization recommendations to maximize revenue.
 10. Write an executive summary and market opportunity paragraph.
 11. List 3–5 key findings.
-12. Assign an opportunityScore 1–10.
+12. Assign an opportunityScore 1–10 using this exact guide based on gross yield (combinedAnnualRevenue / listingPrice × 100): ≥15% = 10, 12–14.9% = 9, 10–11.9% = 8, 8–9.9% = 7, 6–7.9% = 6, 4–5.9% = 5, <4% = 1–4. Do NOT score based on anything other than gross yield.
 ${seasonalityInstructions}
 ${globalRules}
 
@@ -311,7 +311,7 @@ Analyze this property as an STR investment opportunity based on typical STR perf
 
 1. Estimate projected annual STR gross revenue.
 2. Calculate gross STR yield = projected revenue / listing price x 100 (round to 1 decimal).
-3. Assign an opportunity score 1-10 (scoring guide: gross yield >=12% = 9-10, 9-12% = 7-8, 7-9% = 5-6, <7% = 1-4).
+3. Assign an opportunity score 1-10 based strictly on gross yield: ≥15% = 10, 12–14.9% = 9, 10–11.9% = 8, 8–9.9% = 7, 6–7.9% = 6, 4–5.9% = 5, <4% = 1–4.
 4. Write 2-3 sentence reasoning covering why this market and property type performs the way it does.
 5. Note any STR regulatory considerations for this area (1-2 sentences, or null if unknown).
 6. Give a recommendation: strong-buy / buy / neutral / pass / strong-pass.
@@ -352,7 +352,7 @@ The attached PDF is an AirDNA Rentalizer report. Please:
 4. Generate a professional revenue analysis.
 5. If owner revenue is provided, include a performance gap analysis.
 6. Write 3–5 specific recommendations. Do not recommend amenities the owner already has.
-7. Assign an opportunity score 1–10.
+7. Assign an opportunity score 1–10 using this exact guide based on gross yield (projectedAnnualRevenue / listingPrice × 100 if listing price provided, else based on ADR×occupancy×365 vs market): ≥15% = 10, 12–14.9% = 9, 10–11.9% = 8, 8–9.9% = 7, 6–7.9% = 6, 4–5.9% = 5, <4% = 1–4.
 ${seasonalityInstructions}
 ${globalRules}
 
@@ -373,7 +373,7 @@ The attached PDF is an AirDNA Rentalizer report with STR market data.
 6. Identify ideal tenant profile, lease lengths, and booking platforms.
 7. Write 3–5 specific MTR recommendations. Do not recommend amenities the owner already has.
 8. ${ownerActualRevenue != null ? "Include gap analysis vs both STR and MTR projected." : "Focus on the MTR opportunity."}
-9. Assign an opportunity score 1–10 for MTR specifically.
+9. Assign an opportunity score 1–10 for MTR specifically using this exact guide based on MTR gross yield (MTR annual revenue / listingPrice × 100 if price provided): ≥15% = 10, 12–14.9% = 9, 10–11.9% = 8, 8–9.9% = 7, 6–7.9% = 6, 4–5.9% = 5, <4% = 1–4.
 ${seasonalityInstructions}
 ${globalRules}
 
