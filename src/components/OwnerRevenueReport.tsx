@@ -292,7 +292,7 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[#3a5070] text-xs">%</span>
                 </div>
-                <span className="text-[#8aaac8] text-sm">of</span>
+                <span className="text-[#b8d4f0] text-sm">of</span>
                 <select
                   value={commission.basis}
                   onChange={e => updateCommission({ ...commission, basis: e.target.value as CommissionBasis })}
@@ -303,7 +303,7 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                 </select>
               </div>
               <div className="flex items-center gap-4 pl-5">
-                <label className="flex items-center gap-1.5 text-xs text-[#8aaac8] cursor-pointer select-none">
+                <label className="flex items-center gap-1.5 text-xs text-[#b8d4f0] cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={commission.excludeCleaning}
@@ -312,7 +312,7 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                   />
                   Minus cleaning fee
                 </label>
-                <label className="flex items-center gap-1.5 text-xs text-[#8aaac8] cursor-pointer select-none">
+                <label className="flex items-center gap-1.5 text-xs text-[#b8d4f0] cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={commission.commissionExtras}
@@ -343,18 +343,18 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-[#1e2d45] border-b border-[#1e2d45]">
-                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Property</th>
-                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Guest</th>
-                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Check-In</th>
-                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Check-Out</th>
-                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Nts</th>
-                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Channel</th>
-                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Accom.</th>
-                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Cleaning</th>
+                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Property</th>
+                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Guest</th>
+                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Check-In</th>
+                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Check-Out</th>
+                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Nts</th>
+                        <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Channel</th>
+                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Accom.</th>
+                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Cleaning</th>
                         {showUpsells && (
                           <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#d0954a] uppercase tracking-wide">Upsells</th>
                         )}
-                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Payout</th>
+                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Payout</th>
                         {showCommission && (
                           <th className="text-right px-3 py-2.5 text-xs font-semibold text-indigo-500 uppercase tracking-wide">Commission</th>
                         )}
@@ -363,14 +363,14 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                     <tbody className="divide-y divide-[#1e2d45]">
                       {filtered.map(r => (
                         <tr key={r.id} className="hover:bg-[#1e2d45]">
-                          <td className="px-3 py-2.5 text-[#8aaac8] max-w-[120px] truncate">{propertyMap.get(r.listing_id) ?? r.listing_id}</td>
-                          <td className="px-3 py-2.5 text-[#8aaac8] max-w-[100px] truncate">{r.guest_name}</td>
-                          <td className="px-3 py-2.5 text-[#8aaac8] whitespace-nowrap">{fmtDate(r.check_in)}</td>
-                          <td className="px-3 py-2.5 text-[#8aaac8] whitespace-nowrap">{fmtDate(r.check_out)}</td>
-                          <td className="px-3 py-2.5 text-right text-[#8aaac8]">{r.nights || ''}</td>
-                          <td className="px-3 py-2.5 text-[#8aaac8] text-xs">{CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? ''}</td>
-                          <td className="px-3 py-2.5 text-right text-[#8aaac8]">{r.accommodation_total != null ? fmt(r.accommodation_total) : ''}</td>
-                          <td className="px-3 py-2.5 text-right text-[#8aaac8]">{r.cleaning_fee != null ? fmt(r.cleaning_fee) : ''}</td>
+                          <td className="px-3 py-2.5 text-[#b8d4f0] max-w-[120px] truncate">{propertyMap.get(r.listing_id) ?? r.listing_id}</td>
+                          <td className="px-3 py-2.5 text-[#b8d4f0] max-w-[100px] truncate">{r.guest_name}</td>
+                          <td className="px-3 py-2.5 text-[#b8d4f0] whitespace-nowrap">{fmtDate(r.check_in)}</td>
+                          <td className="px-3 py-2.5 text-[#b8d4f0] whitespace-nowrap">{fmtDate(r.check_out)}</td>
+                          <td className="px-3 py-2.5 text-right text-[#b8d4f0]">{r.nights || ''}</td>
+                          <td className="px-3 py-2.5 text-[#b8d4f0] text-xs">{CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? ''}</td>
+                          <td className="px-3 py-2.5 text-right text-[#b8d4f0]">{r.accommodation_total != null ? fmt(r.accommodation_total) : ''}</td>
+                          <td className="px-3 py-2.5 text-right text-[#b8d4f0]">{r.cleaning_fee != null ? fmt(r.cleaning_fee) : ''}</td>
                           {showUpsells && (() => {
                             const u = upsellTotal(r);
                             const ce = getCommExtra(r);
@@ -409,11 +409,11 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                     </tbody>
                     <tfoot>
                       <tr className="bg-[#1e2d45] border-t-2 border-[#1e2d45] font-semibold">
-                        <td className="px-3 py-2.5 text-[#8aaac8]" colSpan={4}>Totals ({filtered.length} reservations)</td>
-                        <td className="px-3 py-2.5 text-right text-[#8aaac8]">{totals.nights}</td>
+                        <td className="px-3 py-2.5 text-[#b8d4f0]" colSpan={4}>Totals ({filtered.length} reservations)</td>
+                        <td className="px-3 py-2.5 text-right text-[#b8d4f0]">{totals.nights}</td>
                         <td />
-                        <td className="px-3 py-2.5 text-right text-[#8aaac8]">{totals.accommodation > 0 ? fmt(totals.accommodation) : ''}</td>
-                        <td className="px-3 py-2.5 text-right text-[#8aaac8]">{totals.cleaning > 0 ? fmt(totals.cleaning) : ''}</td>
+                        <td className="px-3 py-2.5 text-right text-[#b8d4f0]">{totals.accommodation > 0 ? fmt(totals.accommodation) : ''}</td>
+                        <td className="px-3 py-2.5 text-right text-[#b8d4f0]">{totals.cleaning > 0 ? fmt(totals.cleaning) : ''}</td>
                         {showUpsells && (
                           <td className="px-3 py-2.5 text-right text-[#d0954a]">{totals.upsells > 0 ? fmt(totals.upsells) : ''}</td>
                         )}
@@ -449,7 +449,7 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                       <tbody className="divide-y divide-rose-100">
                         {cancelled.map(r => (
                           <tr key={r.id} className="bg-[#1a2335] hover:bg-[#2a0e0e]">
-                            <td className="px-3 py-2.5 text-[#8aaac8] max-w-[120px] truncate">{propertyMap.get(r.listing_id) ?? r.listing_id}</td>
+                            <td className="px-3 py-2.5 text-[#b8d4f0] max-w-[120px] truncate">{propertyMap.get(r.listing_id) ?? r.listing_id}</td>
                             <td className="px-3 py-2.5 text-[#3a5070] max-w-[100px] truncate line-through">{r.guest_name}</td>
                             <td className="px-3 py-2.5 text-[#3a5070] whitespace-nowrap">{fmtDate(r.check_in)}</td>
                             <td className="px-3 py-2.5 text-[#3a5070] whitespace-nowrap">{fmtDate(r.check_out)}</td>

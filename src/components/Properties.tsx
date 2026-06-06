@@ -12,7 +12,7 @@ interface PropertiesProps {
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-[#0a2518] text-[#4ab57a]',
-  inactive: 'bg-[#1e2d45] text-[#8aaac8]',
+  inactive: 'bg-[#1e2d45] text-[#b8d4f0]',
   onboarding: 'bg-[#2a1a0a] text-[#d0954a]',
 };
 
@@ -116,9 +116,9 @@ export default function Properties({ owners, reservations, uplistingProperties, 
                 <p className="text-xs text-[#3a5070]">{property.city}, {property.state}</p>
               </div>
 
-              <p className="text-xs text-[#8aaac8] mb-3">
+              <p className="text-xs text-[#b8d4f0] mb-3">
                 <span className="text-[#3a5070]">Owner:</span>{' '}
-                <span className="font-medium text-[#8aaac8]">{owner.name}</span>
+                <span className="font-medium text-[#b8d4f0]">{owner.name}</span>
               </p>
 
               <div className="grid grid-cols-3 gap-2 mb-3">
@@ -143,7 +143,7 @@ export default function Properties({ owners, reservations, uplistingProperties, 
                   {property.monthlyRevenue > 0 && (
                     <div className="flex items-center gap-1">
                       <TrendingUp size={11} className="text-[#6ab0f5]" />
-                      <span className="text-xs text-[#8aaac8]">${property.monthlyRevenue.toLocaleString()}/mo</span>
+                      <span className="text-xs text-[#b8d4f0]">${property.monthlyRevenue.toLocaleString()}/mo</span>
                     </div>
                   )}
                   {hasUplisting && (

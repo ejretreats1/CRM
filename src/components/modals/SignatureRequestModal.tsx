@@ -215,7 +215,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
             <Send size={20} className="text-[#5ce0a0]" />
           </div>
           <p className="font-semibold text-white">Sent successfully!</p>
-          <p className="text-sm text-[#8aaac8] text-center">Email sent to {email}. You can also share the link directly:</p>
+          <p className="text-sm text-[#b8d4f0] text-center">Email sent to {email}. You can also share the link directly:</p>
           {sentToken && (
             <button
               onClick={() => {
@@ -223,7 +223,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
               }}
-              className="flex items-center gap-2 bg-[#1e2d45] hover:bg-[#1e2d45] text-[#8aaac8] text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-[#1e2d45] hover:bg-[#1e2d45] text-[#b8d4f0] text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
             >
               {copied ? <Check size={14} className="text-[#5ce0a0]" /> : <Copy size={14} />}
               {copied ? 'Copied!' : 'Copy Signing Link'}
@@ -241,7 +241,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
     return (
       <Modal title="Place Signature Fields" onClose={onClose} size="lg">
         <div className="space-y-3">
-          <p className="text-xs text-[#8aaac8]">
+          <p className="text-xs text-[#b8d4f0]">
             Drag the <span className="font-medium text-[#4a90d9]">✍ Signature</span> and <span className="font-medium text-[#6ab0f5]">📅 Date</span> boxes to their exact positions on the page. Navigate pages with the arrows below if needed.
           </p>
 
@@ -265,7 +265,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
 
           {/* Page navigation */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 text-sm text-[#8aaac8]">
+            <div className="flex items-center justify-center gap-3 text-sm text-[#b8d4f0]">
               <button
                 type="button"
                 onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
@@ -294,7 +294,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
             <button
               type="button"
               onClick={() => { if (prefillDocUrl) onClose(); else { setStep('form'); setErrorMsg(''); } }}
-              className="flex items-center gap-1.5 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors"
+              className="flex items-center gap-1.5 border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors"
             >
               <ArrowLeft size={14} /> {prefillDocUrl ? 'Cancel' : 'Back'}
             </button>
@@ -319,7 +319,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
     <Modal title="Send Document for Signature" onClose={onClose}>
       <form onSubmit={handleNextToPlacement} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Document (PDF) *</label>
+          <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Document (PDF) *</label>
           <div
             onClick={() => fileRef.current?.click()}
             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -357,7 +357,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Document Name</label>
+          <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Document Name</label>
           <input
             value={documentName}
             onChange={e => setDocumentName(e.target.value)}
@@ -367,7 +367,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Send to Email *</label>
+          <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Send to Email *</label>
           <input
             type="email"
             value={email}
@@ -385,7 +385,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors"
+            className="flex-1 border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors"
           >
             Cancel
           </button>

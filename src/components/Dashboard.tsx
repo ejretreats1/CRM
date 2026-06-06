@@ -312,7 +312,7 @@ export default function Dashboard({
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="hidden sm:block text-[#8aaac8] text-sm mt-0.5">Welcome back to E&amp;J Retreats CRM</p>
+          <p className="hidden sm:block text-[#b8d4f0] text-sm mt-0.5">Welcome back to E&amp;J Retreats CRM</p>
         </div>
         {uplistingConnected ? (
           <div className="flex items-center gap-3">
@@ -335,7 +335,7 @@ export default function Dashboard({
         ) : (
           <button
             onClick={() => onNavigate('settings')}
-            className="flex items-center gap-1.5 text-xs text-[#8aaac8] bg-[#1e2d45] hover:bg-[#162035] hover:text-[#4a90d9] border border-[#1e2d45] hover:border-[#1e3a5a] px-3 py-1.5 rounded-full transition-colors"
+            className="flex items-center gap-1.5 text-xs text-[#b8d4f0] bg-[#1e2d45] hover:bg-[#162035] hover:text-[#4a90d9] border border-[#1e2d45] hover:border-[#1e3a5a] px-3 py-1.5 rounded-full transition-colors"
           >
             <WifiOff size={12} /> Connect Uplisting
           </button>
@@ -370,7 +370,7 @@ export default function Dashboard({
                 <Icon size={18} className="text-white" />
               </div>
               <div className="text-lg font-bold text-white sm:text-2xl truncate">{value}</div>
-              <div className="text-sm font-medium text-[#8aaac8] mt-0.5">{label}</div>
+              <div className="text-sm font-medium text-[#b8d4f0] mt-0.5">{label}</div>
               <div className="text-xs text-[#3a5070] mt-0.5 truncate">{sub}</div>
               {handler && <div className="text-xs text-[#4a90d9] font-medium mt-2 flex items-center gap-0.5">View <ArrowRight size={11} /></div>}
             </>
@@ -478,7 +478,7 @@ export default function Dashboard({
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-[#8aaac8] mt-0.5">{day} · {time}</p>
+                        <p className="text-xs text-[#b8d4f0] mt-0.5">{day} · {time}</p>
                         {nextEvent.isCrmCall && nextEvent.location && (
                           <a href={`tel:${nextEvent.location}`} className="text-xs text-[#4a90d9] mt-0.5 flex items-center gap-1 hover:underline">
                             <Phone size={10} /> {nextEvent.location}
@@ -519,12 +519,12 @@ export default function Dashboard({
                     }}
                   >
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs ${
-                      event.isCrmCall ? 'bg-[#162035] text-blue-500 text-sm' : 'bg-[#1e2d45] text-[#8aaac8] font-bold'
+                      event.isCrmCall ? 'bg-[#162035] text-blue-500 text-sm' : 'bg-[#1e2d45] text-[#b8d4f0] font-bold'
                     }`}>
                       {event.isCrmCall ? '📞' : eventDate.getDate()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[#8aaac8] truncate font-medium">{event.title}</p>
+                      <p className="text-sm text-[#b8d4f0] truncate font-medium">{event.title}</p>
                       <p className="text-xs text-[#3a5070]">{day} · {time}</p>
                     </div>
                     {event.meetLink && (
@@ -612,7 +612,7 @@ export default function Dashboard({
                     >
                       <Square size={15} />
                     </button>
-                    <span className="flex-1 text-sm text-[#8aaac8] truncate">{todo.text}</span>
+                    <span className="flex-1 text-sm text-[#b8d4f0] truncate">{todo.text}</span>
                     {todo.assignedTo && (
                       <span className={`flex-shrink-0 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full ${ASSIGNEE_COLORS[todo.assignedTo]}`}>
                         {ASSIGNEE_LABELS[todo.assignedTo]}
@@ -661,7 +661,7 @@ export default function Dashboard({
                   text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0
                   ${lead.stage === 'won' ? 'bg-[#0a2518] text-[#4ab57a]' :
                     lead.stage === 'cold' ? 'bg-[#162035] text-[#6ab0f5]' :
-                    lead.stage === 'contacted' ? 'bg-violet-100 text-[#d07af5]' :
+                    lead.stage === 'contacted' ? 'bg-[#1a1535] text-[#d07af5]' :
                     'bg-[#162035] text-[#4a90d9]'}
                 `}>
                   {STAGE_LABELS[lead.stage]}
@@ -691,7 +691,7 @@ export default function Dashboard({
                 <span className="text-base mt-0.5">{OUTREACH_TYPE_ICONS[entry.type]}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{entry.subject}</p>
-                  <p className="text-xs text-[#8aaac8] truncate">{entry.contactName}</p>
+                  <p className="text-xs text-[#b8d4f0] truncate">{entry.contactName}</p>
                 </div>
                 <div className="text-xs text-[#3a5070] flex-shrink-0">
                   {new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -828,7 +828,7 @@ export default function Dashboard({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-[#8aaac8]">{msg.username}</span>
+                        <span className="text-xs font-semibold text-[#b8d4f0]">{msg.username}</span>
                         {slackChannels.length > 1 && (
                           <span className="text-xs bg-[#2a1a35] text-[#d07af5] px-1.5 py-0.5 rounded-full">
                             #{msg.channelName}
@@ -836,7 +836,7 @@ export default function Dashboard({
                         )}
                         <span className="text-xs text-[#3a5070]">{timeAgoShort(msg.ts)}</span>
                       </div>
-                      <p className="text-sm text-[#8aaac8] mt-0.5 whitespace-pre-wrap break-words">
+                      <p className="text-sm text-[#b8d4f0] mt-0.5 whitespace-pre-wrap break-words">
                         {renderSlackText(body)}
                       </p>
                       {msg.text && msg.attachmentText && msg.text !== msg.attachmentText && (
@@ -876,7 +876,7 @@ export default function Dashboard({
                 <h2 className="font-bold text-white">Revenue Breakdown</h2>
                 <p className="text-xs text-[#3a5070] mt-0.5">Last 30 days per client</p>
               </div>
-              <button onClick={() => setShowRevenueBreakdown(false)} className="text-[#3a5070] hover:text-[#8aaac8] transition-colors p-1">
+              <button onClick={() => setShowRevenueBreakdown(false)} className="text-[#3a5070] hover:text-[#b8d4f0] transition-colors p-1">
                 <X size={18} />
               </button>
             </div>
@@ -902,7 +902,7 @@ export default function Dashboard({
               ))}
             </div>
             <div className="px-5 py-3.5 border-t border-[#1e2d45] flex items-center justify-between bg-[#1e2d45] rounded-b-2xl">
-              <span className="text-xs font-medium text-[#8aaac8]">Portfolio total</span>
+              <span className="text-xs font-medium text-[#b8d4f0]">Portfolio total</span>
               <span className="text-sm font-bold text-white">${totalMonthlyRevenue.toLocaleString()}</span>
             </div>
           </div>

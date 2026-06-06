@@ -275,12 +275,12 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <button onClick={onCancel} className="text-sm text-[#8aaac8] hover:text-[#4a90d9] mb-5 flex items-center gap-1 transition-colors">
+      <button onClick={onCancel} className="text-sm text-[#b8d4f0] hover:text-[#4a90d9] mb-5 flex items-center gap-1 transition-colors">
         ← Back to Reports
       </button>
 
       <h2 className="text-xl font-bold text-white mb-1">New Revenue Report</h2>
-      <p className="text-sm text-[#8aaac8] mb-5">Upload an AirDNA Rentalizer PDF and Claude will generate a full analysis.</p>
+      <p className="text-sm text-[#b8d4f0] mb-5">Upload an AirDNA Rentalizer PDF and Claude will generate a full analysis.</p>
 
       {/* Report type tabs */}
       <div className="flex gap-2 mb-6 p-1 bg-[#1e2d45] rounded-xl w-fit">
@@ -292,7 +292,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               reportType === type
                 ? type === 'deal' ? 'bg-[#1a2335] text-[#d0954a] shadow-sm' : 'bg-[#1a2335] text-[#4a90d9] shadow-sm'
-                : 'text-[#8aaac8] hover:text-[#8aaac8]'
+                : 'text-[#b8d4f0] hover:text-[#b8d4f0]'
             }`}
           >
             {type === 'str' ? '🏠 Short-Term Rental' : type === 'mtr' ? '📅 Mid-Term Rental' : '🔍 Deal Analyzer'}
@@ -320,7 +320,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           <div className="grid sm:grid-cols-2 gap-3">
             {leads.length > 0 && (
               <div>
-                <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Link to lead (optional)</label>
+                <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Link to lead (optional)</label>
                 <select
                   value={selectedLeadId}
                   onChange={e => handleLeadSelect(e.target.value)}
@@ -335,7 +335,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
             )}
             {owners.length > 0 && (
               <div>
-                <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Link to client (optional)</label>
+                <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Link to client (optional)</label>
                 <select
                   value={selectedOwnerId}
                   onChange={e => handleOwnerSelect(e.target.value)}
@@ -351,7 +351,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Property Address *</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Property Address *</label>
             <input
               value={address}
               onChange={e => setAddress(e.target.value)}
@@ -361,7 +361,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">AirDNA Rentalizer PDF *</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">AirDNA Rentalizer PDF *</label>
             <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) acceptFile(f); e.target.value = ''; }} />
             <div
               onClick={() => !pdfFile && fileRef.current?.click()}
@@ -385,7 +385,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
               ) : (
                 <>
                   <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-[#6ab0f5]' : 'text-[#3a5070]'}`} />
-                  <p className="text-sm text-[#8aaac8] font-medium">{dragOver ? 'Drop PDF here' : 'Drag & drop or click to upload'}</p>
+                  <p className="text-sm text-[#b8d4f0] font-medium">{dragOver ? 'Drop PDF here' : 'Drag & drop or click to upload'}</p>
                   <p className="text-xs text-[#3a5070] mt-1">AirDNA Rentalizer PDF export</p>
                 </>
               )}
@@ -393,10 +393,10 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           </div>
 
           <div className="bg-[#1e2d45] rounded-xl p-4 space-y-3">
-            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wider">Owner Comparison (Optional)</p>
+            <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wider">Owner Comparison (Optional)</p>
             <p className="text-xs text-[#3a5070]">If the owner told you their actual revenue, add it here for a gap analysis.</p>
             <div>
-              <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Actual Last 12 Months Revenue</label>
+              <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Actual Last 12 Months Revenue</label>
               <div className="relative">
                 <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3a5070]" />
                 <input
@@ -408,7 +408,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Owner Notes</label>
+              <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Owner Notes</label>
               <textarea
                 value={ownerNotes}
                 onChange={e => setOwnerNotes(e.target.value)}
@@ -439,7 +439,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           )}
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onCancel} className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors">
+            <button type="button" onClick={onCancel} className="flex-1 border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors">
               Cancel
             </button>
             <button
@@ -463,7 +463,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           <div className="grid sm:grid-cols-2 gap-3">
             {leads.length > 0 && (
               <div>
-                <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Link to lead (optional)</label>
+                <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Link to lead (optional)</label>
                 <select
                   value={selectedLeadId}
                   onChange={e => handleLeadSelect(e.target.value)}
@@ -478,7 +478,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
             )}
             {owners.length > 0 && (
               <div>
-                <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Link to client (optional)</label>
+                <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Link to client (optional)</label>
                 <select
                   value={selectedOwnerId}
                   onChange={e => handleOwnerSelect(e.target.value)}
@@ -494,7 +494,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Property Address *</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Property Address *</label>
             <input
               value={address}
               onChange={e => setAddress(e.target.value)}
@@ -504,7 +504,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Listing Price *</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Listing Price *</label>
             <div className="relative">
               <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3a5070]" />
               <input
@@ -517,7 +517,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Property Type</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Property Type</label>
             <div className="flex gap-2 flex-wrap">
               {[
                 { value: 1, label: 'Single Family' },
@@ -532,7 +532,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
                   className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
                     unitCount === value
                       ? 'bg-amber-600 text-white border-amber-600'
-                      : 'bg-[#1a2335] text-[#8aaac8] border-[#1e2d45] hover:border-amber-300'
+                      : 'bg-[#1a2335] text-[#b8d4f0] border-[#1e2d45] hover:border-amber-300'
                   }`}
                 >
                   {label}
@@ -552,7 +552,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
                   className={`w-14 py-2 rounded-lg text-xs font-semibold border text-center transition-all focus:outline-none focus:ring-2 focus:ring-[#d0954a] ${
                     unitCount > 4
                       ? 'bg-amber-600 text-white border-amber-600 placeholder-amber-200'
-                      : 'bg-[#1a2335] text-[#8aaac8] border-[#1e2d45] hover:border-amber-300 placeholder-slate-400'
+                      : 'bg-[#1a2335] text-[#b8d4f0] border-[#1e2d45] hover:border-amber-300 placeholder-slate-400'
                   }`}
                 />
                 <span className="text-xs text-[#3a5070] whitespace-nowrap">units</span>
@@ -563,7 +563,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           {/* Per-unit rows */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wider">
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wider">
                 {unitCount === 1 ? 'AirDNA Report' : `AirDNA Reports — 1 PDF per unit type`}
               </p>
               {unitCount > 1 && (
@@ -575,7 +575,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
             {dealUnits.map((unit, idx) => (
               <div key={idx} className="bg-[#1e2d45] border border-[#1e2d45] rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="text-sm font-semibold text-[#8aaac8]">{unit.label}</span>
+                  <span className="text-sm font-semibold text-[#b8d4f0]">{unit.label}</span>
                   <div className="flex items-center gap-2 flex-wrap">
                     <input
                       value={unit.bedrooms}
@@ -654,7 +654,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Zillow Listing Description (optional but recommended)</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Zillow Listing Description (optional but recommended)</label>
             <textarea
               value={zillowDescription}
               onChange={e => setZillowDescription(e.target.value)}
@@ -684,7 +684,7 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
           )}
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onCancel} className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors">
+            <button type="button" onClick={onCancel} className="flex-1 border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors">
               Cancel
             </button>
             <button

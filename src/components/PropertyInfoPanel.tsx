@@ -73,11 +73,11 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    id: 'appliances', label: 'Appliances & Quirks', icon: Wrench, color: 'text-[#8aaac8]',
+    id: 'appliances', label: 'Appliances & Quirks', icon: Wrench, color: 'text-[#b8d4f0]',
     fields: [{ key: 'applianceNotes', label: 'Notes', multiline: true }],
   },
   {
-    id: 'general', label: 'General Notes', icon: FileText, color: 'text-[#8aaac8]',
+    id: 'general', label: 'General Notes', icon: FileText, color: 'text-[#b8d4f0]',
     fields: [{ key: 'generalNotes', label: 'Notes', multiline: true }],
   },
 ];
@@ -128,7 +128,7 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
       <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
         <div className="flex items-center gap-2">
           <FileText size={14} className="text-[#4a90d9]" />
-          <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Property Info</p>
+          <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Property Info</p>
         </div>
         {!editing ? (
           <button
@@ -148,7 +148,7 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
             </button>
             <button
               onClick={() => setEditing(false)}
-              className="flex items-center gap-1 text-xs text-[#3a5070] hover:text-[#8aaac8] transition-colors"
+              className="flex items-center gap-1 text-xs text-[#3a5070] hover:text-[#b8d4f0] transition-colors"
             >
               <X size={12} /> Cancel
             </button>
@@ -164,7 +164,7 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
               <div key={section.id}>
                 <div className="flex items-center gap-1.5 mb-3">
                   <Icon size={13} className={section.color} />
-                  <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">{section.label}</p>
+                  <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">{section.label}</p>
                 </div>
                 <div className="space-y-2.5">
                   {section.fields.map(({ key, label, multiline }) => (
@@ -190,7 +190,7 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
                           <button
                             type="button"
                             onClick={() => toggleReveal(key)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#8aaac8]"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#b8d4f0]"
                           >
                             {revealed.has(key) ? <EyeOff size={14} /> : <Eye size={14} />}
                           </button>
@@ -218,14 +218,14 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
               <div key={section.id} className="px-5 py-4">
                 <div className="flex items-center gap-1.5 mb-3">
                   <Icon size={13} className={section.color} />
-                  <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">{section.label}</p>
+                  <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">{section.label}</p>
                 </div>
                 <div className="space-y-2">
                   {populated.map(({ key, label, multiline }) => (
                     <div key={key}>
                       <p className="text-xs text-[#3a5070] mb-0.5">{label}</p>
                       {multiline ? (
-                        <p className="text-sm text-[#8aaac8] whitespace-pre-wrap leading-relaxed">{info[key] as string}</p>
+                        <p className="text-sm text-[#b8d4f0] whitespace-pre-wrap leading-relaxed">{info[key] as string}</p>
                       ) : (
                         <div className="flex items-center gap-2">
                           <p className={`text-sm text-white ${isSensitive(key) && !revealed.has(key) ? 'font-mono tracking-widest text-[#3a5070] select-none' : 'font-mono'}`}>
@@ -234,7 +234,7 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
                           {isSensitive(key) && (
                             <button
                               onClick={() => toggleReveal(key)}
-                              className="text-[#3a5070] hover:text-[#8aaac8] transition-colors flex-shrink-0"
+                              className="text-[#3a5070] hover:text-[#b8d4f0] transition-colors flex-shrink-0"
                             >
                               {revealed.has(key) ? <EyeOff size={13} /> : <Eye size={13} />}
                             </button>

@@ -288,7 +288,7 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <FileBarChart2 size={22} className="text-[#4a90d9]" /> Revenue Reports
             </h1>
-            <p className="text-sm text-[#8aaac8] mt-0.5">Upload an AirDNA PDF to generate AI-powered revenue analysis</p>
+            <p className="text-sm text-[#b8d4f0] mt-0.5">Upload an AirDNA PDF to generate AI-powered revenue analysis</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
@@ -301,7 +301,7 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
                 className="pl-8 pr-8 py-2 text-sm border border-[#1e2d45] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4a90d9] w-52"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#8aaac8]">
+                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#b8d4f0]">
                   <X size={13} />
                 </button>
               )}
@@ -329,12 +329,12 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
             </div>
             {searchQuery ? (
               <>
-                <p className="text-[#8aaac8] font-medium">No reports match "{searchQuery}"</p>
+                <p className="text-[#b8d4f0] font-medium">No reports match "{searchQuery}"</p>
                 <button onClick={() => setSearchQuery('')} className="mt-3 text-sm text-[#4a90d9] hover:underline">Clear search</button>
               </>
             ) : (
               <>
-                <p className="text-[#8aaac8] font-medium">No reports yet</p>
+                <p className="text-[#b8d4f0] font-medium">No reports yet</p>
                 <p className="text-[#3a5070] text-sm mt-1 max-w-xs">Click "New Report", upload an AirDNA PDF, and Claude will generate a full revenue analysis.</p>
                 <button
                   onClick={() => setPageView('builder')}
@@ -362,7 +362,7 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
                       <div className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                         r.opportunityScore >= 7 ? 'bg-[#0a2518] text-[#4ab57a]' :
                         r.opportunityScore >= 4 ? 'bg-[#2a1a0a] text-[#d0954a]' :
-                        'bg-[#1e2d45] text-[#8aaac8]'
+                        'bg-[#1e2d45] text-[#b8d4f0]'
                       }`}>
                         {r.opportunityScore}/10
                       </div>
@@ -373,7 +373,7 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
                   </p>
                   <p className="text-xs text-[#3a5070] mt-1 truncate">{r.propertyAddress}</p>
 
-                  <div className="mt-3 flex items-center gap-3 text-xs text-[#8aaac8]">
+                  <div className="mt-3 flex items-center gap-3 text-xs text-[#b8d4f0]">
                     {r.airdnaProjectedRevenue != null && (
                       <span className="flex items-center gap-1">
                         <TrendingUp size={11} className="text-[#6ab0f5]" />

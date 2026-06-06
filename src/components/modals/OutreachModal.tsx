@@ -87,7 +87,7 @@ export default function OutreachModal({ entry, preselectedOwnerId, leads, owners
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Contact type toggle */}
         <div>
-          <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Contact Type</label>
+          <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Contact Type</label>
           <div className="flex rounded-lg border border-[#1e2d45] overflow-hidden">
             {(['lead', 'owner'] as const).map(type => (
               <button
@@ -95,7 +95,7 @@ export default function OutreachModal({ entry, preselectedOwnerId, leads, owners
                 type="button"
                 onClick={() => handleContactTypeChange(type)}
                 className={`flex-1 py-2 text-sm font-medium capitalize transition-colors
-                  ${form.contactType === type ? 'bg-[#4a90d9] text-white' : 'bg-[#1a2335] text-[#8aaac8] hover:bg-[#1e2d45]'}`}
+                  ${form.contactType === type ? 'bg-[#4a90d9] text-white' : 'bg-[#1a2335] text-[#b8d4f0] hover:bg-[#1e2d45]'}`}
               >
                 {type === 'lead' ? 'Lead' : 'Owner / Client'}
               </button>
@@ -105,7 +105,7 @@ export default function OutreachModal({ entry, preselectedOwnerId, leads, owners
 
         {/* Contact selector */}
         <div>
-          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Select Contact</label>
+          <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Select Contact</label>
           <select
             value={form.contactType === 'lead' ? form.leadId : form.ownerId}
             onChange={e => handleContactSelect(e.target.value)}
@@ -121,28 +121,28 @@ export default function OutreachModal({ entry, preselectedOwnerId, leads, owners
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Type *</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Type *</label>
             <select value={form.type} onChange={e => set('type', e.target.value as OutreachType)}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]">
               {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Date & Time *</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Date & Time *</label>
             <input required type="datetime-local" value={form.date} onChange={e => set('date', e.target.value)}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Subject *</label>
+          <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Subject *</label>
           <input required value={form.subject} onChange={e => set('subject', e.target.value)}
             className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="e.g. Initial discovery call" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Notes</label>
+          <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Notes</label>
           <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3}
             className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] resize-none"
             placeholder="Summary of the conversation..." />
@@ -150,14 +150,14 @@ export default function OutreachModal({ entry, preselectedOwnerId, leads, owners
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Outcome</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Outcome</label>
             <select value={form.outcome} onChange={e => set('outcome', e.target.value as OutreachOutcome)}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]">
               {OUTCOMES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Follow-up Date</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Follow-up Date</label>
             <input type="date" value={form.followUpDate} onChange={e => set('followUpDate', e.target.value)}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
           </div>
@@ -165,7 +165,7 @@ export default function OutreachModal({ entry, preselectedOwnerId, leads, owners
 
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose}
-            className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors">
+            className="flex-1 border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors">
             Cancel
           </button>
           <button type="submit"

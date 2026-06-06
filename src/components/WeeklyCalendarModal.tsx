@@ -126,11 +126,11 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2d45] flex-shrink-0">
           <div className="flex items-center gap-2">
-            <button onClick={prevWeek} className="p-1.5 rounded-lg text-[#8aaac8] hover:bg-[#1e2d45] transition-colors">
+            <button onClick={prevWeek} className="p-1.5 rounded-lg text-[#b8d4f0] hover:bg-[#1e2d45] transition-colors">
               <ChevronLeft size={16} />
             </button>
             <span className="text-sm font-semibold text-white min-w-[180px] text-center">{weekLabel}</span>
-            <button onClick={nextWeek} className="p-1.5 rounded-lg text-[#8aaac8] hover:bg-[#1e2d45] transition-colors">
+            <button onClick={nextWeek} className="p-1.5 rounded-lg text-[#b8d4f0] hover:bg-[#1e2d45] transition-colors">
               <ChevronRight size={16} />
             </button>
             <button
@@ -140,7 +140,7 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
               Today
             </button>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#8aaac8] hover:bg-[#1e2d45] transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#b8d4f0] hover:bg-[#1e2d45] transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -281,11 +281,11 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
         <div className="flex items-center gap-4 px-4 py-2 border-t border-[#1e2d45] bg-[#1e2d45] flex-shrink-0 rounded-b-2xl">
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded bg-blue-200 border border-blue-300" />
-            <span className="text-xs text-[#8aaac8]">CRM calls</span>
+            <span className="text-xs text-[#b8d4f0]">CRM calls</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded bg-teal-200 border border-[#1e3a5a]" />
-            <span className="text-xs text-[#8aaac8]">Calendar (click for details)</span>
+            <span className="text-xs text-[#b8d4f0]">Calendar (click for details)</span>
           </div>
         </div>
       </div>
@@ -300,7 +300,7 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
             <div className="flex items-start justify-between px-5 pt-5 pb-3">
               <div className="flex-1 min-w-0 pr-3">
                 <p className="font-semibold text-white text-sm leading-snug">{selectedEvent.title}</p>
-                <p className="text-xs text-[#8aaac8] mt-1">
+                <p className="text-xs text-[#b8d4f0] mt-1">
                   {new Date(selectedEvent.start).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                   {selectedEvent.start.length > 10 && (
                     <> · {new Date(selectedEvent.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
@@ -308,7 +308,7 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
                   )}
                 </p>
               </div>
-              <button onClick={() => setSelectedEvent(null)} className="text-[#3a5070] hover:text-[#8aaac8] flex-shrink-0">
+              <button onClick={() => setSelectedEvent(null)} className="text-[#3a5070] hover:text-[#b8d4f0] flex-shrink-0">
                 <X size={16} />
               </button>
             </div>
@@ -329,7 +329,7 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
 
             {selectedEvent.location && !selectedEvent.meetLink && (
               <div className="px-5 pb-3">
-                <p className="text-xs text-[#8aaac8] flex items-center gap-1.5">
+                <p className="text-xs text-[#b8d4f0] flex items-center gap-1.5">
                   <MapPin size={12} className="flex-shrink-0" /> {selectedEvent.location}
                 </p>
               </div>
@@ -338,7 +338,7 @@ export default function WeeklyCalendarModal({ events, leads, onOpenLeadDetail, o
             {selectedEvent.description && (
               <div className="px-5 pb-5">
                 <p className="text-xs font-semibold text-[#3a5070] uppercase tracking-wide mb-2">Details</p>
-                <p className="text-xs text-[#8aaac8] whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">{selectedEvent.description}</p>
+                <p className="text-xs text-[#b8d4f0] whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">{selectedEvent.description}</p>
               </div>
             )}
           </div>

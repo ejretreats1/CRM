@@ -49,7 +49,7 @@ export default function ShareView({ reportId }: { reportId: string }) {
           <div className="w-14 h-14 rounded-2xl bg-[#1e2d45] flex items-center justify-center mx-auto mb-4">
             <Building2 size={24} className="text-[#3a5070]" />
           </div>
-          <p className="text-[#8aaac8] font-semibold text-lg">Report not found</p>
+          <p className="text-[#b8d4f0] font-semibold text-lg">Report not found</p>
           <p className="text-[#3a5070] text-sm mt-1">{error || 'This report may have been deleted or the link is invalid.'}</p>
         </div>
       </div>
@@ -101,7 +101,7 @@ export default function ShareView({ reportId }: { reportId: string }) {
         </div>
         <button
           onClick={() => window.print()}
-          className="flex items-center gap-1.5 text-sm border border-[#1e2d45] text-[#8aaac8] hover:bg-[#1e2d45] px-3 py-1.5 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 text-sm border border-[#1e2d45] text-[#b8d4f0] hover:bg-[#1e2d45] px-3 py-1.5 rounded-lg transition-colors"
         >
           <Printer size={13} /> Download PDF
         </button>

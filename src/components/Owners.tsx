@@ -12,7 +12,7 @@ interface OwnersProps {
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-[#0a2518] text-[#4ab57a]',
   onboarding: 'bg-[#2a1a0a] text-[#d0954a]',
-  inactive: 'bg-[#1e2d45] text-[#8aaac8]',
+  inactive: 'bg-[#1e2d45] text-[#b8d4f0]',
 };
 
 export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDeleteOwner }: OwnersProps) {
@@ -34,7 +34,7 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDelete
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Clients</h1>
-          <p className="text-sm text-[#8aaac8] mt-0.5">
+          <p className="text-sm text-[#b8d4f0] mt-0.5">
             {owners.length} clients · {totalProperties} properties · ${totalRevenue.toLocaleString()}/mo revenue
           </p>
         </div>
@@ -56,7 +56,7 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDelete
           <div key={s.label} className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-3 overflow-hidden">
             <div className="text-lg mb-1">{s.icon}</div>
             <div className="text-sm font-bold text-white truncate">{s.value}</div>
-            <div className="text-xs text-[#8aaac8] leading-tight mt-0.5">{s.label}</div>
+            <div className="text-xs text-[#b8d4f0] leading-tight mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
@@ -115,12 +115,12 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDelete
                   </div>
                   <div className="flex flex-wrap gap-3 mt-1">
                     {owner.email && (
-                      <span className="flex items-center gap-1 text-xs text-[#8aaac8]">
+                      <span className="flex items-center gap-1 text-xs text-[#b8d4f0]">
                         <Mail size={11} /> {owner.email}
                       </span>
                     )}
                     {owner.phone && (
-                      <span className="flex items-center gap-1 text-xs text-[#8aaac8]">
+                      <span className="flex items-center gap-1 text-xs text-[#b8d4f0]">
                         <Phone size={11} /> {owner.phone}
                       </span>
                     )}
@@ -147,7 +147,7 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDelete
                   </div>
                   <div className="text-xs text-[#3a5070]">/mo</div>
                   {avgOcc !== null && (
-                    <div className="text-xs text-[#8aaac8] mt-1">{avgOcc}% occ.</div>
+                    <div className="text-xs text-[#b8d4f0] mt-1">{avgOcc}% occ.</div>
                   )}
                   <div className="flex items-center gap-1 text-xs text-[#3a5070] mt-1">
                     <Home size={11} />

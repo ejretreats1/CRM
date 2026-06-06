@@ -111,7 +111,7 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#8aaac8] hover:bg-[#1e2d45] transition-colors"
+            className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#b8d4f0] hover:bg-[#1e2d45] transition-colors"
           >
             <X size={18} />
           </button>
@@ -126,7 +126,7 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
                 onClick={() => setCrumbs(prev => prev.slice(0, i + 1))}
                 className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded hover:bg-[#1e2d45] transition-colors ${
                   i === crumbs.length - 1
-                    ? 'text-[#8aaac8] font-semibold pointer-events-none'
+                    ? 'text-[#b8d4f0] font-semibold pointer-events-none'
                     : 'text-[#4a90d9] hover:text-[#4a90d9]'
                 }`}
               >
@@ -162,7 +162,7 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
                         className="flex items-center gap-2 p-3 bg-[#1a2335] rounded-lg border border-[#1e2d45] hover:border-amber-300 hover:bg-[#2a1a0a] transition-all text-left"
                       >
                         <Folder size={18} className="text-amber-400 fill-amber-50 flex-shrink-0" />
-                        <span className="text-xs font-medium text-[#8aaac8] truncate">{f.name}</span>
+                        <span className="text-xs font-medium text-[#b8d4f0] truncate">{f.name}</span>
                       </button>
                     ))}
                   </div>
@@ -192,7 +192,7 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
                           </div>
                           <span className="text-lg flex-shrink-0">{fileIcon(f.mimeType)}</span>
                           <span className={`flex-1 min-w-0 text-sm font-medium truncate transition-colors ${
-                            isSelected ? 'text-[#4a90d9]' : 'text-[#8aaac8]'
+                            isSelected ? 'text-[#4a90d9]' : 'text-[#b8d4f0]'
                           }`}>
                             {f.name}
                           </span>
@@ -214,7 +214,7 @@ export default function DrivePickerModal({ onSelect, onClose }: DrivePickerModal
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[#1e2d45] flex-shrink-0">
           <button
             onClick={onClose}
-            className="text-sm text-[#8aaac8] hover:text-[#8aaac8] px-4 py-2 rounded-lg border border-[#1e2d45] hover:border-[#1e2d45] transition-colors"
+            className="text-sm text-[#b8d4f0] hover:text-[#b8d4f0] px-4 py-2 rounded-lg border border-[#1e2d45] hover:border-[#1e2d45] transition-colors"
           >
             Cancel
           </button>

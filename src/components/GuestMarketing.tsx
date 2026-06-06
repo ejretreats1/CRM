@@ -203,7 +203,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Guest Marketing</h1>
-          <p className="text-sm text-[#8aaac8] mt-0.5">
+          <p className="text-sm text-[#b8d4f0] mt-0.5">
             {withEmail} guests with email · {withoutEmail} without · {allReservations.filter(r => r.status !== 'cancelled').length} total stays
             {historyLastFetched && <span className="ml-2 text-[#3a5070]">· history through {historyLastFetched}</span>}
           </p>
@@ -213,7 +213,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
             <button
               onClick={fetchHistory}
               disabled={loadingHistory}
-              className="flex items-center gap-2 border border-[#1e2d45] bg-[#1a2335] hover:bg-[#1e2d45] text-[#8aaac8] text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 border border-[#1e2d45] bg-[#1a2335] hover:bg-[#1e2d45] text-[#b8d4f0] text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
             >
               <RefreshCw size={14} className={loadingHistory ? 'animate-spin' : ''} />
               {loadingHistory ? 'Loading…' : historyLastFetched ? 'Refresh History' : 'Load Full History'}
@@ -240,7 +240,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
           <div key={s.label} className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-3 overflow-hidden">
             <div className="text-lg mb-1">{s.icon}</div>
             <div className="text-sm font-bold text-white">{s.value}</div>
-            <div className="text-xs text-[#8aaac8] leading-tight mt-0.5">{s.label}</div>
+            <div className="text-xs text-[#b8d4f0] leading-tight mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
@@ -265,7 +265,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
           <option value="all">All Channels</option>
           {allChannels.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <label className="flex items-center gap-2 text-sm text-[#8aaac8] cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-sm text-[#b8d4f0] cursor-pointer select-none">
           <input
             type="checkbox"
             checked={showNoEmail}
@@ -294,7 +294,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
           <button onClick={toggleAll} className="text-[#3a5070] hover:text-[#4a90d9] flex-shrink-0">
             {allSelected ? <CheckSquare size={16} className="text-[#4a90d9]" /> : <Square size={16} />}
           </button>
-          <div className="grid grid-cols-4 flex-1 gap-2 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">
+          <div className="grid grid-cols-4 flex-1 gap-2 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">
             <span>Guest</span>
             <span>Email</span>
             <span>Last Stay</span>
@@ -325,7 +325,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
                       <span className="text-sm font-semibold text-white truncate">{g.name}</span>
                       <span className="text-xs text-[#3a5070] flex-shrink-0">{g.stays.length} stay{g.stays.length !== 1 ? 's' : ''}</span>
                     </div>
-                    {g.email && <p className="text-xs text-[#8aaac8] truncate mt-0.5 ml-9">{g.email}</p>}
+                    {g.email && <p className="text-xs text-[#b8d4f0] truncate mt-0.5 ml-9">{g.email}</p>}
                   </div>
                 </div>
 
@@ -346,15 +346,15 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
                       <span className="text-sm font-medium text-white truncate">{g.name}</span>
                     </div>
                     <div className="min-w-0">
-                      {g.email ? <span className="text-sm text-[#8aaac8] truncate block">{g.email}</span>
+                      {g.email ? <span className="text-sm text-[#b8d4f0] truncate block">{g.email}</span>
                         : <span className="text-xs text-[#3a5070] italic">No email</span>}
                     </div>
-                    <div className="text-sm text-[#8aaac8]">
+                    <div className="text-sm text-[#b8d4f0]">
                       {g.lastStay ? new Date(g.lastStay + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {g.channels.slice(0, 2).map(c => (
-                        <span key={c} className="text-xs bg-[#1e2d45] text-[#8aaac8] px-2 py-0.5 rounded-full">{c}</span>
+                        <span key={c} className="text-xs bg-[#1e2d45] text-[#b8d4f0] px-2 py-0.5 rounded-full">{c}</span>
                       ))}
                       <span className="text-xs text-[#3a5070]">{g.stays.length} stay{g.stays.length !== 1 ? 's' : ''}</span>
                     </div>
@@ -373,15 +373,15 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d45]">
               <div>
                 <h2 className="font-semibold text-white">Compose Email</h2>
-                <p className="text-xs text-[#8aaac8] mt-0.5">Sending to {selected.size} guest{selected.size !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-[#b8d4f0] mt-0.5">Sending to {selected.size} guest{selected.size !== 1 ? 's' : ''}</p>
               </div>
-              <button onClick={() => setComposing(false)} className="text-[#3a5070] hover:text-[#8aaac8]">
+              <button onClick={() => setComposing(false)} className="text-[#3a5070] hover:text-[#b8d4f0]">
                 <X size={18} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-1.5">Subject</label>
+                <label className="block text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5">Subject</label>
                 <input
                   type="text"
                   value={subject}
@@ -391,7 +391,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-1.5">Message</label>
+                <label className="block text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5">Message</label>
                 <textarea
                   value={body}
                   onChange={e => setBody(e.target.value)}
@@ -404,7 +404,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
               {sendError && <p className="text-sm text-[#e05c5c]">{sendError}</p>}
             </div>
             <div className="px-6 py-4 border-t border-[#1e2d45] flex justify-end gap-3">
-              <button onClick={() => setComposing(false)} className="text-sm text-[#8aaac8] hover:text-white px-4 py-2">
+              <button onClick={() => setComposing(false)} className="text-sm text-[#b8d4f0] hover:text-white px-4 py-2">
                 Cancel
               </button>
               <button

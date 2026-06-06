@@ -329,14 +329,14 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
               <FileText size={18} className="text-[#4a90d9]" />
               <h2 className="font-bold text-white">Rental Agreements</h2>
             </div>
-            <button onClick={onClose} className="text-[#3a5070] hover:text-[#8aaac8] transition-colors">
+            <button onClick={onClose} className="text-[#3a5070] hover:text-[#b8d4f0] transition-colors">
               <X size={20} />
             </button>
           </div>
 
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-[#8aaac8]">{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
+              <p className="text-sm text-[#b8d4f0]">{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
               <button
                 onClick={() => openBuilder()}
                 className="flex items-center gap-1.5 text-sm font-medium text-white bg-[#4a90d9] hover:bg-[#3a80c9] px-3 py-1.5 rounded-lg transition-colors"
@@ -350,7 +350,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
             ) : templates.length === 0 ? (
               <div className="text-center py-12 border-2 border-dashed border-[#1e2d45] rounded-xl">
                 <FileText size={32} className="text-[#3a5070] mx-auto mb-3" />
-                <p className="text-[#8aaac8] font-medium">No templates yet</p>
+                <p className="text-[#b8d4f0] font-medium">No templates yet</p>
                 <p className="text-sm text-[#3a5070] mt-1">Upload a PDF and add signature/text fields</p>
               </div>
             ) : (
@@ -389,7 +389,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                           </button>
                           <button
                             onClick={() => openBuilder(t)}
-                            className="text-xs text-[#3a5070] hover:text-[#8aaac8] border border-[#1e2d45] hover:border-[#1e2d45] px-2.5 py-1.5 rounded-lg transition-colors"
+                            className="text-xs text-[#3a5070] hover:text-[#b8d4f0] border border-[#1e2d45] hover:border-[#1e2d45] px-2.5 py-1.5 rounded-lg transition-colors"
                           >
                             Edit
                           </button>
@@ -407,11 +407,11 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                         <div className="mt-3 border-t border-[#1e2d45] pt-3 space-y-1.5">
                           {subs.slice(0, 3).map(s => (
                             <div key={s.id} className="flex items-center justify-between text-xs">
-                              <span className="text-[#8aaac8] truncate">{s.guestName} <span className="text-[#3a5070]">({s.guestEmail})</span></span>
+                              <span className="text-[#b8d4f0] truncate">{s.guestName} <span className="text-[#3a5070]">({s.guestEmail})</span></span>
                               <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                                 <span className={`px-1.5 py-0.5 rounded-full font-medium ${
                                   s.status === 'completed' ? 'bg-[#0a2518] text-[#4ab57a]'
-                                  : s.status === 'expired'  ? 'bg-[#1e2d45] text-[#8aaac8]'
+                                  : s.status === 'expired'  ? 'bg-[#1e2d45] text-[#b8d4f0]'
                                   : 'bg-[#2a1a0a] text-[#d0954a]'
                                 }`}>{s.status}</span>
                                 {s.status === 'pending' && (
@@ -452,11 +452,11 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
         <div className="bg-[#1a2335] rounded-2xl shadow-2xl w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
-            <button onClick={() => setScreen('list')} className="text-[#3a5070] hover:text-[#8aaac8]">
+            <button onClick={() => setScreen('list')} className="text-[#3a5070] hover:text-[#b8d4f0]">
               <ChevronLeft size={20} />
             </button>
             <h2 className="font-bold text-white">Send Agreement</h2>
-            <button onClick={onClose} className="text-[#3a5070] hover:text-[#8aaac8]"><X size={20} /></button>
+            <button onClick={onClose} className="text-[#3a5070] hover:text-[#b8d4f0]"><X size={20} /></button>
           </div>
 
           {sendDone ? (
@@ -465,7 +465,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                 <Send size={24} className="text-[#5ce0a0]" />
               </div>
               <p className="font-semibold text-white">Agreement Sent!</p>
-              <p className="text-sm text-[#8aaac8] mt-1 mb-5">
+              <p className="text-sm text-[#b8d4f0] mt-1 mb-5">
                 Email sent to {sendGuestEmail}. You can also copy the link to share directly:
               </p>
               {sentToken && (
@@ -475,7 +475,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                     setCopied(true);
                     setTimeout(() => setCopied(false), 2000);
                   }}
-                  className="flex items-center gap-2 mx-auto bg-[#1e2d45] hover:bg-[#1e2d45] text-[#8aaac8] text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+                  className="flex items-center gap-2 mx-auto bg-[#1e2d45] hover:bg-[#1e2d45] text-[#b8d4f0] text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
                 >
                   {copied ? <Check size={14} className="text-[#5ce0a0]" /> : <Copy size={14} />}
                   {copied ? 'Copied!' : 'Copy Guest Link'}
@@ -490,12 +490,12 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
             </div>
           ) : (
             <>
-              <p className="text-sm text-[#8aaac8] mb-4">
+              <p className="text-sm text-[#b8d4f0] mb-4">
                 Sending: <strong>{sendTemplate?.name}</strong>
               </p>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-[#8aaac8] block mb-1">Guest name</label>
+                  <label className="text-xs text-[#b8d4f0] block mb-1">Guest name</label>
                   <input
                     type="text"
                     value={sendGuestName}
@@ -505,7 +505,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-[#8aaac8] block mb-1">Guest email</label>
+                  <label className="text-xs text-[#b8d4f0] block mb-1">Guest email</label>
                   <input
                     type="email"
                     value={sendGuestEmail}
@@ -534,7 +534,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
     <div className="fixed inset-0 z-50 flex flex-col bg-[#1a2335]">
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1e2d45] bg-[#1a2335] shadow-sm flex-shrink-0">
-        <button onClick={() => setScreen('list')} className="text-[#3a5070] hover:text-[#8aaac8] transition-colors">
+        <button onClick={() => setScreen('list')} className="text-[#3a5070] hover:text-[#b8d4f0] transition-colors">
           <ChevronLeft size={20} />
         </button>
         <input
@@ -551,7 +551,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
         >
           {saving ? 'Saving…' : uploading ? 'Uploading…' : 'Save Template'}
         </button>
-        <button onClick={onClose} className="text-[#3a5070] hover:text-[#8aaac8] transition-colors ml-1">
+        <button onClick={onClose} className="text-[#3a5070] hover:text-[#b8d4f0] transition-colors ml-1">
           <X size={20} />
         </button>
       </div>
@@ -559,7 +559,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar — field palette */}
         <div className="w-52 border-r border-[#1e2d45] bg-[#1e2d45] overflow-y-auto flex-shrink-0 p-3">
-          <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-3">Add Field</p>
+          <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-3">Add Field</p>
           <p className="text-xs text-[#3a5070] mb-3 leading-relaxed">Choose a type, then click on the PDF to place it.</p>
           <div className="space-y-1.5">
             {(['signature', 'text', 'date', 'initials', 'credit_card'] as FieldType[]).map(type => (
@@ -569,7 +569,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
                   selectedFieldType === type
                     ? 'bg-[#1a2335] shadow-sm border border-[#1e2d45] text-white'
-                    : 'text-[#8aaac8] hover:bg-[#1a2335] hover:shadow-sm'
+                    : 'text-[#b8d4f0] hover:bg-[#1a2335] hover:shadow-sm'
                 }`}
               >
                 <span style={{ color: FIELD_COLORS[type] }}>{FIELD_ICONS[type]}</span>
@@ -580,7 +580,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
 
           {fields.length > 0 && (
             <>
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mt-5 mb-3">
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mt-5 mb-3">
                 Fields ({fields.length})
               </p>
               <div className="space-y-1">
@@ -599,7 +599,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                         value={f.label}
                         onChange={e => { e.stopPropagation(); updateFieldLabel(f.id, e.target.value); }}
                         onClick={e => e.stopPropagation()}
-                        className="w-full text-xs text-[#8aaac8] bg-transparent border-none outline-none truncate"
+                        className="w-full text-xs text-[#b8d4f0] bg-transparent border-none outline-none truncate"
                       />
                       <p className="text-[10px] text-[#3a5070]">p.{f.page + 1}</p>
                     </div>
@@ -621,7 +621,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
           {!pdfDoc ? (
             <label className="flex flex-col items-center justify-center h-full min-h-64 border-2 border-dashed border-slate-400 rounded-xl cursor-pointer hover:border-teal-500 hover:bg-[#1e2d45] transition-colors">
               <Upload size={32} className="text-[#3a5070] mb-3" />
-              <p className="text-[#8aaac8] font-medium">Upload PDF Agreement</p>
+              <p className="text-[#b8d4f0] font-medium">Upload PDF Agreement</p>
               <p className="text-sm text-[#3a5070] mt-1">Click or drag a PDF file here</p>
               <input
                 type="file"
@@ -639,15 +639,15 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                     <button
                       onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
                       disabled={currentPage === 0}
-                      className="text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 transition-colors"
+                      className="text-[#3a5070] hover:text-[#b8d4f0] disabled:opacity-30 transition-colors"
                     >
                       <ChevronLeft size={16} />
                     </button>
-                    <span className="text-sm text-[#8aaac8]">Page {currentPage + 1} of {pageCount}</span>
+                    <span className="text-sm text-[#b8d4f0]">Page {currentPage + 1} of {pageCount}</span>
                     <button
                       onClick={() => setCurrentPage(p => Math.min(pageCount - 1, p + 1))}
                       disabled={currentPage === pageCount - 1}
-                      className="text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 transition-colors"
+                      className="text-[#3a5070] hover:text-[#b8d4f0] disabled:opacity-30 transition-colors"
                     >
                       <ChevronRight size={16} />
                     </button>
@@ -657,14 +657,14 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                 <button
                   onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
                   disabled={zoom <= 0.5}
-                  className="text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 transition-colors p-0.5"
+                  className="text-[#3a5070] hover:text-[#b8d4f0] disabled:opacity-30 transition-colors p-0.5"
                   title="Zoom out"
                 >
                   <ZoomOut size={15} />
                 </button>
                 <button
                   onClick={() => setZoom(1)}
-                  className="text-xs text-[#8aaac8] hover:text-[#4a90d9] font-medium w-10 text-center transition-colors"
+                  className="text-xs text-[#b8d4f0] hover:text-[#4a90d9] font-medium w-10 text-center transition-colors"
                   title="Reset zoom"
                 >
                   {Math.round(zoom * 100)}%
@@ -672,7 +672,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                 <button
                   onClick={() => setZoom(z => Math.min(3, parseFloat((z + 0.25).toFixed(2))))}
                   disabled={zoom >= 3}
-                  className="text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 transition-colors p-0.5"
+                  className="text-[#3a5070] hover:text-[#b8d4f0] disabled:opacity-30 transition-colors p-0.5"
                   title="Zoom in"
                 >
                   <ZoomIn size={15} />

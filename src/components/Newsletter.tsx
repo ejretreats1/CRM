@@ -308,7 +308,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
         </div>
         <div>
           <p className="text-xl font-bold text-white">Newsletter Sent!</p>
-          <p className="text-[#8aaac8] text-sm mt-1">{result?.sent} emails delivered{result?.failed ? `, ${result.failed} failed` : ''}.</p>
+          <p className="text-[#b8d4f0] text-sm mt-1">{result?.sent} emails delivered{result?.failed ? `, ${result.failed} failed` : ''}.</p>
         </div>
         <button onClick={reset} className="mt-2 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-6 py-2.5 rounded-lg transition-colors">
           Send Another
@@ -323,7 +323,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
         <h1 className="text-xl font-bold text-white flex items-center gap-2">
           <Mail size={22} className="text-[#4a90d9]" /> Newsletter
         </h1>
-        <p className="text-sm text-[#8aaac8] mt-0.5">Send monthly updates to your clients and leads</p>
+        <p className="text-sm text-[#b8d4f0] mt-0.5">Send monthly updates to your clients and leads</p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
@@ -338,7 +338,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
               <div className="flex items-center gap-2">
                 <button onClick={selectAll} className="text-xs text-[#4a90d9] hover:text-[#4a90d9] transition-colors">All</button>
                 <span className="text-[#3a5070] text-xs">·</span>
-                <button onClick={clearAll} className="text-xs text-[#3a5070] hover:text-[#8aaac8] transition-colors">None</button>
+                <button onClick={clearAll} className="text-xs text-[#3a5070] hover:text-[#b8d4f0] transition-colors">None</button>
               </div>
             </div>
 
@@ -349,7 +349,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                   allClientsSelected
                     ? 'bg-[#162035] text-[#4a90d9] border-[#4a90d9]'
-                    : 'bg-[#1e2d45] text-[#8aaac8] border-[#1e2d45] hover:text-[#8aaac8]'
+                    : 'bg-[#1e2d45] text-[#b8d4f0] border-[#1e2d45] hover:text-[#b8d4f0]'
                 }`}
               >
                 {allClientsSelected ? '✓' : '+'} All Clients ({clients.length})
@@ -359,7 +359,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                   allLeadsSelected
                     ? 'bg-[#1a1a35] text-[#d07af5] border-indigo-300'
-                    : 'bg-[#1e2d45] text-[#8aaac8] border-[#1e2d45] hover:text-[#8aaac8]'
+                    : 'bg-[#1e2d45] text-[#b8d4f0] border-[#1e2d45] hover:text-[#b8d4f0]'
                 }`}
               >
                 {allLeadsSelected ? '✓' : '+'} All Leads ({leadsOnly.length})
@@ -369,8 +369,8 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                   onClick={() => selectGroup('team', !allTeamSelected)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                     allTeamSelected
-                      ? 'bg-violet-50 text-[#d07af5] border-violet-300'
-                      : 'bg-[#1e2d45] text-[#8aaac8] border-[#1e2d45] hover:text-[#8aaac8]'
+                      ? 'bg-[#1a1535] text-[#d07af5] border-[#5a30a0]'
+                      : 'bg-[#1e2d45] text-[#b8d4f0] border-[#1e2d45] hover:text-[#b8d4f0]'
                   }`}
                 >
                   {allTeamSelected ? '✓' : '+'} Team ({team.length})
@@ -378,7 +378,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
               )}
               <button
                 onClick={() => setRecipientListOpen(o => !o)}
-                className="flex items-center gap-1 ml-auto text-xs text-[#3a5070] hover:text-[#8aaac8] transition-colors"
+                className="flex items-center gap-1 ml-auto text-xs text-[#3a5070] hover:text-[#b8d4f0] transition-colors"
               >
                 Pick individual {recipientListOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               </button>
@@ -394,9 +394,9 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                       value={recipientSearch}
                       onChange={e => setRecipientSearch(e.target.value)}
                       placeholder="Search by name or email..."
-                      className="flex-1 bg-transparent text-sm text-[#8aaac8] placeholder-zinc-600 outline-none"
+                      className="flex-1 bg-transparent text-sm text-[#b8d4f0] placeholder-zinc-600 outline-none"
                     />
-                    {recipientSearch && <button onClick={() => setRecipientSearch('')} className="text-[#3a5070] hover:text-[#8aaac8]"><X size={12} /></button>}
+                    {recipientSearch && <button onClick={() => setRecipientSearch('')} className="text-[#3a5070] hover:text-[#b8d4f0]"><X size={12} /></button>}
                   </div>
                 </div>
                 <div className="max-h-52 overflow-y-auto divide-y divide-slate-100">
@@ -411,13 +411,13 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                         className="accent-teal-600 w-4 h-4 flex-shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-[#8aaac8] truncate">{c.name}</p>
+                        <p className="text-sm text-[#b8d4f0] truncate">{c.name}</p>
                         <p className="text-xs text-[#3a5070] truncate">{c.email}</p>
                       </div>
                       <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                         c.group === 'client' ? 'bg-[#162035] text-[#4a90d9]'
                         : c.group === 'lead' ? 'bg-[#1a1a35] text-[#d07af5]'
-                        : 'bg-violet-100 text-[#d07af5]'
+                        : 'bg-[#1a1535] text-[#d07af5]'
                       }`}>
                         {c.group === 'client' ? 'Client' : c.group === 'lead' ? 'Lead' : 'Team'}
                       </span>
@@ -466,7 +466,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Subject Line</label>
+              <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Subject Line</label>
               <input
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
@@ -484,7 +484,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
               />
             ) : (
               <div className="space-y-1">
-                <label className="block text-xs font-medium text-[#8aaac8] mb-2">Message</label>
+                <label className="block text-xs font-medium text-[#b8d4f0] mb-2">Message</label>
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
 
                 {blocks.map((block, idx) => (
@@ -503,7 +503,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                         <img src={block.src} alt="" className="w-full object-cover max-h-56" />
                         <button
                           onClick={() => removeBlock(block.id)}
-                          className="absolute top-2 right-2 bg-[#1e2d45]/80 hover:bg-[#1e2d45] rounded-full p-1.5 text-[#8aaac8] hover:text-[#e05c5c] transition-colors opacity-0 group-hover:opacity-100"
+                          className="absolute top-2 right-2 bg-[#1e2d45]/80 hover:bg-[#1e2d45] rounded-full p-1.5 text-[#b8d4f0] hover:text-[#e05c5c] transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <X size={14} />
                         </button>
@@ -525,23 +525,23 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                               className="flex-1 border border-[#1e2d45] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                             />
                             <button onClick={() => insertImage(urlInput.trim())} className="px-3 py-1.5 bg-[#4a90d9] text-white text-sm rounded-lg hover:bg-[#3a80c9] transition-colors">Add</button>
-                            <button onClick={closeInsert} className="px-2 text-[#3a5070] hover:text-[#8aaac8]"><X size={14} /></button>
+                            <button onClick={closeInsert} className="px-2 text-[#3a5070] hover:text-[#b8d4f0]"><X size={14} /></button>
                           </div>
                         ) : (
                           <div className="flex gap-2 justify-center">
                             <button
                               onClick={() => { setInsertMode('upload'); fileRef.current?.click(); }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e2d45] hover:bg-[#1e2d45] text-[#8aaac8] text-sm rounded-lg transition-colors"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e2d45] hover:bg-[#1e2d45] text-[#b8d4f0] text-sm rounded-lg transition-colors"
                             >
                               <ImagePlus size={14} /> Upload
                             </button>
                             <button
                               onClick={() => setInsertMode('url')}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e2d45] hover:bg-[#1e2d45] text-[#8aaac8] text-sm rounded-lg transition-colors"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e2d45] hover:bg-[#1e2d45] text-[#b8d4f0] text-sm rounded-lg transition-colors"
                             >
                               <Link size={14} /> Paste URL
                             </button>
-                            <button onClick={closeInsert} className="px-2 text-[#3a5070] hover:text-[#8aaac8]"><X size={14} /></button>
+                            <button onClick={closeInsert} className="px-2 text-[#3a5070] hover:text-[#b8d4f0]"><X size={14} /></button>
                           </div>
                         )}
                       </div>
@@ -583,7 +583,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
               <p className="text-sm font-semibold text-amber-300">Send to {recipients.length} people?</p>
               <p className="text-xs text-amber-400">Subject: <span className="font-medium">{subject}</span></p>
               <div className="flex gap-2">
-                <button onClick={() => setConfirming(false)} className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium py-2 rounded-lg hover:bg-[#1e2d45] transition-colors">
+                <button onClick={() => setConfirming(false)} className="flex-1 border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium py-2 rounded-lg hover:bg-[#1e2d45] transition-colors">
                   Cancel
                 </button>
                 <button onClick={handleSend} className="flex-1 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2">

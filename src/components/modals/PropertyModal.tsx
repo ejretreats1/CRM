@@ -80,7 +80,7 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
     <Modal title={property ? 'Edit Property' : 'Add Property'} onClose={onClose} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Street Address *</label>
+          <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Street Address *</label>
           <input required value={form.address} onChange={e => set('address', e.target.value)}
             className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="123 Mountain View Dr" />
@@ -88,13 +88,13 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
 
         <div className="grid sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">City *</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">City *</label>
             <input required value={form.city} onChange={e => set('city', e.target.value)}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="Gatlinburg" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">State</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">State</label>
             <input value={form.state} onChange={e => set('state', e.target.value)}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="TN" maxLength={2} />
@@ -103,14 +103,14 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Property Type</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Property Type</label>
             <select value={form.type} onChange={e => set('type', e.target.value)}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]">
               {PROPERTY_TYPES.map(t => <option key={t}>{t}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Status</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Status</label>
             <select value={form.status} onChange={e => set('status', e.target.value as PropertyStatus)}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]">
               <option value="onboarding">Onboarding</option>
@@ -122,17 +122,17 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Bedrooms</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Bedrooms</label>
             <input type="number" min={1} max={20} value={form.bedrooms} onChange={e => set('bedrooms', Number(e.target.value))}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Bathrooms</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Bathrooms</label>
             <input type="number" min={1} max={20} step={0.5} value={form.bathrooms} onChange={e => set('bathrooms', Number(e.target.value))}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Max Guests</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Max Guests</label>
             <input type="number" min={1} max={50} value={form.maxGuests} onChange={e => set('maxGuests', Number(e.target.value))}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
           </div>
@@ -140,13 +140,13 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Monthly Revenue ($)</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Monthly Revenue ($)</label>
             <input type="number" min={0} value={form.monthlyRevenue} onChange={e => set('monthlyRevenue', Number(e.target.value))}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="5000" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Occupancy Rate (%)</label>
+            <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Occupancy Rate (%)</label>
             <input type="number" min={0} max={100} value={form.occupancyRate} onChange={e => set('occupancyRate', Number(e.target.value))}
               className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="75" />
@@ -154,7 +154,7 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Photo URL (optional)</label>
+          <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Photo URL (optional)</label>
           <input
             value={form.photoUrl}
             onChange={e => set('photoUrl', e.target.value)}
@@ -172,7 +172,7 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Linked Listings <span className="text-[#3a5070] font-normal">(optional — for multi-unit properties)</span></label>
+          <label className="block text-xs font-medium text-[#b8d4f0] mb-1">Linked Listings <span className="text-[#3a5070] font-normal">(optional — for multi-unit properties)</span></label>
           <p className="text-xs text-[#3a5070] mb-2">Link other units at this property to aggregate occupancy &amp; revenue together in Revenue Intelligence.</p>
 
           {/* Picker from synced listings */}
@@ -226,7 +226,7 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[#8aaac8] mb-2">Platforms</label>
+          <label className="block text-xs font-medium text-[#b8d4f0] mb-2">Platforms</label>
           <div className="flex flex-wrap gap-2">
             {PLATFORMS.map(platform => (
               <button
@@ -236,7 +236,7 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors
                   ${form.platforms.includes(platform)
                     ? 'bg-[#4a90d9] text-white border-[#4a90d9]'
-                    : 'bg-[#1a2335] text-[#8aaac8] border-[#1e2d45] hover:border-[#4a90d9]'}`}
+                    : 'bg-[#1a2335] text-[#b8d4f0] border-[#1e2d45] hover:border-[#4a90d9]'}`}
               >
                 {platform}
               </button>
@@ -246,7 +246,7 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
 
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose}
-            className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors">
+            className="flex-1 border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors">
             Cancel
           </button>
           <button type="submit"

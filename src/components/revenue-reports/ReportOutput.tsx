@@ -456,7 +456,7 @@ function ScoreArc({ score }: { score: number }) {
   return (
     <div className={`${bgColor} rounded-xl p-4 text-center`}>
       <div className={`text-4xl font-black ${color}`}>{score}<span className="text-lg font-semibold text-[#3a5070]">/10</span></div>
-      <div className="text-xs font-semibold text-[#8aaac8] mt-1 uppercase tracking-wide">Opportunity Score</div>
+      <div className="text-xs font-semibold text-[#b8d4f0] mt-1 uppercase tracking-wide">Opportunity Score</div>
       <div className="mt-2 h-2 bg-[#1e2d45] rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${score >= 7 ? 'bg-emerald-500' : score >= 4 ? 'bg-amber-400' : 'bg-red-500'}`} style={{ width: `${pct * 100}%` }} />
       </div>
@@ -482,8 +482,8 @@ function GapBadge({ projected, actual }: { projected: number | null; actual: num
   );
   return (
     <div className="flex items-center gap-1.5 bg-[#1e2d45] border border-[#1e2d45] rounded-lg px-3 py-2">
-      <Minus size={14} className="text-[#8aaac8]" />
-      <span className="text-sm font-semibold text-[#8aaac8]">At market rate</span>
+      <Minus size={14} className="text-[#b8d4f0]" />
+      <span className="text-sm font-semibold text-[#b8d4f0]">At market rate</span>
     </div>
   );
 }
@@ -551,7 +551,7 @@ function ComparablesTable({ comps }: { comps: CompData[] }) {
       <div className="bg-[#1e2d45] rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-[#1e2d45] text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">
+            <tr className="bg-[#1e2d45] text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">
               <th className="px-4 py-2.5 text-left">Beds</th>
               <th className="px-4 py-2.5 text-right">Annual Revenue</th>
               <th className="px-4 py-2.5 text-right">Occupancy</th>
@@ -561,10 +561,10 @@ function ComparablesTable({ comps }: { comps: CompData[] }) {
           <tbody className="divide-y divide-[#1e2d45]">
             {comps.map((c, i) => (
               <tr key={i} className="bg-[#1a2335]">
-                <td className="px-4 py-2.5 text-[#8aaac8] font-medium">{c.bedrooms != null ? `${c.bedrooms} BR` : ''}</td>
+                <td className="px-4 py-2.5 text-[#b8d4f0] font-medium">{c.bedrooms != null ? `${c.bedrooms} BR` : ''}</td>
                 <td className="px-4 py-2.5 text-right font-semibold text-[#4a90d9]">{c.annualRevenue != null ? `$${Math.round(c.annualRevenue).toLocaleString()}` : ''}</td>
-                <td className="px-4 py-2.5 text-right text-[#8aaac8]">{c.occupancyRate != null ? `${Math.round(c.occupancyRate)}%` : ''}</td>
-                <td className="px-4 py-2.5 text-right text-[#8aaac8]">{c.adr != null ? `$${Math.round(c.adr)}` : ''}</td>
+                <td className="px-4 py-2.5 text-right text-[#b8d4f0]">{c.occupancyRate != null ? `${Math.round(c.occupancyRate)}%` : ''}</td>
+                <td className="px-4 py-2.5 text-right text-[#b8d4f0]">{c.adr != null ? `$${Math.round(c.adr)}` : ''}</td>
               </tr>
             ))}
           </tbody>
@@ -773,7 +773,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                 <Mail size={15} className="text-[#4a90d9]" />
                 <h3 className="text-sm font-bold text-white">Email Report</h3>
               </div>
-              <button onClick={() => setEmailOpen(false)} className="text-[#3a5070] hover:text-[#8aaac8]">
+              <button onClick={() => setEmailOpen(false)} className="text-[#3a5070] hover:text-[#b8d4f0]">
                 <X size={16} />
               </button>
             </div>
@@ -785,13 +785,13 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                     <Send size={20} className="text-[#5ce0a0]" />
                   </div>
                   <p className="text-sm font-bold text-white">Report Sent!</p>
-                  <p className="text-xs text-[#8aaac8] mt-0.5">Delivered to {emailTo}</p>
+                  <p className="text-xs text-[#b8d4f0] mt-0.5">Delivered to {emailTo}</p>
                 </div>
 
                 {/* Phone number */}
                 {recipientPhone && (
                   <div>
-                    <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-1.5">Phone Number</p>
+                    <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5">Phone Number</p>
                     <div className="flex items-center gap-2 bg-[#1e2d45] rounded-lg px-3 py-2">
                       <Phone size={13} className="text-[#3a5070] flex-shrink-0" />
                       <span className="text-sm text-white flex-1 font-medium">{recipientPhone}</span>
@@ -807,11 +807,11 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
                 {/* Follow-up text message */}
                 <div>
-                  <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-1.5">Follow-up Text</p>
-                  <div className="bg-[#1e2d45] rounded-lg p-3 text-xs text-[#8aaac8] leading-relaxed whitespace-pre-wrap">{followUpText}</div>
+                  <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5">Follow-up Text</p>
+                  <div className="bg-[#1e2d45] rounded-lg p-3 text-xs text-[#b8d4f0] leading-relaxed whitespace-pre-wrap">{followUpText}</div>
                   <button
                     onClick={() => copyText(followUpText, setCopiedMsg)}
-                    className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs border border-[#1e2d45] text-[#8aaac8] hover:bg-[#1e2d45] py-2 rounded-lg transition-colors font-medium"
+                    className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs border border-[#1e2d45] text-[#b8d4f0] hover:bg-[#1e2d45] py-2 rounded-lg transition-colors font-medium"
                   >
                     {copiedMsg ? <><CheckIcon size={12} /> Copied!</> : <><Copy size={12} /> Copy Text Message</>}
                   </button>
@@ -822,7 +822,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             ) : (
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Recipient Name</label>
+                  <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Recipient Name</label>
                   <input
                     value={emailName}
                     onChange={e => setEmailName(e.target.value)}
@@ -831,7 +831,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Email Address *</label>
+                  <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Email Address *</label>
                   <input
                     value={emailTo}
                     onChange={e => setEmailTo(e.target.value)}
@@ -841,7 +841,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Subject</label>
+                  <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Subject</label>
                   <input
                     value={emailSubject}
                     onChange={e => setEmailSubject(e.target.value)}
@@ -850,19 +850,19 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-medium text-[#8aaac8]">Personal Note <span className="text-[#3a5070] font-normal">(appears at top)</span></label>
+                    <label className="text-xs font-medium text-[#b8d4f0]">Personal Note <span className="text-[#3a5070] font-normal">(appears at top)</span></label>
                     <div className="flex gap-0.5 p-0.5 bg-[#1e2d45] rounded-lg">
                       <button
                         type="button"
                         onClick={() => { setNoteTemplate('standard'); setPersonalNote(isDeal ? '' : defaultEmailNote(firstName, address)); }}
-                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${noteTemplate === 'standard' ? 'bg-[#1a2335] text-[#8aaac8] shadow-sm' : 'text-[#3a5070] hover:text-[#8aaac8]'}`}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${noteTemplate === 'standard' ? 'bg-[#1a2335] text-[#b8d4f0] shadow-sm' : 'text-[#3a5070] hover:text-[#b8d4f0]'}`}
                       >
                         Standard
                       </button>
                       <button
                         type="button"
                         onClick={() => { setNoteTemplate('sales'); setPersonalNote(defaultSalesNote(firstName, address, data)); }}
-                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${noteTemplate === 'sales' ? 'bg-[#1a2335] text-[#4a90d9] shadow-sm' : 'text-[#3a5070] hover:text-[#8aaac8]'}`}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${noteTemplate === 'sales' ? 'bg-[#1a2335] text-[#4a90d9] shadow-sm' : 'text-[#3a5070] hover:text-[#b8d4f0]'}`}
                       >
                         🔥 Get on a Call
                       </button>
@@ -896,7 +896,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           {/* Right: live preview */}
           <div className="flex-1 flex flex-col bg-[#1e2d45]">
             <div className="px-4 py-3 bg-[#1e2d45] border-b border-[#1e2d45] flex items-center gap-2">
-              <span className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wider">Live Preview</span>
+              <span className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wider">Live Preview</span>
               <span className="text-xs text-[#3a5070]">— updates as you type</span>
             </div>
             <iframe
@@ -911,14 +911,14 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
       {/* Action bar */}
       <div className="flex items-center justify-between px-6 py-4 print:hidden">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-[#8aaac8] hover:text-[#4a90d9] transition-colors">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-[#b8d4f0] hover:text-[#4a90d9] transition-colors">
           <ArrowLeft size={15} /> Back
         </button>
         <div className="flex items-center gap-2">
           {portalUrl && (
             <button
               onClick={() => copyText(portalUrl, setCopiedPortal)}
-              className="flex items-center gap-1.5 text-sm border border-[#1e2d45] text-[#8aaac8] hover:bg-[#1e2d45] px-3 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 text-sm border border-[#1e2d45] text-[#b8d4f0] hover:bg-[#1e2d45] px-3 py-2 rounded-lg transition-colors"
             >
               {copiedPortal ? <><CheckIcon size={14} className="text-emerald-500" /> Copied!</> : <><Copy size={14} /> Copy Portal Link</>}
             </button>
@@ -927,20 +927,20 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             <button
               onClick={shortenAndCopy}
               disabled={shorteningLink}
-              className="flex items-center gap-1.5 text-sm border border-[#1e2d45] text-[#8aaac8] hover:bg-[#1e2d45] disabled:opacity-60 px-3 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 text-sm border border-[#1e2d45] text-[#b8d4f0] hover:bg-[#1e2d45] disabled:opacity-60 px-3 py-2 rounded-lg transition-colors"
             >
               {copiedLink ? <><CheckIcon size={14} className="text-emerald-500" /> Copied!</> : shorteningLink ? <><Loader size={14} className="animate-spin" /> Shortening...</> : <><Copy size={14} /> Copy Link</>}
             </button>
           )}
           <button
             onClick={openEmailModal}
-            className="flex items-center gap-1.5 text-sm border border-[#1e2d45] text-[#8aaac8] hover:bg-[#1e2d45] px-3 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-sm border border-[#1e2d45] text-[#b8d4f0] hover:bg-[#1e2d45] px-3 py-2 rounded-lg transition-colors"
           >
             <Mail size={14} /> {isDeal ? 'Email Analysis' : 'Email Report'}
           </button>
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 text-sm border border-[#1e2d45] text-[#8aaac8] hover:bg-[#1e2d45] px-3 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-sm border border-[#1e2d45] text-[#b8d4f0] hover:bg-[#1e2d45] px-3 py-2 rounded-lg transition-colors"
           >
             <Printer size={14} /> Download PDF
           </button>
@@ -1012,7 +1012,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               ].map(s => (
                 <div key={s.label} className="bg-[#1e2d45] rounded-xl p-4">
                   <div className="text-xl font-black text-[#4a90d9]">{s.value}</div>
-                  <div className="text-xs font-semibold text-[#8aaac8] mt-0.5">{s.label}</div>
+                  <div className="text-xs font-semibold text-[#b8d4f0] mt-0.5">{s.label}</div>
                   <div className="text-xs text-[#3a5070]">{s.sub}</div>
                 </div>
               ))}
@@ -1028,8 +1028,8 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                 { label: 'Expected Occupancy',   value: fmtPct(data.mtrProjected.occupancyRate), sub: 'MTR typical',  accent: false },
               ].map(s => (
                 <div key={s.label} className={`rounded-xl p-4 ${s.accent ? 'bg-[#1a1a35]' : 'bg-[#1e2d45]'}`}>
-                  <div className={`text-xl font-black ${s.accent ? 'text-[#d07af5]' : 'text-[#8aaac8]'}`}>{s.value}</div>
-                  <div className="text-xs font-semibold text-[#8aaac8] mt-0.5">{s.label}</div>
+                  <div className={`text-xl font-black ${s.accent ? 'text-[#d07af5]' : 'text-[#b8d4f0]'}`}>{s.value}</div>
+                  <div className="text-xs font-semibold text-[#b8d4f0] mt-0.5">{s.label}</div>
                   <div className="text-xs text-[#3a5070]">{s.sub}</div>
                 </div>
               ))}
@@ -1041,16 +1041,16 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             <div className="print-section grid grid-cols-3 gap-3">
               <div className="bg-[#2a1a0a] rounded-xl p-4">
                 <div className="text-xl font-black text-[#d0954a]">{fmt(data.listingPrice)}</div>
-                <div className="text-xs font-semibold text-[#8aaac8] mt-0.5">Listing Price</div>
+                <div className="text-xs font-semibold text-[#b8d4f0] mt-0.5">Listing Price</div>
               </div>
               <div className="bg-[#2a1a0a] rounded-xl p-4">
                 <div className="text-xl font-black text-[#d0954a]">{fmt(data.combinedAnnualRevenue)}</div>
-                <div className="text-xs font-semibold text-[#8aaac8] mt-0.5">Combined Annual Revenue</div>
+                <div className="text-xs font-semibold text-[#b8d4f0] mt-0.5">Combined Annual Revenue</div>
                 <div className="text-xs text-[#3a5070]">all units projected</div>
               </div>
               <div className="bg-[#2a1a0a] rounded-xl p-4">
                 <div className="text-xl font-black text-[#d0954a]">{data.grossYield != null ? `${data.grossYield.toFixed(1)}%` : '—'}</div>
-                <div className="text-xs font-semibold text-[#8aaac8] mt-0.5">Gross Yield</div>
+                <div className="text-xs font-semibold text-[#b8d4f0] mt-0.5">Gross Yield</div>
                 <div className="text-xs text-[#3a5070]">annual rev ÷ price</div>
               </div>
             </div>
@@ -1063,7 +1063,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               <div className="bg-[#1e2d45] rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-[#1e2d45] text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">
+                    <tr className="bg-[#1e2d45] text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">
                       <th className="px-4 py-2.5 text-left">Unit</th>
                       <th className="px-4 py-2.5 text-center">Beds / Baths</th>
                       <th className="px-4 py-2.5 text-right">Proj. Annual Rev</th>
@@ -1079,7 +1079,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                           <td className="px-4 py-2.5 font-semibold text-white">
                             {u.unitLabel}{qty > 1 && <span className="ml-1.5 text-xs font-bold text-[#d0954a]">×{qty}</span>}
                           </td>
-                          <td className="px-4 py-2.5 text-center text-[#8aaac8]">
+                          <td className="px-4 py-2.5 text-center text-[#b8d4f0]">
                             {[u.bedrooms != null ? `${u.bedrooms}bd` : null, u.bathrooms != null ? `${u.bathrooms}ba` : null].filter(Boolean).join(' / ') || '—'}
                           </td>
                           <td className="px-4 py-2.5 text-right font-semibold text-[#d0954a]">
@@ -1088,8 +1088,8 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                               <div className="text-xs text-[#d0954a] font-normal">×{qty} = {fmt(u.projectedAnnualRevenue * qty)}</div>
                             )}
                           </td>
-                          <td className="px-4 py-2.5 text-right text-[#8aaac8]">{fmtPct(u.occupancyRate)}</td>
-                          <td className="px-4 py-2.5 text-right text-[#8aaac8]">{u.adr != null ? `$${Math.round(u.adr)}` : ''}</td>
+                          <td className="px-4 py-2.5 text-right text-[#b8d4f0]">{fmtPct(u.occupancyRate)}</td>
+                          <td className="px-4 py-2.5 text-right text-[#b8d4f0]">{u.adr != null ? `$${Math.round(u.adr)}` : ''}</td>
                         </tr>
                       );
                     })}
@@ -1116,7 +1116,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                   <h3 className="text-sm font-bold text-emerald-800 mb-3">Property Highlights</h3>
                   <ul className="space-y-2">
                     {data.propertyHighlights.map((h, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-[#8aaac8]">
+                      <li key={i} className="flex items-start gap-2 text-sm text-[#b8d4f0]">
                         <span className="text-emerald-500 flex-shrink-0 font-bold mt-0.5">✓</span>
                         {h}
                       </li>
@@ -1129,7 +1129,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                   <h3 className="text-sm font-bold text-orange-800 mb-3">Concerns / Risks</h3>
                   <ul className="space-y-2">
                     {data.concerns.map((c, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-[#8aaac8]">
+                      <li key={i} className="flex items-start gap-2 text-sm text-[#b8d4f0]">
                         <span className="text-orange-400 flex-shrink-0 font-bold mt-0.5">!</span>
                         {c}
                       </li>
@@ -1144,13 +1144,13 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           {isMtr && data.mtrProjected && (
             <div className="print-section grid sm:grid-cols-2 gap-4">
               <div className="bg-[#1e2d45] rounded-xl p-4">
-                <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wider mb-2">Lease & Tenant</p>
+                <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wider mb-2">Lease & Tenant</p>
                 <p className="text-sm font-semibold text-white">{data.mtrProjected.recommendedLeaseLength} stays</p>
-                <p className="text-xs text-[#8aaac8] mt-1">{data.mtrProjected.targetTenantProfile}</p>
+                <p className="text-xs text-[#b8d4f0] mt-1">{data.mtrProjected.targetTenantProfile}</p>
               </div>
               {data.recommendedPlatforms && data.recommendedPlatforms.length > 0 && (
                 <div className="bg-[#1e2d45] rounded-xl p-4">
-                  <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wider mb-2">Recommended Platforms</p>
+                  <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wider mb-2">Recommended Platforms</p>
                   <div className="flex flex-wrap gap-1.5">
                     {data.recommendedPlatforms.map(p => (
                       <span key={p} className="text-xs bg-[#1a1a35] text-[#d07af5] px-2 py-0.5 rounded-full font-medium">{p}</span>
@@ -1167,12 +1167,12 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               <h3 className="text-sm font-bold text-white">STR vs. MTR Comparison</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#1a2335] rounded-lg p-3 text-center border border-[#1e2d45]">
-                  <p className="text-xs text-[#8aaac8] mb-1">STR Annual (AirDNA)</p>
+                  <p className="text-xs text-[#b8d4f0] mb-1">STR Annual (AirDNA)</p>
                   <p className="text-2xl font-black text-[#6ab0f5]">{fmt(data.strVsMtr.strAnnualEstimate)}</p>
                   <p className="text-xs text-[#3a5070]">short-term rental</p>
                 </div>
                 <div className="bg-[#1a2335] rounded-lg p-3 text-center border border-[#2a1a5a]">
-                  <p className="text-xs text-[#8aaac8] mb-1">MTR Annual (projected)</p>
+                  <p className="text-xs text-[#b8d4f0] mb-1">MTR Annual (projected)</p>
                   <p className="text-2xl font-black text-[#d07af5]">{fmt(data.strVsMtr.mtrAnnualEstimate)}</p>
                   <p className="text-xs text-[#3a5070]">mid-term rental</p>
                 </div>
@@ -1180,7 +1180,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold ${RECOMMENDATION_LABELS[data.strVsMtr.recommendation].color}`}>
                 {RECOMMENDATION_LABELS[data.strVsMtr.recommendation].label}
               </div>
-              <p className="text-sm text-[#8aaac8] leading-relaxed">{data.strVsMtr.reasoning}</p>
+              <p className="text-sm text-[#b8d4f0] leading-relaxed">{data.strVsMtr.reasoning}</p>
             </div>
           )}
 
@@ -1190,13 +1190,13 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               <h3 className="text-sm font-bold text-white">Owner vs. Market</h3>
               <div className="flex items-center gap-6 flex-wrap">
                 <div>
-                  <div className="text-xs text-[#8aaac8]">Owner Reported</div>
+                  <div className="text-xs text-[#b8d4f0]">Owner Reported</div>
                   <div className="text-2xl font-black text-white">{fmt(ownerActualRevenue)}</div>
                   <div className="text-xs text-[#3a5070]">last 12 months</div>
                 </div>
                 <div className="text-[#3a5070] text-2xl font-light">vs</div>
                 <div>
-                  <div className="text-xs text-[#8aaac8]">AirDNA Projected</div>
+                  <div className="text-xs text-[#b8d4f0]">AirDNA Projected</div>
                   <div className="text-2xl font-black text-[#4a90d9]">{fmt(data.extracted.projectedAnnualRevenue)}</div>
                   <div className="text-xs text-[#3a5070]">market potential</div>
                 </div>
@@ -1211,13 +1211,13 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               <h3 className="text-sm font-bold text-white">Owner vs. MTR Projection</h3>
               <div className="flex items-center gap-6 flex-wrap">
                 <div>
-                  <div className="text-xs text-[#8aaac8]">Owner Reported (STR)</div>
+                  <div className="text-xs text-[#b8d4f0]">Owner Reported (STR)</div>
                   <div className="text-2xl font-black text-white">{fmt(ownerActualRevenue)}</div>
                   <div className="text-xs text-[#3a5070]">last 12 months</div>
                 </div>
                 <div className="text-[#3a5070] text-2xl font-light">vs</div>
                 <div>
-                  <div className="text-xs text-[#8aaac8]">MTR Projected</div>
+                  <div className="text-xs text-[#b8d4f0]">MTR Projected</div>
                   <div className="text-2xl font-black text-[#d07af5]">{fmt(data.mtrProjected.annualRevenue)}</div>
                   <div className="text-xs text-[#3a5070]">annual MTR potential</div>
                 </div>
@@ -1233,7 +1233,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
             <div className="sm:col-span-2 bg-[#1e2d45] rounded-xl p-5">
               <h3 className="text-sm font-bold text-white mb-2">Executive Summary</h3>
-              <p className="text-sm text-[#8aaac8] leading-relaxed">{data.executiveSummary}</p>
+              <p className="text-sm text-[#b8d4f0] leading-relaxed">{data.executiveSummary}</p>
             </div>
           </div>
 
@@ -1243,7 +1243,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               <h3 className="text-sm font-bold text-white mb-3">Key Findings</h3>
               <ul className="space-y-2">
                 {data.keyFindings.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm text-[#8aaac8]">
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-[#b8d4f0]">
                     <span className="mt-0.5 w-5 h-5 rounded-full bg-[#162035] text-[#4a90d9] text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                     {f}
                   </li>
@@ -1266,7 +1266,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           {data.marketOpportunity && (
             <div>
               <h3 className="text-sm font-bold text-white mb-2">Market Opportunity</h3>
-              <p className="text-sm text-[#8aaac8] leading-relaxed">{data.marketOpportunity}</p>
+              <p className="text-sm text-[#b8d4f0] leading-relaxed">{data.marketOpportunity}</p>
             </div>
           )}
 
@@ -1274,7 +1274,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           {data.performanceGap && (
             <div>
               <h3 className="text-sm font-bold text-white mb-2">Performance Gap Analysis</h3>
-              <p className="text-sm text-[#8aaac8] leading-relaxed">{data.performanceGap}</p>
+              <p className="text-sm text-[#b8d4f0] leading-relaxed">{data.performanceGap}</p>
             </div>
           )}
 
@@ -1288,7 +1288,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                     <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5 ${isMtr ? 'bg-indigo-600' : 'bg-[#4a90d9]'}`}>{i + 1}</span>
                     <div>
                       <p className="text-sm font-semibold text-white">{r.title}</p>
-                      <p className="text-sm text-[#8aaac8] mt-0.5">{r.description}</p>
+                      <p className="text-sm text-[#b8d4f0] mt-0.5">{r.description}</p>
                     </div>
                   </li>
                 ))}
@@ -1302,7 +1302,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               <h3 className="text-sm font-bold text-white mb-3">{isDeal ? 'Revenue Projections (All Units Combined)' : 'Revenue Projections with E&J Retreats'}</h3>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: 'Conservative', value: data.revenueProjections.conservative, color: 'bg-[#1e2d45] text-[#8aaac8]' },
+                  { label: 'Conservative', value: data.revenueProjections.conservative, color: 'bg-[#1e2d45] text-[#b8d4f0]' },
                   { label: 'Realistic',    value: data.revenueProjections.realistic,    color: 'bg-[#162035] text-[#6ab0f5] ring-2 ring-teal-200' },
                   { label: 'Optimistic',   value: data.revenueProjections.optimistic,   color: 'bg-[#0a2518] text-emerald-800' },
                 ].map(p => (

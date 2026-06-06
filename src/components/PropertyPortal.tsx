@@ -25,7 +25,7 @@ const WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-[#0a2518] text-[#4ab57a]',
-  inactive: 'bg-[#1e2d45] text-[#8aaac8]',
+  inactive: 'bg-[#1e2d45] text-[#b8d4f0]',
   onboarding: 'bg-[#2a1a0a] text-[#d0954a]',
 };
 
@@ -56,7 +56,7 @@ function channelStyle(channel?: string) {
   if (c.includes('vrbo') || c.includes('homeaway')) return 'bg-[#162035] text-[#6ab0f5]';
   if (c.includes('booking')) return 'bg-[#1a1a35] text-[#d07af5]';
   if (c.includes('direct')) return 'bg-[#162035] text-[#4a90d9]';
-  return 'bg-[#1e2d45] text-[#8aaac8]';
+  return 'bg-[#1e2d45] text-[#b8d4f0]';
 }
 
 function fmt(n: number) {
@@ -307,7 +307,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
               </span>
             </div>
             <p className="text-xs text-[#3a5070] mt-0.5 ml-6">
-              Owner: <span className="font-medium text-[#8aaac8]">{owner.name}</span>
+              Owner: <span className="font-medium text-[#b8d4f0]">{owner.name}</span>
             </p>
           </div>
         </div>
@@ -330,7 +330,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
             ))}
             {departingToday.map(r => (
               <div key={r.id} className="flex items-center gap-2">
-                <span className="text-xs bg-[#1e2d45] text-[#8aaac8] px-2 py-0.5 rounded-full font-medium">Departing</span>
+                <span className="text-xs bg-[#1e2d45] text-[#b8d4f0] px-2 py-0.5 rounded-full font-medium">Departing</span>
                 <span className="text-sm font-medium text-white">{r.guest_name}</span>
                 {r.channel && <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${channelStyle(r.channel)}`}>{r.channel}</span>}
               </div>
@@ -350,11 +350,11 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
               onClick={() => setOpen(v => !v)}
             >
               <ClipboardList size={16} className={isOnboarding ? 'text-[#d0954a]' : 'text-[#3a5070]'} />
-              <span className={`font-semibold text-sm ${isOnboarding ? 'text-amber-900' : 'text-[#8aaac8]'}`}>
+              <span className={`font-semibold text-sm ${isOnboarding ? 'text-amber-900' : 'text-[#b8d4f0]'}`}>
                 Onboarding Checklist
               </span>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ml-1 ${
-                pct === 100 ? 'bg-[#0a2518] text-[#4ab57a]' : isOnboarding ? 'bg-amber-200 text-[#f5c55c]' : 'bg-[#1e2d45] text-[#8aaac8]'
+                pct === 100 ? 'bg-[#0a2518] text-[#4ab57a]' : isOnboarding ? 'bg-amber-200 text-[#f5c55c]' : 'bg-[#1e2d45] text-[#b8d4f0]'
               }`}>
                 {doneCount}/{allItems.length}
               </span>
@@ -387,7 +387,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
                           : <Square size={16} className="text-[#3a5070] hover:text-amber-400 transition-colors" />}
                       </button>
                       <div className="flex-1 text-left">
-                        <span className={`text-sm ${done ? 'line-through text-[#3a5070]' : 'text-[#8aaac8]'}`}>
+                        <span className={`text-sm ${done ? 'line-through text-[#3a5070]' : 'text-[#b8d4f0]'}`}>
                           {item.label}
                         </span>
                         {'note' in item && (item as { note?: string }).note && (
@@ -464,11 +464,11 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
         {/* Calendar */}
         <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <button onClick={prevMonth} className="p-1 rounded text-[#3a5070] hover:text-[#8aaac8] hover:bg-[#1e2d45] transition-colors">
+            <button onClick={prevMonth} className="p-1 rounded text-[#3a5070] hover:text-[#b8d4f0] hover:bg-[#1e2d45] transition-colors">
               <ChevronLeft size={16} />
             </button>
             <p className="font-semibold text-white text-sm">{MONTHS[calMonth]} {calYear}</p>
-            <button onClick={nextMonth} className="p-1 rounded text-[#3a5070] hover:text-[#8aaac8] hover:bg-[#1e2d45] transition-colors">
+            <button onClick={nextMonth} className="p-1 rounded text-[#3a5070] hover:text-[#b8d4f0] hover:bg-[#1e2d45] transition-colors">
               <ChevronRight size={16} />
             </button>
           </div>
@@ -503,7 +503,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
                         title={cell.reservation ? `${cell.reservation.guest_name} · ${cell.type}` : undefined}
                       >
                         <span className={`text-xs font-medium ${
-                          cell.type !== 'vacant' ? 'text-[#6ab0f5]' : 'text-[#8aaac8]'
+                          cell.type !== 'vacant' ? 'text-[#6ab0f5]' : 'text-[#b8d4f0]'
                         } ${cell.dateStr === today ? 'font-bold' : ''}`}>
                           {cell.day}
                         </span>
@@ -521,7 +521,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
                 ].map(({ style, label }) => (
                   <div key={label} className="flex items-center gap-1.5">
                     <div className="w-5 h-3 rounded-sm border border-[#1e2d45]" style={style} />
-                    <span className="text-xs text-[#8aaac8]">{label}</span>
+                    <span className="text-xs text-[#b8d4f0]">{label}</span>
                   </div>
                 ))}
               </div>
@@ -532,7 +532,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-semibold text-white text-sm">{selectedReservation.guest_name}</p>
-                      <p className="text-xs text-[#8aaac8] mt-0.5">
+                      <p className="text-xs text-[#b8d4f0] mt-0.5">
                         {fmtDate(selectedReservation.check_in)} → {fmtDate(selectedReservation.check_out)}
                         {selectedReservation.nights ? ` · ${selectedReservation.nights} nights` : ''}
                       </p>
@@ -618,7 +618,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
         {/* Property details */}
         <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Property Details</p>
+            <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Property Details</p>
             {onUpdateProperty && !isEditingDetails && (
               <button
                 onClick={() => setIsEditingDetails(true)}
@@ -638,7 +638,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
                 </button>
                 <button
                   onClick={() => setIsEditingDetails(false)}
-                  className="flex items-center gap-1 text-xs text-[#3a5070] hover:text-[#8aaac8] transition-colors"
+                  className="flex items-center gap-1 text-xs text-[#3a5070] hover:text-[#b8d4f0] transition-colors"
                 >
                   <X size={12} /> Cancel
                 </button>
@@ -720,20 +720,20 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm">
                 <Bed size={14} className="text-[#3a5070]" />
-                <span className="text-[#8aaac8]">{property.bedrooms} bed · {property.bathrooms} bath</span>
+                <span className="text-[#b8d4f0]">{property.bedrooms} bed · {property.bathrooms} bath</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Users size={14} className="text-[#3a5070]" />
-                <span className="text-[#8aaac8]">Up to {property.maxGuests} guests</span>
+                <span className="text-[#b8d4f0]">Up to {property.maxGuests} guests</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Home size={14} className="text-[#3a5070]" />
-                <span className="text-[#8aaac8]">{property.type || 'Residential'}</span>
+                <span className="text-[#b8d4f0]">{property.type || 'Residential'}</span>
               </div>
               {property.joinedAt && (
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar size={14} className="text-[#3a5070]" />
-                  <span className="text-[#8aaac8]">Joined {new Date(property.joinedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                  <span className="text-[#b8d4f0]">Joined {new Date(property.joinedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
                 </div>
               )}
               {property.platforms.length > 0 && (
@@ -741,7 +741,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
                   <p className="text-xs text-[#3a5070] mb-1.5">Listed on</p>
                   <div className="flex flex-wrap gap-1.5">
                     {property.platforms.map(p => (
-                      <span key={p} className="text-xs bg-[#1e2d45] text-[#8aaac8] px-2 py-0.5 rounded-full font-medium">{p}</span>
+                      <span key={p} className="text-xs bg-[#1e2d45] text-[#b8d4f0] px-2 py-0.5 rounded-full font-medium">{p}</span>
                     ))}
                   </div>
                 </div>
@@ -768,17 +768,17 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
 
         {/* Owner contact */}
         <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5">
-          <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-4">Owner Contact</p>
+          <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-4">Owner Contact</p>
           <p className="font-semibold text-white mb-3">{owner.name}</p>
           <div className="space-y-3">
             {owner.phone && (
-              <a href={`tel:${owner.phone}`} className="flex items-center gap-2 text-sm text-[#8aaac8] hover:text-[#4a90d9] transition-colors group">
+              <a href={`tel:${owner.phone}`} className="flex items-center gap-2 text-sm text-[#b8d4f0] hover:text-[#4a90d9] transition-colors group">
                 <Phone size={14} className="text-[#3a5070] group-hover:text-[#6ab0f5]" />
                 {owner.phone}
               </a>
             )}
             {owner.email && (
-              <a href={`mailto:${owner.email}`} className="flex items-center gap-2 text-sm text-[#8aaac8] hover:text-[#4a90d9] transition-colors group">
+              <a href={`mailto:${owner.email}`} className="flex items-center gap-2 text-sm text-[#b8d4f0] hover:text-[#4a90d9] transition-colors group">
                 <Mail size={14} className="text-[#3a5070] group-hover:text-[#6ab0f5]" />
                 {owner.email}
               </a>
@@ -786,7 +786,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
             {owner.notes && (
               <div className="pt-2 border-t border-[#1e2d45]">
                 <p className="text-xs text-[#3a5070] mb-1">Notes</p>
-                <p className="text-xs text-[#8aaac8] leading-relaxed">{owner.notes}</p>
+                <p className="text-xs text-[#b8d4f0] leading-relaxed">{owner.notes}</p>
               </div>
             )}
           </div>
@@ -805,7 +805,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
         <div className="mt-5 bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <Wrench size={14} className="text-[#3a5070]" />
-            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Vendors</p>
+            <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Vendors</p>
           </div>
           <div className="divide-y divide-slate-100">
             {vendors.map(v => (
@@ -816,13 +816,13 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold text-white">{v.name}</p>
-                    <span className="text-xs bg-[#1e2d45] text-[#8aaac8] px-2 py-0.5 rounded-full">{v.role}</span>
+                    <span className="text-xs bg-[#1e2d45] text-[#b8d4f0] px-2 py-0.5 rounded-full">{v.role}</span>
                   </div>
                   <div className="flex flex-wrap gap-3 mt-1">
                     {v.phone && <a href={`tel:${v.phone}`} className="text-xs text-[#4a90d9] hover:underline">{v.phone}</a>}
                     {v.email && <a href={`mailto:${v.email}`} className="text-xs text-[#4a90d9] hover:underline">{v.email}</a>}
                   </div>
-                  {v.notes && <p className="text-xs text-[#8aaac8] mt-1">{v.notes}</p>}
+                  {v.notes && <p className="text-xs text-[#b8d4f0] mt-1">{v.notes}</p>}
                 </div>
               </div>
             ))}
@@ -845,7 +845,7 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText size={14} className="text-[#3a5070]" />
-            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Rental Agreements</p>
+            <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Rental Agreements</p>
           </div>
           <button
             onClick={() => setShowAgreements(true)}

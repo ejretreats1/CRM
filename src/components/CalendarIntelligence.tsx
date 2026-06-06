@@ -40,7 +40,7 @@ const URGENCY_CONFIG = {
 const PRIORITY_BADGE: Record<string, string> = {
   high: 'bg-rose-100 text-rose-700',
   medium: 'bg-[#2a1a0a] text-[#d0954a]',
-  low: 'bg-[#1e2d45] text-[#8aaac8]',
+  low: 'bg-[#1e2d45] text-[#b8d4f0]',
 };
 
 function OccupancyBar({ value, label }: { value: number; label: string }) {
@@ -49,7 +49,7 @@ function OccupancyBar({ value, label }: { value: number; label: string }) {
     <div className="flex-1 min-w-0">
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs text-[#3a5070]">{label}</span>
-        <span className="text-xs font-semibold text-[#8aaac8]">{value}%</span>
+        <span className="text-xs font-semibold text-[#b8d4f0]">{value}%</span>
       </div>
       <div className="h-1.5 bg-[#1e2d45] rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${Math.min(value, 100)}%` }} />
@@ -90,7 +90,7 @@ function PropertyCard({
           </div>
           <p className="text-xs text-[#3a5070] mt-0.5">{insight.ownerName}</p>
           {aiAnalysis?.headline && (
-            <p className="text-sm text-[#8aaac8] mt-1.5 leading-snug">{aiAnalysis.headline}</p>
+            <p className="text-sm text-[#b8d4f0] mt-1.5 leading-snug">{aiAnalysis.headline}</p>
           )}
           {!aiAnalysis && insight.urgentGap && (
             <p className="text-sm text-[#e05c5c] mt-1.5">
@@ -129,11 +129,11 @@ function PropertyCard({
           {/* Gaps */}
           {insight.gaps.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Calendar Gaps (next 90 days)</p>
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2">Calendar Gaps (next 90 days)</p>
               <div className="space-y-1.5">
                 {insight.gaps.slice(0, 5).map((g, i) => (
                   <div key={i} className="flex items-center justify-between text-sm">
-                    <span className="text-[#8aaac8]">{g.start} → {g.end}</span>
+                    <span className="text-[#b8d4f0]">{g.start} → {g.end}</span>
                     <span className={`font-medium ${g.nights >= 7 ? 'text-[#e05c5c]' : 'text-[#d0954a]'}`}>{g.nights} nights open</span>
                   </div>
                 ))}
@@ -155,8 +155,8 @@ function PropertyCard({
               <p className="text-lg font-bold text-[#4a90d9]">${insight.totalRevenue30d.toLocaleString()}</p>
             </div>
             {insight.revPar30d > 0 && (
-              <div className="bg-violet-50 rounded-lg p-3 border border-violet-100">
-                <p className="text-xs text-violet-500">RevPAR (30d)</p>
+              <div className="bg-[#1a1535] rounded-lg p-3 border border-[#3a2070]">
+                <p className="text-xs text-[#c4b5fd]">RevPAR (30d)</p>
                 <p className="text-lg font-bold text-[#d07af5]">${insight.revPar30d}</p>
                 <p className="text-xs text-[#3a5070]">rev / avail night</p>
               </div>
@@ -172,7 +172,7 @@ function PropertyCard({
                 <p className="text-xs text-[#3a5070] mb-1">Channel mix</p>
                 {Object.entries(insight.channelMix).slice(0, 3).map(([ch, n]) => (
                   <div key={ch} className="flex items-center justify-between">
-                    <span className="text-xs text-[#8aaac8] truncate">{ch}</span>
+                    <span className="text-xs text-[#b8d4f0] truncate">{ch}</span>
                     <span className="text-xs font-medium text-white">{n}</span>
                   </div>
                 ))}
@@ -183,7 +183,7 @@ function PropertyCard({
           {/* AI Recommendations */}
           {aiAnalysis?.recommendations && aiAnalysis.recommendations.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2 flex items-center gap-1.5">
                 <Brain size={11} /> AI Recommendations
               </p>
               <div className="space-y-2.5">
@@ -194,7 +194,7 @@ function PropertyCard({
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-white">{rec.action}</p>
-                      <p className="text-xs text-[#8aaac8] mt-0.5 leading-relaxed">{rec.reason}</p>
+                      <p className="text-xs text-[#b8d4f0] mt-0.5 leading-relaxed">{rec.reason}</p>
                     </div>
                   </div>
                 ))}
@@ -331,7 +331,7 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
             <Brain size={20} className="text-[#4a90d9]" />
             <h1 className="text-xl font-bold text-white">Revenue Intelligence</h1>
           </div>
-          <p className="text-sm text-[#8aaac8]">
+          <p className="text-sm text-[#b8d4f0]">
             {insights.length} properties · {reservations.length} total reservations in data
           </p>
           {savedAt && (
@@ -343,7 +343,7 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
         <div className="flex items-center gap-2">
           <button
             onClick={() => setSelectorOpen(o => !o)}
-            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors ${selectorOpen || selectedIds ? 'bg-[#1e2d45] border-[#1e2d45] text-[#8aaac8]' : 'bg-[#1a2335] border-[#1e2d45] text-[#8aaac8] hover:border-slate-400'}`}
+            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors ${selectorOpen || selectedIds ? 'bg-[#1e2d45] border-[#1e2d45] text-[#b8d4f0]' : 'bg-[#1a2335] border-[#1e2d45] text-[#b8d4f0] hover:border-slate-400'}`}
           >
             <SlidersHorizontal size={14} />
             {selectedIds ? `${selectedIds.size} of ${insights.length}` : 'All'}
@@ -363,7 +363,7 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
       {selectorOpen && insights.length > 0 && (
         <div className="bg-[#1a2335] border border-[#1e2d45] rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Select properties to analyze</p>
+            <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Select properties to analyze</p>
             <div className="flex gap-2">
               <button onClick={selectAll} className="text-xs text-[#4a90d9] hover:underline">All</button>
               <button onClick={selectNone} className="text-xs text-[#3a5070] hover:underline">None</button>
@@ -380,7 +380,7 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
                     onChange={() => toggleProperty(i.propertyId)}
                     className="w-4 h-4 rounded border-[#1e2d45] text-[#4a90d9] focus:ring-[#4a90d9]"
                   />
-                  <span className="text-sm text-[#8aaac8] truncate group-hover:text-white">
+                  <span className="text-sm text-[#b8d4f0] truncate group-hover:text-white">
                     {i.propertyAddress}
                   </span>
                 </label>
@@ -427,7 +427,7 @@ export default function CalendarIntelligence({ owners, reservations, priceLabsAp
               className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize whitespace-nowrap transition-colors ${
                 filterUrgency === f
                   ? 'bg-[#0c1220] text-white'
-                  : 'bg-[#1a2335] border border-[#1e2d45] text-[#8aaac8] hover:border-slate-400'
+                  : 'bg-[#1a2335] border border-[#1e2d45] text-[#b8d4f0] hover:border-slate-400'
               }`}
             >
               {f === 'all' ? `All (${activeInsights.length})` : f}

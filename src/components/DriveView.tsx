@@ -161,7 +161,7 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <span className="text-2xl">📁</span> Google Drive
             </h1>
-            <p className="text-sm text-[#8aaac8] mt-0.5">Browse your shared Drive files</p>
+            <p className="text-sm text-[#b8d4f0] mt-0.5">Browse your shared Drive files</p>
           </div>
           <div className="flex items-center gap-2">
             {/* New button — only inside a folder */}
@@ -182,7 +182,7 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
                       <button
                         key={mimeType}
                         onClick={() => createFile(mimeType)}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#8aaac8] hover:bg-[#1e2d45] transition-colors"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#b8d4f0] hover:bg-[#1e2d45] transition-colors"
                       >
                         <span>{emoji}</span> {label}
                       </button>
@@ -268,7 +268,7 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
                       className="flex flex-col items-center gap-2 p-4 bg-[#1a2335] rounded-xl border border-[#1e2d45] hover:border-[#4a90d9] hover:shadow-md transition-all text-center group"
                     >
                       <Folder size={32} className="text-amber-400 group-hover:text-[#d0954a] transition-colors fill-amber-50" />
-                      <span className="text-xs font-medium text-[#8aaac8] leading-tight line-clamp-2 w-full">{f.name}</span>
+                      <span className="text-xs font-medium text-[#b8d4f0] leading-tight line-clamp-2 w-full">{f.name}</span>
                     </button>
                   ))}
                 </div>

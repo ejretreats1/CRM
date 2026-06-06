@@ -7,14 +7,14 @@ interface Props {
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  const color = score >= 7 ? 'bg-[#0a2518] text-[#4ab57a]' : score >= 4 ? 'bg-[#2a1a0a] text-[#d0954a]' : 'bg-[#1e2d45] text-[#8aaac8]';
+  const color = score >= 7 ? 'bg-[#0a2518] text-[#4ab57a]' : score >= 4 ? 'bg-[#2a1a0a] text-[#d0954a]' : 'bg-[#1e2d45] text-[#b8d4f0]';
   return <span className={`text-sm font-bold px-2.5 py-1 rounded-full ${color}`}>{score}/10</span>;
 }
 
 function MetricBox({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className={`rounded-xl p-3 ${accent ? 'bg-[#162035]' : 'bg-[#1e2d45]'}`}>
-      <p className={`text-xs mb-0.5 ${accent ? 'text-[#4a90d9]' : 'text-[#8aaac8]'}`}>{label}</p>
+      <p className={`text-xs mb-0.5 ${accent ? 'text-[#4a90d9]' : 'text-[#b8d4f0]'}`}>{label}</p>
       <p className={`text-lg font-bold ${accent ? 'text-[#4a90d9]' : 'text-white'}`}>{value}</p>
     </div>
   );
@@ -65,7 +65,7 @@ export default function ReportViewerModal({ report, onClose }: Props) {
               {report.propertyAddress} · {new Date(report.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
             </p>
           </div>
-          <button onClick={onClose} className="text-[#3a5070] hover:text-[#8aaac8] flex-shrink-0 mt-0.5">
+          <button onClick={onClose} className="text-[#3a5070] hover:text-[#b8d4f0] flex-shrink-0 mt-0.5">
             <X size={18} />
           </button>
         </div>
@@ -97,7 +97,7 @@ export default function ReportViewerModal({ report, onClose }: Props) {
             const gap = projected - report.ownerActualRevenue!;
             return (
               <div className={`rounded-xl p-4 ${gap > 0 ? 'bg-[#2a0e0e] border border-rose-100' : 'bg-[#0a2518] border border-emerald-100'}`}>
-                <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Owner vs. Market</p>
+                <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2">Owner vs. Market</p>
                 <div className="flex items-center gap-4">
                   <div className="text-center">
                     <p className="text-xs text-[#3a5070]">Owner Reported</p>
@@ -112,7 +112,7 @@ export default function ReportViewerModal({ report, onClose }: Props) {
                     {gap > 0 ? `-${fmt(gap)} gap` : `+${fmt(Math.abs(gap))} above`}
                   </div>
                 </div>
-                {report.ownerNotes && <p className="text-xs text-[#8aaac8] mt-2 italic">{report.ownerNotes}</p>}
+                {report.ownerNotes && <p className="text-xs text-[#b8d4f0] mt-2 italic">{report.ownerNotes}</p>}
               </div>
             );
           })()}
@@ -120,7 +120,7 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Revenue projections */}
           {revenueProjections && (
             <div>
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2 flex items-center gap-1.5"><TrendingUp size={12} /> Revenue Projections</p>
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2 flex items-center gap-1.5"><TrendingUp size={12} /> Revenue Projections</p>
               <div className="grid grid-cols-3 gap-2">
                 <MetricBox label="Conservative" value={fmt(revenueProjections.conservative)} />
                 <MetricBox label="Realistic" value={fmt(revenueProjections.realistic)} accent />
@@ -132,16 +132,16 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Executive summary */}
           {executiveSummary && (
             <div>
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Executive Summary</p>
-              <p className="text-sm text-[#8aaac8] leading-relaxed">{executiveSummary}</p>
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2">Executive Summary</p>
+              <p className="text-sm text-[#b8d4f0] leading-relaxed">{executiveSummary}</p>
             </div>
           )}
 
           {/* Market opportunity */}
           {marketOpportunity && (
             <div>
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Market Opportunity</p>
-              <p className="text-sm text-[#8aaac8] leading-relaxed">{marketOpportunity}</p>
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2">Market Opportunity</p>
+              <p className="text-sm text-[#b8d4f0] leading-relaxed">{marketOpportunity}</p>
             </div>
           )}
 
@@ -156,10 +156,10 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Key findings */}
           {keyFindings.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2 flex items-center gap-1.5"><Star size={12} /> Key Findings</p>
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2 flex items-center gap-1.5"><Star size={12} /> Key Findings</p>
               <ul className="space-y-2">
                 {keyFindings.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-[#8aaac8]">
+                  <li key={i} className="flex items-start gap-2 text-sm text-[#b8d4f0]">
                     <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0" />
                     {f}
                   </li>
@@ -171,12 +171,12 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Recommendations */}
           {recommendations.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Recommendations</p>
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2">Recommendations</p>
               <div className="space-y-2.5">
                 {recommendations.map((rec, i) => (
                   <div key={i} className="bg-[#1e2d45] rounded-xl p-3">
                     <p className="text-sm font-semibold text-white mb-0.5">{i + 1}. {rec.title}</p>
-                    <p className="text-xs text-[#8aaac8] leading-relaxed">{rec.description}</p>
+                    <p className="text-xs text-[#b8d4f0] leading-relaxed">{rec.description}</p>
                   </div>
                 ))}
               </div>
@@ -190,7 +190,7 @@ export default function ReportViewerModal({ report, onClose }: Props) {
               <div className="flex gap-4 mb-2">
                 <div className="text-center">
                   <p className="text-xs text-[#3a5070]">STR Estimate</p>
-                  <p className="text-lg font-bold text-[#8aaac8]">{fmt(strVsMtr.strAnnualEstimate)}</p>
+                  <p className="text-lg font-bold text-[#b8d4f0]">{fmt(strVsMtr.strAnnualEstimate)}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-[#3a5070]">MTR Estimate</p>
@@ -202,7 +202,7 @@ export default function ReportViewerModal({ report, onClose }: Props) {
                   </span>
                 </div>
               </div>
-              <p className="text-xs text-[#8aaac8] leading-relaxed">{strVsMtr.reasoning}</p>
+              <p className="text-xs text-[#b8d4f0] leading-relaxed">{strVsMtr.reasoning}</p>
             </div>
           )}
 
@@ -227,10 +227,10 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Recommended platforms */}
           {recommendedPlatforms.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Recommended Platforms</p>
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2">Recommended Platforms</p>
               <div className="flex flex-wrap gap-2">
                 {recommendedPlatforms.map((p, i) => (
-                  <span key={i} className="text-xs bg-[#1e2d45] text-[#8aaac8] px-2.5 py-1 rounded-full">{p}</span>
+                  <span key={i} className="text-xs bg-[#1e2d45] text-[#b8d4f0] px-2.5 py-1 rounded-full">{p}</span>
                 ))}
               </div>
             </div>
@@ -239,7 +239,7 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Monthly seasonality */}
           {seasonality.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2 flex items-center gap-1.5"><BarChart2 size={12} /> Monthly Seasonality</p>
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2 flex items-center gap-1.5"><BarChart2 size={12} /> Monthly Seasonality</p>
               <div className="grid grid-cols-6 gap-1.5">
                 {seasonality.map((m, i) => {
                   const maxRev = Math.max(...seasonality.map(s => s.revenue ?? 0), 1);
@@ -250,7 +250,7 @@ export default function ReportViewerModal({ report, onClose }: Props) {
                         <div className="w-6 bg-teal-400 rounded-t" style={{ height: `${Math.max(pct, 4)}%` }} />
                       </div>
                       <p className="text-xs text-[#3a5070]">{m.month?.slice(0, 3)}</p>
-                      {m.revenue != null && <p className="text-xs font-medium text-[#8aaac8]">${Math.round(m.revenue / 1000)}k</p>}
+                      {m.revenue != null && <p className="text-xs font-medium text-[#b8d4f0]">${Math.round(m.revenue / 1000)}k</p>}
                     </div>
                   );
                 })}
@@ -261,10 +261,10 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Comparables */}
           {comparables.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Comparable Properties</p>
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2">Comparable Properties</p>
               <div className="space-y-1.5">
                 {comparables.map((c, i) => (
-                  <div key={i} className="flex items-center gap-3 bg-[#1e2d45] rounded-lg px-3 py-2 text-xs text-[#8aaac8]">
+                  <div key={i} className="flex items-center gap-3 bg-[#1e2d45] rounded-lg px-3 py-2 text-xs text-[#b8d4f0]">
                     {c.bedrooms != null && <span className="font-medium">{c.bedrooms}bd</span>}
                     {c.annualRevenue != null && <span className="text-[#4a90d9] font-semibold">{fmt(c.annualRevenue)}/yr</span>}
                     {c.occupancyRate != null && <span>{fmtPct(c.occupancyRate)} occ</span>}

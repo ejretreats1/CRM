@@ -123,7 +123,7 @@ export default function PortalView({ personId }: PortalViewProps) {
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#8aaac8]"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#b8d4f0]"
                 >
                   <X size={13} />
                 </button>
@@ -137,7 +137,7 @@ export default function PortalView({ personId }: PortalViewProps) {
                 className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
                   sortMode === 'best'
                     ? 'bg-[#4a90d9] text-white'
-                    : 'text-[#8aaac8] hover:text-[#8aaac8]'
+                    : 'text-[#b8d4f0] hover:text-[#b8d4f0]'
                 }`}
               >
                 <TrendingUp size={13} /> Best Deals
@@ -147,7 +147,7 @@ export default function PortalView({ personId }: PortalViewProps) {
                 className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
                   sortMode === 'recent'
                     ? 'bg-[#4a90d9] text-white'
-                    : 'text-[#8aaac8] hover:text-[#8aaac8]'
+                    : 'text-[#b8d4f0] hover:text-[#b8d4f0]'
                 }`}
               >
                 <Clock size={13} /> Most Recent
@@ -166,7 +166,7 @@ export default function PortalView({ personId }: PortalViewProps) {
             <span className="text-sm">{error}</span>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 text-[#8aaac8]">
+          <div className="text-center py-20 text-[#b8d4f0]">
             <FileBarChart2 size={36} className="mx-auto text-[#3a5070] mb-4" />
             {search ? (
               <>
@@ -216,7 +216,7 @@ export default function PortalView({ personId }: PortalViewProps) {
                         <p className="font-semibold text-white truncate">{r.reportTitle ?? r.propertyAddress}</p>
                         <p className="text-xs text-[#3a5070] mt-0.5">{r.propertyAddress}</p>
                         <div className="flex items-center gap-3 mt-2 flex-wrap">
-                          <span className="text-xs bg-[#1e2d45] text-[#8aaac8] px-2 py-0.5 rounded-full">
+                          <span className="text-xs bg-[#1e2d45] text-[#b8d4f0] px-2 py-0.5 rounded-full">
                             {typeLabel[r.reportType ?? 'str'] ?? 'Report'}
                           </span>
                           {revenue && <span className="text-xs font-semibold text-[#4a90d9]">{revenue}/yr</span>}

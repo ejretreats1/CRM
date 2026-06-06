@@ -135,7 +135,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                 ${activeView === id
                   ? 'bg-[#162035] text-[#4a90d9] border border-[#1e3a5a]'
-                  : 'text-[#8aaac8] hover:bg-[#1e2d45] hover:text-white border border-transparent'}
+                  : 'text-[#b8d4f0] hover:bg-[#1e2d45] hover:text-white border border-transparent'}
               `}
             >
               <Icon size={18} />
@@ -153,7 +153,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border
                 ${activeView === 'settings'
                   ? 'bg-[#162035] text-[#4a90d9] border-[#1e3a5a]'
-                  : 'text-[#8aaac8] hover:bg-[#1e2d45] hover:text-white border-transparent'}
+                  : 'text-[#b8d4f0] hover:bg-[#1e2d45] hover:text-white border-transparent'}
               `}
             >
               <Settings size={18} />
@@ -203,7 +203,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
               <span className="text-sm font-bold text-white">More</span>
               <button
                 onClick={() => setMoreOpen(false)}
-                className="w-7 h-7 rounded-full bg-[#1e2d45] flex items-center justify-center text-[#8aaac8]"
+                className="w-7 h-7 rounded-full bg-[#1e2d45] flex items-center justify-center text-[#b8d4f0]"
               >
                 <X size={14} />
               </button>
@@ -217,7 +217,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
                   className={`flex flex-col items-center gap-1.5 px-2 py-3.5 rounded-xl text-xs font-medium transition-colors ${
                     activeView === id
                       ? 'bg-[#162035] text-[#4a90d9]'
-                      : 'bg-[#1e2d45] text-[#8aaac8] active:bg-[#1e2d45]'
+                      : 'bg-[#1e2d45] text-[#b8d4f0] active:bg-[#1e2d45]'
                   }`}
                 >
                   <Icon size={22} />
@@ -230,7 +230,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
                   className={`flex flex-col items-center gap-1.5 px-2 py-3.5 rounded-xl text-xs font-medium transition-colors ${
                     activeView === 'settings'
                       ? 'bg-[#162035] text-[#4a90d9]'
-                      : 'bg-[#1e2d45] text-[#8aaac8] active:bg-[#1e2d45]'
+                      : 'bg-[#1e2d45] text-[#b8d4f0] active:bg-[#1e2d45]'
                   }`}
                 >
                   <Settings size={22} />
@@ -253,7 +253,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
               </div>
               <button
                 onClick={() => signOut()}
-                className="flex items-center gap-1.5 text-xs text-[#8aaac8] hover:text-[#e05c5c] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#2a0e0e]"
+                className="flex items-center gap-1.5 text-xs text-[#b8d4f0] hover:text-[#e05c5c] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#2a0e0e]"
               >
                 <LogOut size={14} />
                 Sign out

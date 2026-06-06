@@ -61,7 +61,7 @@ export default function SignPage({ token }: SignPageProps) {
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-[#1e2d45] flex items-center justify-center">
-        <p className="text-[#8aaac8] text-sm">Loading document...</p>
+        <p className="text-[#b8d4f0] text-sm">Loading document...</p>
       </div>
     );
   }
@@ -118,13 +118,13 @@ export default function SignPage({ token }: SignPageProps) {
             <span className="text-2xl">📄</span>
           </div>
           <h1 className="text-2xl font-bold text-white">Sign Document</h1>
-          <p className="text-[#8aaac8] text-sm mt-1">E&amp;J Retreats — {sigReq?.documentName}</p>
+          <p className="text-[#b8d4f0] text-sm mt-1">E&amp;J Retreats — {sigReq?.documentName}</p>
         </div>
 
         {/* PDF Preview */}
         <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] overflow-hidden">
           <div className="px-5 py-3 border-b border-[#1e2d45] flex items-center justify-between">
-            <span className="text-sm font-medium text-[#8aaac8]">{sigReq?.documentName}</span>
+            <span className="text-sm font-medium text-[#b8d4f0]">{sigReq?.documentName}</span>
             <a
               href={sigReq?.documentUrl}
               target="_blank"
@@ -145,7 +145,7 @@ export default function SignPage({ token }: SignPageProps) {
         {/* Signature pad */}
         <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5">
           <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-medium text-[#8aaac8]">Your Signature *</label>
+            <label className="text-sm font-medium text-[#b8d4f0]">Your Signature *</label>
             <button
               type="button"
               onClick={handleClear}
@@ -172,7 +172,7 @@ export default function SignPage({ token }: SignPageProps) {
 
         {/* Consent + Submit */}
         <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-4">
-          <p className="text-xs text-[#8aaac8] leading-relaxed">
+          <p className="text-xs text-[#b8d4f0] leading-relaxed">
             By clicking "Sign Document", I agree that my electronic signature is the legal equivalent of my manual signature and that I have reviewed the document above.
           </p>
           <button
@@ -196,7 +196,7 @@ function StatusScreen({
       <div className="bg-[#1a2335] rounded-2xl border border-[#1e2d45] p-10 text-center max-w-md w-full">
         <div className="text-5xl mb-4">{icon}</div>
         <h2 className="text-xl font-bold text-white mb-2">{title}</h2>
-        <p className="text-sm text-[#8aaac8]">{message}</p>
+        <p className="text-sm text-[#b8d4f0]">{message}</p>
         {children}
       </div>
     </div>

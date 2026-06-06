@@ -54,7 +54,7 @@ const CHANNEL_MAP: Record<string, string> = {
 const STATUS_STYLES: Record<string, { badge: string; label: string }> = {
   active:     { badge: 'bg-[#0a2518] text-[#4ab57a]', label: 'Active' },
   onboarding: { badge: 'bg-[#2a1a0a] text-[#d0954a]',    label: 'Onboarding' },
-  inactive:   { badge: 'bg-[#1e2d45] text-[#8aaac8]',    label: 'Inactive' },
+  inactive:   { badge: 'bg-[#1e2d45] text-[#b8d4f0]',    label: 'Inactive' },
 };
 
 const OUTREACH_ICONS: Record<string, string> = {
@@ -63,7 +63,7 @@ const OUTREACH_ICONS: Record<string, string> = {
 
 const OUTCOME_STYLES: Record<string, string> = {
   positive:    'bg-[#0a2518] text-[#4ab57a]',
-  neutral:     'bg-[#1e2d45] text-[#8aaac8]',
+  neutral:     'bg-[#1e2d45] text-[#b8d4f0]',
   negative:    'bg-[#2a0e0e] text-[#e05c5c]',
   no_response: 'bg-[#1e2d45] text-[#3a5070]',
 };
@@ -71,7 +71,7 @@ const OUTCOME_STYLES: Record<string, string> = {
 const SIG_STATUS: Record<string, { icon: React.ReactNode; label: string; cls: string }> = {
   pending: { icon: <Clock size={12} />,        label: 'Pending', cls: 'bg-[#2a1a0a] text-[#d0954a]' },
   signed:  { icon: <CheckCircle2 size={12} />, label: 'Signed',  cls: 'bg-[#0a2518] text-[#4ab57a]' },
-  expired: { icon: <XCircle size={12} />,      label: 'Expired', cls: 'bg-[#1e2d45] text-[#8aaac8]' },
+  expired: { icon: <XCircle size={12} />,      label: 'Expired', cls: 'bg-[#1e2d45] text-[#b8d4f0]' },
 };
 
 function propMonthRevenue(propertyId: string, reservations: UplistingReservation[]): number | null {
@@ -284,7 +284,7 @@ export default function OwnerDetail({
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       {/* Back + header */}
       <div>
-        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-[#8aaac8] hover:text-[#4a90d9] mb-4 transition-colors">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-[#b8d4f0] hover:text-[#4a90d9] mb-4 transition-colors">
           <ArrowLeft size={16} /> Back to Clients
         </button>
         <div className="flex items-start gap-4">
@@ -294,7 +294,7 @@ export default function OwnerDetail({
           <div className="flex-1">
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-bold text-white">{owner.name}</h1>
-              <button onClick={onEdit} className="flex items-center gap-1.5 text-xs text-[#8aaac8] hover:text-[#4a90d9] border border-[#1e2d45] px-2.5 py-1 rounded-lg hover:border-[#4a90d9] transition-colors">
+              <button onClick={onEdit} className="flex items-center gap-1.5 text-xs text-[#b8d4f0] hover:text-[#4a90d9] border border-[#1e2d45] px-2.5 py-1 rounded-lg hover:border-[#4a90d9] transition-colors">
                 <Edit2 size={12} /> Edit
               </button>
             </div>
@@ -314,7 +314,7 @@ export default function OwnerDetail({
                 }}
                 rows={2}
                 placeholder="Add notes…"
-                className="w-full text-sm text-[#8aaac8] bg-[#1e2d45] border border-[#1e2d45] rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#4a90d9] focus:bg-[#1a2335] transition-colors"
+                className="w-full text-sm text-[#b8d4f0] bg-[#1e2d45] border border-[#1e2d45] rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#4a90d9] focus:bg-[#1a2335] transition-colors"
               />
               {savingNotes && <span className="absolute right-2 bottom-2 text-xs text-[#3a5070]">Saving…</span>}
             </div>
@@ -332,7 +332,7 @@ export default function OwnerDetail({
           <div key={s.label} className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-3 overflow-hidden">
             <s.icon size={16} className={`${s.color} mb-1.5`} />
             <div className="text-sm font-bold text-white truncate">{s.value}</div>
-            <div className="text-xs text-[#8aaac8] leading-tight mt-0.5">{s.label}</div>
+            <div className="text-xs text-[#b8d4f0] leading-tight mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
@@ -352,7 +352,7 @@ export default function OwnerDetail({
             className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors -mb-px ${
               activeTab === tab.id
                 ? 'border-[#4a90d9] text-[#4a90d9]'
-                : 'border-transparent text-[#8aaac8] hover:text-white hover:border-[#1e2d45]'
+                : 'border-transparent text-[#b8d4f0] hover:text-white hover:border-[#1e2d45]'
             }`}
           >
             {tab.label}
@@ -408,7 +408,7 @@ export default function OwnerDetail({
                       <h3 className="font-medium text-white">{property.address}, {property.city}, {property.state}</h3>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${style.badge}`}>{style.label}</span>
                     </div>
-                    <div className="flex flex-wrap gap-4 mt-2 text-sm text-[#8aaac8]">
+                    <div className="flex flex-wrap gap-4 mt-2 text-sm text-[#b8d4f0]">
                       <span>{property.type}</span>
                       <span>{property.bedrooms}bd / {property.bathrooms}ba</span>
                       <span>Max {property.maxGuests} guests</span>
@@ -436,11 +436,11 @@ export default function OwnerDetail({
                         </>
                       );
                     })()}
-                    {property.occupancyRate > 0 && <div className="text-xs text-[#8aaac8] mt-0.5">{property.occupancyRate}% occ.</div>}
+                    {property.occupancyRate > 0 && <div className="text-xs text-[#b8d4f0] mt-0.5">{property.occupancyRate}% occ.</div>}
                   </div>
                 </div>
                 <div className="flex gap-2 mt-3">
-                  <button onClick={e => { e.stopPropagation(); onEditProperty(property); }} className="text-xs text-[#8aaac8] hover:text-[#4a90d9] flex items-center gap-1"><Edit2 size={11} /> Edit</button>
+                  <button onClick={e => { e.stopPropagation(); onEditProperty(property); }} className="text-xs text-[#b8d4f0] hover:text-[#4a90d9] flex items-center gap-1"><Edit2 size={11} /> Edit</button>
                   <button onClick={e => { e.stopPropagation(); if (confirm('Remove this property?')) onDeleteProperty(property.id); }} className="text-xs text-[#3a5070] hover:text-[#e05c5c] flex items-center gap-1"><Trash2 size={11} /> Remove</button>
                 </div>
               </div>
@@ -467,8 +467,8 @@ export default function OwnerDetail({
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-[#1e2d45] flex-wrap">
           <h2 className="font-semibold text-white">Documents</h2>
           <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={() => { setShowUpload(v => !v); setUploadError(''); setShowDrivePicker(false); }} className="flex items-center gap-1.5 text-xs text-[#8aaac8] hover:text-white border border-[#1e2d45] px-3 py-1.5 rounded-lg transition-colors font-medium"><UploadCloud size={13} /> Upload File</button>
-            <button onClick={() => { setShowDrivePicker(true); setShowUpload(false); }} className="flex items-center gap-1.5 text-xs text-[#8aaac8] hover:text-white border border-[#1e2d45] px-3 py-1.5 rounded-lg transition-colors font-medium"><span className="text-xs">📁</span> Link from Drive</button>
+            <button onClick={() => { setShowUpload(v => !v); setUploadError(''); setShowDrivePicker(false); }} className="flex items-center gap-1.5 text-xs text-[#b8d4f0] hover:text-white border border-[#1e2d45] px-3 py-1.5 rounded-lg transition-colors font-medium"><UploadCloud size={13} /> Upload File</button>
+            <button onClick={() => { setShowDrivePicker(true); setShowUpload(false); }} className="flex items-center gap-1.5 text-xs text-[#b8d4f0] hover:text-white border border-[#1e2d45] px-3 py-1.5 rounded-lg transition-colors font-medium"><span className="text-xs">📁</span> Link from Drive</button>
             <button onClick={() => setShowDocGenerator(true)} className="flex items-center gap-1.5 text-xs text-[#d07af5] hover:text-[#d07af5] border border-[#2a1a5a] hover:border-indigo-400 px-3 py-1.5 rounded-lg transition-colors font-medium"><FileText size={13} /> Generate Contract</button>
             <button onClick={() => { setPrefillSigDoc(null); setShowSigModal(true); }} className="flex items-center gap-1.5 text-xs text-[#4a90d9] hover:text-[#4a90d9] border border-[#1e3a5a] hover:border-[#4a90d9] px-3 py-1.5 rounded-lg transition-colors font-medium"><FileSignature size={13} /> Send for Signature</button>
           </div>
@@ -491,12 +491,12 @@ export default function OwnerDetail({
               {uploading ? (
                 <div className="flex flex-col items-center gap-2">
                   <Loader size={24} className="text-[#6ab0f5] animate-spin" />
-                  <p className="text-sm text-[#8aaac8]">Uploading...</p>
+                  <p className="text-sm text-[#b8d4f0]">Uploading...</p>
                 </div>
               ) : (
                 <>
                   <UploadCloud size={28} className={`mx-auto mb-2 ${dragOver ? 'text-[#6ab0f5]' : 'text-[#3a5070]'}`} />
-                  <p className="text-sm font-medium text-[#8aaac8]">{dragOver ? 'Drop to upload' : 'Drag & drop a file here'}</p>
+                  <p className="text-sm font-medium text-[#b8d4f0]">{dragOver ? 'Drop to upload' : 'Drag & drop a file here'}</p>
                   <p className="text-xs text-[#3a5070] mt-1">or click to browse · any file type</p>
                 </>
               )}
@@ -521,7 +521,7 @@ export default function OwnerDetail({
                 {r.opportunityScore != null && (
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                     r.opportunityScore >= 7 ? 'bg-[#0a2518] text-[#4ab57a]' :
-                    r.opportunityScore >= 4 ? 'bg-[#2a1a0a] text-[#d0954a]' : 'bg-[#1e2d45] text-[#8aaac8]'
+                    r.opportunityScore >= 4 ? 'bg-[#2a1a0a] text-[#d0954a]' : 'bg-[#1e2d45] text-[#b8d4f0]'
                   }`}>{r.opportunityScore}/10</span>
                 )}
               </div>
@@ -575,7 +575,7 @@ export default function OwnerDetail({
                   {req.signedDocumentUrl && (
                     <>
                       <a href={req.signedDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-medium text-[#4a90d9] hover:text-[#4a90d9] border border-[#1e3a5a] hover:border-[#4a90d9] px-3 py-1.5 rounded-lg transition-colors"><FileText size={12} /> View Signed Document</a>
-                      <a href={req.signedDocumentUrl} download className="flex items-center gap-1.5 text-xs font-medium text-[#8aaac8] hover:text-[#8aaac8] border border-[#1e2d45] px-3 py-1.5 rounded-lg transition-colors"><Download size={12} /> Download</a>
+                      <a href={req.signedDocumentUrl} download className="flex items-center gap-1.5 text-xs font-medium text-[#b8d4f0] hover:text-[#b8d4f0] border border-[#1e2d45] px-3 py-1.5 rounded-lg transition-colors"><Download size={12} /> Download</a>
                     </>
                   )}
                   <button onClick={() => handleDeleteSigRequest(req.id, req.documentName)} className="flex items-center gap-1 text-xs text-[#3a5070] hover:text-[#e05c5c] border border-[#1e2d45] hover:border-[#5a1a1a] px-2.5 py-1.5 rounded-lg transition-colors"><Trash2 size={11} /> Delete</button>
@@ -596,34 +596,34 @@ export default function OwnerDetail({
         </div>
         {vendorForm !== null && (
           <div className="px-5 py-4 border-b border-[#1e2d45] bg-[#1e2d45] space-y-3">
-            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">{editingVendorId ? 'Edit Vendor' : 'New Vendor'}</p>
+            <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">{editingVendorId ? 'Edit Vendor' : 'New Vendor'}</p>
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-[#8aaac8] block mb-1">Name *</label>
+                <label className="text-xs text-[#b8d4f0] block mb-1">Name *</label>
                 <input value={vendorForm.name} onChange={e => setVendorForm(f => f && ({ ...f, name: e.target.value }))} className="w-full border border-[#1e2d45] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" placeholder="Jane's Cleaning Co." />
               </div>
               <div>
-                <label className="text-xs text-[#8aaac8] block mb-1">Role</label>
+                <label className="text-xs text-[#b8d4f0] block mb-1">Role</label>
                 <select value={vendorForm.role} onChange={e => setVendorForm(f => f && ({ ...f, role: e.target.value }))} className="w-full border border-[#1e2d45] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] bg-[#1a2335]">
                   {VENDOR_ROLES.map(r => <option key={r}>{r}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-xs text-[#8aaac8] block mb-1">Phone</label>
+                <label className="text-xs text-[#b8d4f0] block mb-1">Phone</label>
                 <input value={vendorForm.phone} onChange={e => setVendorForm(f => f && ({ ...f, phone: e.target.value }))} className="w-full border border-[#1e2d45] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" placeholder="(555) 000-0000" />
               </div>
               <div>
-                <label className="text-xs text-[#8aaac8] block mb-1">Email</label>
+                <label className="text-xs text-[#b8d4f0] block mb-1">Email</label>
                 <input value={vendorForm.email} onChange={e => setVendorForm(f => f && ({ ...f, email: e.target.value }))} className="w-full border border-[#1e2d45] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" placeholder="vendor@example.com" />
               </div>
               <div className="sm:col-span-2">
-                <label className="text-xs text-[#8aaac8] block mb-1">Notes</label>
+                <label className="text-xs text-[#b8d4f0] block mb-1">Notes</label>
                 <input value={vendorForm.notes} onChange={e => setVendorForm(f => f && ({ ...f, notes: e.target.value }))} className="w-full border border-[#1e2d45] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" placeholder="Preferred contact, schedule, rates..." />
               </div>
             </div>
             <div className="flex gap-2">
               <button onClick={saveVendor} disabled={!vendorForm.name.trim()} className="bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors">{editingVendorId ? 'Save Changes' : 'Add Vendor'}</button>
-              <button onClick={() => { setVendorForm(null); setEditingVendorId(null); }} className="border border-[#1e2d45] text-[#8aaac8] text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-[#1e2d45] transition-colors">Cancel</button>
+              <button onClick={() => { setVendorForm(null); setEditingVendorId(null); }} className="border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-[#1e2d45] transition-colors">Cancel</button>
             </div>
           </div>
         )}
@@ -639,13 +639,13 @@ export default function OwnerDetail({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-semibold text-white">{v.name}</p>
-                  <span className="text-xs bg-[#1e2d45] text-[#8aaac8] px-2 py-0.5 rounded-full">{v.role}</span>
+                  <span className="text-xs bg-[#1e2d45] text-[#b8d4f0] px-2 py-0.5 rounded-full">{v.role}</span>
                 </div>
                 <div className="flex flex-wrap gap-3 mt-1">
                   {v.phone && <a href={`tel:${v.phone}`} className="text-xs text-[#4a90d9] hover:underline">{v.phone}</a>}
                   {v.email && <a href={`mailto:${v.email}`} className="text-xs text-[#4a90d9] hover:underline">{v.email}</a>}
                 </div>
-                {v.notes && <p className="text-xs text-[#8aaac8] mt-1">{v.notes}</p>}
+                {v.notes && <p className="text-xs text-[#b8d4f0] mt-1">{v.notes}</p>}
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button onClick={() => startEditVendor(v)} className="p-1.5 text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#162035] rounded-lg transition-colors"><Edit2 size={13} /></button>
@@ -674,7 +674,7 @@ export default function OwnerDetail({
                   <p className="text-sm font-medium text-white">{entry.subject}</p>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${OUTCOME_STYLES[entry.outcome]}`}>{entry.outcome.replace('_', ' ')}</span>
                 </div>
-                {entry.notes && <p className="text-xs text-[#8aaac8] mt-1">{entry.notes}</p>}
+                {entry.notes && <p className="text-xs text-[#b8d4f0] mt-1">{entry.notes}</p>}
                 {entry.followUpDate && <p className="text-xs text-[#d0954a] mt-1">Follow-up: {new Date(entry.followUpDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
               </div>
               <div className="text-xs text-[#3a5070] flex-shrink-0">{new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
@@ -716,7 +716,7 @@ export default function OwnerDetail({
               <Download size={15} className={importSource === 'hostaway' ? 'text-violet-600' : 'text-[#d07af5]'} />
               <h3 className="font-bold text-white text-sm">Import from {importSourceLabel}</h3>
             </div>
-            <button onClick={() => setImportOpen(false)} className="text-[#3a5070] hover:text-[#8aaac8]"><X size={16} /></button>
+            <button onClick={() => setImportOpen(false)} className="text-[#3a5070] hover:text-[#b8d4f0]"><X size={16} /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-5">
             {importLoading ? (
@@ -729,7 +729,7 @@ export default function OwnerDetail({
               <p className="text-sm text-[#3a5070] text-center py-8">No properties found in {importSourceLabel}.</p>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs text-[#8aaac8] mb-3">{importProps.length} propert{importProps.length === 1 ? 'y' : 'ies'} found — select to import:</p>
+                <p className="text-xs text-[#b8d4f0] mb-3">{importProps.length} propert{importProps.length === 1 ? 'y' : 'ies'} found — select to import:</p>
                 {importProps.map(p => (
                   <label key={p.id} className="flex items-start gap-3 p-3 rounded-lg border border-[#1e2d45] hover:border-indigo-300 cursor-pointer transition-colors">
                     <input
@@ -745,7 +745,7 @@ export default function OwnerDetail({
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-white truncate">{p.nickname || p.name}</div>
                       {p.nickname && p.name && p.nickname !== p.name && <div className="text-xs text-[#3a5070] truncate">{p.name}</div>}
-                      {p.address && <div className="text-xs text-[#8aaac8] mt-0.5 truncate">{p.address}{p.city ? `, ${p.city}` : ''}{p.state ? `, ${p.state}` : ''}</div>}
+                      {p.address && <div className="text-xs text-[#b8d4f0] mt-0.5 truncate">{p.address}{p.city ? `, ${p.city}` : ''}{p.state ? `, ${p.state}` : ''}</div>}
                       <div className="text-xs text-[#3a5070] mt-1">{p.bedrooms}bd · {p.bathrooms}ba · max {p.max_guests}</div>
                     </div>
                   </label>

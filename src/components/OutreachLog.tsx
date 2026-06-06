@@ -21,12 +21,12 @@ const TYPE_COLORS: Record<OutreachType, string> = {
   email: 'bg-[#2a1a35] text-[#d07af5]',
   text: 'bg-[#162035] text-[#4a90d9]',
   meeting: 'bg-[#2a1a0a] text-[#d0954a]',
-  other: 'bg-[#1e2d45] text-[#8aaac8]',
+  other: 'bg-[#1e2d45] text-[#b8d4f0]',
 };
 
 const OUTCOME_STYLES: Record<string, string> = {
   positive: 'bg-[#0a2518] text-[#4ab57a]',
-  neutral: 'bg-[#1e2d45] text-[#8aaac8]',
+  neutral: 'bg-[#1e2d45] text-[#b8d4f0]',
   negative: 'bg-[#2a0e0e] text-[#e05c5c]',
   no_response: 'bg-[#1e2d45] text-[#3a5070]',
 };
@@ -72,7 +72,7 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Outreach Log</h1>
-          <p className="text-sm text-[#8aaac8] mt-0.5">{outreach.length} total interactions logged</p>
+          <p className="text-sm text-[#b8d4f0] mt-0.5">{outreach.length} total interactions logged</p>
         </div>
         <button
           onClick={() => onOpenOutreachModal()}
@@ -114,7 +114,7 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
         <select
           value={filterType}
           onChange={e => setFilterType(e.target.value as OutreachType | 'all')}
-          className="px-3 py-2.5 bg-[#1a2335] border border-[#1e2d45] rounded-lg text-sm text-[#8aaac8] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
+          className="px-3 py-2.5 bg-[#1a2335] border border-[#1e2d45] rounded-lg text-sm text-[#b8d4f0] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
         >
           <option value="all">All Types</option>
           <option value="call">Call</option>
@@ -126,7 +126,7 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
         <select
           value={filterContact}
           onChange={e => setFilterContact(e.target.value as 'all' | 'lead' | 'owner')}
-          className="px-3 py-2.5 bg-[#1a2335] border border-[#1e2d45] rounded-lg text-sm text-[#8aaac8] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
+          className="px-3 py-2.5 bg-[#1a2335] border border-[#1e2d45] rounded-lg text-sm text-[#b8d4f0] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
         >
           <option value="all">All Contacts</option>
           <option value="lead">Leads</option>
@@ -143,19 +143,19 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#1e2d45] border-b border-[#1e2d45]">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Date</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Contact</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Type</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Subject</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Outcome</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Follow-up</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Date</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Contact</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Type</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Subject</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Outcome</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Follow-up</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1e2d45]">
                 {filtered.map(entry => (
                   <tr key={entry.id} className="hover:bg-[#1e2d45] transition-colors group">
-                    <td className="px-4 py-3 text-[#8aaac8] whitespace-nowrap">
+                    <td className="px-4 py-3 text-[#b8d4f0] whitespace-nowrap">
                       {new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
                     </td>
                     <td className="px-4 py-3">

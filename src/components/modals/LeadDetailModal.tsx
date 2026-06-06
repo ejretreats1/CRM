@@ -95,7 +95,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
             {STAGE_LABELS[lead.stage] ?? lead.stage}
           </span>
           {lead.source && (
-            <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-[#1e2d45] text-[#8aaac8]">
+            <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-[#1e2d45] text-[#b8d4f0]">
               {SOURCE_LABELS[lead.source] ?? lead.source}
             </span>
           )}
@@ -118,7 +118,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
           {lead.propertyAddress && (
             <div className="flex items-center gap-2">
               <MapPin size={13} className="text-[#3a5070] flex-shrink-0" />
-              <span className="text-sm text-[#8aaac8]">{lead.propertyAddress}</span>
+              <span className="text-sm text-[#b8d4f0]">{lead.propertyAddress}</span>
             </div>
           )}
         </div>
@@ -127,20 +127,20 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
         <div className="grid grid-cols-4 gap-3">
           <div className="bg-[#1e2d45] rounded-lg p-3 text-center">
             <Home size={14} className="text-[#3a5070] mx-auto mb-1" />
-            <p className="text-xs text-[#8aaac8]">Type</p>
+            <p className="text-xs text-[#b8d4f0]">Type</p>
             <p className="text-sm font-semibold text-white mt-0.5 truncate">{lead.propertyType || '—'}</p>
           </div>
           <div className="bg-[#1e2d45] rounded-lg p-3 text-center">
-            <p className="text-xs text-[#8aaac8] mb-1">Bedrooms</p>
+            <p className="text-xs text-[#b8d4f0] mb-1">Bedrooms</p>
             <p className="text-2xl font-bold text-white">{lead.bedrooms}</p>
           </div>
           <div className="bg-[#1e2d45] rounded-lg p-3 text-center">
-            <p className="text-xs text-[#8aaac8] mb-1">Bathrooms</p>
+            <p className="text-xs text-[#b8d4f0] mb-1">Bathrooms</p>
             <p className="text-2xl font-bold text-white">{lead.bathrooms ?? '—'}</p>
           </div>
           <div className="bg-[#1e2d45] rounded-lg p-3 text-center">
             <DollarSign size={14} className="text-[#4a90d9] mx-auto mb-1" />
-            <p className="text-xs text-[#8aaac8]">Est. Revenue</p>
+            <p className="text-xs text-[#b8d4f0]">Est. Revenue</p>
             <p className="text-sm font-bold text-[#4a90d9] mt-0.5">
               ${lead.estimatedRevenue.toLocaleString()}/mo
             </p>
@@ -154,7 +154,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
           }`}>
             <div className="flex items-center gap-2">
               <Clock size={13} className={hasUpcomingCall ? 'text-[#4a90d9]' : 'text-[#3a5070]'} />
-              <span className="text-xs font-medium text-[#8aaac8]">Scheduled Call</span>
+              <span className="text-xs font-medium text-[#b8d4f0]">Scheduled Call</span>
               {!hasUpcomingCall && <span className="text-xs text-[#3a5070]">(past)</span>}
             </div>
             <p className="text-sm font-medium text-white">{formatDateTime(lead.scheduledCallAt)}</p>
@@ -176,9 +176,9 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
           <div>
             <div className="flex items-center gap-1.5 mb-1.5">
               <FileText size={13} className="text-[#3a5070]" />
-              <span className="text-xs font-medium text-[#8aaac8]">Notes</span>
+              <span className="text-xs font-medium text-[#b8d4f0]">Notes</span>
             </div>
-            <p className="text-sm text-[#8aaac8] bg-[#1e2d45] rounded-lg p-3.5 whitespace-pre-wrap leading-relaxed">
+            <p className="text-sm text-[#b8d4f0] bg-[#1e2d45] rounded-lg p-3.5 whitespace-pre-wrap leading-relaxed">
               {lead.notes}
             </p>
           </div>
@@ -189,7 +189,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <FileBarChart2 size={13} className="text-[#4a90d9]" />
-              <span className="text-xs font-medium text-[#8aaac8]">Revenue Reports</span>
+              <span className="text-xs font-medium text-[#b8d4f0]">Revenue Reports</span>
               <span className="text-xs text-[#3a5070]">({reports.length})</span>
             </div>
             <div className="space-y-1.5">
@@ -201,7 +201,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
                 >
                   <FileBarChart2 size={13} className="text-[#6ab0f5] flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-[#8aaac8] truncate">{r.reportTitle ?? r.propertyAddress}</p>
+                    <p className="text-xs font-medium text-[#b8d4f0] truncate">{r.reportTitle ?? r.propertyAddress}</p>
                     <p className="text-xs text-[#3a5070]">
                       {r.reportType?.toUpperCase() ?? 'STR'} · {new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
@@ -215,7 +215,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
                     <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                       r.opportunityScore >= 7 ? 'bg-[#0a2518] text-[#4ab57a]' :
                       r.opportunityScore >= 4 ? 'bg-[#2a1a0a] text-[#d0954a]' :
-                      'bg-[#1e2d45] text-[#8aaac8]'
+                      'bg-[#1e2d45] text-[#b8d4f0]'
                     }`}>{r.opportunityScore}/10</span>
                   )}
                 </button>
@@ -229,7 +229,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
               <UploadCloud size={13} className="text-[#3a5070]" />
-              <span className="text-xs font-medium text-[#8aaac8]">Documents</span>
+              <span className="text-xs font-medium text-[#b8d4f0]">Documents</span>
               {docs.length > 0 && (
                 <span className="text-xs text-[#3a5070]">({docs.length})</span>
               )}
@@ -269,7 +269,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
             }`}
           >
             {uploading ? (
-              <div className="flex items-center justify-center gap-2 text-sm text-[#8aaac8]">
+              <div className="flex items-center justify-center gap-2 text-sm text-[#b8d4f0]">
                 <Loader size={14} className="animate-spin" /> Uploading...
               </div>
             ) : (
@@ -290,7 +290,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
                 <div key={doc.id} className="flex items-center gap-2 bg-[#1e2d45] rounded-lg px-3 py-2">
                   <File size={13} className="text-[#3a5070] flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-[#8aaac8] truncate">{doc.name}</p>
+                    <p className="text-xs font-medium text-[#b8d4f0] truncate">{doc.name}</p>
                     <p className="text-xs text-[#3a5070]">{formatFileSize(doc.fileSize)}</p>
                   </div>
                   <a
@@ -327,7 +327,7 @@ export default function LeadDetailModal({ lead, onEdit, onClose }: LeadDetailMod
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors"
+            className="flex-1 border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors"
           >
             Close
           </button>

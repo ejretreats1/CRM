@@ -10,7 +10,7 @@ export default function LoginPage() {
         </div>
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white">E&J Retreats</h1>
-          <p className="text-sm text-[#8aaac8] mt-0.5">CRM Portal</p>
+          <p className="text-sm text-[#b8d4f0] mt-0.5">CRM Portal</p>
         </div>
       </div>
 
@@ -20,7 +20,7 @@ export default function LoginPage() {
             rootBox: 'w-full max-w-md',
             card: 'shadow-xl border border-[#1e2d45] rounded-2xl',
             headerTitle: 'text-white',
-            headerSubtitle: 'text-[#8aaac8]',
+            headerSubtitle: 'text-[#b8d4f0]',
             socialButtonsBlockButton: 'border border-[#1e2d45] rounded-lg',
             formButtonPrimary: 'bg-[#4a90d9] hover:bg-[#3a80c9] text-sm',
             footerActionLink: 'text-[#4a90d9] hover:text-[#4a90d9]',

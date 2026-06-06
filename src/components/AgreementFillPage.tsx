@@ -127,7 +127,7 @@ export default function AgreementFillPage({ token }: Props) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#1e2d45]">
-        <p className="text-[#8aaac8]">Loading agreement…</p>
+        <p className="text-[#b8d4f0]">Loading agreement…</p>
       </div>
     );
   }
@@ -137,7 +137,7 @@ export default function AgreementFillPage({ token }: Props) {
       <div className="min-h-screen flex items-center justify-center bg-[#1e2d45] px-4">
         <div className="text-center max-w-sm">
           <p className="text-xl font-bold text-white mb-2">Unable to load agreement</p>
-          <p className="text-[#8aaac8]">{error}</p>
+          <p className="text-[#b8d4f0]">{error}</p>
         </div>
       </div>
     );
@@ -151,7 +151,7 @@ export default function AgreementFillPage({ token }: Props) {
             <CheckCircle size={32} className="text-[#5ce0a0]" />
           </div>
           <h1 className="text-xl font-bold text-white mb-2">Agreement Completed!</h1>
-          <p className="text-[#8aaac8]">Thank you, {submission?.guestName}. Your completed agreement has been sent to E&J Retreats.</p>
+          <p className="text-[#b8d4f0]">Thank you, {submission?.guestName}. Your completed agreement has been sent to E&J Retreats.</p>
         </div>
       </div>
     );
@@ -164,7 +164,7 @@ export default function AgreementFillPage({ token }: Props) {
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="font-bold text-white">{template?.name}</h1>
-            <p className="text-sm text-[#8aaac8] mt-0.5">Hi {submission?.guestName} — please fill in all required fields</p>
+            <p className="text-sm text-[#b8d4f0] mt-0.5">Hi {submission?.guestName} — please fill in all required fields</p>
           </div>
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="E&J Retreats" className="h-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -179,15 +179,15 @@ export default function AgreementFillPage({ token }: Props) {
             <button
               onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
               disabled={currentPage === 0}
-              className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 bg-[#1a2335] border border-[#1e2d45] transition-colors"
+              className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#b8d4f0] disabled:opacity-30 bg-[#1a2335] border border-[#1e2d45] transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
-            <span className="text-sm text-[#8aaac8]">Page {currentPage + 1} of {pageCount}</span>
+            <span className="text-sm text-[#b8d4f0]">Page {currentPage + 1} of {pageCount}</span>
             <button
               onClick={() => setCurrentPage(p => Math.min(pageCount - 1, p + 1))}
               disabled={currentPage === pageCount - 1}
-              className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 bg-[#1a2335] border border-[#1e2d45] transition-colors"
+              className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#b8d4f0] disabled:opacity-30 bg-[#1a2335] border border-[#1e2d45] transition-colors"
             >
               <ChevronRight size={16} />
             </button>

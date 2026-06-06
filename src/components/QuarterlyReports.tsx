@@ -197,7 +197,7 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
             <select
               value={quarter}
               onChange={e => setQuarter(Number(e.target.value))}
-              className="appearance-none border border-[#1e2d45] rounded-lg px-3 py-2 pr-7 text-sm font-medium text-[#8aaac8] bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
+              className="appearance-none border border-[#1e2d45] rounded-lg px-3 py-2 pr-7 text-sm font-medium text-[#b8d4f0] bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             >
               {[1, 2, 3, 4].map(q => <option key={q} value={q}>Q{q}</option>)}
             </select>
@@ -209,7 +209,7 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
             <select
               value={year}
               onChange={e => setYear(Number(e.target.value))}
-              className="appearance-none border border-[#1e2d45] rounded-lg px-3 py-2 pr-7 text-sm font-medium text-[#8aaac8] bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
+              className="appearance-none border border-[#1e2d45] rounded-lg px-3 py-2 pr-7 text-sm font-medium text-[#b8d4f0] bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             >
               {years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
@@ -226,7 +226,7 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
             </button>
           )}
           {sendAllStatus === 'running' && (
-            <div className="flex items-center gap-2 text-sm text-[#8aaac8]">
+            <div className="flex items-center gap-2 text-sm text-[#b8d4f0]">
               <Loader size={14} className="animate-spin" />
               Sending {sendAllResults.length}/{ownersWithEmail.length}…
             </div>
@@ -235,7 +235,7 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
             <div className="flex items-center gap-2 text-sm text-[#5ce0a0]">
               <CheckCircle size={14} />
               Sent {sendAllResults.filter(r => r.ok).length}/{ownersWithEmail.length}
-              <button onClick={() => { setSendAllStatus('idle'); setSendAllResults([]); }} className="text-[#3a5070] hover:text-[#8aaac8] ml-1">
+              <button onClick={() => { setSendAllStatus('idle'); setSendAllResults([]); }} className="text-[#3a5070] hover:text-[#b8d4f0] ml-1">
                 <X size={14} />
               </button>
             </div>
@@ -247,21 +247,21 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
       <div className="mb-4 bg-[#1a2335] border border-[#1e2d45] rounded-xl p-4">
         <div className="flex items-center gap-2 mb-2">
           <StickyNote size={13} className="text-[#3a5070]" />
-          <label className="text-xs font-semibold text-[#8aaac8]">Context for Claude (applies to all reports)</label>
+          <label className="text-xs font-semibold text-[#b8d4f0]">Context for Claude (applies to all reports)</label>
         </div>
         <textarea
           value={globalContext}
           onChange={e => setGlobalContext(e.target.value)}
           rows={2}
           placeholder="e.g. Q1 had a major snowstorm in January that impacted bookings. We raised nightly rates by 15% in February. The market is seeing increased competition from new listings."
-          className="w-full text-sm text-[#8aaac8] placeholder:text-[#3a5070] border border-[#1e2d45] rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
+          className="w-full text-sm text-[#b8d4f0] placeholder:text-[#3a5070] border border-[#1e2d45] rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
         />
       </div>
 
       {/* Send-all results */}
       {sendAllResults.length > 0 && sendAllStatus !== 'idle' && (
         <div className="mb-4 bg-[#1e2d45] border border-[#1e2d45] rounded-xl p-4">
-          <p className="text-xs font-semibold text-[#8aaac8] mb-2">Send All Progress</p>
+          <p className="text-xs font-semibold text-[#b8d4f0] mb-2">Send All Progress</p>
           <div className="flex flex-wrap gap-2">
             {sendAllResults.map(r => (
               <span key={r.name} className={`text-xs px-2 py-1 rounded-full font-medium ${r.ok ? 'bg-[#0a2518] text-[#4ab57a]' : 'bg-[#2a0e0e] text-[#e05c5c]'}`}>
@@ -282,11 +282,11 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#1e2d45] bg-[#1e2d45]">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Client</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Bookings</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Revenue</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Occupancy</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Avg/Night</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Client</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Bookings</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Revenue</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Occupancy</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Avg/Night</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -304,28 +304,28 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
                         onChange={e => setOwnerNote(owner.id, e.target.value)}
                         rows={1}
                         placeholder="Notes for Claude (optional)"
-                        className="w-full text-xs text-[#8aaac8] placeholder:text-[#3a5070] border border-[#1e2d45] rounded px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-[#4a90d9] focus:rows-3 transition-all"
+                        className="w-full text-xs text-[#b8d4f0] placeholder:text-[#3a5070] border border-[#1e2d45] rounded px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-[#4a90d9] focus:rows-3 transition-all"
                         onFocus={e => e.currentTarget.rows = 3}
                         onBlur={e => { if (!e.currentTarget.value) e.currentTarget.rows = 1; }}
                       />
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-[#8aaac8]">{m.totalBookings}</span>
+                      <span className="text-[#b8d4f0]">{m.totalBookings}</span>
                       {m.cancelledWithPayout > 0 && (
                         <span className="block text-xs text-[#e05c5c]">{m.cancelledWithPayout} cancelled w/ payout</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-[#8aaac8]">${m.totalRevenue.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right text-[#b8d4f0]">${m.totalRevenue.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                         m.occupancyRate >= 70 ? 'bg-[#0a2518] text-[#4ab57a]' :
                         m.occupancyRate >= 50 ? 'bg-[#2a1a0a] text-[#d0954a]' :
-                        'bg-[#1e2d45] text-[#8aaac8]'
+                        'bg-[#1e2d45] text-[#b8d4f0]'
                       }`}>
                         {m.occupancyRate}%
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-[#8aaac8]">${m.avgNightlyRate}</td>
+                    <td className="px-4 py-3 text-right text-[#b8d4f0]">${m.avgNightlyRate}</td>
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => handleGenerate(owner)}
@@ -354,7 +354,7 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
                 <p className="font-bold text-white text-sm">{qLabel} Report — {preview.owner.name}</p>
                 <p className="text-xs text-[#3a5070] mt-0.5">{preview.subject}</p>
               </div>
-              <button onClick={() => setPreview(null)} className="text-[#3a5070] hover:text-[#8aaac8] transition-colors">
+              <button onClick={() => setPreview(null)} className="text-[#3a5070] hover:text-[#b8d4f0] transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -385,7 +385,7 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
               <div className="flex gap-2 ml-auto">
                 <button
                   onClick={() => setPreview(null)}
-                  className="border border-[#1e2d45] text-[#8aaac8] text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1e2d45] transition-colors"
+                  className="border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1e2d45] transition-colors"
                 >
                   Close
                 </button>

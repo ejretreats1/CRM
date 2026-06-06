@@ -447,7 +447,7 @@ export default function App() {
   if (!isLoaded) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#1e2d45]">
-        <div className="text-[#8aaac8] text-sm">Loading...</div>
+        <div className="text-[#b8d4f0] text-sm">Loading...</div>
       </div>
     );
   }
@@ -455,7 +455,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#1e2d45]">
-        <div className="text-[#8aaac8] text-sm">Loading CRM data...</div>
+        <div className="text-[#b8d4f0] text-sm">Loading CRM data...</div>
       </div>
     );
   }

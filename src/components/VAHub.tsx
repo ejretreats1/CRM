@@ -24,14 +24,14 @@ interface VAHubProps {
 }
 
 const STATUS_CONFIG: Record<ProjectStatus, { label: string; cls: string }> = {
-  pending:     { label: 'Pending',     cls: 'bg-[#1e2d45] text-[#8aaac8]' },
+  pending:     { label: 'Pending',     cls: 'bg-[#1e2d45] text-[#b8d4f0]' },
   in_progress: { label: 'In Progress', cls: 'bg-[#162035] text-[#6ab0f5]' },
   approved:    { label: 'Approved',    cls: 'bg-[#162035] text-[#4a90d9]' },
   completed:   { label: 'Completed',   cls: 'bg-[#0a2518] text-[#4ab57a]' },
 };
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; cls: string }> = {
-  low:    { label: 'Low',    cls: 'bg-[#1e2d45] text-[#8aaac8] border border-[#1e2d45]' },
+  low:    { label: 'Low',    cls: 'bg-[#1e2d45] text-[#b8d4f0] border border-[#1e2d45]' },
   medium: { label: 'Medium', cls: 'bg-[#2a1a0a] text-[#d0954a] border border-[#5a3010]' },
   high:   { label: 'High',   cls: 'bg-[#2a0e0e] text-[#e05c5c] border border-[#5a1a1a]' },
 };
@@ -73,7 +73,7 @@ function ProjectForm({
       <h3 className="font-semibold text-white">{initial?.title ? 'Edit Project' : 'New Project'}</h3>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
-          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Title *</label>
+          <label className="text-xs font-medium text-[#b8d4f0] block mb-1">Title *</label>
           <input
             value={form.title}
             onChange={e => set('title', e.target.value)}
@@ -82,7 +82,7 @@ function ProjectForm({
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Status</label>
+          <label className="text-xs font-medium text-[#b8d4f0] block mb-1">Status</label>
           <select
             value={form.status}
             onChange={e => set('status', e.target.value as ProjectStatus)}
@@ -95,7 +95,7 @@ function ProjectForm({
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Priority</label>
+          <label className="text-xs font-medium text-[#b8d4f0] block mb-1">Priority</label>
           <select
             value={form.priority}
             onChange={e => set('priority', e.target.value as Priority)}
@@ -107,7 +107,7 @@ function ProjectForm({
           </select>
         </div>
         <div className="col-span-2">
-          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Assigned To</label>
+          <label className="text-xs font-medium text-[#b8d4f0] block mb-1">Assigned To</label>
           <input
             value={form.assignedTo}
             onChange={e => set('assignedTo', e.target.value)}
@@ -116,7 +116,7 @@ function ProjectForm({
           />
         </div>
         <div className="col-span-2">
-          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Description</label>
+          <label className="text-xs font-medium text-[#b8d4f0] block mb-1">Description</label>
           <textarea
             value={form.description}
             onChange={e => set('description', e.target.value)}
@@ -126,7 +126,7 @@ function ProjectForm({
           />
         </div>
         <div className="col-span-2">
-          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Notes / Progress Updates</label>
+          <label className="text-xs font-medium text-[#b8d4f0] block mb-1">Notes / Progress Updates</label>
           <textarea
             value={form.notes}
             onChange={e => set('notes', e.target.value)}
@@ -146,7 +146,7 @@ function ProjectForm({
         </button>
         <button
           onClick={onCancel}
-          className="border border-[#1e2d45] bg-[#1a2335] text-[#8aaac8] hover:bg-[#1e2d45] text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          className="border border-[#1e2d45] bg-[#1a2335] text-[#b8d4f0] hover:bg-[#1e2d45] text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
           Cancel
         </button>
@@ -204,7 +204,7 @@ function TodoCard({
             : <Square size={15} className="text-[#3a5070] hover:text-[#d0954a]" />}
       </button>
       <div className="flex-1 min-w-0">
-        <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-[#3a5070]' : 'text-[#8aaac8]'}`}>
+        <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-[#3a5070]' : 'text-[#b8d4f0]'}`}>
           {todo.text}
         </span>
         <div className="flex items-center gap-1.5 flex-wrap mt-1">
@@ -244,7 +244,7 @@ function CompletedTodos({ todos, onToggle, onDelete, onDragStart, onNavigate }: 
     <div className="px-2 pb-2 mt-1 border-t border-[#1e2d45] pt-2">
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 text-xs text-[#3a5070] hover:text-[#8aaac8] font-medium transition-colors"
+        className="flex items-center gap-1.5 text-xs text-[#3a5070] hover:text-[#b8d4f0] font-medium transition-colors"
       >
         {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         {todos.length} completed
@@ -334,7 +334,7 @@ function TodoColumn({
         <button
           onClick={submit}
           disabled={!addText.trim()}
-          className="bg-[#1a2335] border border-[#1e2d45] text-[#8aaac8] hover:text-[#4a90d9] hover:border-[#4a90d9] disabled:opacity-40 px-2 rounded-lg transition-colors"
+          className="bg-[#1a2335] border border-[#1e2d45] text-[#b8d4f0] hover:text-[#4a90d9] hover:border-[#4a90d9] disabled:opacity-40 px-2 rounded-lg transition-colors"
         >
           <Plus size={14} />
         </button>
@@ -504,7 +504,7 @@ export default function VAHub({
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <FolderKanban size={22} className="text-[#4a90d9]" /> VA Hub
           </h1>
-          <p className="text-sm text-[#8aaac8] mt-0.5">
+          <p className="text-sm text-[#b8d4f0] mt-0.5">
             Manage projects and shared tasks for your virtual assistants.
           </p>
         </div>
@@ -534,7 +534,7 @@ export default function VAHub({
               className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                 filter === id
                   ? 'bg-[#162035] text-[#4a90d9]'
-                  : 'text-[#8aaac8] hover:bg-[#1e2d45] hover:text-[#8aaac8]'
+                  : 'text-[#b8d4f0] hover:bg-[#1e2d45] hover:text-[#b8d4f0]'
               }`}
             >
               {label}
@@ -586,13 +586,13 @@ export default function VAHub({
                     </div>
 
                     {project.description && (
-                      <p className="text-sm text-[#8aaac8] mt-1">{project.description}</p>
+                      <p className="text-sm text-[#b8d4f0] mt-1">{project.description}</p>
                     )}
 
                     <div className="flex flex-wrap items-center gap-3 mt-1.5">
                       {project.assignedTo && (
                         <p className="text-xs text-[#3a5070]">
-                          Assigned to: <span className="font-medium text-[#8aaac8]">{project.assignedTo}</span>
+                          Assigned to: <span className="font-medium text-[#b8d4f0]">{project.assignedTo}</span>
                         </p>
                       )}
                       {projectTodoCount > 0 && (
@@ -612,7 +612,7 @@ export default function VAHub({
                           {notesExpanded ? 'Hide notes' : 'Show notes'}
                         </button>
                         {notesExpanded && (
-                          <p className="mt-1.5 text-sm text-[#8aaac8] bg-[#1e2d45] px-3 py-2.5 rounded-lg whitespace-pre-wrap border border-[#1e2d45]">
+                          <p className="mt-1.5 text-sm text-[#b8d4f0] bg-[#1e2d45] px-3 py-2.5 rounded-lg whitespace-pre-wrap border border-[#1e2d45]">
                             {project.notes}
                           </p>
                         )}
@@ -653,7 +653,7 @@ export default function VAHub({
           </h2>
           <button
             onClick={() => { setShowVaEmailEdit(v => !v); setVaEmailInput(vaNotifyEmail); }}
-            className="flex items-center gap-1.5 text-xs text-[#8aaac8] hover:text-[#4a90d9] border border-[#1e2d45] hover:border-[#4a90d9] px-2.5 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-xs text-[#b8d4f0] hover:text-[#4a90d9] border border-[#1e2d45] hover:border-[#4a90d9] px-2.5 py-1.5 rounded-lg transition-colors"
           >
             <Bell size={12} />
             {vaNotifyEmail ? 'VA notify: ' + vaNotifyEmail : 'Set VA email alerts'}
@@ -670,7 +670,7 @@ export default function VAHub({
               className="flex-1 text-sm border border-[#1e3a5a] rounded-lg px-3 py-1.5 bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             />
             <button onClick={saveVaEmail} className="bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors">Save</button>
-            <button onClick={() => setShowVaEmailEdit(false)} className="text-[#8aaac8] hover:text-[#8aaac8] text-sm px-2">✕</button>
+            <button onClick={() => setShowVaEmailEdit(false)} className="text-[#b8d4f0] hover:text-[#b8d4f0] text-sm px-2">✕</button>
           </div>
         )}
 
@@ -731,13 +731,13 @@ export default function VAHub({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-[#8aaac8]">{msg.username}</span>
+                        <span className="text-xs font-semibold text-[#b8d4f0]">{msg.username}</span>
                         {slackChannels.length > 1 && (
                           <span className="text-xs bg-[#2a1a35] text-[#d07af5] px-1.5 py-0.5 rounded-full">#{msg.channelName}</span>
                         )}
                         <span className="text-xs text-[#3a5070]">{timeAgoShort(msg.ts)}</span>
                       </div>
-                      <p className="text-sm text-[#8aaac8] mt-0.5 whitespace-pre-wrap break-words">{body}</p>
+                      <p className="text-sm text-[#b8d4f0] mt-0.5 whitespace-pre-wrap break-words">{body}</p>
                       {msg.text && msg.attachmentText && msg.text !== msg.attachmentText && (
                         <p className="text-xs text-[#3a5070] mt-1 italic truncate">{msg.attachmentText}</p>
                       )}
