@@ -80,39 +80,39 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
     <Modal title={property ? 'Edit Property' : 'Add Property'} onClose={onClose} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Street Address *</label>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Street Address *</label>
           <input required value={form.address} onChange={e => set('address', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="123 Mountain View Dr" />
         </div>
 
         <div className="grid sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-slate-600 mb-1">City *</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">City *</label>
             <input required value={form.city} onChange={e => set('city', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="Gatlinburg" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">State</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">State</label>
             <input value={form.state} onChange={e => set('state', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="TN" maxLength={2} />
           </div>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Property Type</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Property Type</label>
             <select value={form.type} onChange={e => set('type', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]">
               {PROPERTY_TYPES.map(t => <option key={t}>{t}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Status</label>
             <select value={form.status} onChange={e => set('status', e.target.value as PropertyStatus)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]">
               <option value="onboarding">Onboarding</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
@@ -122,65 +122,65 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Bedrooms</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Bedrooms</label>
             <input type="number" min={1} max={20} value={form.bedrooms} onChange={e => set('bedrooms', Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Bathrooms</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Bathrooms</label>
             <input type="number" min={1} max={20} step={0.5} value={form.bathrooms} onChange={e => set('bathrooms', Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Max Guests</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Max Guests</label>
             <input type="number" min={1} max={50} value={form.maxGuests} onChange={e => set('maxGuests', Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
           </div>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Monthly Revenue ($)</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Monthly Revenue ($)</label>
             <input type="number" min={0} value={form.monthlyRevenue} onChange={e => set('monthlyRevenue', Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="5000" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Occupancy Rate (%)</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Occupancy Rate (%)</label>
             <input type="number" min={0} max={100} value={form.occupancyRate} onChange={e => set('occupancyRate', Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="75" />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Photo URL (optional)</label>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Photo URL (optional)</label>
           <input
             value={form.photoUrl}
             onChange={e => set('photoUrl', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="https://... (paste any image URL)"
           />
           {form.photoUrl.trim() && (
             <img
               src={form.photoUrl.trim()}
               alt="preview"
-              className="mt-2 w-full h-28 object-cover rounded-lg border border-slate-200"
+              className="mt-2 w-full h-28 object-cover rounded-lg border border-[#1e2d45]"
               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           )}
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Linked Listings <span className="text-slate-400 font-normal">(optional — for multi-unit properties)</span></label>
-          <p className="text-xs text-slate-400 mb-2">Link other units at this property to aggregate occupancy &amp; revenue together in Revenue Intelligence.</p>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Linked Listings <span className="text-[#3a5070] font-normal">(optional — for multi-unit properties)</span></label>
+          <p className="text-xs text-[#3a5070] mb-2">Link other units at this property to aggregate occupancy &amp; revenue together in Revenue Intelligence.</p>
 
           {/* Picker from synced listings */}
           {availableToLink.length > 0 ? (
             <select
               value=""
               onChange={e => { if (e.target.value) addLinkedId(e.target.value); }}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 mb-2"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] mb-2"
             >
               <option value="">— Select a listing to link —</option>
               {availableToLink.map(p => (
@@ -196,16 +196,16 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
                 value={linkedInput}
                 onChange={e => setLinkedInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLinkedId(linkedInput.trim()); } }}
-                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="flex-1 border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                 placeholder="Paste Uplisting listing ID…"
               />
               <button type="button" onClick={() => addLinkedId(linkedInput.trim())}
-                className="px-3 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 transition-colors">
+                className="px-3 py-2 bg-[#4a90d9] text-white rounded-lg text-sm hover:bg-[#3a80c9] transition-colors">
                 Add
               </button>
             </div>
           ) : (
-            <p className="text-xs text-slate-400 mb-2 italic">All synced listings are already linked.</p>
+            <p className="text-xs text-[#3a5070] mb-2 italic">All synced listings are already linked.</p>
           )}
 
           {form.linkedListingIds.length > 0 && (
@@ -213,9 +213,9 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
               {form.linkedListingIds.map(id => {
                 const listing = uplistingProperties.find(p => p.id === id);
                 return (
-                  <span key={id} className="flex items-center gap-1 px-2 py-1 bg-teal-50 border border-teal-200 rounded-md text-xs text-teal-800">
+                  <span key={id} className="flex items-center gap-1 px-2 py-1 bg-[#162035] border border-[#1e3a5a] rounded-md text-xs text-[#6ab0f5]">
                     {listing ? (listing.nickname || listing.name) : id}
-                    <button type="button" onClick={() => removeLinkedId(id)} className="text-teal-500 hover:text-rose-500 transition-colors ml-0.5">
+                    <button type="button" onClick={() => removeLinkedId(id)} className="text-[#6ab0f5] hover:text-[#e05c5c] transition-colors ml-0.5">
                       <X size={11} />
                     </button>
                   </span>
@@ -226,7 +226,7 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-2">Platforms</label>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-2">Platforms</label>
           <div className="flex flex-wrap gap-2">
             {PLATFORMS.map(platform => (
               <button
@@ -235,8 +235,8 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
                 onClick={() => togglePlatform(platform)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors
                   ${form.platforms.includes(platform)
-                    ? 'bg-teal-600 text-white border-teal-600'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-teal-400'}`}
+                    ? 'bg-[#4a90d9] text-white border-[#4a90d9]'
+                    : 'bg-[#1a2335] text-[#8aaac8] border-[#1e2d45] hover:border-[#4a90d9]'}`}
               >
                 {platform}
               </button>
@@ -246,11 +246,11 @@ export default function PropertyModal({ property, onSave, onClose, uplistingProp
 
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose}
-            className="flex-1 border border-slate-200 text-slate-600 text-sm font-medium py-2.5 rounded-lg hover:bg-slate-100 transition-colors">
+            className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors">
             Cancel
           </button>
           <button type="submit"
-            className="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
+            className="flex-1 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
             {property ? 'Save Changes' : 'Add Property'}
           </button>
         </div>

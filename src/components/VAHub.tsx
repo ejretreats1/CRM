@@ -24,16 +24,16 @@ interface VAHubProps {
 }
 
 const STATUS_CONFIG: Record<ProjectStatus, { label: string; cls: string }> = {
-  pending:     { label: 'Pending',     cls: 'bg-slate-100 text-slate-600' },
-  in_progress: { label: 'In Progress', cls: 'bg-blue-100 text-blue-700' },
-  approved:    { label: 'Approved',    cls: 'bg-teal-100 text-teal-700' },
-  completed:   { label: 'Completed',   cls: 'bg-emerald-100 text-emerald-700' },
+  pending:     { label: 'Pending',     cls: 'bg-[#1e2d45] text-[#8aaac8]' },
+  in_progress: { label: 'In Progress', cls: 'bg-[#162035] text-[#6ab0f5]' },
+  approved:    { label: 'Approved',    cls: 'bg-[#162035] text-[#4a90d9]' },
+  completed:   { label: 'Completed',   cls: 'bg-[#0a2518] text-[#4ab57a]' },
 };
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; cls: string }> = {
-  low:    { label: 'Low',    cls: 'bg-slate-100 text-slate-500 border border-slate-200' },
-  medium: { label: 'Medium', cls: 'bg-amber-50 text-amber-600 border border-amber-200' },
-  high:   { label: 'High',   cls: 'bg-red-50 text-red-600 border border-red-200' },
+  low:    { label: 'Low',    cls: 'bg-[#1e2d45] text-[#8aaac8] border border-[#1e2d45]' },
+  medium: { label: 'Medium', cls: 'bg-[#2a1a0a] text-[#d0954a] border border-[#5a3010]' },
+  high:   { label: 'High',   cls: 'bg-[#2a0e0e] text-[#e05c5c] border border-[#5a1a1a]' },
 };
 
 type StatusFilter = 'all' | ProjectStatus;
@@ -69,24 +69,24 @@ function ProjectForm({
     setForm(f => ({ ...f, [k]: v }));
 
   return (
-    <div className="bg-slate-100 rounded-xl border border-slate-200 p-5 space-y-4">
-      <h3 className="font-semibold text-slate-900">{initial?.title ? 'Edit Project' : 'New Project'}</h3>
+    <div className="bg-[#1e2d45] rounded-xl border border-[#1e2d45] p-5 space-y-4">
+      <h3 className="font-semibold text-white">{initial?.title ? 'Edit Project' : 'New Project'}</h3>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
-          <label className="text-xs font-medium text-slate-600 block mb-1">Title *</label>
+          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Title *</label>
           <input
             value={form.title}
             onChange={e => set('title', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="Project title"
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-600 block mb-1">Status</label>
+          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Status</label>
           <select
             value={form.status}
             onChange={e => set('status', e.target.value as ProjectStatus)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
           >
             <option value="pending">Pending</option>
             <option value="in_progress">In Progress</option>
@@ -95,11 +95,11 @@ function ProjectForm({
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-slate-600 block mb-1">Priority</label>
+          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Priority</label>
           <select
             value={form.priority}
             onChange={e => set('priority', e.target.value as Priority)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -107,31 +107,31 @@ function ProjectForm({
           </select>
         </div>
         <div className="col-span-2">
-          <label className="text-xs font-medium text-slate-600 block mb-1">Assigned To</label>
+          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Assigned To</label>
           <input
             value={form.assignedTo}
             onChange={e => set('assignedTo', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="VA name or team member"
           />
         </div>
         <div className="col-span-2">
-          <label className="text-xs font-medium text-slate-600 block mb-1">Description</label>
+          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Description</label>
           <textarea
             value={form.description}
             onChange={e => set('description', e.target.value)}
             rows={2}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white resize-none focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm bg-[#1a2335] resize-none focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="What needs to be done..."
           />
         </div>
         <div className="col-span-2">
-          <label className="text-xs font-medium text-slate-600 block mb-1">Notes / Progress Updates</label>
+          <label className="text-xs font-medium text-[#8aaac8] block mb-1">Notes / Progress Updates</label>
           <textarea
             value={form.notes}
             onChange={e => set('notes', e.target.value)}
             rows={3}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white resize-none focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm bg-[#1a2335] resize-none focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="Progress notes, links, updates..."
           />
         </div>
@@ -140,13 +140,13 @@ function ProjectForm({
         <button
           onClick={() => { if (form.title.trim()) onSave(form); }}
           disabled={!form.title.trim()}
-          className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          className="bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
           Save Project
         </button>
         <button
           onClick={onCancel}
-          className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          className="border border-[#1e2d45] bg-[#1a2335] text-[#8aaac8] hover:bg-[#1e2d45] text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
           Cancel
         </button>
@@ -156,9 +156,9 @@ function ProjectForm({
 }
 
 const ASSIGNEE_CONFIG: Record<TodoAssignee, { label: string; color: string; header: string; ring: string; dot: string }> = {
-  ethan: { label: 'Ethan', color: 'bg-blue-50 border-blue-200',   header: 'bg-blue-600',   ring: 'ring-blue-400',   dot: 'bg-blue-500' },
-  jess:  { label: 'Jess',  color: 'bg-purple-50 border-purple-200', header: 'bg-purple-600', ring: 'ring-purple-400', dot: 'bg-purple-500' },
-  va:    { label: 'VA',    color: 'bg-teal-50 border-teal-200',   header: 'bg-teal-600',   ring: 'ring-teal-400',   dot: 'bg-teal-500' },
+  ethan: { label: 'Ethan', color: 'bg-[#162035] border-[#1e3a5a]',   header: 'bg-blue-600',   ring: 'ring-blue-400',   dot: 'bg-blue-500' },
+  jess:  { label: 'Jess',  color: 'bg-[#2a1a35] border-purple-200', header: 'bg-purple-600', ring: 'ring-purple-400', dot: 'bg-purple-500' },
+  va:    { label: 'VA',    color: 'bg-[#162035] border-[#1e3a5a]',   header: 'bg-[#4a90d9]',   ring: 'ring-[#4a90d9]',   dot: 'bg-teal-500' },
 };
 
 function TodoCard({
@@ -184,7 +184,7 @@ function TodoCard({
 
   const isInProgress = todo.inProgress && !todo.completed;
   const isOnboarding = !!(todo.linkedOwnerId && todo.linkedPropertyId);
-  const borderCls = todo.completed ? 'border-slate-100' : isInProgress ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white';
+  const borderCls = todo.completed ? 'border-[#1e2d45]' : isInProgress ? 'border-[#5a3010] bg-[#2a1a0a]' : 'border-[#1e2d45] bg-[#1a2335]';
 
   return (
     <div
@@ -198,23 +198,23 @@ function TodoCard({
         title={todo.completed ? 'Mark todo' : isInProgress ? 'Mark complete' : 'Mark in progress'}
       >
         {todo.completed
-          ? <CheckSquare size={15} className="text-teal-600" />
+          ? <CheckSquare size={15} className="text-[#4a90d9]" />
           : isInProgress
-            ? <Clock size={15} className="text-amber-500" />
-            : <Square size={15} className="text-slate-400 hover:text-amber-500" />}
+            ? <Clock size={15} className="text-[#d0954a]" />
+            : <Square size={15} className="text-[#3a5070] hover:text-[#d0954a]" />}
       </button>
       <div className="flex-1 min-w-0">
-        <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+        <span className={`text-sm leading-snug ${todo.completed ? 'line-through text-[#3a5070]' : 'text-[#8aaac8]'}`}>
           {todo.text}
         </span>
         <div className="flex items-center gap-1.5 flex-wrap mt-1">
           {isInProgress && (
-            <span className="text-xs font-medium text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">In Progress</span>
+            <span className="text-xs font-medium text-[#d0954a] bg-[#2a1a0a] px-1.5 py-0.5 rounded-full">In Progress</span>
           )}
           {isOnboarding && onNavigate && !todo.completed && (
             <button
               onClick={e => { e.stopPropagation(); onNavigate('property-portal', `${todo.linkedOwnerId}::${todo.linkedPropertyId}`); }}
-              className="flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded-full hover:bg-teal-100 transition-colors"
+              className="flex items-center gap-1 text-xs font-medium text-[#4a90d9] bg-[#162035] border border-[#1e3a5a] px-1.5 py-0.5 rounded-full hover:bg-[#162035] transition-colors"
             >
               <ClipboardList size={10} /> View Checklist
             </button>
@@ -223,7 +223,7 @@ function TodoCard({
       </div>
       <button
         onClick={() => onDelete(todo.id)}
-        className="text-slate-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5"
+        className="text-[#3a5070] hover:text-[#e05c5c] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5"
       >
         <Trash2 size={12} />
       </button>
@@ -241,10 +241,10 @@ function CompletedTodos({ todos, onToggle, onDelete, onDragStart, onNavigate }: 
   const [open, setOpen] = useState(false);
   if (todos.length === 0) return null;
   return (
-    <div className="px-2 pb-2 mt-1 border-t border-slate-100 pt-2">
+    <div className="px-2 pb-2 mt-1 border-t border-[#1e2d45] pt-2">
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 font-medium transition-colors"
+        className="flex items-center gap-1.5 text-xs text-[#3a5070] hover:text-[#8aaac8] font-medium transition-colors"
       >
         {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         {todos.length} completed
@@ -300,7 +300,7 @@ function TodoColumn({
             <Clock size={10} /> {inProgress.length}
           </span>
         )}
-        <span className="ml-auto text-xs bg-white/20 text-white px-1.5 py-0.5 rounded-full font-medium">{todo.length + inProgress.length}</span>
+        <span className="ml-auto text-xs bg-[#1a2335]/20 text-white px-1.5 py-0.5 rounded-full font-medium">{todo.length + inProgress.length}</span>
       </div>
 
       {/* In-progress tasks */}
@@ -329,12 +329,12 @@ function TodoColumn({
           onChange={e => setAddText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') submit(); }}
           placeholder="Add task…"
-          className="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-teal-400"
+          className="flex-1 text-xs border border-[#1e2d45] rounded-lg px-2 py-1.5 bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
         />
         <button
           onClick={submit}
           disabled={!addText.trim()}
-          className="bg-white border border-slate-200 text-slate-500 hover:text-teal-600 hover:border-teal-400 disabled:opacity-40 px-2 rounded-lg transition-colors"
+          className="bg-[#1a2335] border border-[#1e2d45] text-[#8aaac8] hover:text-[#4a90d9] hover:border-[#4a90d9] disabled:opacity-40 px-2 rounded-lg transition-colors"
         >
           <Plus size={14} />
         </button>
@@ -501,17 +501,17 @@ export default function VAHub({
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <FolderKanban size={22} className="text-teal-600" /> VA Hub
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <FolderKanban size={22} className="text-[#4a90d9]" /> VA Hub
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-[#8aaac8] mt-0.5">
             Manage projects and shared tasks for your virtual assistants.
           </p>
         </div>
         {!showForm && !editingProject && (
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex-shrink-0"
+            className="flex items-center gap-1.5 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex-shrink-0"
           >
             <Plus size={15} /> New Project
           </button>
@@ -524,17 +524,17 @@ export default function VAHub({
       )}
 
       {/* Projects */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-sm">
         {/* Status filter tabs */}
-        <div className="flex items-center gap-1 px-4 pt-4 pb-3 border-b border-slate-200 overflow-x-auto">
+        <div className="flex items-center gap-1 px-4 pt-4 pb-3 border-b border-[#1e2d45] overflow-x-auto">
           {filterTabs.map(({ id, label }) => (
             <button
               key={id}
               onClick={() => setFilter(id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                 filter === id
-                  ? 'bg-teal-50 text-teal-700'
-                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                  ? 'bg-[#162035] text-[#4a90d9]'
+                  : 'text-[#8aaac8] hover:bg-[#1e2d45] hover:text-[#8aaac8]'
               }`}
             >
               {label}
@@ -543,9 +543,9 @@ export default function VAHub({
           ))}
         </div>
 
-        <div className="divide-y divide-slate-200">
+        <div className="divide-y divide-[#1e2d45]">
           {filtered.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-10">
+            <p className="text-sm text-[#3a5070] text-center py-10">
               {filter === 'all'
                 ? 'No projects yet. Add your first project above.'
                 : `No ${filter.replace('_', ' ')} projects.`}
@@ -576,7 +576,7 @@ export default function VAHub({
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-slate-900">{project.title}</h3>
+                      <h3 className="font-semibold text-white">{project.title}</h3>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.cls}`}>
                         {s.label}
                       </span>
@@ -586,17 +586,17 @@ export default function VAHub({
                     </div>
 
                     {project.description && (
-                      <p className="text-sm text-slate-500 mt-1">{project.description}</p>
+                      <p className="text-sm text-[#8aaac8] mt-1">{project.description}</p>
                     )}
 
                     <div className="flex flex-wrap items-center gap-3 mt-1.5">
                       {project.assignedTo && (
-                        <p className="text-xs text-slate-400">
-                          Assigned to: <span className="font-medium text-slate-600">{project.assignedTo}</span>
+                        <p className="text-xs text-[#3a5070]">
+                          Assigned to: <span className="font-medium text-[#8aaac8]">{project.assignedTo}</span>
                         </p>
                       )}
                       {projectTodoCount > 0 && (
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-[#3a5070]">
                           {projectTodoDone}/{projectTodoCount} tasks done
                         </p>
                       )}
@@ -606,13 +606,13 @@ export default function VAHub({
                       <div className="mt-2">
                         <button
                           onClick={() => toggleNotes(project.id)}
-                          className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 transition-colors"
+                          className="flex items-center gap-1 text-xs text-[#4a90d9] hover:text-[#4a90d9] transition-colors"
                         >
                           {notesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                           {notesExpanded ? 'Hide notes' : 'Show notes'}
                         </button>
                         {notesExpanded && (
-                          <p className="mt-1.5 text-sm text-slate-600 bg-slate-100 px-3 py-2.5 rounded-lg whitespace-pre-wrap border border-slate-200">
+                          <p className="mt-1.5 text-sm text-[#8aaac8] bg-[#1e2d45] px-3 py-2.5 rounded-lg whitespace-pre-wrap border border-[#1e2d45]">
                             {project.notes}
                           </p>
                         )}
@@ -623,7 +623,7 @@ export default function VAHub({
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => setEditingProject(project)}
-                      className="text-slate-400 hover:text-teal-600 p-1.5 rounded-lg hover:bg-teal-50 transition-colors"
+                      className="text-[#3a5070] hover:text-[#4a90d9] p-1.5 rounded-lg hover:bg-[#162035] transition-colors"
                       title="Edit project"
                     >
                       <Edit2 size={13} />
@@ -632,7 +632,7 @@ export default function VAHub({
                       onClick={() => {
                         if (confirm(`Delete "${project.title}"?`)) onDeleteProject(project.id);
                       }}
-                      className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                      className="text-[#3a5070] hover:text-[#e05c5c] p-1.5 rounded-lg hover:bg-[#2a0e0e] transition-colors"
                       title="Delete project"
                     >
                       <Trash2 size={13} />
@@ -648,12 +648,12 @@ export default function VAHub({
       {/* Team To-Do Boards */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-            <ListTodo size={16} className="text-teal-600" /> Team To-Do
+          <h2 className="font-semibold text-white flex items-center gap-2">
+            <ListTodo size={16} className="text-[#4a90d9]" /> Team To-Do
           </h2>
           <button
             onClick={() => { setShowVaEmailEdit(v => !v); setVaEmailInput(vaNotifyEmail); }}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-teal-600 border border-slate-200 hover:border-teal-300 px-2.5 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-xs text-[#8aaac8] hover:text-[#4a90d9] border border-[#1e2d45] hover:border-[#4a90d9] px-2.5 py-1.5 rounded-lg transition-colors"
           >
             <Bell size={12} />
             {vaNotifyEmail ? 'VA notify: ' + vaNotifyEmail : 'Set VA email alerts'}
@@ -661,16 +661,16 @@ export default function VAHub({
         </div>
 
         {showVaEmailEdit && (
-          <div className="mb-3 flex gap-2 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
+          <div className="mb-3 flex gap-2 bg-[#162035] border border-[#1e3a5a] rounded-xl px-4 py-3">
             <input
               value={vaEmailInput}
               onChange={e => setVaEmailInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') saveVaEmail(); }}
               placeholder="VA email for task notifications"
-              className="flex-1 text-sm border border-teal-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-teal-400"
+              className="flex-1 text-sm border border-[#1e3a5a] rounded-lg px-3 py-1.5 bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             />
-            <button onClick={saveVaEmail} className="bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors">Save</button>
-            <button onClick={() => setShowVaEmailEdit(false)} className="text-slate-500 hover:text-slate-700 text-sm px-2">✕</button>
+            <button onClick={saveVaEmail} className="bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors">Save</button>
+            <button onClick={() => setShowVaEmailEdit(false)} className="text-[#8aaac8] hover:text-[#8aaac8] text-sm px-2">✕</button>
           </div>
         )}
 
@@ -696,50 +696,50 @@ export default function VAHub({
 
       {/* Slack Feed */}
       {(slackToken && slackChannels.length > 0) && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-slate-200 flex-wrap">
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-sm">
+          <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-[#1e2d45] flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
-              <Hash size={16} className="text-purple-500 flex-shrink-0" />
-              <h2 className="font-semibold text-slate-900">Slack Notifications</h2>
+              <Hash size={16} className="text-[#d07af5] flex-shrink-0" />
+              <h2 className="font-semibold text-white">Slack Notifications</h2>
               {slackChannels.map(ch => (
-                <span key={ch.id} className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium">
+                <span key={ch.id} className="text-xs bg-[#2a1a35] text-[#d07af5] px-1.5 py-0.5 rounded-full font-medium">
                   #{ch.name || ch.id}
                 </span>
               ))}
             </div>
-            <span className="text-xs text-slate-400 flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs text-[#3a5070] flex items-center gap-1.5 flex-shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
               Live · 60s
             </span>
           </div>
 
           {slackError ? (
-            <div className="px-5 py-4 text-sm text-red-500">{slackError}</div>
+            <div className="px-5 py-4 text-sm text-[#e05c5c]">{slackError}</div>
           ) : slackLoading && slackMessages.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm text-slate-400">Loading messages...</div>
+            <div className="px-5 py-8 text-center text-sm text-[#3a5070]">Loading messages...</div>
           ) : slackMessages.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm text-slate-400">No recent messages.</div>
+            <div className="px-5 py-8 text-center text-sm text-[#3a5070]">No recent messages.</div>
           ) : (
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-[#1e2d45]">
               {(slackExpanded ? slackMessages : slackMessages.slice(0, 5)).map(msg => {
                 const body = msg.text || msg.attachmentText;
                 if (!body) return null;
                 return (
                   <div key={`${msg.channelName}-${msg.ts}`} className="flex items-start gap-3 px-5 py-3.5">
-                    <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-xs font-bold text-purple-600">{msg.username.charAt(0).toUpperCase()}</span>
+                    <div className="w-7 h-7 rounded-lg bg-[#2a1a35] flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-[#d07af5]">{msg.username.charAt(0).toUpperCase()}</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-700">{msg.username}</span>
+                        <span className="text-xs font-semibold text-[#8aaac8]">{msg.username}</span>
                         {slackChannels.length > 1 && (
-                          <span className="text-xs bg-purple-50 text-purple-500 px-1.5 py-0.5 rounded-full">#{msg.channelName}</span>
+                          <span className="text-xs bg-[#2a1a35] text-[#d07af5] px-1.5 py-0.5 rounded-full">#{msg.channelName}</span>
                         )}
-                        <span className="text-xs text-slate-400">{timeAgoShort(msg.ts)}</span>
+                        <span className="text-xs text-[#3a5070]">{timeAgoShort(msg.ts)}</span>
                       </div>
-                      <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap break-words">{body}</p>
+                      <p className="text-sm text-[#8aaac8] mt-0.5 whitespace-pre-wrap break-words">{body}</p>
                       {msg.text && msg.attachmentText && msg.text !== msg.attachmentText && (
-                        <p className="text-xs text-slate-400 mt-1 italic truncate">{msg.attachmentText}</p>
+                        <p className="text-xs text-[#3a5070] mt-1 italic truncate">{msg.attachmentText}</p>
                       )}
                     </div>
                   </div>
@@ -748,7 +748,7 @@ export default function VAHub({
               {slackMessages.length > 5 && (
                 <button
                   onClick={() => setSlackExpanded(v => !v)}
-                  className="w-full py-3 text-xs font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors"
+                  className="w-full py-3 text-xs font-medium text-[#d07af5] hover:text-purple-700 hover:bg-[#2a1a35] transition-colors"
                 >
                   {slackExpanded ? 'Show less' : `Show ${slackMessages.length - 5} more messages`}
                 </button>

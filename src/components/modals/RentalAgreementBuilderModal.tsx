@@ -323,35 +323,35 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
   if (screen === 'list') {
     return (
       <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-10 px-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+        <div className="bg-[#1a2335] rounded-2xl shadow-2xl w-full max-w-2xl">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d45]">
             <div className="flex items-center gap-2">
-              <FileText size={18} className="text-teal-600" />
-              <h2 className="font-bold text-slate-900">Rental Agreements</h2>
+              <FileText size={18} className="text-[#4a90d9]" />
+              <h2 className="font-bold text-white">Rental Agreements</h2>
             </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <button onClick={onClose} className="text-[#3a5070] hover:text-[#8aaac8] transition-colors">
               <X size={20} />
             </button>
           </div>
 
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-slate-500">{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
+              <p className="text-sm text-[#8aaac8]">{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
               <button
                 onClick={() => openBuilder()}
-                className="flex items-center gap-1.5 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 px-3 py-1.5 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 text-sm font-medium text-white bg-[#4a90d9] hover:bg-[#3a80c9] px-3 py-1.5 rounded-lg transition-colors"
               >
                 <Plus size={14} /> New Template
               </button>
             </div>
 
             {loadingTemplates ? (
-              <p className="text-sm text-slate-400 text-center py-10">Loading…</p>
+              <p className="text-sm text-[#3a5070] text-center py-10">Loading…</p>
             ) : templates.length === 0 ? (
-              <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
-                <FileText size={32} className="text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 font-medium">No templates yet</p>
-                <p className="text-sm text-slate-400 mt-1">Upload a PDF and add signature/text fields</p>
+              <div className="text-center py-12 border-2 border-dashed border-[#1e2d45] rounded-xl">
+                <FileText size={32} className="text-[#3a5070] mx-auto mb-3" />
+                <p className="text-[#8aaac8] font-medium">No templates yet</p>
+                <p className="text-sm text-[#3a5070] mt-1">Upload a PDF and add signature/text fields</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -362,20 +362,20 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                   return (
                     <div
                       key={t.id}
-                      className="border border-slate-200 rounded-xl p-4 hover:border-teal-200 transition-colors"
+                      className="border border-[#1e2d45] rounded-xl p-4 hover:border-[#1e3a5a] transition-colors"
                       onMouseEnter={() => loadSubmissionsForTemplate(t.id)}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-slate-900 truncate">{t.name}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">{t.fields.length} field{t.fields.length !== 1 ? 's' : ''}</p>
+                          <p className="font-semibold text-white truncate">{t.name}</p>
+                          <p className="text-xs text-[#3a5070] mt-0.5">{t.fields.length} field{t.fields.length !== 1 ? 's' : ''}</p>
                           {subs && (
                             <div className="flex gap-3 mt-1.5">
                               {pending > 0 && (
-                                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{pending} pending</span>
+                                <span className="text-xs bg-[#2a1a0a] text-[#d0954a] px-2 py-0.5 rounded-full">{pending} pending</span>
                               )}
                               {completed > 0 && (
-                                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{completed} completed</span>
+                                <span className="text-xs bg-[#0a2518] text-[#4ab57a] px-2 py-0.5 rounded-full">{completed} completed</span>
                               )}
                             </div>
                           )}
@@ -383,19 +383,19 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <button
                             onClick={() => openSend(t)}
-                            className="flex items-center gap-1 text-xs font-medium text-teal-600 border border-teal-200 hover:bg-teal-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                            className="flex items-center gap-1 text-xs font-medium text-[#4a90d9] border border-[#1e3a5a] hover:bg-[#162035] px-2.5 py-1.5 rounded-lg transition-colors"
                           >
                             <Send size={11} /> Send
                           </button>
                           <button
                             onClick={() => openBuilder(t)}
-                            className="text-xs text-slate-400 hover:text-slate-600 border border-slate-200 hover:border-slate-300 px-2.5 py-1.5 rounded-lg transition-colors"
+                            className="text-xs text-[#3a5070] hover:text-[#8aaac8] border border-[#1e2d45] hover:border-[#1e2d45] px-2.5 py-1.5 rounded-lg transition-colors"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleDelete(t.id)}
-                            className="text-slate-300 hover:text-red-400 transition-colors p-1.5"
+                            className="text-[#3a5070] hover:text-[#e05c5c] transition-colors p-1.5"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -404,20 +404,20 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
 
                       {/* Submission list */}
                       {subs && subs.length > 0 && (
-                        <div className="mt-3 border-t border-slate-100 pt-3 space-y-1.5">
+                        <div className="mt-3 border-t border-[#1e2d45] pt-3 space-y-1.5">
                           {subs.slice(0, 3).map(s => (
                             <div key={s.id} className="flex items-center justify-between text-xs">
-                              <span className="text-slate-600 truncate">{s.guestName} <span className="text-slate-400">({s.guestEmail})</span></span>
+                              <span className="text-[#8aaac8] truncate">{s.guestName} <span className="text-[#3a5070]">({s.guestEmail})</span></span>
                               <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                                 <span className={`px-1.5 py-0.5 rounded-full font-medium ${
-                                  s.status === 'completed' ? 'bg-emerald-100 text-emerald-700'
-                                  : s.status === 'expired'  ? 'bg-slate-100 text-slate-500'
-                                  : 'bg-amber-100 text-amber-700'
+                                  s.status === 'completed' ? 'bg-[#0a2518] text-[#4ab57a]'
+                                  : s.status === 'expired'  ? 'bg-[#1e2d45] text-[#8aaac8]'
+                                  : 'bg-[#2a1a0a] text-[#d0954a]'
                                 }`}>{s.status}</span>
                                 {s.status === 'pending' && (
                                   <button
                                     onClick={() => navigator.clipboard.writeText(`${window.location.origin}/fill/${s.token}`)}
-                                    className="text-slate-400 hover:text-teal-600 transition-colors"
+                                    className="text-[#3a5070] hover:text-[#4a90d9] transition-colors"
                                     title="Copy guest link"
                                   >
                                     <Copy size={11} />
@@ -425,13 +425,13 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                                 )}
                                 {s.filledDocumentUrl && (
                                   <a href={s.filledDocumentUrl} target="_blank" rel="noreferrer"
-                                    className="text-teal-600 hover:underline">Download</a>
+                                    className="text-[#4a90d9] hover:underline">Download</a>
                                 )}
                               </div>
                             </div>
                           ))}
                           {subs.length > 3 && (
-                            <p className="text-xs text-slate-400">+{subs.length - 3} more</p>
+                            <p className="text-xs text-[#3a5070]">+{subs.length - 3} more</p>
                           )}
                         </div>
                       )}
@@ -450,22 +450,22 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
   if (screen === 'send') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <div className="bg-[#1a2335] rounded-2xl shadow-2xl w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
-            <button onClick={() => setScreen('list')} className="text-slate-400 hover:text-slate-600">
+            <button onClick={() => setScreen('list')} className="text-[#3a5070] hover:text-[#8aaac8]">
               <ChevronLeft size={20} />
             </button>
-            <h2 className="font-bold text-slate-900">Send Agreement</h2>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            <h2 className="font-bold text-white">Send Agreement</h2>
+            <button onClick={onClose} className="text-[#3a5070] hover:text-[#8aaac8]"><X size={20} /></button>
           </div>
 
           {sendDone ? (
             <div className="text-center py-8">
-              <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Send size={24} className="text-emerald-600" />
+              <div className="w-14 h-14 bg-[#0a2518] rounded-full flex items-center justify-center mx-auto mb-4">
+                <Send size={24} className="text-[#5ce0a0]" />
               </div>
-              <p className="font-semibold text-slate-900">Agreement Sent!</p>
-              <p className="text-sm text-slate-500 mt-1 mb-5">
+              <p className="font-semibold text-white">Agreement Sent!</p>
+              <p className="text-sm text-[#8aaac8] mt-1 mb-5">
                 Email sent to {sendGuestEmail}. You can also copy the link to share directly:
               </p>
               {sentToken && (
@@ -475,50 +475,50 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                     setCopied(true);
                     setTimeout(() => setCopied(false), 2000);
                   }}
-                  className="flex items-center gap-2 mx-auto bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+                  className="flex items-center gap-2 mx-auto bg-[#1e2d45] hover:bg-[#1e2d45] text-[#8aaac8] text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
                 >
-                  {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                  {copied ? <Check size={14} className="text-[#5ce0a0]" /> : <Copy size={14} />}
                   {copied ? 'Copied!' : 'Copy Guest Link'}
                 </button>
               )}
               <button
                 onClick={() => setScreen('list')}
-                className="mt-5 text-sm font-medium text-teal-600 hover:text-teal-700 block mx-auto"
+                className="mt-5 text-sm font-medium text-[#4a90d9] hover:text-[#4a90d9] block mx-auto"
               >
                 Back to templates
               </button>
             </div>
           ) : (
             <>
-              <p className="text-sm text-slate-600 mb-4">
+              <p className="text-sm text-[#8aaac8] mb-4">
                 Sending: <strong>{sendTemplate?.name}</strong>
               </p>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-slate-500 block mb-1">Guest name</label>
+                  <label className="text-xs text-[#8aaac8] block mb-1">Guest name</label>
                   <input
                     type="text"
                     value={sendGuestName}
                     onChange={e => setSendGuestName(e.target.value)}
                     placeholder="Jane Smith"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-500 block mb-1">Guest email</label>
+                  <label className="text-xs text-[#8aaac8] block mb-1">Guest email</label>
                   <input
                     type="email"
                     value={sendGuestEmail}
                     onChange={e => setSendGuestEmail(e.target.value)}
                     placeholder="jane@example.com"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   />
                 </div>
               </div>
               <button
                 onClick={handleSend}
                 disabled={sending || !sendGuestName.trim() || !sendGuestEmail.trim()}
-                className="mt-6 w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-medium text-sm py-2.5 rounded-lg transition-colors"
+                className="mt-6 w-full flex items-center justify-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white font-medium text-sm py-2.5 rounded-lg transition-colors"
               >
                 {sending ? 'Sending…' : <><Send size={14} /> Send Agreement</>}
               </button>
@@ -531,10 +531,10 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
 
   // ── BUILD SCREEN ─────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#1a2335]">
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-white shadow-sm flex-shrink-0">
-        <button onClick={() => setScreen('list')} className="text-slate-400 hover:text-slate-600 transition-colors">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1e2d45] bg-[#1a2335] shadow-sm flex-shrink-0">
+        <button onClick={() => setScreen('list')} className="text-[#3a5070] hover:text-[#8aaac8] transition-colors">
           <ChevronLeft size={20} />
         </button>
         <input
@@ -542,25 +542,25 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
           value={templateName}
           onChange={e => setTemplateName(e.target.value)}
           placeholder="Template name…"
-          className="flex-1 text-sm font-semibold text-slate-900 border-none outline-none bg-transparent placeholder-slate-400"
+          className="flex-1 text-sm font-semibold text-white border-none outline-none bg-transparent placeholder-slate-400"
         />
         <button
           onClick={handleSaveTemplate}
           disabled={saving || uploading || !templateName.trim() || (!pdfUrl && !pdfFile)}
-          className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
         >
           {saving ? 'Saving…' : uploading ? 'Uploading…' : 'Save Template'}
         </button>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors ml-1">
+        <button onClick={onClose} className="text-[#3a5070] hover:text-[#8aaac8] transition-colors ml-1">
           <X size={20} />
         </button>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar — field palette */}
-        <div className="w-52 border-r border-slate-200 bg-slate-50 overflow-y-auto flex-shrink-0 p-3">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Add Field</p>
-          <p className="text-xs text-slate-400 mb-3 leading-relaxed">Choose a type, then click on the PDF to place it.</p>
+        <div className="w-52 border-r border-[#1e2d45] bg-[#1e2d45] overflow-y-auto flex-shrink-0 p-3">
+          <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-3">Add Field</p>
+          <p className="text-xs text-[#3a5070] mb-3 leading-relaxed">Choose a type, then click on the PDF to place it.</p>
           <div className="space-y-1.5">
             {(['signature', 'text', 'date', 'initials', 'credit_card'] as FieldType[]).map(type => (
               <button
@@ -568,8 +568,8 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                 onClick={() => setSelectedFieldType(type)}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
                   selectedFieldType === type
-                    ? 'bg-white shadow-sm border border-slate-200 text-slate-900'
-                    : 'text-slate-600 hover:bg-white hover:shadow-sm'
+                    ? 'bg-[#1a2335] shadow-sm border border-[#1e2d45] text-white'
+                    : 'text-[#8aaac8] hover:bg-[#1a2335] hover:shadow-sm'
                 }`}
               >
                 <span style={{ color: FIELD_COLORS[type] }}>{FIELD_ICONS[type]}</span>
@@ -580,7 +580,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
 
           {fields.length > 0 && (
             <>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-5 mb-3">
+              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mt-5 mb-3">
                 Fields ({fields.length})
               </p>
               <div className="space-y-1">
@@ -588,7 +588,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                   <div
                     key={f.id}
                     className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer transition-colors ${
-                      selectedFieldId === f.id ? 'bg-white shadow-sm border border-slate-200' : 'hover:bg-white'
+                      selectedFieldId === f.id ? 'bg-[#1a2335] shadow-sm border border-[#1e2d45]' : 'hover:bg-[#1a2335]'
                     }`}
                     onClick={() => setSelectedFieldId(f.id)}
                   >
@@ -599,13 +599,13 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                         value={f.label}
                         onChange={e => { e.stopPropagation(); updateFieldLabel(f.id, e.target.value); }}
                         onClick={e => e.stopPropagation()}
-                        className="w-full text-xs text-slate-700 bg-transparent border-none outline-none truncate"
+                        className="w-full text-xs text-[#8aaac8] bg-transparent border-none outline-none truncate"
                       />
-                      <p className="text-[10px] text-slate-400">p.{f.page + 1}</p>
+                      <p className="text-[10px] text-[#3a5070]">p.{f.page + 1}</p>
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); removeField(f.id); }}
-                      className="text-slate-300 hover:text-red-400 transition-colors flex-shrink-0"
+                      className="text-[#3a5070] hover:text-[#e05c5c] transition-colors flex-shrink-0"
                     >
                       <Trash2 size={11} />
                     </button>
@@ -617,12 +617,12 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
         </div>
 
         {/* Main area — PDF viewer + overlay */}
-        <div className="flex-1 overflow-auto bg-slate-200 p-4">
+        <div className="flex-1 overflow-auto bg-[#1e2d45] p-4">
           {!pdfDoc ? (
-            <label className="flex flex-col items-center justify-center h-full min-h-64 border-2 border-dashed border-slate-400 rounded-xl cursor-pointer hover:border-teal-500 hover:bg-slate-100 transition-colors">
-              <Upload size={32} className="text-slate-400 mb-3" />
-              <p className="text-slate-600 font-medium">Upload PDF Agreement</p>
-              <p className="text-sm text-slate-400 mt-1">Click or drag a PDF file here</p>
+            <label className="flex flex-col items-center justify-center h-full min-h-64 border-2 border-dashed border-slate-400 rounded-xl cursor-pointer hover:border-teal-500 hover:bg-[#1e2d45] transition-colors">
+              <Upload size={32} className="text-[#3a5070] mb-3" />
+              <p className="text-[#8aaac8] font-medium">Upload PDF Agreement</p>
+              <p className="text-sm text-[#3a5070] mt-1">Click or drag a PDF file here</p>
               <input
                 type="file"
                 accept="application/pdf"
@@ -633,38 +633,38 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
           ) : (
             <div className="flex flex-col items-center gap-3">
               {/* Page navigation + zoom controls */}
-              <div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 shadow-sm">
+              <div className="flex items-center gap-2 bg-[#1a2335] rounded-lg px-3 py-2 shadow-sm">
                 {pageCount > 1 && (
                   <>
                     <button
                       onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
                       disabled={currentPage === 0}
-                      className="text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                      className="text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 transition-colors"
                     >
                       <ChevronLeft size={16} />
                     </button>
-                    <span className="text-sm text-slate-600">Page {currentPage + 1} of {pageCount}</span>
+                    <span className="text-sm text-[#8aaac8]">Page {currentPage + 1} of {pageCount}</span>
                     <button
                       onClick={() => setCurrentPage(p => Math.min(pageCount - 1, p + 1))}
                       disabled={currentPage === pageCount - 1}
-                      className="text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors"
+                      className="text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 transition-colors"
                     >
                       <ChevronRight size={16} />
                     </button>
-                    <div className="w-px h-4 bg-slate-200 mx-1" />
+                    <div className="w-px h-4 bg-[#1e2d45] mx-1" />
                   </>
                 )}
                 <button
                   onClick={() => setZoom(z => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
                   disabled={zoom <= 0.5}
-                  className="text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors p-0.5"
+                  className="text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 transition-colors p-0.5"
                   title="Zoom out"
                 >
                   <ZoomOut size={15} />
                 </button>
                 <button
                   onClick={() => setZoom(1)}
-                  className="text-xs text-slate-500 hover:text-teal-600 font-medium w-10 text-center transition-colors"
+                  className="text-xs text-[#8aaac8] hover:text-[#4a90d9] font-medium w-10 text-center transition-colors"
                   title="Reset zoom"
                 >
                   {Math.round(zoom * 100)}%
@@ -672,7 +672,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                 <button
                   onClick={() => setZoom(z => Math.min(3, parseFloat((z + 0.25).toFixed(2))))}
                   disabled={zoom >= 3}
-                  className="text-slate-400 hover:text-slate-700 disabled:opacity-30 transition-colors p-0.5"
+                  className="text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 transition-colors p-0.5"
                   title="Zoom in"
                 >
                   <ZoomIn size={15} />
@@ -732,7 +732,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
                 </div>
               </div>
 
-              <p className="text-xs text-slate-400">Click on the PDF to place a field · Drag fields to reposition</p>
+              <p className="text-xs text-[#3a5070]">Click on the PDF to place a field · Drag fields to reposition</p>
             </div>
           )}
         </div>

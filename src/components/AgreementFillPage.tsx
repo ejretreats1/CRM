@@ -126,18 +126,18 @@ export default function AgreementFillPage({ token }: Props) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-slate-500">Loading agreement…</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#1e2d45]">
+        <p className="text-[#8aaac8]">Loading agreement…</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#1e2d45] px-4">
         <div className="text-center max-w-sm">
-          <p className="text-xl font-bold text-slate-800 mb-2">Unable to load agreement</p>
-          <p className="text-slate-500">{error}</p>
+          <p className="text-xl font-bold text-white mb-2">Unable to load agreement</p>
+          <p className="text-[#8aaac8]">{error}</p>
         </div>
       </div>
     );
@@ -145,26 +145,26 @@ export default function AgreementFillPage({ token }: Props) {
 
   if (done) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#1e2d45] px-4">
         <div className="text-center max-w-sm">
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle size={32} className="text-emerald-600" />
+          <div className="w-16 h-16 bg-[#0a2518] rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle size={32} className="text-[#5ce0a0]" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900 mb-2">Agreement Completed!</h1>
-          <p className="text-slate-500">Thank you, {submission?.guestName}. Your completed agreement has been sent to E&J Retreats.</p>
+          <h1 className="text-xl font-bold text-white mb-2">Agreement Completed!</h1>
+          <p className="text-[#8aaac8]">Thank you, {submission?.guestName}. Your completed agreement has been sent to E&J Retreats.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#1e2d45]">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-4 py-4">
+      <div className="bg-[#1a2335] border-b border-[#1e2d45] px-4 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="font-bold text-slate-900">{template?.name}</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Hi {submission?.guestName} — please fill in all required fields</p>
+            <h1 className="font-bold text-white">{template?.name}</h1>
+            <p className="text-sm text-[#8aaac8] mt-0.5">Hi {submission?.guestName} — please fill in all required fields</p>
           </div>
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="E&J Retreats" className="h-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -179,22 +179,22 @@ export default function AgreementFillPage({ token }: Props) {
             <button
               onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
               disabled={currentPage === 0}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 disabled:opacity-30 bg-white border border-slate-200 transition-colors"
+              className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 bg-[#1a2335] border border-[#1e2d45] transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
-            <span className="text-sm text-slate-600">Page {currentPage + 1} of {pageCount}</span>
+            <span className="text-sm text-[#8aaac8]">Page {currentPage + 1} of {pageCount}</span>
             <button
               onClick={() => setCurrentPage(p => Math.min(pageCount - 1, p + 1))}
               disabled={currentPage === pageCount - 1}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 disabled:opacity-30 bg-white border border-slate-200 transition-colors"
+              className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#8aaac8] disabled:opacity-30 bg-[#1a2335] border border-[#1e2d45] transition-colors"
             >
               <ChevronRight size={16} />
             </button>
           </div>
         )}
 
-        <div className="bg-white shadow-lg rounded-xl overflow-hidden mb-6">
+        <div className="bg-[#1a2335] shadow-lg rounded-xl overflow-hidden mb-6">
           <div className="relative" ref={overlayRef}>
             <canvas ref={canvasRef} className="block w-full" />
 
@@ -213,8 +213,8 @@ export default function AgreementFillPage({ token }: Props) {
 
         {/* Non-current-page fields reminder */}
         {template && template.fields.some(f => f.page !== currentPage) && (
-          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-xs text-amber-700">
+          <div className="mb-4 p-3 bg-[#2a1a0a] border border-[#5a3010] rounded-lg">
+            <p className="text-xs text-[#d0954a]">
               This document has fields on multiple pages. Navigate between pages to fill all fields.
             </p>
           </div>
@@ -224,7 +224,7 @@ export default function AgreementFillPage({ token }: Props) {
         <button
           onClick={handleSubmit}
           disabled={submitting}
-          className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-semibold py-3.5 rounded-xl transition-colors text-base"
+          className="w-full flex items-center justify-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white font-semibold py-3.5 rounded-xl transition-colors text-base"
         >
           {submitting ? 'Submitting…' : 'Submit Agreement'}
         </button>

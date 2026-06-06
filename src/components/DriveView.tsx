@@ -155,13 +155,13 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="px-6 py-5 bg-white border-b border-slate-200 flex-shrink-0">
+      <div className="px-6 py-5 bg-[#1a2335] border-b border-[#1e2d45] flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <span className="text-2xl">📁</span> Google Drive
             </h1>
-            <p className="text-sm text-slate-500 mt-0.5">Browse your shared Drive files</p>
+            <p className="text-sm text-[#8aaac8] mt-0.5">Browse your shared Drive files</p>
           </div>
           <div className="flex items-center gap-2">
             {/* New button — only inside a folder */}
@@ -170,19 +170,19 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
                 <button
                   onClick={() => setNewMenuOpen(o => !o)}
                   disabled={creating}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                 >
                   {creating ? <Loader size={14} className="animate-spin" /> : <Plus size={14} />}
                   New
                   <ChevronDown size={13} />
                 </button>
                 {newMenuOpen && (
-                  <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl border border-slate-200 shadow-lg z-10 overflow-hidden">
+                  <div className="absolute right-0 mt-1 w-44 bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-lg z-10 overflow-hidden">
                     {NEW_TYPES.map(({ label, emoji, mimeType }) => (
                       <button
                         key={mimeType}
                         onClick={() => createFile(mimeType)}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#8aaac8] hover:bg-[#1e2d45] transition-colors"
                       >
                         <span>{emoji}</span> {label}
                       </button>
@@ -195,7 +195,7 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
             <button
               onClick={() => load(currentFolder.id)}
               disabled={loading}
-              className="p-2 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors disabled:opacity-40"
+              className="p-2 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#162035] transition-colors disabled:opacity-40"
               title="Refresh"
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -207,13 +207,13 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
         <nav className="flex items-center gap-1 mt-3 flex-wrap">
           {crumbs.map((crumb, i) => (
             <span key={i} className="flex items-center gap-1">
-              {i > 0 && <ChevronRight size={14} className="text-slate-300" />}
+              {i > 0 && <ChevronRight size={14} className="text-[#3a5070]" />}
               <button
                 onClick={() => navigateToCrumb(i)}
-                className={`text-sm flex items-center gap-1 px-2 py-0.5 rounded hover:bg-slate-100 transition-colors ${
+                className={`text-sm flex items-center gap-1 px-2 py-0.5 rounded hover:bg-[#1e2d45] transition-colors ${
                   i === crumbs.length - 1
-                    ? 'text-slate-900 font-semibold pointer-events-none'
-                    : 'text-teal-600 hover:text-teal-700'
+                    ? 'text-white font-semibold pointer-events-none'
+                    : 'text-[#4a90d9] hover:text-[#4a90d9]'
                 }`}
               >
                 {i === 0 && <Home size={13} />}
@@ -227,13 +227,13 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {error && (
-          <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4">
+          <div className="flex items-center gap-3 bg-[#2a0e0e] border border-[#5a1a1a] text-[#e05c5c] rounded-xl px-4 py-3 text-sm mb-4">
             <AlertCircle size={16} className="flex-shrink-0" />
             <div>
               <p className="font-medium">Could not load Drive files</p>
-              <p className="text-xs mt-0.5 text-red-500">{error}</p>
+              <p className="text-xs mt-0.5 text-[#e05c5c]">{error}</p>
               {error.includes('GOOGLE_SERVICE_ACCOUNT_KEY') && (
-                <p className="text-xs mt-1 text-red-500">Add <code className="bg-red-100 px-1 rounded">GOOGLE_SERVICE_ACCOUNT_KEY</code> to your Vercel environment variables.</p>
+                <p className="text-xs mt-1 text-[#e05c5c]">Add <code className="bg-[#2a0e0e] px-1 rounded">GOOGLE_SERVICE_ACCOUNT_KEY</code> to your Vercel environment variables.</p>
               )}
             </div>
           </div>
@@ -241,13 +241,13 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader size={24} className="text-slate-300 animate-spin" />
+            <Loader size={24} className="text-[#3a5070] animate-spin" />
           </div>
         ) : files.length === 0 && !error ? (
           <div className="text-center py-20">
-            <p className="text-slate-400 text-sm">No files found.</p>
+            <p className="text-[#3a5070] text-sm">No files found.</p>
             {crumbs.length === 1 && (
-              <p className="text-slate-400 text-xs mt-1">
+              <p className="text-[#3a5070] text-xs mt-1">
                 Share your Drive folders with the service account email to see them here.
               </p>
             )}
@@ -257,7 +257,7 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
             {/* Folders */}
             {folders.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                <p className="text-xs font-semibold text-[#3a5070] uppercase tracking-wider mb-3">
                   Folders ({folders.length})
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -265,10 +265,10 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
                     <button
                       key={f.id}
                       onClick={() => openFolder(f)}
-                      className="flex flex-col items-center gap-2 p-4 bg-white rounded-xl border border-slate-200 hover:border-teal-300 hover:shadow-md transition-all text-center group"
+                      className="flex flex-col items-center gap-2 p-4 bg-[#1a2335] rounded-xl border border-[#1e2d45] hover:border-[#4a90d9] hover:shadow-md transition-all text-center group"
                     >
-                      <Folder size={32} className="text-amber-400 group-hover:text-amber-500 transition-colors fill-amber-50" />
-                      <span className="text-xs font-medium text-slate-700 leading-tight line-clamp-2 w-full">{f.name}</span>
+                      <Folder size={32} className="text-amber-400 group-hover:text-[#d0954a] transition-colors fill-amber-50" />
+                      <span className="text-xs font-medium text-[#8aaac8] leading-tight line-clamp-2 w-full">{f.name}</span>
                     </button>
                   ))}
                 </div>
@@ -278,16 +278,16 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
             {/* Files */}
             {docs.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                <p className="text-xs font-semibold text-[#3a5070] uppercase tracking-wider mb-3">
                   Files ({docs.length})
                 </p>
-                <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-200">
+                <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] divide-y divide-[#1e2d45]">
                   {docs.map(f => (
-                    <div key={f.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-100 transition-colors">
+                    <div key={f.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[#1e2d45] transition-colors">
                       <span className="text-xl flex-shrink-0">{fileIcon(f.mimeType)}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">{f.name}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-sm font-medium text-white truncate">{f.name}</p>
+                        <p className="text-xs text-[#3a5070] mt-0.5">
                           {formatSize(f.size)}{f.size ? ' · ' : ''}{formatDate(f.modifiedTime)}
                         </p>
                       </div>
@@ -295,7 +295,7 @@ export default function DriveView({ isAdmin }: DriveViewProps) {
                         href={f.webViewLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium flex-shrink-0 px-2.5 py-1.5 rounded-lg hover:bg-teal-50 transition-colors"
+                        className="flex items-center gap-1 text-xs text-[#4a90d9] hover:text-[#4a90d9] font-medium flex-shrink-0 px-2.5 py-1.5 rounded-lg hover:bg-[#162035] transition-colors"
                       >
                         Open <ExternalLink size={11} />
                       </a>

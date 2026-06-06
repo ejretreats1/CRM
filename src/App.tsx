@@ -446,23 +446,23 @@ export default function App() {
 
   if (!isLoaded) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-100">
-        <div className="text-slate-500 text-sm">Loading...</div>
+      <div className="flex h-screen items-center justify-center bg-[#1e2d45]">
+        <div className="text-[#8aaac8] text-sm">Loading...</div>
       </div>
     );
   }
   if (!isSignedIn) return <LoginPage />;
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-100">
-        <div className="text-slate-500 text-sm">Loading CRM data...</div>
+      <div className="flex h-screen items-center justify-center bg-[#1e2d45]">
+        <div className="text-[#8aaac8] text-sm">Loading CRM data...</div>
       </div>
     );
   }
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-100">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl text-sm max-w-md text-center">
+      <div className="flex h-screen items-center justify-center bg-[#1e2d45]">
+        <div className="bg-[#2a0e0e] border border-[#5a1a1a] text-[#e05c5c] px-6 py-4 rounded-xl text-sm max-w-md text-center">
           {error}
         </div>
       </div>

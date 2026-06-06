@@ -17,18 +17,18 @@ const TYPE_ICONS: Record<OutreachType, React.ReactNode> = {
 };
 
 const TYPE_COLORS: Record<OutreachType, string> = {
-  call: 'bg-blue-100 text-blue-600',
-  email: 'bg-purple-100 text-purple-600',
-  text: 'bg-teal-100 text-teal-600',
-  meeting: 'bg-amber-100 text-amber-600',
-  other: 'bg-slate-100 text-slate-500',
+  call: 'bg-[#162035] text-[#6ab0f5]',
+  email: 'bg-[#2a1a35] text-[#d07af5]',
+  text: 'bg-[#162035] text-[#4a90d9]',
+  meeting: 'bg-[#2a1a0a] text-[#d0954a]',
+  other: 'bg-[#1e2d45] text-[#8aaac8]',
 };
 
 const OUTCOME_STYLES: Record<string, string> = {
-  positive: 'bg-emerald-100 text-emerald-700',
-  neutral: 'bg-slate-100 text-slate-600',
-  negative: 'bg-red-100 text-red-600',
-  no_response: 'bg-slate-100 text-slate-400',
+  positive: 'bg-[#0a2518] text-[#4ab57a]',
+  neutral: 'bg-[#1e2d45] text-[#8aaac8]',
+  negative: 'bg-[#2a0e0e] text-[#e05c5c]',
+  no_response: 'bg-[#1e2d45] text-[#3a5070]',
 };
 
 const OUTCOME_LABELS: Record<string, string> = {
@@ -71,12 +71,12 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Outreach Log</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{outreach.length} total interactions logged</p>
+          <h1 className="text-xl font-bold text-white">Outreach Log</h1>
+          <p className="text-sm text-[#8aaac8] mt-0.5">{outreach.length} total interactions logged</p>
         </div>
         <button
           onClick={() => onOpenOutreachModal()}
-          className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
           <Plus size={16} /> Log Outreach
         </button>
@@ -84,13 +84,13 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
 
       {/* Upcoming follow-ups */}
       {upcomingFollowUps.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-amber-800 mb-2">📅 Upcoming Follow-ups</h3>
+        <div className="bg-[#2a1a0a] border border-[#5a3010] rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-[#f5c55c] mb-2">📅 Upcoming Follow-ups</h3>
           <div className="space-y-1.5">
             {upcomingFollowUps.map(e => (
               <div key={e.id} className="flex items-center justify-between text-sm">
-                <span className="text-amber-700">{e.contactName} — {e.subject}</span>
-                <span className="text-amber-600 font-medium text-xs">
+                <span className="text-[#d0954a]">{e.contactName} — {e.subject}</span>
+                <span className="text-[#d0954a] font-medium text-xs">
                   {new Date(e.followUpDate!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </span>
               </div>
@@ -102,19 +102,19 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3a5070]" />
           <input
             type="text"
             placeholder="Search by name, subject..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2.5 bg-[#1a2335] border border-[#1e2d45] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] focus:border-transparent"
           />
         </div>
         <select
           value={filterType}
           onChange={e => setFilterType(e.target.value as OutreachType | 'all')}
-          className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="px-3 py-2.5 bg-[#1a2335] border border-[#1e2d45] rounded-lg text-sm text-[#8aaac8] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
         >
           <option value="all">All Types</option>
           <option value="call">Call</option>
@@ -126,7 +126,7 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
         <select
           value={filterContact}
           onChange={e => setFilterContact(e.target.value as 'all' | 'lead' | 'owner')}
-          className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="px-3 py-2.5 bg-[#1a2335] border border-[#1e2d45] rounded-lg text-sm text-[#8aaac8] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
         >
           <option value="all">All Contacts</option>
           <option value="lead">Leads</option>
@@ -135,32 +135,32 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-sm">No outreach entries found.</div>
+          <div className="text-center py-12 text-[#3a5070] text-sm">No outreach entries found.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-100 border-b border-slate-200">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Contact</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Subject</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Outcome</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Follow-up</th>
+                <tr className="bg-[#1e2d45] border-b border-[#1e2d45]">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Date</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Contact</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Type</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Subject</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Outcome</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Follow-up</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-[#1e2d45]">
                 {filtered.map(entry => (
-                  <tr key={entry.id} className="hover:bg-slate-100 transition-colors group">
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                  <tr key={entry.id} className="hover:bg-[#1e2d45] transition-colors group">
+                    <td className="px-4 py-3 text-[#8aaac8] whitespace-nowrap">
                       {new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900">{entry.contactName}</div>
-                      <div className="text-xs text-slate-400 capitalize">{entry.contactType}</div>
+                      <div className="font-medium text-white">{entry.contactName}</div>
+                      <div className="text-xs text-[#3a5070] capitalize">{entry.contactType}</div>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize ${TYPE_COLORS[entry.type]}`}>
@@ -168,9 +168,9 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900">{entry.subject}</div>
+                      <div className="font-medium text-white">{entry.subject}</div>
                       {entry.notes && (
-                        <div className="text-xs text-slate-400 line-clamp-1 mt-0.5">{entry.notes}</div>
+                        <div className="text-xs text-[#3a5070] line-clamp-1 mt-0.5">{entry.notes}</div>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -178,7 +178,7 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
                         {OUTCOME_LABELS[entry.outcome]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-amber-600">
+                    <td className="px-4 py-3 text-xs text-[#d0954a]">
                       {entry.followUpDate
                         ? new Date(entry.followUpDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                         : '—'}
@@ -186,7 +186,7 @@ export default function OutreachLog({ outreach, onUpdateOutreach, onOpenOutreach
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleDelete(entry.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-all"
                       >
                         <Trash2 size={14} />
                       </button>

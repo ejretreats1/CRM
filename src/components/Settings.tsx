@@ -234,35 +234,35 @@ export default function Settings({
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Manage your integrations and connected services.</p>
+        <h1 className="text-xl font-bold text-white">Settings</h1>
+        <p className="text-sm text-[#8aaac8] mt-0.5">Manage your integrations and connected services.</p>
       </div>
 
       {/* Team Management — admin only */}
       {isAdmin && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-5">
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-5">
           <div className="flex items-center gap-2">
-            <Users size={18} className="text-teal-600" />
-            <h2 className="font-semibold text-slate-900">Team Members</h2>
+            <Users size={18} className="text-[#4a90d9]" />
+            <h2 className="font-semibold text-white">Team Members</h2>
           </div>
 
           {/* Existing members */}
           {teamLoading ? (
-            <p className="text-sm text-slate-400 flex items-center gap-2"><Loader size={13} className="animate-spin" /> Loading…</p>
+            <p className="text-sm text-[#3a5070] flex items-center gap-2"><Loader size={13} className="animate-spin" /> Loading…</p>
           ) : teamMembers.length > 0 ? (
-            <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden">
+            <div className="divide-y divide-slate-100 border border-[#1e2d45] rounded-lg overflow-hidden">
               {teamMembers.map(m => (
                 <div key={m.id} className="flex items-center justify-between px-4 py-2.5">
                   <div>
-                    <p className="text-sm font-medium text-slate-800">{m.name}</p>
-                    <p className="text-xs text-slate-400">{m.email}</p>
+                    <p className="text-sm font-medium text-white">{m.name}</p>
+                    <p className="text-xs text-[#3a5070]">{m.email}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${m.role === 'admin' ? 'bg-violet-100 text-violet-700' : 'bg-teal-100 text-teal-700'}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${m.role === 'admin' ? 'bg-violet-100 text-[#d07af5]' : 'bg-[#162035] text-[#4a90d9]'}`}>
                       {m.role}
                     </span>
                     {m.role !== 'admin' && (
-                      <button onClick={() => handleDeleteMember(m.id)} className="text-slate-300 hover:text-red-500 transition-colors">
+                      <button onClick={() => handleDeleteMember(m.id)} className="text-[#3a5070] hover:text-[#e05c5c] transition-colors">
                         <Trash2 size={14} />
                       </button>
                     )}
@@ -271,58 +271,58 @@ export default function Settings({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-400">No team members yet.</p>
+            <p className="text-sm text-[#3a5070]">No team members yet.</p>
           )}
 
           {/* Created credentials banner */}
           {createdCreds && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+            <div className="bg-[#0a2518] border border-[#0a4a2a] rounded-xl p-4 space-y-3">
               <p className="text-sm font-semibold text-emerald-800">Account created for {createdCreds.name} — share these credentials:</p>
               <div className="space-y-2">
                 {[{ label: 'Email', value: createdCreds.email, field: 'email' as const }, { label: 'Password', value: createdCreds.password, field: 'password' as const }].map(({ label, value, field }) => (
-                  <div key={field} className="flex items-center gap-2 bg-white border border-emerald-200 rounded-lg px-3 py-2">
-                    <span className="text-xs text-slate-400 w-16 flex-shrink-0">{label}</span>
-                    <span className="text-sm font-mono text-slate-800 flex-1 truncate">{value}</span>
-                    <button onClick={() => copyToClipboard(value, field)} className="text-emerald-600 hover:text-emerald-700 flex-shrink-0">
+                  <div key={field} className="flex items-center gap-2 bg-[#1a2335] border border-[#0a4a2a] rounded-lg px-3 py-2">
+                    <span className="text-xs text-[#3a5070] w-16 flex-shrink-0">{label}</span>
+                    <span className="text-sm font-mono text-white flex-1 truncate">{value}</span>
+                    <button onClick={() => copyToClipboard(value, field)} className="text-[#5ce0a0] hover:text-[#4ab57a] flex-shrink-0">
                       {copiedField === field ? <Check size={14} /> : <Copy size={14} />}
                     </button>
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-emerald-600">Save the password now — it won't be shown again. The VA can change it after logging in.</p>
-              <button onClick={() => setCreatedCreds(null)} className="text-xs text-emerald-700 hover:text-emerald-900 underline">Dismiss</button>
+              <p className="text-xs text-[#5ce0a0]">Save the password now — it won't be shown again. The VA can change it after logging in.</p>
+              <button onClick={() => setCreatedCreds(null)} className="text-xs text-[#4ab57a] hover:text-emerald-900 underline">Dismiss</button>
             </div>
           )}
 
           {/* Create new VA form */}
-          <div className="border-t border-slate-100 pt-4">
-            <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5 mb-3"><UserPlus size={14} className="text-teal-600" /> Create VA Account</p>
+          <div className="border-t border-[#1e2d45] pt-4">
+            <p className="text-sm font-medium text-[#8aaac8] flex items-center gap-1.5 mb-3"><UserPlus size={14} className="text-[#4a90d9]" /> Create VA Account</p>
             <form onSubmit={handleCreateVA} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">First name</label>
-                  <input value={newFirstName} onChange={e => setNewFirstName(e.target.value)} placeholder="Jane" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <label className="block text-xs text-[#8aaac8] mb-1">First name</label>
+                  <input value={newFirstName} onChange={e => setNewFirstName(e.target.value)} placeholder="Jane" className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Last name</label>
-                  <input value={newLastName} onChange={e => setNewLastName(e.target.value)} placeholder="Smith" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  <label className="block text-xs text-[#8aaac8] mb-1">Last name</label>
+                  <input value={newLastName} onChange={e => setNewLastName(e.target.value)} placeholder="Smith" className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Email *</label>
-                <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="va@yourcompany.com" required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                <label className="block text-xs text-[#8aaac8] mb-1">Email *</label>
+                <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="va@yourcompany.com" required className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Temporary password *</label>
+                <label className="block text-xs text-[#8aaac8] mb-1">Temporary password *</label>
                 <div className="relative">
-                  <input type={showNewPassword ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 8 characters" required className="w-full border border-slate-200 rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono" />
-                  <button type="button" onClick={() => setShowNewPassword(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <input type={showNewPassword ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 8 characters" required className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] font-mono" />
+                  <button type="button" onClick={() => setShowNewPassword(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#8aaac8]">
                     {showNewPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
               </div>
-              {createError && <p className="text-xs text-red-600 flex items-center gap-1"><XCircle size={12} /> {createError}</p>}
-              <button type="submit" disabled={creating || !newEmail.trim() || !newPassword.trim()} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+              {createError && <p className="text-xs text-[#e05c5c] flex items-center gap-1"><XCircle size={12} /> {createError}</p>}
+              <button type="submit" disabled={creating || !newEmail.trim() || !newPassword.trim()} className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
                 {creating ? <Loader size={13} className="animate-spin" /> : <UserPlus size={13} />}
                 {creating ? 'Creating…' : 'Create Account'}
               </button>
@@ -332,83 +332,83 @@ export default function Settings({
       )}
 
       {/* Google Calendar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+      <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <CalendarDays size={18} className="text-teal-600" />
-          <h2 className="font-semibold text-slate-900">Google Calendar</h2>
+          <CalendarDays size={18} className="text-[#4a90d9]" />
+          <h2 className="font-semibold text-white">Google Calendar</h2>
           {calendarUrl && (
-            <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">Connected</span>
+            <span className="text-xs text-[#5ce0a0] bg-[#0a2518] border border-[#0a4a2a] px-2 py-0.5 rounded-full ml-auto">Connected</span>
           )}
         </div>
-        <p className="text-sm text-slate-500">Connect your Google Calendar to display upcoming meetings on the dashboard.</p>
+        <p className="text-sm text-[#8aaac8]">Connect your Google Calendar to display upcoming meetings on the dashboard.</p>
         <input
           type="text"
           value={icalInput}
           onChange={e => { setIcalInput(e.target.value); setCalSaved(false); }}
           placeholder="https://calendar.google.com/calendar/ical/..."
-          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="w-full border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
         />
-        <p className="text-xs text-slate-400">In Google Calendar: Settings → Your calendar → "Secret address in iCal format".</p>
+        <p className="text-xs text-[#3a5070]">In Google Calendar: Settings → Your calendar → "Secret address in iCal format".</p>
         <div className="flex items-center gap-3">
           <button
             onClick={handleSaveCalendar}
             disabled={!icalInput.trim() && !calendarUrl}
-            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
             {calSaved ? <CheckCircle size={14} /> : <Save size={14} />}
             {calSaved ? 'Saved!' : 'Save Calendar URL'}
           </button>
           {calendarUrl && (
-            <button onClick={() => { setIcalInput(''); onSaveCalendarUrl(''); }} className="text-sm text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-2 rounded-lg transition-colors">Remove</button>
+            <button onClick={() => { setIcalInput(''); onSaveCalendarUrl(''); }} className="text-sm text-[#e05c5c] hover:text-[#e05c5c] border border-[#5a1a1a] hover:border-[#5a1a1a] px-3 py-2 rounded-lg transition-colors">Remove</button>
           )}
         </div>
       </div>
 
       {/* Slack Integration */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+      <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Hash size={18} className="text-purple-500" />
-          <h2 className="font-semibold text-slate-900">Slack Feed</h2>
+          <Hash size={18} className="text-[#d07af5]" />
+          <h2 className="font-semibold text-white">Slack Feed</h2>
           {slackToken && channelList.length > 0 && (
-            <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
+            <span className="text-xs text-[#5ce0a0] bg-[#0a2518] border border-[#0a4a2a] px-2 py-0.5 rounded-full ml-auto">
               {channelList.length} channel{channelList.length > 1 ? 's' : ''} connected
             </span>
           )}
         </div>
-        <p className="text-sm text-slate-500">Show a live feed of your Zapier Slack notifications on the dashboard.</p>
+        <p className="text-sm text-[#8aaac8]">Show a live feed of your Zapier Slack notifications on the dashboard.</p>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Bot Token</label>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Bot Token</label>
           <div className="relative">
             <input
               type={showSlackToken ? 'text' : 'password'}
               value={slackTokenInput}
               onChange={e => { setSlackTokenInput(e.target.value); setSlackSaved(false); }}
               placeholder="xoxb-..."
-              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
-            <button type="button" onClick={() => setShowSlackToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            <button type="button" onClick={() => setShowSlackToken(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#8aaac8]">
               {showSlackToken ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-2">Channels</label>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-2">Channels</label>
           {channelList.length > 0 && (
             <div className="space-y-2 mb-3">
               {channelList.map(ch => (
-                <div key={ch.id} className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                <div key={ch.id} className="flex items-center gap-2 bg-[#2a1a35] border border-purple-200 rounded-lg px-3 py-2">
                   <Hash size={13} className="text-purple-400 flex-shrink-0" />
                   <span className="text-sm font-medium text-purple-800 flex-1">{ch.name}</span>
-                  <span className="text-xs text-purple-500 font-mono">{ch.id}</span>
-                  <button type="button" onClick={() => handleRemoveChannel(ch.id)} className="text-purple-400 hover:text-red-500 transition-colors flex-shrink-0"><X size={14} /></button>
+                  <span className="text-xs text-[#d07af5] font-mono">{ch.id}</span>
+                  <button type="button" onClick={() => handleRemoveChannel(ch.id)} className="text-purple-400 hover:text-[#e05c5c] transition-colors flex-shrink-0"><X size={14} /></button>
                 </div>
               ))}
             </div>
           )}
           <div className="flex gap-2">
-            <input type="text" value={newChannelName} onChange={e => setNewChannelName(e.target.value)} placeholder="Name (e.g. zapier-leads)" className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
-            <input type="text" value={newChannelId} onChange={e => setNewChannelId(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddChannel(); }} placeholder="Channel ID (C...)" className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400" />
-            <button type="button" onClick={handleAddChannel} disabled={!newChannelId.trim()} className="bg-purple-100 hover:bg-purple-200 disabled:opacity-40 text-purple-700 px-3 py-2 rounded-lg transition-colors flex-shrink-0"><Plus size={15} /></button>
+            <input type="text" value={newChannelName} onChange={e => setNewChannelName(e.target.value)} placeholder="Name (e.g. zapier-leads)" className="flex-1 border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+            <input type="text" value={newChannelId} onChange={e => setNewChannelId(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleAddChannel(); }} placeholder="Channel ID (C...)" className="flex-1 border border-[#1e2d45] rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-400" />
+            <button type="button" onClick={handleAddChannel} disabled={!newChannelId.trim()} className="bg-[#2a1a35] hover:bg-purple-200 disabled:opacity-40 text-purple-700 px-3 py-2 rounded-lg transition-colors flex-shrink-0"><Plus size={15} /></button>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -417,17 +417,17 @@ export default function Settings({
             {slackSaved ? 'Saved!' : 'Save Slack Settings'}
           </button>
           {slackToken && (
-            <button onClick={() => { setSlackTokenInput(''); setChannelList([]); onSaveSlackToken(''); onSaveSlackChannels([]); }} className="text-sm text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-2 rounded-lg transition-colors">Remove All</button>
+            <button onClick={() => { setSlackTokenInput(''); setChannelList([]); onSaveSlackToken(''); onSaveSlackChannels([]); }} className="text-sm text-[#e05c5c] hover:text-[#e05c5c] border border-[#5a1a1a] hover:border-[#5a1a1a] px-3 py-2 rounded-lg transition-colors">Remove All</button>
           )}
         </div>
       </div>
 
       {/* Uplisting API Key */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+      <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Key size={18} className="text-teal-600" />
-          <h2 className="font-semibold text-slate-900">Uplisting API Key</h2>
-          {apiKey && <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">Connected</span>}
+          <Key size={18} className="text-[#4a90d9]" />
+          <h2 className="font-semibold text-white">Uplisting API Key</h2>
+          {apiKey && <span className="text-xs text-[#5ce0a0] bg-[#0a2518] border border-[#0a4a2a] px-2 py-0.5 rounded-full ml-auto">Connected</span>}
         </div>
         <div className="relative">
           <input
@@ -435,17 +435,17 @@ export default function Settings({
             value={inputKey}
             onChange={e => { setInputKey(e.target.value); setStatus('idle'); }}
             placeholder="Paste your Uplisting API key..."
-            className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
           />
-          <button type="button" onClick={() => setShowKey(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+          <button type="button" onClick={() => setShowKey(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#8aaac8]">
             {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
-        <p className="text-xs text-slate-400">Find your API key in Uplisting → Settings → API.</p>
+        <p className="text-xs text-[#3a5070]">Find your API key in Uplisting → Settings → API.</p>
         {status !== 'idle' && (
           <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${
-            status === 'success' ? 'bg-emerald-50 text-emerald-700' :
-            status === 'error'   ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
+            status === 'success' ? 'bg-[#0a2518] text-[#4ab57a]' :
+            status === 'error'   ? 'bg-[#2a0e0e] text-[#e05c5c]' : 'bg-[#1e2d45] text-[#8aaac8]'
           }`}>
             {status === 'testing' && <Loader size={14} className="animate-spin" />}
             {status === 'success' && <CheckCircle size={14} />}
@@ -453,33 +453,33 @@ export default function Settings({
             {status === 'testing' ? 'Testing connection...' : statusMsg}
           </div>
         )}
-        <button onClick={handleTest} disabled={!inputKey.trim() || status === 'testing'} className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+        <button onClick={handleTest} disabled={!inputKey.trim() || status === 'testing'} className="bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
           {apiKey && inputKey === apiKey ? 'Re-test Connection' : 'Save & Test Connection'}
         </button>
       </div>
 
       {/* Uplisting Sync */}
       {apiKey && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
-          <h2 className="font-semibold text-slate-900">Uplisting Data Sync</h2>
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-3">
+          <h2 className="font-semibold text-white">Uplisting Data Sync</h2>
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: 'Properties synced', value: properties.length },
               { label: 'Reservations synced', value: reservations.length },
               { label: 'Last synced', value: fmtSync(lastSync) },
             ].map(s => (
-              <div key={s.label} className="bg-slate-100 rounded-lg p-3">
-                <div className="text-lg font-bold text-slate-900">{s.value}</div>
-                <div className="text-xs text-slate-500">{s.label}</div>
+              <div key={s.label} className="bg-[#1e2d45] rounded-lg p-3">
+                <div className="text-lg font-bold text-white">{s.value}</div>
+                <div className="text-xs text-[#8aaac8]">{s.label}</div>
               </div>
             ))}
           </div>
           <div className="flex gap-3">
-            <button onClick={handleSync} disabled={syncing} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            <button onClick={handleSync} disabled={syncing} className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
               <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
               {syncing ? 'Syncing...' : 'Sync Now'}
             </button>
-            <button onClick={() => { if (confirm('Clear all synced Uplisting data?')) onClearData(); }} className="flex items-center gap-2 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            <button onClick={() => { if (confirm('Clear all synced Uplisting data?')) onClearData(); }} className="flex items-center gap-2 border border-[#5a1a1a] text-[#e05c5c] hover:bg-[#2a0e0e] text-sm font-medium px-4 py-2 rounded-lg transition-colors">
               <Trash2 size={14} /> Clear Synced Data
             </button>
           </div>
@@ -487,47 +487,47 @@ export default function Settings({
       )}
 
       {/* Hostaway */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+      <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Key size={18} className="text-violet-600" />
-          <h2 className="font-semibold text-slate-900">Hostaway</h2>
+          <h2 className="font-semibold text-white">Hostaway</h2>
           {hostawayAccountId && hostawaySecret && (
-            <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">Connected</span>
+            <span className="text-xs text-[#5ce0a0] bg-[#0a2518] border border-[#0a4a2a] px-2 py-0.5 rounded-full ml-auto">Connected</span>
           )}
         </div>
-        <p className="text-sm text-slate-500">Connect a Hostaway account to sync its properties and reservations into the CRM alongside Uplisting.</p>
+        <p className="text-sm text-[#8aaac8]">Connect a Hostaway account to sync its properties and reservations into the CRM alongside Uplisting.</p>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Account ID</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Account ID</label>
             <input
               type="text"
               value={hostawayIdInput}
               onChange={e => { setHostawayIdInput(e.target.value); setHostawayStatus('idle'); }}
               placeholder="e.g. 12345"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">API Secret</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">API Secret</label>
             <div className="relative">
               <input
                 type={showHostawaySecret ? 'text' : 'password'}
                 value={hostawaySecretInput}
                 onChange={e => { setHostawaySecretInput(e.target.value); setHostawayStatus('idle'); }}
                 placeholder="Paste your Hostaway API secret..."
-                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full border border-[#1e2d45] rounded-lg px-3 py-2.5 pr-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
-              <button type="button" onClick={() => setShowHostawaySecret(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <button type="button" onClick={() => setShowHostawaySecret(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#8aaac8]">
                 {showHostawaySecret ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
           </div>
         </div>
-        <p className="text-xs text-slate-400">In Hostaway: Settings → API &amp; Integrations. Copy your Account ID and API Secret.</p>
+        <p className="text-xs text-[#3a5070]">In Hostaway: Settings → API &amp; Integrations. Copy your Account ID and API Secret.</p>
         {hostawayStatus !== 'idle' && (
           <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${
-            hostawayStatus === 'success' ? 'bg-emerald-50 text-emerald-700' :
-            hostawayStatus === 'error'   ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
+            hostawayStatus === 'success' ? 'bg-[#0a2518] text-[#4ab57a]' :
+            hostawayStatus === 'error'   ? 'bg-[#2a0e0e] text-[#e05c5c]' : 'bg-[#1e2d45] text-[#8aaac8]'
           }`}>
             {hostawayStatus === 'testing' && <Loader size={14} className="animate-spin" />}
             {hostawayStatus === 'success' && <CheckCircle size={14} />}
@@ -546,17 +546,17 @@ export default function Settings({
 
       {/* Hostaway Sync */}
       {hostawayAccountId && hostawaySecret && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
-          <h2 className="font-semibold text-slate-900">Hostaway Data Sync</h2>
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-3">
+          <h2 className="font-semibold text-white">Hostaway Data Sync</h2>
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: 'Properties synced', value: hostawayProperties.length },
               { label: 'Reservations synced', value: hostawayReservations.length },
               { label: 'Last synced', value: fmtSync(hostawayLastSync) },
             ].map(s => (
-              <div key={s.label} className="bg-slate-100 rounded-lg p-3">
-                <div className="text-lg font-bold text-slate-900">{s.value}</div>
-                <div className="text-xs text-slate-500">{s.label}</div>
+              <div key={s.label} className="bg-[#1e2d45] rounded-lg p-3">
+                <div className="text-lg font-bold text-white">{s.value}</div>
+                <div className="text-xs text-[#8aaac8]">{s.label}</div>
               </div>
             ))}
           </div>
@@ -565,7 +565,7 @@ export default function Settings({
               <RefreshCw size={14} className={hostawaySyncing ? 'animate-spin' : ''} />
               {hostawaySyncing ? 'Syncing...' : 'Sync Now'}
             </button>
-            <button onClick={() => { if (confirm('Clear all synced Hostaway data?')) onClearHostawayData(); }} className="flex items-center gap-2 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            <button onClick={() => { if (confirm('Clear all synced Hostaway data?')) onClearHostawayData(); }} className="flex items-center gap-2 border border-[#5a1a1a] text-[#e05c5c] hover:bg-[#2a0e0e] text-sm font-medium px-4 py-2 rounded-lg transition-colors">
               <Trash2 size={14} /> Clear Synced Data
             </button>
           </div>
@@ -573,22 +573,22 @@ export default function Settings({
       )}
 
       {/* PriceLabs */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+      <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Key size={18} className="text-teal-600" />
-          <h2 className="font-semibold text-slate-900">PriceLabs</h2>
-          {priceLabsApiKey && <span className="ml-auto flex items-center gap-1 text-xs text-emerald-600"><CheckCircle size={12} /> Connected</span>}
+          <Key size={18} className="text-[#4a90d9]" />
+          <h2 className="font-semibold text-white">PriceLabs</h2>
+          {priceLabsApiKey && <span className="ml-auto flex items-center gap-1 text-xs text-[#5ce0a0]"><CheckCircle size={12} /> Connected</span>}
         </div>
-        <p className="text-sm text-slate-500">Connect PriceLabs to pull portfolio performance data and get AI-powered pricing recommendations in Revenue Intelligence.</p>
+        <p className="text-sm text-[#8aaac8]">Connect PriceLabs to pull portfolio performance data and get AI-powered pricing recommendations in Revenue Intelligence.</p>
         <div className="relative">
           <input
             type={showPlKey ? 'text' : 'password'}
             value={plKeyInput}
             onChange={e => setPlKeyInput(e.target.value)}
             placeholder="Paste your PriceLabs API key…"
-            className="w-full pr-10 pl-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
+            className="w-full pr-10 pl-3 py-2.5 border border-[#1e2d45] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] font-mono"
           />
-          <button onClick={() => setShowPlKey(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+          <button onClick={() => setShowPlKey(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#8aaac8]">
             {showPlKey ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
@@ -596,24 +596,24 @@ export default function Settings({
           <button
             onClick={handleSavePriceLabs}
             disabled={!plKeyInput.trim() || plSaving}
-            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
             {plSaving ? <Loader size={14} className="animate-spin" /> : <Save size={14} />}
             {plSaved ? 'Saved!' : 'Save'}
           </button>
           {priceLabsApiKey && (
-            <button onClick={() => { setPlKeyInput(''); onSavePriceLabsApiKey(''); }} className="text-sm text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 px-3 py-2 rounded-lg transition-colors">
+            <button onClick={() => { setPlKeyInput(''); onSavePriceLabsApiKey(''); }} className="text-sm text-[#e05c5c] hover:text-[#e05c5c] border border-[#5a1a1a] hover:border-[#5a1a1a] px-3 py-2 rounded-lg transition-colors">
               Remove
             </button>
           )}
         </div>
-        <p className="text-xs text-slate-400">In PriceLabs: Account → API → Generate API Key.</p>
+        <p className="text-xs text-[#3a5070]">In PriceLabs: Account → API → Generate API Key.</p>
       </div>
 
       {/* Help */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700 space-y-1">
+      <div className="bg-[#162035] border border-[#1e3a5a] rounded-xl p-4 text-sm text-[#6ab0f5] space-y-1">
         <p className="font-semibold">How to find your Uplisting API key</p>
-        <ol className="list-decimal list-inside space-y-0.5 text-blue-600">
+        <ol className="list-decimal list-inside space-y-0.5 text-[#6ab0f5]">
           <li>Log in to Uplisting at app.uplisting.io</li>
           <li>Go to Settings → Integrations or API</li>
           <li>Copy your API key and paste it above</li>

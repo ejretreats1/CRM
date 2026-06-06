@@ -282,33 +282,33 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="px-6 py-5 bg-white border-b border-slate-200 flex-shrink-0">
+      <div className="px-6 py-5 bg-[#1a2335] border-b border-[#1e2d45] flex-shrink-0">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <FileBarChart2 size={22} className="text-teal-600" /> Revenue Reports
+            <h1 className="text-xl font-bold text-white flex items-center gap-2">
+              <FileBarChart2 size={22} className="text-[#4a90d9]" /> Revenue Reports
             </h1>
-            <p className="text-sm text-slate-500 mt-0.5">Upload an AirDNA PDF to generate AI-powered revenue analysis</p>
+            <p className="text-sm text-[#8aaac8] mt-0.5">Upload an AirDNA PDF to generate AI-powered revenue analysis</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3a5070] pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search address, client…"
-                className="pl-8 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 w-52"
+                className="pl-8 pr-8 py-2 text-sm border border-[#1e2d45] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4a90d9] w-52"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">
+                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#8aaac8]">
                   <X size={13} />
                 </button>
               )}
             </div>
             <button
               onClick={() => setPageView('builder')}
-              className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               <Plus size={15} /> New Report
             </button>
@@ -320,25 +320,25 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {loadingReports ? (
           <div className="flex items-center justify-center py-20">
-            <Loader size={24} className="text-slate-300 animate-spin" />
+            <Loader size={24} className="text-[#3a5070] animate-spin" />
           </div>
         ) : filteredReports.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
-              <FileBarChart2 size={28} className="text-teal-400" />
+            <div className="w-16 h-16 rounded-2xl bg-[#162035] flex items-center justify-center mb-4">
+              <FileBarChart2 size={28} className="text-[#6ab0f5]" />
             </div>
             {searchQuery ? (
               <>
-                <p className="text-slate-600 font-medium">No reports match "{searchQuery}"</p>
-                <button onClick={() => setSearchQuery('')} className="mt-3 text-sm text-teal-600 hover:underline">Clear search</button>
+                <p className="text-[#8aaac8] font-medium">No reports match "{searchQuery}"</p>
+                <button onClick={() => setSearchQuery('')} className="mt-3 text-sm text-[#4a90d9] hover:underline">Clear search</button>
               </>
             ) : (
               <>
-                <p className="text-slate-600 font-medium">No reports yet</p>
-                <p className="text-slate-400 text-sm mt-1 max-w-xs">Click "New Report", upload an AirDNA PDF, and Claude will generate a full revenue analysis.</p>
+                <p className="text-[#8aaac8] font-medium">No reports yet</p>
+                <p className="text-[#3a5070] text-sm mt-1 max-w-xs">Click "New Report", upload an AirDNA PDF, and Claude will generate a full revenue analysis.</p>
                 <button
                   onClick={() => setPageView('builder')}
-                  className="mt-5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
+                  className="mt-5 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
                 >
                   Create First Report
                 </button>
@@ -350,33 +350,33 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
             {filteredReports.map(r => (
               <div
                 key={r.id}
-                className="bg-white rounded-xl border border-slate-200 hover:border-teal-300 hover:shadow-md transition-all cursor-pointer group"
+                className="bg-[#1a2335] rounded-xl border border-[#1e2d45] hover:border-[#4a90d9] hover:shadow-md transition-all cursor-pointer group"
                 onClick={() => openSavedReport(r)}
               >
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
-                      <FileBarChart2 size={18} className="text-teal-600" />
+                    <div className="w-10 h-10 rounded-lg bg-[#162035] flex items-center justify-center flex-shrink-0">
+                      <FileBarChart2 size={18} className="text-[#4a90d9]" />
                     </div>
                     {r.opportunityScore != null && (
                       <div className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        r.opportunityScore >= 7 ? 'bg-emerald-100 text-emerald-700' :
-                        r.opportunityScore >= 4 ? 'bg-amber-100 text-amber-700' :
-                        'bg-slate-100 text-slate-500'
+                        r.opportunityScore >= 7 ? 'bg-[#0a2518] text-[#4ab57a]' :
+                        r.opportunityScore >= 4 ? 'bg-[#2a1a0a] text-[#d0954a]' :
+                        'bg-[#1e2d45] text-[#8aaac8]'
                       }`}>
                         {r.opportunityScore}/10
                       </div>
                     )}
                   </div>
-                  <p className="text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
+                  <p className="text-sm font-semibold text-white leading-snug line-clamp-2">
                     {r.reportTitle ?? r.propertyAddress}
                   </p>
-                  <p className="text-xs text-slate-400 mt-1 truncate">{r.propertyAddress}</p>
+                  <p className="text-xs text-[#3a5070] mt-1 truncate">{r.propertyAddress}</p>
 
-                  <div className="mt-3 flex items-center gap-3 text-xs text-slate-500">
+                  <div className="mt-3 flex items-center gap-3 text-xs text-[#8aaac8]">
                     {r.airdnaProjectedRevenue != null && (
                       <span className="flex items-center gap-1">
-                        <TrendingUp size={11} className="text-teal-500" />
+                        <TrendingUp size={11} className="text-[#6ab0f5]" />
                         {fmt(r.airdnaProjectedRevenue)}/yr
                       </span>
                     )}
@@ -386,10 +386,10 @@ export default function RevenueReports({ leads, owners, onUpdateLead }: RevenueR
                     </span>
                   </div>
                 </div>
-                <div className="border-t border-slate-200 px-5 py-2.5 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="border-t border-[#1e2d45] px-5 py-2.5 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={e => { e.stopPropagation(); handleDelete(r.id); }}
-                    className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors"
+                    className="flex items-center gap-1 text-xs text-[#3a5070] hover:text-[#e05c5c] transition-colors"
                   >
                     <Trash2 size={11} /> Delete
                   </button>

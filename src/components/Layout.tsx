@@ -99,12 +99,12 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
     : (user?.emailAddresses?.[0]?.emailAddress ?? '');
 
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden print:block print:h-auto print:overflow-visible">
+    <div className="flex h-screen bg-[#1e2d45] overflow-hidden print:block print:h-auto print:overflow-visible">
 
       {/* ── Desktop sidebar (lg+) ── */}
-      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col flex-shrink-0 print:hidden">
+      <aside className="hidden lg:flex w-64 bg-[#1a2335] border-r border-[#1e2d45] flex-col flex-shrink-0 print:hidden">
         {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-200">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-[#1e2d45]">
           <img
             src="/logo.png"
             alt="E&J Retreats"
@@ -116,12 +116,12 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
               if (fallback) fallback.style.display = 'flex';
             }}
           />
-          <div className="w-10 h-10 rounded-xl bg-teal-600 items-center justify-center flex-shrink-0 hidden">
+          <div className="w-10 h-10 rounded-xl bg-[#4a90d9] items-center justify-center flex-shrink-0 hidden">
             <Building2 size={20} className="text-white" />
           </div>
           <div>
-            <div className="font-bold text-slate-900 leading-tight text-sm">E&J Retreats</div>
-            <div className="text-xs text-slate-400">CRM Portal</div>
+            <div className="font-bold text-white leading-tight text-sm">E&J Retreats</div>
+            <div className="text-xs text-[#3a5070]">CRM Portal</div>
           </div>
         </div>
 
@@ -134,8 +134,8 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
               className={`
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                 ${activeView === id
-                  ? 'bg-teal-50 text-teal-700 border border-teal-200'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent'}
+                  ? 'bg-[#162035] text-[#4a90d9] border border-[#1e3a5a]'
+                  : 'text-[#8aaac8] hover:bg-[#1e2d45] hover:text-white border border-transparent'}
               `}
             >
               <Icon size={18} />
@@ -145,15 +145,15 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
         </nav>
 
         {/* Bottom: Settings + user row */}
-        <div className="px-3 py-3 border-t border-slate-200 space-y-0.5">
+        <div className="px-3 py-3 border-t border-[#1e2d45] space-y-0.5">
           {isAdmin && (
             <button
               onClick={() => handleNav('settings')}
               className={`
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border
                 ${activeView === 'settings'
-                  ? 'bg-teal-50 text-teal-700 border-teal-200'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border-transparent'}
+                  ? 'bg-[#162035] text-[#4a90d9] border-[#1e3a5a]'
+                  : 'text-[#8aaac8] hover:bg-[#1e2d45] hover:text-white border-transparent'}
               `}
             >
               <Settings size={18} />
@@ -164,23 +164,23 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
             {user?.imageUrl ? (
               <img src={user.imageUrl} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
             ) : (
-              <div className="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-semibold text-teal-700">{initials}</span>
+              <div className="w-7 h-7 rounded-full bg-[#162035] flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-semibold text-[#4a90d9]">{initials}</span>
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-slate-800 truncate">{displayName}</p>
-              <p className="text-xs text-slate-400">{isAdmin ? 'Admin' : 'VA'}</p>
+              <p className="text-xs font-medium text-white truncate">{displayName}</p>
+              <p className="text-xs text-[#3a5070]">{isAdmin ? 'Admin' : 'VA'}</p>
             </div>
             <button
               onClick={() => signOut()}
               title="Sign out"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+              className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors flex-shrink-0"
             >
               <LogOut size={14} />
             </button>
           </div>
-          <p className="text-xs text-slate-400 px-3 pt-1">E&amp;J Retreats © 2026</p>
+          <p className="text-xs text-[#3a5070] px-3 pt-1">E&amp;J Retreats © 2026</p>
         </div>
       </aside>
 
@@ -191,7 +191,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
           <div className="absolute inset-0 bg-black/50" onClick={() => setMoreOpen(false)} />
           {/* Sheet */}
           <div
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl tab-bar-safe"
+            className="absolute bottom-0 left-0 right-0 bg-[#1a2335] rounded-t-2xl shadow-2xl tab-bar-safe"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 72px)' }}
           >
             {/* Drag handle */}
@@ -199,11 +199,11 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
               <div className="w-9 h-1 rounded-full bg-slate-300" />
             </div>
             {/* Sheet header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
-              <span className="text-sm font-bold text-slate-900">More</span>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[#1e2d45]">
+              <span className="text-sm font-bold text-white">More</span>
               <button
                 onClick={() => setMoreOpen(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
+                className="w-7 h-7 rounded-full bg-[#1e2d45] flex items-center justify-center text-[#8aaac8]"
               >
                 <X size={14} />
               </button>
@@ -216,8 +216,8 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
                   onClick={() => handleNav(id)}
                   className={`flex flex-col items-center gap-1.5 px-2 py-3.5 rounded-xl text-xs font-medium transition-colors ${
                     activeView === id
-                      ? 'bg-teal-50 text-teal-700'
-                      : 'bg-slate-50 text-slate-600 active:bg-slate-100'
+                      ? 'bg-[#162035] text-[#4a90d9]'
+                      : 'bg-[#1e2d45] text-[#8aaac8] active:bg-[#1e2d45]'
                   }`}
                 >
                   <Icon size={22} />
@@ -229,8 +229,8 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
                   onClick={() => handleNav('settings')}
                   className={`flex flex-col items-center gap-1.5 px-2 py-3.5 rounded-xl text-xs font-medium transition-colors ${
                     activeView === 'settings'
-                      ? 'bg-teal-50 text-teal-700'
-                      : 'bg-slate-50 text-slate-600 active:bg-slate-100'
+                      ? 'bg-[#162035] text-[#4a90d9]'
+                      : 'bg-[#1e2d45] text-[#8aaac8] active:bg-[#1e2d45]'
                   }`}
                 >
                   <Settings size={22} />
@@ -239,21 +239,21 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
               )}
             </div>
             {/* User row + sign out */}
-            <div className="mx-4 mt-3 pt-3 border-t border-slate-100 flex items-center gap-2.5">
+            <div className="mx-4 mt-3 pt-3 border-t border-[#1e2d45] flex items-center gap-2.5">
               {user?.imageUrl ? (
                 <img src={user.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-semibold text-teal-700">{initials}</span>
+                <div className="w-8 h-8 rounded-full bg-[#162035] flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-semibold text-[#4a90d9]">{initials}</span>
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate">{displayName}</p>
-                <p className="text-xs text-slate-400">{isAdmin ? 'Admin' : 'VA'}</p>
+                <p className="text-sm font-medium text-white truncate">{displayName}</p>
+                <p className="text-xs text-[#3a5070]">{isAdmin ? 'Admin' : 'VA'}</p>
               </div>
               <button
                 onClick={() => signOut()}
-                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50"
+                className="flex items-center gap-1.5 text-xs text-[#8aaac8] hover:text-[#e05c5c] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#2a0e0e]"
               >
                 <LogOut size={14} />
                 Sign out
@@ -267,7 +267,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible print:h-auto">
 
         {/* Mobile top header */}
-        <header className="lg:hidden bg-white border-b border-slate-200 print:hidden mobile-header-safe">
+        <header className="lg:hidden bg-[#1a2335] border-b border-[#1e2d45] print:hidden mobile-header-safe">
           <div className="flex items-center justify-between px-4 pb-3">
             <div className="flex items-center gap-2">
               <img
@@ -281,10 +281,10 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
                   if (fallback) fallback.style.display = 'flex';
                 }}
               />
-              <div className="w-7 h-7 rounded-lg bg-teal-600 items-center justify-center flex-shrink-0 hidden">
+              <div className="w-7 h-7 rounded-lg bg-[#4a90d9] items-center justify-center flex-shrink-0 hidden">
                 <Building2 size={14} className="text-white" />
               </div>
-              <span className="font-bold text-slate-900 text-sm">{topLabel}</span>
+              <span className="font-bold text-white text-sm">{topLabel}</span>
             </div>
             {/* Avatar taps open More sheet */}
             <button
@@ -294,8 +294,8 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
               {user?.imageUrl ? (
                 <img src={user.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
-                  <span className="text-xs font-semibold text-teal-700">{initials}</span>
+                <div className="w-8 h-8 rounded-full bg-[#162035] flex items-center justify-center">
+                  <span className="text-xs font-semibold text-[#4a90d9]">{initials}</span>
                 </div>
               )}
             </button>
@@ -308,7 +308,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
         </main>
 
         {/* ── Mobile bottom tab bar ── */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-30 print:hidden tab-bar-safe">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#1a2335] border-t border-[#1e2d45] z-30 print:hidden tab-bar-safe">
           <div className="flex" style={{ height: 56 }}>
             {tabItems.map(({ id, icon: Icon }) => {
               const active = activeView === id;
@@ -317,7 +317,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
                   key={id}
                   onClick={() => handleNav(id)}
                   className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                    active ? 'text-teal-600' : 'text-slate-400'
+                    active ? 'text-[#4a90d9]' : 'text-[#3a5070]'
                   }`}
                 >
                   <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
@@ -331,7 +331,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
             <button
               onClick={() => setMoreOpen(true)}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                isMoreActive ? 'text-teal-600' : 'text-slate-400'
+                isMoreActive ? 'text-[#4a90d9]' : 'text-[#3a5070]'
               }`}
             >
               <MoreHorizontal size={22} strokeWidth={isMoreActive ? 2.5 : 1.8} />

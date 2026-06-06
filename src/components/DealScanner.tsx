@@ -23,14 +23,14 @@ const STAGE_LABELS: Record<DealStage, string> = {
 };
 
 const STAGE_COLORS: Record<DealStage, string> = {
-  new: 'bg-slate-100 text-slate-600',
-  analyzing: 'bg-blue-100 text-blue-700',
-  sent_to_client: 'bg-purple-100 text-purple-700',
-  client_interested: 'bg-teal-100 text-teal-700',
-  offer_submitted: 'bg-amber-100 text-amber-700',
+  new: 'bg-[#1e2d45] text-[#8aaac8]',
+  analyzing: 'bg-[#162035] text-[#6ab0f5]',
+  sent_to_client: 'bg-[#2a1a35] text-purple-700',
+  client_interested: 'bg-[#162035] text-[#4a90d9]',
+  offer_submitted: 'bg-[#2a1a0a] text-[#d0954a]',
   under_contract: 'bg-orange-100 text-orange-700',
-  closed: 'bg-green-100 text-green-700',
-  passed: 'bg-rose-100 text-rose-600',
+  closed: 'bg-[#0a2518] text-[#4ab57a]',
+  passed: 'bg-rose-100 text-[#e05c5c]',
 };
 
 const PIPELINE_STAGES: DealStage[] = [
@@ -47,15 +47,15 @@ const STR_STATUS_LABELS: Record<StrRegStatus, string> = {
 };
 
 const STR_STATUS_COLORS: Record<StrRegStatus, string> = {
-  allowed: 'bg-green-100 text-green-700',
-  permit_required: 'bg-amber-100 text-amber-700',
+  allowed: 'bg-[#0a2518] text-[#4ab57a]',
+  permit_required: 'bg-[#2a1a0a] text-[#d0954a]',
   restricted: 'bg-orange-100 text-orange-700',
-  prohibited: 'bg-red-100 text-red-700',
-  unknown: 'bg-slate-100 text-slate-500',
+  prohibited: 'bg-[#2a0e0e] text-[#e05c5c]',
+  unknown: 'bg-[#1e2d45] text-[#8aaac8]',
 };
 
 const SCORE_COLOR = (score: number | null) => {
-  if (!score) return 'bg-slate-100 text-slate-500';
+  if (!score) return 'bg-[#1e2d45] text-[#8aaac8]';
   if (score >= 9) return 'bg-green-500 text-white';
   if (score >= 7) return 'bg-teal-500 text-white';
   if (score >= 5) return 'bg-amber-500 text-white';
@@ -71,11 +71,11 @@ const SCORE_EMOJI = (score: number | null) => {
 };
 
 const YIELD_COLOR = (y: number | null) => {
-  if (!y) return 'text-slate-400';
-  if (y >= 12) return 'text-green-600 font-bold';
-  if (y >= 9) return 'text-teal-600 font-semibold';
-  if (y >= 7) return 'text-amber-600 font-semibold';
-  return 'text-rose-500';
+  if (!y) return 'text-[#3a5070]';
+  if (y >= 12) return 'text-[#5ce0a0] font-bold';
+  if (y >= 9) return 'text-[#4a90d9] font-semibold';
+  if (y >= 7) return 'text-[#d0954a] font-semibold';
+  return 'text-[#e05c5c]';
 };
 
 // ── Markets (localStorage) ─────────────────────────────────────────────────
@@ -227,11 +227,11 @@ function DealModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[92vh] flex flex-col">
+      <div className="bg-[#1a2335] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 flex-shrink-0">
-          <h2 className="font-bold text-slate-900">{form.id ? 'Edit Deal' : 'Add Deal'}</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45] flex-shrink-0">
+          <h2 className="font-bold text-white">{form.id ? 'Edit Deal' : 'Add Deal'}</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-[#1e2d45] flex items-center justify-center text-[#8aaac8] hover:bg-[#1e2d45] transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -240,22 +240,22 @@ function DealModal({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           {/* Property info */}
           <div className="space-y-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Property</p>
+            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Property</p>
             <input
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="Property address *"
               value={form.address}
               onChange={e => set('address', e.target.value)}
             />
             <div className="grid grid-cols-2 gap-2">
               <input
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                className="border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                 placeholder="City"
                 value={form.city}
                 onChange={e => set('city', e.target.value)}
               />
               <input
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                className="border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                 placeholder="State (e.g. FL)"
                 value={form.state}
                 onChange={e => set('state', e.target.value.toUpperCase())}
@@ -264,9 +264,9 @@ function DealModal({
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">Market</label>
+                <label className="text-xs text-[#8aaac8] mb-1 block">Market</label>
                 <select
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   value={form.market}
                   onChange={e => {
                     const mkt = markets.find(m => m.name === e.target.value);
@@ -281,9 +281,9 @@ function DealModal({
                 </select>
               </div>
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">Property Type</label>
+                <label className="text-xs text-[#8aaac8] mb-1 block">Property Type</label>
                 <select
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   value={form.propertyType}
                   onChange={e => set('propertyType', e.target.value)}
                 >
@@ -295,30 +295,30 @@ function DealModal({
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">Asking Price ($)</label>
+                <label className="text-xs text-[#8aaac8] mb-1 block">Asking Price ($)</label>
                 <input
                   type="number"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   placeholder="0"
                   value={form.listingPrice || ''}
                   onChange={e => set('listingPrice', Number(e.target.value))}
                 />
               </div>
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">Beds</label>
+                <label className="text-xs text-[#8aaac8] mb-1 block">Beds</label>
                 <input
                   type="number"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   placeholder="—"
                   value={form.bedrooms ?? ''}
                   onChange={e => set('bedrooms', e.target.value ? Number(e.target.value) : null)}
                 />
               </div>
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">Baths</label>
+                <label className="text-xs text-[#8aaac8] mb-1 block">Baths</label>
                 <input
                   type="number"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   placeholder="—"
                   value={form.bathrooms ?? ''}
                   onChange={e => set('bathrooms', e.target.value ? Number(e.target.value) : null)}
@@ -326,18 +326,18 @@ function DealModal({
               </div>
             </div>
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">Zillow URL (optional)</label>
+              <label className="text-xs text-[#8aaac8] mb-1 block">Zillow URL (optional)</label>
               <input
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                 placeholder="https://zillow.com/..."
                 value={form.zillowUrl ?? ''}
                 onChange={e => set('zillowUrl', e.target.value)}
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">Zillow Description (paste listing text for better AI scoring)</label>
+              <label className="text-xs text-[#8aaac8] mb-1 block">Zillow Description (paste listing text for better AI scoring)</label>
               <textarea
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none"
+                className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] resize-none"
                 placeholder="Paste the full Zillow listing description..."
                 rows={3}
                 value={form.zillowDescription ?? ''}
@@ -348,15 +348,15 @@ function DealModal({
 
           {/* STR Status */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">STR Regulation</p>
+            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">STR Regulation</p>
             {selectedMarket && (
-              <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 text-xs text-[#8aaac8] bg-[#1e2d45] rounded-lg px-3 py-2">
                 <Info size={12} />
                 Market default: <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${STR_STATUS_COLORS[selectedMarket.strStatus]}`}>{STR_STATUS_LABELS[selectedMarket.strStatus]}</span>
               </div>
             )}
             <select
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               value={form.strStatus}
               onChange={e => set('strStatus', e.target.value as StrRegStatus)}
             >
@@ -365,7 +365,7 @@ function DealModal({
               ))}
             </select>
             <input
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="STR regulation note (optional)"
               value={form.strNote ?? ''}
               onChange={e => set('strNote', e.target.value)}
@@ -374,9 +374,9 @@ function DealModal({
 
           {/* Stage & notes */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pipeline</p>
+            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Pipeline</p>
             <select
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               value={form.stage}
               onChange={e => set('stage', e.target.value as DealStage)}
             >
@@ -385,7 +385,7 @@ function DealModal({
               ))}
             </select>
             <textarea
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] resize-none"
               placeholder="Internal notes about this deal..."
               rows={2}
               value={form.notes ?? ''}
@@ -396,51 +396,51 @@ function DealModal({
           {/* AI Score */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">AI Score</p>
+              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">AI Score</p>
               <button
                 onClick={getAiScore}
                 disabled={scoring || !form.address || !form.listingPrice}
-                className="flex items-center gap-1.5 text-xs bg-teal-600 text-white px-3 py-1.5 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 text-xs bg-[#4a90d9] text-white px-3 py-1.5 rounded-lg hover:bg-[#3a80c9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {scoring ? <Loader size={12} className="animate-spin" /> : <Sparkles size={12} />}
                 {scoring ? 'Scoring...' : 'Get AI Score'}
               </button>
             </div>
-            {scoreError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{scoreError}</p>}
+            {scoreError && <p className="text-xs text-[#e05c5c] bg-[#2a0e0e] rounded-lg px-3 py-2">{scoreError}</p>}
             {scoreResult && (
-              <div className="bg-slate-50 rounded-xl p-4 space-y-3 border border-slate-200">
+              <div className="bg-[#1e2d45] rounded-xl p-4 space-y-3 border border-[#1e2d45]">
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${SCORE_COLOR(scoreResult.opportunityScore)}`}>
                     {scoreResult.opportunityScore}
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-slate-800">
+                    <div className="text-sm font-semibold text-white">
                       {SCORE_EMOJI(scoreResult.opportunityScore)} Opportunity Score {scoreResult.opportunityScore}/10
                     </div>
-                    <div className="text-xs text-slate-500 capitalize">{scoreResult.recommendation?.replace('-', ' ')}</div>
+                    <div className="text-xs text-[#8aaac8] capitalize">{scoreResult.recommendation?.replace('-', ' ')}</div>
                   </div>
                   <div className="ml-auto text-right">
                     {scoreResult.projectedAnnualRevenue && (
-                      <div className="text-sm font-bold text-slate-800">${scoreResult.projectedAnnualRevenue.toLocaleString()}/yr</div>
+                      <div className="text-sm font-bold text-white">${scoreResult.projectedAnnualRevenue.toLocaleString()}/yr</div>
                     )}
                     {scoreResult.projectedGrossYield && (
                       <div className={`text-xs ${YIELD_COLOR(scoreResult.projectedGrossYield)}`}>{scoreResult.projectedGrossYield.toFixed(1)}% yield</div>
                     )}
                   </div>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">{scoreResult.reasoning}</p>
+                <p className="text-xs text-[#8aaac8] leading-relaxed">{scoreResult.reasoning}</p>
                 {scoreResult.strRegulatoryNote && (
-                  <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 flex gap-1.5">
+                  <p className="text-xs text-[#d0954a] bg-[#2a1a0a] rounded-lg px-3 py-2 flex gap-1.5">
                     <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
                     {scoreResult.strRegulatoryNote}
                   </p>
                 )}
                 {scoreResult.keyStrengths.length > 0 && (
                   <div>
-                    <p className="text-xs font-medium text-slate-500 mb-1">Strengths</p>
+                    <p className="text-xs font-medium text-[#8aaac8] mb-1">Strengths</p>
                     <ul className="space-y-0.5">
                       {scoreResult.keyStrengths.map((s, i) => (
-                        <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600">
+                        <li key={i} className="flex items-start gap-1.5 text-xs text-[#8aaac8]">
                           <CheckCircle2 size={11} className="text-green-500 flex-shrink-0 mt-0.5" /> {s}
                         </li>
                       ))}
@@ -449,11 +449,11 @@ function DealModal({
                 )}
                 {scoreResult.keyConcerns.length > 0 && (
                   <div>
-                    <p className="text-xs font-medium text-slate-500 mb-1">Concerns</p>
+                    <p className="text-xs font-medium text-[#8aaac8] mb-1">Concerns</p>
                     <ul className="space-y-0.5">
                       {scoreResult.keyConcerns.map((c, i) => (
-                        <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600">
-                          <AlertTriangle size={11} className="text-amber-500 flex-shrink-0 mt-0.5" /> {c}
+                        <li key={i} className="flex items-start gap-1.5 text-xs text-[#8aaac8]">
+                          <AlertTriangle size={11} className="text-[#d0954a] flex-shrink-0 mt-0.5" /> {c}
                         </li>
                       ))}
                     </ul>
@@ -465,14 +465,14 @@ function DealModal({
         </div>
 
         {/* Footer */}
-        <div className="flex gap-2 px-5 py-4 border-t border-slate-100 flex-shrink-0">
-          <button onClick={onClose} className="flex-1 border border-slate-200 text-slate-600 text-sm font-medium rounded-xl py-2.5 hover:bg-slate-50 transition-colors">
+        <div className="flex gap-2 px-5 py-4 border-t border-[#1e2d45] flex-shrink-0">
+          <button onClick={onClose} className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium rounded-xl py-2.5 hover:bg-[#1e2d45] transition-colors">
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving || !form.address.trim()}
-            className="flex-1 bg-teal-600 text-white text-sm font-medium rounded-xl py-2.5 hover:bg-teal-700 transition-colors disabled:opacity-50"
+            className="flex-1 bg-[#4a90d9] text-white text-sm font-medium rounded-xl py-2.5 hover:bg-[#3a80c9] transition-colors disabled:opacity-50"
           >
             {saving ? 'Saving...' : form.id ? 'Save Changes' : 'Add Deal'}
           </button>
@@ -498,7 +498,7 @@ function DealCard({
   const [stageOpen, setStageOpen] = useState(false);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow relative">
+    <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-4 shadow-sm hover:shadow-md transition-shadow relative">
       {/* Score badge */}
       {deal.opportunityScore != null && (
         <div className={`absolute top-3 right-3 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${SCORE_COLOR(deal.opportunityScore)}`}>
@@ -508,32 +508,32 @@ function DealCard({
 
       {/* Address */}
       <div className="pr-10">
-        <p className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">{deal.address}</p>
-        <p className="text-xs text-slate-400 mt-0.5">{[deal.city, deal.state].filter(Boolean).join(', ')}</p>
+        <p className="text-sm font-semibold text-white leading-tight line-clamp-2">{deal.address}</p>
+        <p className="text-xs text-[#3a5070] mt-0.5">{[deal.city, deal.state].filter(Boolean).join(', ')}</p>
       </div>
 
       {/* Key metrics */}
       <div className="mt-3 flex items-center gap-3 flex-wrap">
         <div>
-          <p className="text-xs text-slate-400">Price</p>
-          <p className="text-sm font-bold text-slate-800">${deal.listingPrice.toLocaleString()}</p>
+          <p className="text-xs text-[#3a5070]">Price</p>
+          <p className="text-sm font-bold text-white">${deal.listingPrice.toLocaleString()}</p>
         </div>
         {deal.projectedAnnualRevenue != null && (
           <div>
-            <p className="text-xs text-slate-400">Proj. Rev.</p>
-            <p className="text-sm font-semibold text-slate-700">${deal.projectedAnnualRevenue.toLocaleString()}</p>
+            <p className="text-xs text-[#3a5070]">Proj. Rev.</p>
+            <p className="text-sm font-semibold text-[#8aaac8]">${deal.projectedAnnualRevenue.toLocaleString()}</p>
           </div>
         )}
         {deal.grossYield != null && (
           <div>
-            <p className="text-xs text-slate-400">Yield</p>
+            <p className="text-xs text-[#3a5070]">Yield</p>
             <p className={`text-sm ${YIELD_COLOR(deal.grossYield)}`}>{deal.grossYield.toFixed(1)}%</p>
           </div>
         )}
         {deal.bedrooms != null && (
           <div>
-            <p className="text-xs text-slate-400">Beds</p>
-            <p className="text-sm font-medium text-slate-700">{deal.bedrooms}</p>
+            <p className="text-xs text-[#3a5070]">Beds</p>
+            <p className="text-sm font-medium text-[#8aaac8]">{deal.bedrooms}</p>
           </div>
         )}
       </div>
@@ -547,7 +547,7 @@ function DealCard({
           {STR_STATUS_LABELS[deal.strStatus]}
         </span>
         {deal.market && (
-          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-600">
+          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#1a1a35] text-[#d07af5]">
             {deal.market}
           </span>
         )}
@@ -555,22 +555,22 @@ function DealCard({
 
       {/* Notes preview */}
       {deal.notes && (
-        <p className="mt-2 text-xs text-slate-400 line-clamp-1">{deal.notes}</p>
+        <p className="mt-2 text-xs text-[#3a5070] line-clamp-1">{deal.notes}</p>
       )}
 
       {/* Actions */}
-      <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+      <div className="mt-3 pt-3 border-t border-[#1e2d45] flex items-center justify-between">
         <div className="flex items-center gap-1">
           <button
             onClick={onEdit}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"
+            className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#162035] transition-colors"
             title="Edit"
           >
             <Edit2 size={13} />
           </button>
           <button
             onClick={onDelete}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+            className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"
             title="Delete"
           >
             <Trash2 size={13} />
@@ -580,7 +580,7 @@ function DealCard({
               href={deal.zillowUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#6ab0f5] hover:bg-[#162035] transition-colors"
               title="View on Zillow"
             >
               <ExternalLink size={13} />
@@ -592,17 +592,17 @@ function DealCard({
         <div className="relative">
           <button
             onClick={() => setStageOpen(o => !o)}
-            className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+            className="flex items-center gap-1 text-xs text-[#8aaac8] hover:text-[#8aaac8] transition-colors"
           >
             Move to <ChevronDown size={11} />
           </button>
           {stageOpen && (
-            <div className="absolute right-0 bottom-7 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 min-w-[160px]">
+            <div className="absolute right-0 bottom-7 bg-[#1a2335] border border-[#1e2d45] rounded-xl shadow-lg z-20 py-1 min-w-[160px]">
               {PIPELINE_STAGES.filter(s => s !== deal.stage).map(s => (
                 <button
                   key={s}
                   onClick={() => { onStageChange(s); setStageOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="w-full text-left px-3 py-1.5 text-xs text-[#8aaac8] hover:bg-[#1e2d45] transition-colors"
                 >
                   {STAGE_LABELS[s]}
                 </button>
@@ -636,29 +636,29 @@ function MarketModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h2 className="font-bold text-slate-900">{market ? 'Edit Market' : 'Add Market'}</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200">
+      <div className="bg-[#1a2335] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
+          <h2 className="font-bold text-white">{market ? 'Edit Market' : 'Add Market'}</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-[#1e2d45] flex items-center justify-center text-[#8aaac8] hover:bg-[#1e2d45]">
             <X size={16} />
           </button>
         </div>
         <div className="px-5 py-4 space-y-3">
           <input
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="Market name (e.g. Smoky Mountains)"
             value={form.name}
             onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
           />
           <input
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="State (e.g. TN)"
             value={form.state}
             maxLength={2}
             onChange={e => setForm(f => ({ ...f, state: e.target.value.toUpperCase() }))}
           />
           <select
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             value={form.strStatus}
             onChange={e => setForm(f => ({ ...f, strStatus: e.target.value as StrRegStatus }))}
           >
@@ -667,7 +667,7 @@ function MarketModal({
             ))}
           </select>
           <textarea
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] resize-none"
             placeholder="Notes on regulations, permit process, etc."
             rows={3}
             value={form.strNote}
@@ -675,11 +675,11 @@ function MarketModal({
           />
         </div>
         <div className="flex gap-2 px-5 pb-5">
-          <button onClick={onClose} className="flex-1 border border-slate-200 text-slate-600 text-sm rounded-xl py-2.5 hover:bg-slate-50">Cancel</button>
+          <button onClick={onClose} className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm rounded-xl py-2.5 hover:bg-[#1e2d45]">Cancel</button>
           <button
             onClick={() => { if (form.name.trim()) onSave(form); }}
             disabled={!form.name.trim()}
-            className="flex-1 bg-teal-600 text-white text-sm rounded-xl py-2.5 hover:bg-teal-700 disabled:opacity-50"
+            className="flex-1 bg-[#4a90d9] text-white text-sm rounded-xl py-2.5 hover:bg-[#3a80c9] disabled:opacity-50"
           >
             Save Market
           </button>
@@ -898,12 +898,12 @@ export default function DealScanner() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Deal Scanner</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Track, score, and pipeline STR investment deals</p>
+          <h1 className="text-2xl font-bold text-white">Deal Scanner</h1>
+          <p className="text-sm text-[#8aaac8] mt-0.5">Track, score, and pipeline STR investment deals</p>
         </div>
         <button
           onClick={() => { setEditingDeal(null); setShowDealModal(true); }}
-          className="flex items-center gap-2 bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-teal-700 transition-colors"
+          className="flex items-center gap-2 bg-[#4a90d9] text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-[#3a80c9] transition-colors"
         >
           <Plus size={15} /> Add Deal
         </button>
@@ -911,19 +911,19 @@ export default function DealScanner() {
 
       {/* Hot deals banner */}
       {hotDeals.length > 0 && (
-        <div className="mb-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl px-4 py-3">
-          <p className="text-xs font-semibold text-amber-800 mb-2">🔥 Hot Deals (Score 8+)</p>
+        <div className="mb-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-[#5a3010] rounded-xl px-4 py-3">
+          <p className="text-xs font-semibold text-[#f5c55c] mb-2">🔥 Hot Deals (Score 8+)</p>
           <div className="flex flex-wrap gap-2">
             {hotDeals.map(d => (
               <button
                 key={d.id}
                 onClick={() => { setEditingDeal(d); setShowDealModal(true); }}
-                className="flex items-center gap-2 bg-white border border-amber-200 rounded-lg px-3 py-1.5 text-xs hover:border-amber-400 transition-colors"
+                className="flex items-center gap-2 bg-[#1a2335] border border-[#5a3010] rounded-lg px-3 py-1.5 text-xs hover:border-amber-400 transition-colors"
               >
                 <span className={`w-5 h-5 rounded text-white text-xs flex items-center justify-center font-bold flex-shrink-0 ${SCORE_COLOR(d.opportunityScore)}`}>
                   {d.opportunityScore}
                 </span>
-                <span className="text-slate-700 font-medium truncate max-w-[180px]">{d.address}</span>
+                <span className="text-[#8aaac8] font-medium truncate max-w-[180px]">{d.address}</span>
                 {d.grossYield != null && <span className={`flex-shrink-0 ${YIELD_COLOR(d.grossYield)}`}>{d.grossYield.toFixed(1)}%</span>}
               </button>
             ))}
@@ -932,13 +932,13 @@ export default function DealScanner() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-5 overflow-x-auto">
+      <div className="flex gap-1 bg-[#1e2d45] rounded-xl p-1 mb-5 overflow-x-auto">
         {(['scan', 'deals', 'pipeline', 'markets', 'settings'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
-              tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              tab === t ? 'bg-[#1a2335] text-white shadow-sm' : 'text-[#8aaac8] hover:text-[#8aaac8]'
             }`}
           >
             {t === 'scan' && <><ScanSearch size={13} /> Scan</>}
@@ -951,7 +951,7 @@ export default function DealScanner() {
       </div>
 
       {error && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+        <div className="mb-4 bg-[#2a1a0a] border border-[#5a3010] rounded-xl px-4 py-3 text-sm text-[#f5c55c]">
           <p className="font-semibold mb-1">Setup required</p>
           <p className="text-xs">{error}</p>
           <p className="text-xs mt-1">Run the Supabase SQL from the setup guide to create the deals table.</p>
@@ -963,9 +963,9 @@ export default function DealScanner() {
         <div>
           {/* Rentcast key setup */}
           {!rentcastKey ? (
-            <div className="mb-5 bg-teal-50 border border-teal-200 rounded-xl px-4 py-4 text-sm">
-              <p className="font-semibold text-teal-800 mb-1">Connect Rentcast to start scanning</p>
-              <p className="text-teal-700 text-xs leading-relaxed mb-3">
+            <div className="mb-5 bg-[#162035] border border-[#1e3a5a] rounded-xl px-4 py-4 text-sm">
+              <p className="font-semibold text-[#6ab0f5] mb-1">Connect Rentcast to start scanning</p>
+              <p className="text-[#4a90d9] text-xs leading-relaxed mb-3">
                 Rentcast is <strong>free</strong> — sign up with just your email at{' '}
                 <a href="https://rentcast.io" target="_blank" rel="noopener noreferrer" className="underline font-medium">rentcast.io</a>,
                 grab your API key from the dashboard, and paste it below. Free tier: 50 searches/month.
@@ -976,7 +976,7 @@ export default function DealScanner() {
                   value={rentcastInput}
                   onChange={e => setRentcastInput(e.target.value)}
                   placeholder="Paste your Rentcast API key…"
-                  className="flex-1 border border-teal-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                  className="flex-1 border border-[#4a90d9] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#4a90d9] bg-[#1a2335]"
                 />
                 <button
                   onClick={() => {
@@ -987,7 +987,7 @@ export default function DealScanner() {
                     setRentcastInput('');
                   }}
                   disabled={!rentcastInput.trim()}
-                  className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
+                  className="bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
                 >
                   Save Key
                 </button>
@@ -996,59 +996,59 @@ export default function DealScanner() {
           ) : (
             <div className={`mb-5 border rounded-xl px-4 py-2.5 ${
               rentcastMonthlyCount >= RENTCAST_LIMIT
-                ? 'bg-red-50 border-red-200'
+                ? 'bg-[#2a0e0e] border-[#5a1a1a]'
                 : rentcastMonthlyCount >= RENTCAST_WARN
-                ? 'bg-amber-50 border-amber-200'
-                : 'bg-teal-50 border-teal-200'
+                ? 'bg-[#2a1a0a] border-[#5a3010]'
+                : 'bg-[#162035] border-[#1e3a5a]'
             }`}>
               <div className="flex items-center justify-between">
                 <span className={`text-xs font-medium flex items-center gap-1.5 ${
-                  rentcastMonthlyCount >= RENTCAST_LIMIT ? 'text-red-700'
-                  : rentcastMonthlyCount >= RENTCAST_WARN ? 'text-amber-700'
-                  : 'text-teal-700'
+                  rentcastMonthlyCount >= RENTCAST_LIMIT ? 'text-[#e05c5c]'
+                  : rentcastMonthlyCount >= RENTCAST_WARN ? 'text-[#d0954a]'
+                  : 'text-[#4a90d9]'
                 }`}>
                   <CheckCircle2 size={13} className={
-                    rentcastMonthlyCount >= RENTCAST_LIMIT ? 'text-red-500'
-                    : rentcastMonthlyCount >= RENTCAST_WARN ? 'text-amber-500'
-                    : 'text-teal-500'
+                    rentcastMonthlyCount >= RENTCAST_LIMIT ? 'text-[#e05c5c]'
+                    : rentcastMonthlyCount >= RENTCAST_WARN ? 'text-[#d0954a]'
+                    : 'text-[#6ab0f5]'
                   } />
                   Rentcast connected
                   <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                     rentcastMonthlyCount >= RENTCAST_LIMIT
-                      ? 'bg-red-100 text-red-700'
+                      ? 'bg-[#2a0e0e] text-[#e05c5c]'
                       : rentcastMonthlyCount >= RENTCAST_WARN
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-teal-100 text-teal-700'
+                      ? 'bg-[#2a1a0a] text-[#d0954a]'
+                      : 'bg-[#162035] text-[#4a90d9]'
                   }`}>
                     {rentcastMonthlyCount}/{RENTCAST_LIMIT} this month
                   </span>
                 </span>
                 <button
                   onClick={() => { localStorage.removeItem('ej_rentcast_key'); setRentcastKey(''); }}
-                  className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                  className="text-xs text-[#3a5070] hover:text-[#e05c5c] transition-colors"
                 >
                   Disconnect
                 </button>
               </div>
               {rentcastMonthlyCount >= RENTCAST_LIMIT && (
-                <p className="text-xs text-red-600 mt-1">Monthly limit reached — scanning disabled until the 1st. Upgrade to $9/mo at rentcast.io for 500 calls/month.</p>
+                <p className="text-xs text-[#e05c5c] mt-1">Monthly limit reached — scanning disabled until the 1st. Upgrade to $9/mo at rentcast.io for 500 calls/month.</p>
               )}
               {rentcastMonthlyCount >= RENTCAST_WARN && rentcastMonthlyCount < RENTCAST_LIMIT && (
-                <p className="text-xs text-amber-600 mt-1">Approaching monthly limit — {RENTCAST_LIMIT - rentcastMonthlyCount} searches remaining.</p>
+                <p className="text-xs text-[#d0954a] mt-1">Approaching monthly limit — {RENTCAST_LIMIT - rentcastMonthlyCount} searches remaining.</p>
               )}
             </div>
           )}
 
           {/* Scan filters */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 mb-5">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Search Criteria</p>
+          <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-4 mb-5">
+            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-3">Search Criteria</p>
             <div className="flex flex-wrap gap-2 mb-3">
               <div className="flex-1 min-w-[200px]">
-                <label className="text-xs text-slate-500 mb-1 block">Location (zip or "City, State")</label>
+                <label className="text-xs text-[#8aaac8] mb-1 block">Location (zip or "City, State")</label>
                 <div className="relative">
-                  <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3a5070]" />
                   <input
-                    className="w-full border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    className="w-full border border-[#1e2d45] rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                     placeholder="e.g. 33304 or Scottsdale, AZ"
                     value={scanLocation}
                     onChange={e => setScanLocation(e.target.value)}
@@ -1057,27 +1057,27 @@ export default function DealScanner() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">Min Price ($)</label>
+                <label className="text-xs text-[#8aaac8] mb-1 block">Min Price ($)</label>
                 <input
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="border border-[#1e2d45] rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   placeholder="e.g. 100000"
                   value={scanMinPrice}
                   onChange={e => setScanMinPrice(e.target.value)}
                 />
               </div>
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">Max Price ($)</label>
+                <label className="text-xs text-[#8aaac8] mb-1 block">Max Price ($)</label>
                 <input
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="border border-[#1e2d45] rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   placeholder="e.g. 800000"
                   value={scanMaxPrice}
                   onChange={e => setScanMaxPrice(e.target.value)}
                 />
               </div>
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">Min Beds</label>
+                <label className="text-xs text-[#8aaac8] mb-1 block">Min Beds</label>
                 <select
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  className="border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   value={scanMinBeds}
                   onChange={e => setScanMinBeds(e.target.value)}
                 >
@@ -1088,7 +1088,7 @@ export default function DealScanner() {
                 <button
                   onClick={runScan}
                   disabled={scanning || !scanLocation.trim() || !rentcastKey || rentcastMonthlyCount >= RENTCAST_LIMIT}
-                  className="flex items-center gap-2 bg-teal-600 text-white text-sm font-medium px-5 py-2 rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 bg-[#4a90d9] text-white text-sm font-medium px-5 py-2 rounded-xl hover:bg-[#3a80c9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {scanning ? <Loader size={14} className="animate-spin" /> : <ScanSearch size={14} />}
                   {scanning ? 'Scanning...' : 'Scan'}
@@ -1097,7 +1097,7 @@ export default function DealScanner() {
             </div>
             {/* Property type filter */}
             <div>
-              <label className="text-xs text-slate-500 mb-1.5 block">Property Type <span className="font-normal">(leave blank for all)</span></label>
+              <label className="text-xs text-[#8aaac8] mb-1.5 block">Property Type <span className="font-normal">(leave blank for all)</span></label>
               <div className="flex flex-wrap gap-1.5">
                 {[
                   { label: 'Single Family', value: 'Single Family' },
@@ -1114,8 +1114,8 @@ export default function DealScanner() {
                       )}
                       className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
                         active
-                          ? 'bg-teal-600 text-white border-teal-600'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-teal-400'
+                          ? 'bg-[#4a90d9] text-white border-[#4a90d9]'
+                          : 'bg-[#1a2335] text-[#8aaac8] border-[#1e2d45] hover:border-[#4a90d9]'
                       }`}
                     >
                       {label}
@@ -1127,49 +1127,49 @@ export default function DealScanner() {
           </div>
 
           {scanError && (
-            <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">{scanError}</div>
+            <div className="mb-4 bg-[#2a0e0e] border border-[#5a1a1a] rounded-xl px-4 py-3 text-sm text-[#e05c5c]">{scanError}</div>
           )}
 
           {/* Results */}
           {scanResults.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[#8aaac8]">
                   {scanResults.length} listing{scanResults.length !== 1 ? 's' : ''}
                   {scanTotal != null ? ` of ${scanTotal.toLocaleString()} total` : ''}
-                  {lastScan && <span className="text-slate-400"> · Last scan: {lastScan.location} on {lastScan.date}</span>}
+                  {lastScan && <span className="text-[#3a5070]"> · Last scan: {lastScan.location} on {lastScan.date}</span>}
                 </p>
                 <button
                   onClick={() => { setScanResults([]); setScanTotal(null); setLastScan(null); localStorage.removeItem(LAST_SCAN_KEY); }}
-                  className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                  className="text-xs text-[#3a5070] hover:text-[#e05c5c] transition-colors"
                 >
                   Clear
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {scanResults.map(r => (
-                  <div key={r.zpid} className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+                  <div key={r.zpid} className="bg-[#1a2335] rounded-xl border border-[#1e2d45] overflow-hidden hover:shadow-md transition-shadow">
                     {r.imgSrc && (
                       <img src={r.imgSrc} alt={r.address} className="w-full h-36 object-cover" />
                     )}
                     {!r.imgSrc && (
-                      <div className="w-full h-24 bg-slate-100 flex items-center justify-center">
-                        <Home size={28} className="text-slate-300" />
+                      <div className="w-full h-24 bg-[#1e2d45] flex items-center justify-center">
+                        <Home size={28} className="text-[#3a5070]" />
                       </div>
                     )}
                     <div className="p-3">
-                      <p className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">{r.address}</p>
+                      <p className="text-sm font-semibold text-white leading-tight line-clamp-2">{r.address}</p>
                       <div className="mt-2 flex items-center gap-3 flex-wrap">
-                        <span className="text-base font-bold text-slate-800">${r.price.toLocaleString()}</span>
+                        <span className="text-base font-bold text-white">${r.price.toLocaleString()}</span>
                         {r.bedrooms != null && (
-                          <span className="text-xs text-slate-500">{r.bedrooms}bd{r.bathrooms != null ? ` / ${r.bathrooms}ba` : ''}</span>
+                          <span className="text-xs text-[#8aaac8]">{r.bedrooms}bd{r.bathrooms != null ? ` / ${r.bathrooms}ba` : ''}</span>
                         )}
                         {r.homeType && (
-                          <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full">{r.homeType}</span>
+                          <span className="px-1.5 py-0.5 bg-[#1e2d45] text-[#8aaac8] text-xs rounded-full">{r.homeType}</span>
                         )}
                       </div>
                       {r.daysOnZillow != null && (
-                        <p className="text-xs text-slate-400 mt-1">{r.daysOnZillow === 0 ? 'Listed today' : `${r.daysOnZillow}d on Zillow`}</p>
+                        <p className="text-xs text-[#3a5070] mt-1">{r.daysOnZillow === 0 ? 'Listed today' : `${r.daysOnZillow}d on Zillow`}</p>
                       )}
                       <div className="mt-3 flex items-center gap-2">
                         <button
@@ -1177,7 +1177,7 @@ export default function DealScanner() {
                             setEditingDeal(prefillFromScan(r));
                             setShowDealModal(true);
                           }}
-                          className="flex-1 flex items-center justify-center gap-1.5 bg-teal-600 text-white text-xs font-medium py-2 rounded-lg hover:bg-teal-700 transition-colors"
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-[#4a90d9] text-white text-xs font-medium py-2 rounded-lg hover:bg-[#3a80c9] transition-colors"
                         >
                           <Plus size={12} /> Add to Pipeline
                         </button>
@@ -1185,7 +1185,7 @@ export default function DealScanner() {
                           href={r.zillowUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300 transition-colors"
+                          className="p-2 rounded-lg border border-[#1e2d45] text-[#3a5070] hover:text-[#6ab0f5] hover:border-blue-300 transition-colors"
                           title="Search on Zillow"
                         >
                           <ExternalLink size={13} />
@@ -1200,11 +1200,11 @@ export default function DealScanner() {
 
           {!scanning && scanResults.length === 0 && !scanError && (
             <div className="text-center py-14">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                <ScanSearch size={24} className="text-slate-300" />
+              <div className="w-14 h-14 rounded-2xl bg-[#1e2d45] flex items-center justify-center mx-auto mb-3">
+                <ScanSearch size={24} className="text-[#3a5070]" />
               </div>
-              <p className="text-slate-500 font-medium">Enter a location to scan</p>
-              <p className="text-slate-400 text-sm mt-1">Try a zip code like "33304" or "Scottsdale, AZ"</p>
+              <p className="text-[#8aaac8] font-medium">Enter a location to scan</p>
+              <p className="text-[#3a5070] text-sm mt-1">Try a zip code like "33304" or "Scottsdale, AZ"</p>
             </div>
           )}
         </div>
@@ -1216,16 +1216,16 @@ export default function DealScanner() {
           {/* Filters */}
           <div className="flex flex-wrap gap-2 mb-4">
             <div className="flex-1 min-w-[180px] relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3a5070]" />
               <input
-                className="w-full border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                className="w-full border border-[#1e2d45] rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                 placeholder="Search deals..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
             <select
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+              className="border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               value={filterStage}
               onChange={e => setFilterStage(e.target.value as DealStage | '')}
             >
@@ -1233,7 +1233,7 @@ export default function DealScanner() {
               {PIPELINE_STAGES.map(s => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
             </select>
             <select
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+              className="border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               value={filterStr}
               onChange={e => setFilterStr(e.target.value as StrRegStatus | '')}
             >
@@ -1245,17 +1245,17 @@ export default function DealScanner() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-12"><Loader size={22} className="animate-spin text-slate-300" /></div>
+            <div className="flex justify-center py-12"><Loader size={22} className="animate-spin text-[#3a5070]" /></div>
           ) : filteredDeals.length === 0 ? (
             <div className="text-center py-14">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                <Building2 size={24} className="text-slate-300" />
+              <div className="w-14 h-14 rounded-2xl bg-[#1e2d45] flex items-center justify-center mx-auto mb-3">
+                <Building2 size={24} className="text-[#3a5070]" />
               </div>
-              <p className="text-slate-500 font-medium">No deals yet</p>
-              <p className="text-slate-400 text-sm mt-1">Add a deal and run an AI score to get started.</p>
+              <p className="text-[#8aaac8] font-medium">No deals yet</p>
+              <p className="text-[#3a5070] text-sm mt-1">Add a deal and run an AI score to get started.</p>
               <button
                 onClick={() => { setEditingDeal(null); setShowDealModal(true); }}
-                className="mt-4 flex items-center gap-2 bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-teal-700 transition-colors mx-auto"
+                className="mt-4 flex items-center gap-2 bg-[#4a90d9] text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-[#3a80c9] transition-colors mx-auto"
               >
                 <Plus size={14} /> Add First Deal
               </button>
@@ -1283,38 +1283,38 @@ export default function DealScanner() {
             const stageDeals = deals.filter(d => d.stage === stage);
             if (stageDeals.length === 0 && stage !== 'new') return null;
             return (
-              <div key={stage} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+              <div key={stage} className="bg-[#1a2335] rounded-xl border border-[#1e2d45] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2d45]">
                   <div className="flex items-center gap-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STAGE_COLORS[stage]}`}>
                       {STAGE_LABELS[stage]}
                     </span>
-                    <span className="text-xs text-slate-400">{stageDeals.length} deal{stageDeals.length !== 1 ? 's' : ''}</span>
+                    <span className="text-xs text-[#3a5070]">{stageDeals.length} deal{stageDeals.length !== 1 ? 's' : ''}</span>
                   </div>
                   {stage === 'new' && (
                     <button
                       onClick={() => { setEditingDeal(null); setShowDealModal(true); }}
-                      className="text-xs text-teal-600 hover:text-teal-700 flex items-center gap-1"
+                      className="text-xs text-[#4a90d9] hover:text-[#4a90d9] flex items-center gap-1"
                     >
                       <Plus size={12} /> Add
                     </button>
                   )}
                 </div>
                 {stageDeals.length === 0 ? (
-                  <div className="px-4 py-3 text-xs text-slate-400 italic">No deals in this stage</div>
+                  <div className="px-4 py-3 text-xs text-[#3a5070] italic">No deals in this stage</div>
                 ) : (
                   <div className="divide-y divide-slate-50">
                     {stageDeals.map(deal => (
-                      <div key={deal.id} className="px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors">
+                      <div key={deal.id} className="px-4 py-3 flex items-center gap-3 hover:bg-[#1e2d45] transition-colors">
                         {deal.opportunityScore != null && (
                           <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${SCORE_COLOR(deal.opportunityScore)}`}>
                             {deal.opportunityScore}
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">{deal.address}</p>
+                          <p className="text-sm font-medium text-white truncate">{deal.address}</p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-xs text-slate-400">${deal.listingPrice.toLocaleString()}</p>
+                            <p className="text-xs text-[#3a5070]">${deal.listingPrice.toLocaleString()}</p>
                             {deal.grossYield != null && (
                               <span className={`text-xs ${YIELD_COLOR(deal.grossYield)}`}>{deal.grossYield.toFixed(1)}% yield</span>
                             )}
@@ -1326,13 +1326,13 @@ export default function DealScanner() {
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <button
                             onClick={() => { setEditingDeal(deal); setShowDealModal(true); }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"
+                            className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#162035] transition-colors"
                           >
                             <Edit2 size={13} />
                           </button>
                           <button
                             onClick={() => setConfirmDelete(deal.id)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"
                           >
                             <Trash2 size={13} />
                           </button>
@@ -1351,10 +1351,10 @@ export default function DealScanner() {
       {tab === 'markets' && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-slate-600">Track STR regulations for your target markets.</p>
+            <p className="text-sm text-[#8aaac8]">Track STR regulations for your target markets.</p>
             <button
               onClick={() => { setEditingMarket(undefined); setShowMarketModal(true); }}
-              className="flex items-center gap-1.5 text-sm bg-teal-600 text-white px-3 py-2 rounded-xl hover:bg-teal-700 transition-colors"
+              className="flex items-center gap-1.5 text-sm bg-[#4a90d9] text-white px-3 py-2 rounded-xl hover:bg-[#3a80c9] transition-colors"
             >
               <Plus size={14} /> Add Market
             </button>
@@ -1362,43 +1362,43 @@ export default function DealScanner() {
 
           {markets.length === 0 ? (
             <div className="text-center py-12">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                <MapPin size={24} className="text-slate-300" />
+              <div className="w-14 h-14 rounded-2xl bg-[#1e2d45] flex items-center justify-center mx-auto mb-3">
+                <MapPin size={24} className="text-[#3a5070]" />
               </div>
-              <p className="text-slate-500 font-medium">No markets tracked yet</p>
-              <p className="text-slate-400 text-sm mt-1">Add markets to track STR regulations per area.</p>
+              <p className="text-[#8aaac8] font-medium">No markets tracked yet</p>
+              <p className="text-[#3a5070] text-sm mt-1">Add markets to track STR regulations per area.</p>
             </div>
           ) : (
             <div className="space-y-3">
               {markets.map(m => {
                 const dealCount = deals.filter(d => d.market === m.name).length;
                 return (
-                  <div key={m.id} className="bg-white rounded-xl border border-slate-200 px-4 py-4">
+                  <div key={m.id} className="bg-[#1a2335] rounded-xl border border-[#1e2d45] px-4 py-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-slate-900">{m.name}{m.state ? `, ${m.state}` : ''}</p>
+                          <p className="font-semibold text-white">{m.name}{m.state ? `, ${m.state}` : ''}</p>
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STR_STATUS_COLORS[m.strStatus]}`}>
                             {STR_STATUS_LABELS[m.strStatus]}
                           </span>
                           {dealCount > 0 && (
-                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-600">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-[#1a1a35] text-[#d07af5]">
                               {dealCount} deal{dealCount !== 1 ? 's' : ''}
                             </span>
                           )}
                         </div>
-                        {m.strNote && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{m.strNote}</p>}
+                        {m.strNote && <p className="text-xs text-[#8aaac8] mt-1 leading-relaxed">{m.strNote}</p>}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           onClick={() => { setEditingMarket(m); setShowMarketModal(true); }}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"
+                          className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#162035] transition-colors"
                         >
                           <Edit2 size={14} />
                         </button>
                         <button
                           onClick={() => handleDeleteMarket(m.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -1411,13 +1411,13 @@ export default function DealScanner() {
           )}
 
           {/* STR status legend */}
-          <div className="mt-6 bg-slate-50 rounded-xl p-4 border border-slate-200">
-            <p className="text-xs font-semibold text-slate-600 mb-3">STR Status Guide</p>
+          <div className="mt-6 bg-[#1e2d45] rounded-xl p-4 border border-[#1e2d45]">
+            <p className="text-xs font-semibold text-[#8aaac8] mb-3">STR Status Guide</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(Object.keys(STR_STATUS_LABELS) as StrRegStatus[]).map(k => (
                 <div key={k} className="flex items-start gap-2">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${STR_STATUS_COLORS[k]}`}>{STR_STATUS_LABELS[k]}</span>
-                  <span className="text-xs text-slate-500 leading-tight">
+                  <span className="text-xs text-[#8aaac8] leading-tight">
                     {k === 'allowed' && 'No restrictions, can list immediately.'}
                     {k === 'permit_required' && 'STR permit required before listing.'}
                     {k === 'restricted' && 'Significant limits, e.g. owner-occupied only.'}
@@ -1436,8 +1436,8 @@ export default function DealScanner() {
         <div className="space-y-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-semibold text-slate-800">Morning Scan Settings</p>
-              <p className="text-xs text-slate-500 mt-0.5">Runs daily at 8am EST. Changes take effect on the next run.</p>
+              <p className="font-semibold text-white">Morning Scan Settings</p>
+              <p className="text-xs text-[#8aaac8] mt-0.5">Runs daily at 8am EST. Changes take effect on the next run.</p>
             </div>
             <button
               onClick={() => {
@@ -1446,29 +1446,29 @@ export default function DealScanner() {
               className="flex items-center gap-2 text-sm font-medium"
             >
               {scanConfig.enabled
-                ? <><ToggleRight size={24} className="text-teal-500" /><span className="text-teal-700">Enabled</span></>
-                : <><ToggleLeft size={24} className="text-slate-400" /><span className="text-slate-500">Disabled</span></>
+                ? <><ToggleRight size={24} className="text-[#6ab0f5]" /><span className="text-[#4a90d9]">Enabled</span></>
+                : <><ToggleLeft size={24} className="text-[#3a5070]" /><span className="text-[#8aaac8]">Disabled</span></>
               }
             </button>
           </div>
 
           {/* Markets */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Markets to Scan</p>
+          <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-4">
+            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-3">Markets to Scan</p>
             <div className="flex flex-wrap gap-2 mb-3">
               {scanConfig.markets.map((m, i) => (
-                <span key={i} className="flex items-center gap-1 bg-teal-50 text-teal-800 text-xs font-medium px-2.5 py-1 rounded-full border border-teal-200">
+                <span key={i} className="flex items-center gap-1 bg-[#162035] text-[#6ab0f5] text-xs font-medium px-2.5 py-1 rounded-full border border-[#1e3a5a]">
                   {m}
                   <button
                     onClick={() => setScanConfig(c => ({ ...c, markets: c.markets.filter((_, j) => j !== i) }))}
-                    className="ml-0.5 text-teal-400 hover:text-red-500 transition-colors"
+                    className="ml-0.5 text-[#6ab0f5] hover:text-[#e05c5c] transition-colors"
                   >
                     <X size={11} />
                   </button>
                 </span>
               ))}
               {scanConfig.markets.length === 0 && (
-                <p className="text-xs text-slate-400 italic">No markets added yet.</p>
+                <p className="text-xs text-[#3a5070] italic">No markets added yet.</p>
               )}
             </div>
             <div className="flex gap-2">
@@ -1483,7 +1483,7 @@ export default function DealScanner() {
                   }
                 }}
                 placeholder='e.g. Gatlinburg TN'
-                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-400"
+                className="flex-1 border border-[#1e2d45] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               />
               <button
                 onClick={() => {
@@ -1492,34 +1492,34 @@ export default function DealScanner() {
                   setNewMarketInput('');
                 }}
                 disabled={!newMarketInput.trim()}
-                className="bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
+                className="bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-40 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
               >
                 <Plus size={12} /> Add
               </button>
             </div>
-            <p className="text-[10px] text-slate-400 mt-2">Format: <code className="bg-slate-100 px-1 rounded">City ST</code> — e.g. <em>Gatlinburg TN</em>, <em>Blue Ridge GA</em>. Each market = 1 Rentcast call per day.</p>
+            <p className="text-[10px] text-[#3a5070] mt-2">Format: <code className="bg-[#1e2d45] px-1 rounded">City ST</code> — e.g. <em>Gatlinburg TN</em>, <em>Blue Ridge GA</em>. Each market = 1 Rentcast call per day.</p>
           </div>
 
           {/* Criteria */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">Scan Criteria</p>
+          <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-4">
+            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-4">Scan Criteria</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
               <div>
-                <label className="text-xs text-slate-500 block mb-1">Min Beds</label>
+                <label className="text-xs text-[#8aaac8] block mb-1">Min Beds</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number" min={1} max={10}
                     value={scanConfig.minBeds}
                     onChange={e => setScanConfig(c => ({ ...c, minBeds: parseInt(e.target.value) || 2 }))}
-                    className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    className="w-20 border border-[#1e2d45] rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   />
-                  <span className="text-xs text-slate-400">+</span>
+                  <span className="text-xs text-[#3a5070]">+</span>
                 </div>
               </div>
               <div>
-                <label className="text-xs text-slate-500 block mb-1">Min Price</label>
+                <label className="text-xs text-[#8aaac8] block mb-1">Min Price</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3a5070] text-sm">$</span>
                   <input
                     type="text"
                     value={scanConfig.minPrice > 0 ? scanConfig.minPrice.toLocaleString() : ''}
@@ -1528,14 +1528,14 @@ export default function DealScanner() {
                       const v = parseInt(e.target.value.replace(/,/g, ''));
                       setScanConfig(c => ({ ...c, minPrice: isNaN(v) ? 0 : v }));
                     }}
-                    className="w-full border border-slate-200 rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    className="w-full border border-[#1e2d45] rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-slate-500 block mb-1">Max Price</label>
+                <label className="text-xs text-[#8aaac8] block mb-1">Max Price</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3a5070] text-sm">$</span>
                   <input
                     type="text"
                     value={scanConfig.maxPrice.toLocaleString()}
@@ -1543,25 +1543,25 @@ export default function DealScanner() {
                       const v = parseInt(e.target.value.replace(/,/g, ''));
                       if (!isNaN(v)) setScanConfig(c => ({ ...c, maxPrice: v }));
                     }}
-                    className="w-full border border-slate-200 rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    className="w-full border border-[#1e2d45] rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-slate-500 block mb-1">Min AI Score</label>
+                <label className="text-xs text-[#8aaac8] block mb-1">Min AI Score</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number" min={1} max={10}
                     value={scanConfig.minScore}
                     onChange={e => setScanConfig(c => ({ ...c, minScore: parseInt(e.target.value) || 6 }))}
-                    className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    className="w-20 border border-[#1e2d45] rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   />
-                  <span className="text-xs text-slate-400">/ 10</span>
+                  <span className="text-xs text-[#3a5070]">/ 10</span>
                 </div>
               </div>
             </div>
             <div>
-              <label className="text-xs text-slate-500 block mb-1.5">Property Types <span className="font-normal">(leave blank for all)</span></label>
+              <label className="text-xs text-[#8aaac8] block mb-1.5">Property Types <span className="font-normal">(leave blank for all)</span></label>
               <div className="flex flex-wrap gap-1.5">
                 {[
                   { label: 'Single Family', value: 'Single Family' },
@@ -1581,8 +1581,8 @@ export default function DealScanner() {
                       }))}
                       className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
                         active
-                          ? 'bg-teal-600 text-white border-teal-600'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-teal-400'
+                          ? 'bg-[#4a90d9] text-white border-[#4a90d9]'
+                          : 'bg-[#1a2335] text-[#8aaac8] border-[#1e2d45] hover:border-[#4a90d9]'
                       }`}
                     >
                       {label}
@@ -1594,28 +1594,28 @@ export default function DealScanner() {
           </div>
 
           {/* Rentcast budget */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Rentcast Monthly Budget</p>
-            <p className="text-xs text-slate-400 mb-3">Max automated scan calls per month. Free tier = 50 total. Leave room for manual scans.</p>
+          <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-4">
+            <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-1">Rentcast Monthly Budget</p>
+            <p className="text-xs text-[#3a5070] mb-3">Max automated scan calls per month. Free tier = 50 total. Leave room for manual scans.</p>
             <div className="flex items-center gap-3">
               <input
                 type="number" min={1} max={50}
                 value={scanConfig.rentcastMonthlyLimit}
                 onChange={e => setScanConfig(c => ({ ...c, rentcastMonthlyLimit: parseInt(e.target.value) || 40 }))}
-                className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-400"
+                className="w-20 border border-[#1e2d45] rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               />
-              <span className="text-xs text-slate-500">/ 50 automated calls per month</span>
+              <span className="text-xs text-[#8aaac8]">/ 50 automated calls per month</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-2">
+            <p className="text-[10px] text-[#3a5070] mt-2">
               Tip: with {scanConfig.markets.length || 1} market{scanConfig.markets.length !== 1 ? 's' : ''}, daily scanning uses ~{(scanConfig.markets.length || 1) * 30} calls/month.
               {(scanConfig.markets.length || 1) * 30 > scanConfig.rentcastMonthlyLimit && (
-                <span className="text-amber-600 font-medium"> Reduce markets or increase the budget.</span>
+                <span className="text-[#d0954a] font-medium"> Reduce markets or increase the budget.</span>
               )}
             </p>
           </div>
 
           {/* Save */}
-          {scanConfigError && <p className="text-xs text-red-600">{scanConfigError}</p>}
+          {scanConfigError && <p className="text-xs text-[#e05c5c]">{scanConfigError}</p>}
           <button
             onClick={async () => {
               setScanConfigSaving(true);
@@ -1632,16 +1632,16 @@ export default function DealScanner() {
               }
             }}
             disabled={scanConfigSaving}
-            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+            className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
           >
             {scanConfigSaving ? <Loader size={14} className="animate-spin" /> : <Save size={14} />}
             {scanConfigSaved ? 'Saved!' : scanConfigSaving ? 'Saving…' : 'Save Settings'}
           </button>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-            <p className="text-xs font-semibold text-slate-600 mb-2">One-time Supabase setup</p>
-            <p className="text-xs text-slate-500 mb-2">Run this SQL once in your Supabase SQL editor to create the settings table:</p>
-            <pre className="text-[10px] bg-white border border-slate-200 rounded-lg p-3 overflow-x-auto text-slate-700 leading-relaxed">{`create table if not exists scan_config (
+          <div className="bg-[#1e2d45] border border-[#1e2d45] rounded-xl p-4">
+            <p className="text-xs font-semibold text-[#8aaac8] mb-2">One-time Supabase setup</p>
+            <p className="text-xs text-[#8aaac8] mb-2">Run this SQL once in your Supabase SQL editor to create the settings table:</p>
+            <pre className="text-[10px] bg-[#1a2335] border border-[#1e2d45] rounded-lg p-3 overflow-x-auto text-[#8aaac8] leading-relaxed">{`create table if not exists scan_config (
   id integer primary key default 1,
   markets text not null default '',
   min_beds integer not null default 2,
@@ -1686,14 +1686,14 @@ alter table scan_config add column if not exists property_types text not null de
       {/* Delete confirm */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-xl">
-            <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-3">
-              <Trash2 size={20} className="text-red-500" />
+          <div className="bg-[#1a2335] rounded-2xl p-6 w-full max-w-xs text-center shadow-xl">
+            <div className="w-12 h-12 rounded-2xl bg-[#2a0e0e] flex items-center justify-center mx-auto mb-3">
+              <Trash2 size={20} className="text-[#e05c5c]" />
             </div>
-            <p className="font-semibold text-slate-900 mb-1">Delete deal?</p>
-            <p className="text-sm text-slate-500 mb-4">This cannot be undone.</p>
+            <p className="font-semibold text-white mb-1">Delete deal?</p>
+            <p className="text-sm text-[#8aaac8] mb-4">This cannot be undone.</p>
             <div className="flex gap-2">
-              <button onClick={() => setConfirmDelete(null)} className="flex-1 border border-slate-200 text-slate-600 text-sm rounded-xl py-2.5 hover:bg-slate-50">Cancel</button>
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm rounded-xl py-2.5 hover:bg-[#1e2d45]">Cancel</button>
               <button onClick={() => handleDeleteDeal(confirmDelete)} className="flex-1 bg-red-500 text-white text-sm rounded-xl py-2.5 hover:bg-red-600">Delete</button>
             </div>
           </div>

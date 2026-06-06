@@ -36,21 +36,21 @@ export default function ShareView({ reportId }: { reportId: string }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <Loader size={22} className="text-slate-300 animate-spin" />
+      <div className="min-h-screen bg-[#1e2d45] flex items-center justify-center">
+        <Loader size={22} className="text-[#3a5070] animate-spin" />
       </div>
     );
   }
 
   if (error || !report || !report.reportData) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="min-h-screen bg-[#1e2d45] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-14 h-14 rounded-2xl bg-slate-200 flex items-center justify-center mx-auto mb-4">
-            <Building2 size={24} className="text-slate-400" />
+          <div className="w-14 h-14 rounded-2xl bg-[#1e2d45] flex items-center justify-center mx-auto mb-4">
+            <Building2 size={24} className="text-[#3a5070]" />
           </div>
-          <p className="text-slate-700 font-semibold text-lg">Report not found</p>
-          <p className="text-slate-400 text-sm mt-1">{error || 'This report may have been deleted or the link is invalid.'}</p>
+          <p className="text-[#8aaac8] font-semibold text-lg">Report not found</p>
+          <p className="text-[#3a5070] text-sm mt-1">{error || 'This report may have been deleted or the link is invalid.'}</p>
         </div>
       </div>
     );
@@ -76,9 +76,9 @@ export default function ShareView({ reportId }: { reportId: string }) {
   </style>`;
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
+    <div className="min-h-screen bg-[#1e2d45] flex flex-col">
       {/* Top bar */}
-      <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between flex-shrink-0 print:hidden">
+      <div className="bg-[#1a2335] border-b border-[#1e2d45] px-5 py-3 flex items-center justify-between flex-shrink-0 print:hidden">
         <div className="flex items-center gap-2.5">
           <img
             src="/logo.png"
@@ -91,17 +91,17 @@ export default function ShareView({ reportId }: { reportId: string }) {
               if (fallback) fallback.style.display = 'flex';
             }}
           />
-          <div className="w-8 h-8 rounded-lg bg-teal-600 items-center justify-center flex-shrink-0 hidden">
+          <div className="w-8 h-8 rounded-lg bg-[#4a90d9] items-center justify-center flex-shrink-0 hidden">
             <Building2 size={16} className="text-white" />
           </div>
           <div>
-            <div className="text-sm font-bold text-slate-900">E&J Retreats</div>
-            <div className="text-xs text-slate-400">Revenue Report</div>
+            <div className="text-sm font-bold text-white">E&J Retreats</div>
+            <div className="text-xs text-[#3a5070]">Revenue Report</div>
           </div>
         </div>
         <button
           onClick={() => window.print()}
-          className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 text-sm border border-[#1e2d45] text-[#8aaac8] hover:bg-[#1e2d45] px-3 py-1.5 rounded-lg transition-colors"
         >
           <Printer size={13} /> Download PDF
         </button>

@@ -211,11 +211,11 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
     return (
       <Modal title="Send Document for Signature" onClose={onClose}>
         <div className="flex flex-col items-center justify-center py-8 gap-3">
-          <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
-            <Send size={20} className="text-emerald-600" />
+          <div className="w-12 h-12 rounded-full bg-[#0a2518] flex items-center justify-center">
+            <Send size={20} className="text-[#5ce0a0]" />
           </div>
-          <p className="font-semibold text-slate-900">Sent successfully!</p>
-          <p className="text-sm text-slate-500 text-center">Email sent to {email}. You can also share the link directly:</p>
+          <p className="font-semibold text-white">Sent successfully!</p>
+          <p className="text-sm text-[#8aaac8] text-center">Email sent to {email}. You can also share the link directly:</p>
           {sentToken && (
             <button
               onClick={() => {
@@ -223,13 +223,13 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
               }}
-              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-[#1e2d45] hover:bg-[#1e2d45] text-[#8aaac8] text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
             >
-              {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              {copied ? <Check size={14} className="text-[#5ce0a0]" /> : <Copy size={14} />}
               {copied ? 'Copied!' : 'Copy Signing Link'}
             </button>
           )}
-          <button onClick={onClose} className="text-sm text-teal-600 hover:text-teal-700 font-medium mt-1">Done</button>
+          <button onClick={onClose} className="text-sm text-[#4a90d9] hover:text-[#4a90d9] font-medium mt-1">Done</button>
         </div>
       </Modal>
     );
@@ -241,13 +241,13 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
     return (
       <Modal title="Place Signature Fields" onClose={onClose} size="lg">
         <div className="space-y-3">
-          <p className="text-xs text-slate-500">
-            Drag the <span className="font-medium text-teal-700">✍ Signature</span> and <span className="font-medium text-blue-600">📅 Date</span> boxes to their exact positions on the page. Navigate pages with the arrows below if needed.
+          <p className="text-xs text-[#8aaac8]">
+            Drag the <span className="font-medium text-[#4a90d9]">✍ Signature</span> and <span className="font-medium text-[#6ab0f5]">📅 Date</span> boxes to their exact positions on the page. Navigate pages with the arrows below if needed.
           </p>
 
           {/* PDF canvas + drag overlay */}
           <div className="flex justify-center">
-            <div className="relative border border-slate-200 shadow-md bg-white w-full" style={{ maxWidth: 400 }}>
+            <div className="relative border border-[#1e2d45] shadow-md bg-[#1a2335] w-full" style={{ maxWidth: 400 }}>
               {/* Rendered PDF page */}
               <canvas ref={canvasRef} style={{ display: 'block', width: '100%' }} />
 
@@ -265,12 +265,12 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
 
           {/* Page navigation */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 text-sm text-slate-600">
+            <div className="flex items-center justify-center gap-3 text-sm text-[#8aaac8]">
               <button
                 type="button"
                 onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
                 disabled={currentPage === 0}
-                className="p-1 rounded hover:bg-slate-100 disabled:opacity-30 transition-colors"
+                className="p-1 rounded hover:bg-[#1e2d45] disabled:opacity-30 transition-colors"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -279,7 +279,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
                 type="button"
                 onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
                 disabled={currentPage === totalPages - 1}
-                className="p-1 rounded hover:bg-slate-100 disabled:opacity-30 transition-colors"
+                className="p-1 rounded hover:bg-[#1e2d45] disabled:opacity-30 transition-colors"
               >
                 <ChevronRight size={16} />
               </button>
@@ -287,14 +287,14 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
           )}
 
           {step === 'error' && errorMsg && (
-            <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{errorMsg}</p>
+            <p className="text-xs text-[#e05c5c] bg-[#2a0e0e] px-3 py-2 rounded-lg">{errorMsg}</p>
           )}
 
           <div className="flex gap-3 pt-1">
             <button
               type="button"
               onClick={() => { if (prefillDocUrl) onClose(); else { setStep('form'); setErrorMsg(''); } }}
-              className="flex items-center gap-1.5 border border-slate-200 text-slate-600 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-slate-100 transition-colors"
+              className="flex items-center gap-1.5 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors"
             >
               <ArrowLeft size={14} /> {prefillDocUrl ? 'Cancel' : 'Back'}
             </button>
@@ -302,7 +302,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
               type="button"
               onClick={handleSubmit}
               disabled={step === 'sending'}
-              className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white text-sm font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="flex-1 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-60 text-white text-sm font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               <Send size={14} />
               {step === 'sending' ? 'Uploading & Sending...' : 'Send for Signature'}
@@ -319,7 +319,7 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
     <Modal title="Send Document for Signature" onClose={onClose}>
       <form onSubmit={handleNextToPlacement} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Document (PDF) *</label>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-1.5">Document (PDF) *</label>
           <div
             onClick={() => fileRef.current?.click()}
             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -331,24 +331,24 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
               if (f) acceptFile(f);
             }}
             className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-              dragOver ? 'border-teal-400 bg-teal-50' : 'border-slate-200 hover:border-teal-400 hover:bg-teal-50'
+              dragOver ? 'border-[#4a90d9] bg-[#162035]' : 'border-[#1e2d45] hover:border-[#4a90d9] hover:bg-[#162035]'
             }`}
           >
             {file ? (
-              <div className="flex items-center justify-center gap-2 text-teal-700">
+              <div className="flex items-center justify-center gap-2 text-[#4a90d9]">
                 <FileText size={18} />
                 <span className="text-sm font-medium">{file.name}</span>
                 <button
                   type="button"
                   onClick={e => { e.stopPropagation(); setFile(null); }}
-                  className="ml-1 text-slate-400 hover:text-red-500"
+                  className="ml-1 text-[#3a5070] hover:text-[#e05c5c]"
                 >
                   <X size={14} />
                 </button>
               </div>
             ) : (
-              <div className="text-slate-400">
-                <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-teal-500' : ''}`} />
+              <div className="text-[#3a5070]">
+                <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-[#6ab0f5]' : ''}`} />
                 <p className="text-sm">{dragOver ? 'Drop PDF here' : 'Drag & drop or click to upload PDF'}</p>
               </div>
             )}
@@ -357,41 +357,41 @@ export default function SignatureRequestModal({ owner, onSent, onClose, prefillD
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Document Name</label>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Document Name</label>
           <input
             value={documentName}
             onChange={e => setDocumentName(e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="Management Agreement"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Send to Email *</label>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Send to Email *</label>
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="owner@email.com"
           />
         </div>
 
         {errorMsg && (
-          <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{errorMsg}</p>
+          <p className="text-xs text-[#e05c5c] bg-[#2a0e0e] px-3 py-2 rounded-lg">{errorMsg}</p>
         )}
 
         <div className="flex gap-3 pt-2">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 border border-slate-200 text-slate-600 text-sm font-medium py-2.5 rounded-lg hover:bg-slate-100 transition-colors"
+            className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="flex-1 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             Next: Place Fields <ArrowRight size={14} />
           </button>
@@ -410,7 +410,7 @@ function DragBox({
   onMouseDown: (e: React.MouseEvent) => void;
 }) {
   const cls = color === 'teal'
-    ? 'bg-teal-500/90 border-teal-600 text-white'
+    ? 'bg-teal-500/90 border-[#4a90d9] text-white'
     : 'bg-blue-500/90 border-blue-600 text-white';
 
   return (

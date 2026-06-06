@@ -202,10 +202,10 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Guest Marketing</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="text-xl font-bold text-white">Guest Marketing</h1>
+          <p className="text-sm text-[#8aaac8] mt-0.5">
             {withEmail} guests with email · {withoutEmail} without · {allReservations.filter(r => r.status !== 'cancelled').length} total stays
-            {historyLastFetched && <span className="ml-2 text-slate-400">· history through {historyLastFetched}</span>}
+            {historyLastFetched && <span className="ml-2 text-[#3a5070]">· history through {historyLastFetched}</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -213,7 +213,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
             <button
               onClick={fetchHistory}
               disabled={loadingHistory}
-              className="flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 border border-[#1e2d45] bg-[#1a2335] hover:bg-[#1e2d45] text-[#8aaac8] text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
             >
               <RefreshCw size={14} className={loadingHistory ? 'animate-spin' : ''} />
               {loadingHistory ? 'Loading…' : historyLastFetched ? 'Refresh History' : 'Load Full History'}
@@ -222,7 +222,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
           {selected.size > 0 && (
             <button
               onClick={() => setComposing(true)}
-              className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               <Send size={15} /> Compose to {selected.size} guest{selected.size !== 1 ? 's' : ''}
             </button>
@@ -237,10 +237,10 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
           { label: 'Have Email', value: withEmail, icon: '📧' },
           { label: 'Total Stays', value: allReservations.filter(r => r.status !== 'cancelled').length, icon: '🏠' },
         ].map(s => (
-          <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-3 overflow-hidden">
+          <div key={s.label} className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-3 overflow-hidden">
             <div className="text-lg mb-1">{s.icon}</div>
-            <div className="text-sm font-bold text-slate-900">{s.value}</div>
-            <div className="text-xs text-slate-500 leading-tight mt-0.5">{s.label}</div>
+            <div className="text-sm font-bold text-white">{s.value}</div>
+            <div className="text-xs text-[#8aaac8] leading-tight mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
@@ -248,24 +248,24 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3a5070]" />
           <input
             type="text"
             placeholder="Search guests..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full pl-9 pr-4 py-2 bg-[#1a2335] border border-[#1e2d45] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
           />
         </div>
         <select
           value={channelFilter}
           onChange={e => setChannelFilter(e.target.value)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="text-sm border border-[#1e2d45] rounded-lg px-3 py-2 bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
         >
           <option value="all">All Channels</option>
           {allChannels.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-sm text-[#8aaac8] cursor-pointer select-none">
           <input
             type="checkbox"
             checked={showNoEmail}
@@ -277,24 +277,24 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
       </div>
 
       {historyError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{historyError}</div>
+        <div className="bg-[#2a0e0e] border border-[#5a1a1a] rounded-lg px-4 py-3 text-sm text-[#e05c5c]">{historyError}</div>
       )}
 
       {sentResult && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-sm text-emerald-700 font-medium">
+        <div className="bg-[#0a2518] border border-[#0a4a2a] rounded-lg px-4 py-3 text-sm text-[#4ab57a] font-medium">
           Sent to {sentResult.sent} guest{sentResult.sent !== 1 ? 's' : ''}
           {sentResult.failed > 0 ? ` · ${sentResult.failed} failed` : ''}.
         </div>
       )}
 
       {/* Guest list — card layout on mobile, table on sm+ */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] overflow-hidden">
         {/* Table header — hidden on mobile */}
-        <div className="hidden sm:flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-slate-100">
-          <button onClick={toggleAll} className="text-slate-400 hover:text-teal-600 flex-shrink-0">
-            {allSelected ? <CheckSquare size={16} className="text-teal-600" /> : <Square size={16} />}
+        <div className="hidden sm:flex items-center gap-3 px-4 py-3 border-b border-[#1e2d45] bg-[#1e2d45]">
+          <button onClick={toggleAll} className="text-[#3a5070] hover:text-[#4a90d9] flex-shrink-0">
+            {allSelected ? <CheckSquare size={16} className="text-[#4a90d9]" /> : <Square size={16} />}
           </button>
-          <div className="grid grid-cols-4 flex-1 gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <div className="grid grid-cols-4 flex-1 gap-2 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">
             <span>Guest</span>
             <span>Email</span>
             <span>Last Stay</span>
@@ -303,60 +303,60 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
         </div>
 
         {filtered.length === 0 ? (
-          <p className="text-center text-slate-400 text-sm py-10">No guests found.</p>
+          <p className="text-center text-[#3a5070] text-sm py-10">No guests found.</p>
         ) : (
-          <div className="divide-y divide-slate-200">
+          <div className="divide-y divide-[#1e2d45]">
             {filtered.map(g => (
               <div key={g.email || g.name}>
                 {/* Mobile card layout */}
-                <div className="sm:hidden flex items-start gap-3 px-4 py-3 hover:bg-slate-50">
+                <div className="sm:hidden flex items-start gap-3 px-4 py-3 hover:bg-[#1e2d45]">
                   <div className="flex-shrink-0 pt-0.5">
                     {g.email ? (
-                      <button onClick={() => toggle(g.email)} className="text-slate-400 hover:text-teal-600">
-                        {selected.has(g.email) ? <CheckSquare size={16} className="text-teal-600" /> : <Square size={16} />}
+                      <button onClick={() => toggle(g.email)} className="text-[#3a5070] hover:text-[#4a90d9]">
+                        {selected.has(g.email) ? <CheckSquare size={16} className="text-[#4a90d9]" /> : <Square size={16} />}
                       </button>
                     ) : <Square size={16} className="text-slate-200" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-teal-700 font-bold text-xs">{g.name.charAt(0)}</span>
+                      <div className="w-7 h-7 rounded-full bg-[#162035] flex items-center justify-center flex-shrink-0">
+                        <span className="text-[#4a90d9] font-bold text-xs">{g.name.charAt(0)}</span>
                       </div>
-                      <span className="text-sm font-semibold text-slate-900 truncate">{g.name}</span>
-                      <span className="text-xs text-slate-400 flex-shrink-0">{g.stays.length} stay{g.stays.length !== 1 ? 's' : ''}</span>
+                      <span className="text-sm font-semibold text-white truncate">{g.name}</span>
+                      <span className="text-xs text-[#3a5070] flex-shrink-0">{g.stays.length} stay{g.stays.length !== 1 ? 's' : ''}</span>
                     </div>
-                    {g.email && <p className="text-xs text-slate-500 truncate mt-0.5 ml-9">{g.email}</p>}
+                    {g.email && <p className="text-xs text-[#8aaac8] truncate mt-0.5 ml-9">{g.email}</p>}
                   </div>
                 </div>
 
                 {/* Desktop table row */}
-                <div className="hidden sm:flex items-center gap-3 px-4 py-3 hover:bg-slate-100">
+                <div className="hidden sm:flex items-center gap-3 px-4 py-3 hover:bg-[#1e2d45]">
                   <div className="flex-shrink-0">
                     {g.email ? (
-                      <button onClick={() => toggle(g.email)} className="text-slate-400 hover:text-teal-600">
-                        {selected.has(g.email) ? <CheckSquare size={16} className="text-teal-600" /> : <Square size={16} />}
+                      <button onClick={() => toggle(g.email)} className="text-[#3a5070] hover:text-[#4a90d9]">
+                        {selected.has(g.email) ? <CheckSquare size={16} className="text-[#4a90d9]" /> : <Square size={16} />}
                       </button>
                     ) : <Square size={16} className="text-slate-200" />}
                   </div>
                   <div className="grid grid-cols-4 flex-1 gap-2 items-center min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-teal-700 font-bold text-xs">{g.name.charAt(0)}</span>
+                      <div className="w-7 h-7 rounded-full bg-[#162035] flex items-center justify-center flex-shrink-0">
+                        <span className="text-[#4a90d9] font-bold text-xs">{g.name.charAt(0)}</span>
                       </div>
-                      <span className="text-sm font-medium text-slate-900 truncate">{g.name}</span>
+                      <span className="text-sm font-medium text-white truncate">{g.name}</span>
                     </div>
                     <div className="min-w-0">
-                      {g.email ? <span className="text-sm text-slate-600 truncate block">{g.email}</span>
-                        : <span className="text-xs text-slate-400 italic">No email</span>}
+                      {g.email ? <span className="text-sm text-[#8aaac8] truncate block">{g.email}</span>
+                        : <span className="text-xs text-[#3a5070] italic">No email</span>}
                     </div>
-                    <div className="text-sm text-slate-500">
+                    <div className="text-sm text-[#8aaac8]">
                       {g.lastStay ? new Date(g.lastStay + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {g.channels.slice(0, 2).map(c => (
-                        <span key={c} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{c}</span>
+                        <span key={c} className="text-xs bg-[#1e2d45] text-[#8aaac8] px-2 py-0.5 rounded-full">{c}</span>
                       ))}
-                      <span className="text-xs text-slate-400">{g.stays.length} stay{g.stays.length !== 1 ? 's' : ''}</span>
+                      <span className="text-xs text-[#3a5070]">{g.stays.length} stay{g.stays.length !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
                 </div>
@@ -369,48 +369,48 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
       {/* Compose modal */}
       {composing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+          <div className="bg-[#1a2335] rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2d45]">
               <div>
-                <h2 className="font-semibold text-slate-900">Compose Email</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Sending to {selected.size} guest{selected.size !== 1 ? 's' : ''}</p>
+                <h2 className="font-semibold text-white">Compose Email</h2>
+                <p className="text-xs text-[#8aaac8] mt-0.5">Sending to {selected.size} guest{selected.size !== 1 ? 's' : ''}</p>
               </div>
-              <button onClick={() => setComposing(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setComposing(false)} className="text-[#3a5070] hover:text-[#8aaac8]">
                 <X size={18} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Subject</label>
+                <label className="block text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-1.5">Subject</label>
                 <input
                   type="text"
                   value={subject}
                   onChange={e => setSubject(e.target.value)}
                   placeholder="e.g. Book directly with us and save!"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Message</label>
+                <label className="block text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-1.5">Message</label>
                 <textarea
                   value={body}
                   onChange={e => setBody(e.target.value)}
                   rows={12}
                   placeholder={`Hi [guest name],\n\nThank you for staying with us! We'd love to have you back...\n\nBook directly at ejretreats.com for exclusive rates.\n\nBest,\nE&J Retreats`}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono resize-none"
+                  className="w-full border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] font-mono resize-none"
                 />
-                <p className="text-xs text-slate-400 mt-1.5">Plain text — line breaks are preserved in the email.</p>
+                <p className="text-xs text-[#3a5070] mt-1.5">Plain text — line breaks are preserved in the email.</p>
               </div>
-              {sendError && <p className="text-sm text-red-500">{sendError}</p>}
+              {sendError && <p className="text-sm text-[#e05c5c]">{sendError}</p>}
             </div>
-            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-              <button onClick={() => setComposing(false)} className="text-sm text-slate-600 hover:text-slate-900 px-4 py-2">
+            <div className="px-6 py-4 border-t border-[#1e2d45] flex justify-end gap-3">
+              <button onClick={() => setComposing(false)} className="text-sm text-[#8aaac8] hover:text-white px-4 py-2">
                 Cancel
               </button>
               <button
                 onClick={handleSend}
                 disabled={sending || !subject.trim() || !body.trim()}
-                className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+                className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
               >
                 <Send size={14} />
                 {sending ? 'Sending...' : `Send to ${selected.size} guest${selected.size !== 1 ? 's' : ''}`}

@@ -182,12 +182,12 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-[#4a90d9] flex items-center justify-center">
             <BarChart3 size={18} className="text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-slate-900 text-lg leading-tight">Quarterly Reports</h1>
-            <p className="text-xs text-slate-400">Generate and send AI-written performance reports to all clients</p>
+            <h1 className="font-bold text-white text-lg leading-tight">Quarterly Reports</h1>
+            <p className="text-xs text-[#3a5070]">Generate and send AI-written performance reports to all clients</p>
           </div>
         </div>
 
@@ -197,11 +197,11 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
             <select
               value={quarter}
               onChange={e => setQuarter(Number(e.target.value))}
-              className="appearance-none border border-slate-200 rounded-lg px-3 py-2 pr-7 text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="appearance-none border border-[#1e2d45] rounded-lg px-3 py-2 pr-7 text-sm font-medium text-[#8aaac8] bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             >
               {[1, 2, 3, 4].map(q => <option key={q} value={q}>Q{q}</option>)}
             </select>
-            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#3a5070] pointer-events-none" />
           </div>
 
           {/* Year selector */}
@@ -209,33 +209,33 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
             <select
               value={year}
               onChange={e => setYear(Number(e.target.value))}
-              className="appearance-none border border-slate-200 rounded-lg px-3 py-2 pr-7 text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="appearance-none border border-[#1e2d45] rounded-lg px-3 py-2 pr-7 text-sm font-medium text-[#8aaac8] bg-[#1a2335] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             >
               {years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
-            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#3a5070] pointer-events-none" />
           </div>
 
           {sendAllStatus === 'idle' && ownersWithEmail.length > 0 && (
             <button
               onClick={handleSendAll}
-              className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               <Send size={14} />
               Send All ({ownersWithEmail.length})
             </button>
           )}
           {sendAllStatus === 'running' && (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="flex items-center gap-2 text-sm text-[#8aaac8]">
               <Loader size={14} className="animate-spin" />
               Sending {sendAllResults.length}/{ownersWithEmail.length}…
             </div>
           )}
           {sendAllStatus === 'done' && (
-            <div className="flex items-center gap-2 text-sm text-emerald-600">
+            <div className="flex items-center gap-2 text-sm text-[#5ce0a0]">
               <CheckCircle size={14} />
               Sent {sendAllResults.filter(r => r.ok).length}/{ownersWithEmail.length}
-              <button onClick={() => { setSendAllStatus('idle'); setSendAllResults([]); }} className="text-slate-400 hover:text-slate-600 ml-1">
+              <button onClick={() => { setSendAllStatus('idle'); setSendAllResults([]); }} className="text-[#3a5070] hover:text-[#8aaac8] ml-1">
                 <X size={14} />
               </button>
             </div>
@@ -244,27 +244,27 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
       </div>
 
       {/* Global context */}
-      <div className="mb-4 bg-white border border-slate-200 rounded-xl p-4">
+      <div className="mb-4 bg-[#1a2335] border border-[#1e2d45] rounded-xl p-4">
         <div className="flex items-center gap-2 mb-2">
-          <StickyNote size={13} className="text-slate-400" />
-          <label className="text-xs font-semibold text-slate-600">Context for Claude (applies to all reports)</label>
+          <StickyNote size={13} className="text-[#3a5070]" />
+          <label className="text-xs font-semibold text-[#8aaac8]">Context for Claude (applies to all reports)</label>
         </div>
         <textarea
           value={globalContext}
           onChange={e => setGlobalContext(e.target.value)}
           rows={2}
           placeholder="e.g. Q1 had a major snowstorm in January that impacted bookings. We raised nightly rates by 15% in February. The market is seeing increased competition from new listings."
-          className="w-full text-sm text-slate-700 placeholder:text-slate-300 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="w-full text-sm text-[#8aaac8] placeholder:text-[#3a5070] border border-[#1e2d45] rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
         />
       </div>
 
       {/* Send-all results */}
       {sendAllResults.length > 0 && sendAllStatus !== 'idle' && (
-        <div className="mb-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
-          <p className="text-xs font-semibold text-slate-600 mb-2">Send All Progress</p>
+        <div className="mb-4 bg-[#1e2d45] border border-[#1e2d45] rounded-xl p-4">
+          <p className="text-xs font-semibold text-[#8aaac8] mb-2">Send All Progress</p>
           <div className="flex flex-wrap gap-2">
             {sendAllResults.map(r => (
-              <span key={r.name} className={`text-xs px-2 py-1 rounded-full font-medium ${r.ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+              <span key={r.name} className={`text-xs px-2 py-1 rounded-full font-medium ${r.ok ? 'bg-[#0a2518] text-[#4ab57a]' : 'bg-[#2a0e0e] text-[#e05c5c]'}`}>
                 {r.ok ? '✓' : '✗'} {r.name}
               </span>
             ))}
@@ -274,19 +274,19 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
 
       {/* Owner table */}
       {ownersWithEmail.length === 0 ? (
-        <div className="text-center py-16 text-slate-400 text-sm">
+        <div className="text-center py-16 text-[#3a5070] text-sm">
           No clients with email addresses found.
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Client</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Bookings</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Revenue</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Occupancy</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Avg/Night</th>
+              <tr className="border-b border-[#1e2d45] bg-[#1e2d45]">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Client</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Bookings</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Revenue</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Occupancy</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Avg/Night</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -295,42 +295,42 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
                 const m = metricsMap.get(owner.id)!;
                 const isGenerating = generating === owner.id;
                 return (
-                  <tr key={owner.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={owner.id} className="hover:bg-[#1e2d45] transition-colors">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">{owner.name}</p>
-                      <p className="text-xs text-slate-400 mb-1.5">{owner.email}</p>
+                      <p className="font-medium text-white">{owner.name}</p>
+                      <p className="text-xs text-[#3a5070] mb-1.5">{owner.email}</p>
                       <textarea
                         value={ownerNotes[owner.id] ?? ''}
                         onChange={e => setOwnerNote(owner.id, e.target.value)}
                         rows={1}
                         placeholder="Notes for Claude (optional)"
-                        className="w-full text-xs text-slate-600 placeholder:text-slate-300 border border-slate-200 rounded px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-teal-500 focus:rows-3 transition-all"
+                        className="w-full text-xs text-[#8aaac8] placeholder:text-[#3a5070] border border-[#1e2d45] rounded px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-[#4a90d9] focus:rows-3 transition-all"
                         onFocus={e => e.currentTarget.rows = 3}
                         onBlur={e => { if (!e.currentTarget.value) e.currentTarget.rows = 1; }}
                       />
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-slate-700">{m.totalBookings}</span>
+                      <span className="text-[#8aaac8]">{m.totalBookings}</span>
                       {m.cancelledWithPayout > 0 && (
-                        <span className="block text-xs text-rose-500">{m.cancelledWithPayout} cancelled w/ payout</span>
+                        <span className="block text-xs text-[#e05c5c]">{m.cancelledWithPayout} cancelled w/ payout</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-700">${m.totalRevenue.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right text-[#8aaac8]">${m.totalRevenue.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        m.occupancyRate >= 70 ? 'bg-emerald-100 text-emerald-700' :
-                        m.occupancyRate >= 50 ? 'bg-amber-100 text-amber-700' :
-                        'bg-slate-100 text-slate-600'
+                        m.occupancyRate >= 70 ? 'bg-[#0a2518] text-[#4ab57a]' :
+                        m.occupancyRate >= 50 ? 'bg-[#2a1a0a] text-[#d0954a]' :
+                        'bg-[#1e2d45] text-[#8aaac8]'
                       }`}>
                         {m.occupancyRate}%
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-700">${m.avgNightlyRate}</td>
+                    <td className="px-4 py-3 text-right text-[#8aaac8]">${m.avgNightlyRate}</td>
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => handleGenerate(owner)}
                         disabled={isGenerating || generating !== null}
-                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-auto"
+                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-[#162035] text-[#4a90d9] hover:bg-[#162035] disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-auto"
                       >
                         {isGenerating ? <Loader size={12} className="animate-spin" /> : <Eye size={12} />}
                         {isGenerating ? 'Generating…' : 'Preview'}
@@ -347,14 +347,14 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
       {/* Preview modal */}
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col" style={{ maxHeight: '90vh' }}>
+          <div className="bg-[#1a2335] rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col" style={{ maxHeight: '90vh' }}>
             {/* Modal header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45] flex-shrink-0">
               <div>
-                <p className="font-bold text-slate-900 text-sm">{qLabel} Report — {preview.owner.name}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{preview.subject}</p>
+                <p className="font-bold text-white text-sm">{qLabel} Report — {preview.owner.name}</p>
+                <p className="text-xs text-[#3a5070] mt-0.5">{preview.subject}</p>
               </div>
-              <button onClick={() => setPreview(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={() => setPreview(null)} className="text-[#3a5070] hover:text-[#8aaac8] transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -370,12 +370,12 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
             </div>
 
             {/* Modal footer */}
-            <div className="px-5 py-4 border-t border-slate-200 flex items-center justify-between flex-shrink-0">
+            <div className="px-5 py-4 border-t border-[#1e2d45] flex items-center justify-between flex-shrink-0">
               {preview.error && (
-                <p className="text-xs text-red-600">{preview.error}</p>
+                <p className="text-xs text-[#e05c5c]">{preview.error}</p>
               )}
               {preview.sent && (
-                <div className="flex items-center gap-1.5 text-sm text-emerald-600">
+                <div className="flex items-center gap-1.5 text-sm text-[#5ce0a0]">
                   <CheckCircle size={14} />
                   Sent to {preview.owner.email}
                 </div>
@@ -385,7 +385,7 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
               <div className="flex gap-2 ml-auto">
                 <button
                   onClick={() => setPreview(null)}
-                  className="border border-slate-200 text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors"
+                  className="border border-[#1e2d45] text-[#8aaac8] text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1e2d45] transition-colors"
                 >
                   Close
                 </button>
@@ -393,7 +393,7 @@ export default function QuarterlyReports({ owners, reservations }: QuarterlyRepo
                   <button
                     onClick={handleSendPreview}
                     disabled={preview.sending}
-                    className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                    className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
                   >
                     {preview.sending ? <Loader size={14} className="animate-spin" /> : <Send size={14} />}
                     {preview.sending ? 'Sending…' : `Send to ${preview.owner.name}`}

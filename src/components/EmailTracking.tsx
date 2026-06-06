@@ -92,12 +92,12 @@ function InboxWarmup() {
       {/* Header + Add */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">Inbox Warm-up</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Gradually ramp send volume so emails land in inbox, not spam.</p>
+          <h2 className="text-base font-semibold text-white">Inbox Warm-up</h2>
+          <p className="text-xs text-[#8aaac8] mt-0.5">Gradually ramp send volume so emails land in inbox, not spam.</p>
         </div>
         <button
           onClick={() => setShowAdd(v => !v)}
-          className="flex items-center gap-1.5 text-sm bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 text-sm bg-[#4a90d9] hover:bg-[#3a80c9] text-white px-3 py-1.5 rounded-lg transition-colors"
         >
           <Plus size={14} /> Add Email
         </button>
@@ -105,50 +105,50 @@ function InboxWarmup() {
 
       {/* Add form */}
       {showAdd && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
-          <p className="text-sm font-medium text-slate-700">Add email address to warm up</p>
+        <div className="bg-[#1a2335] border border-[#1e2d45] rounded-xl p-4 space-y-3">
+          <p className="text-sm font-medium text-[#8aaac8]">Add email address to warm up</p>
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">Email address *</label>
+              <label className="text-xs text-[#8aaac8] mb-1 block">Email address *</label>
               <input
                 value={newEmail}
                 onChange={e => setNewEmail(e.target.value)}
                 placeholder="you@yourdomain.com"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">Display name</label>
+              <label className="text-xs text-[#8aaac8] mb-1 block">Display name</label>
               <input
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 placeholder="E&J Retreats"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">Warm-up start date</label>
+              <label className="text-xs text-[#8aaac8] mb-1 block">Warm-up start date</label>
               <input
                 type="date"
                 value={newStart}
                 onChange={e => setNewStart(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               />
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={add} className="bg-teal-600 hover:bg-teal-700 text-white text-sm px-4 py-1.5 rounded-lg transition-colors">Add</button>
-            <button onClick={() => setShowAdd(false)} className="text-sm text-slate-500 hover:text-slate-700 px-4 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">Cancel</button>
+            <button onClick={add} className="bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm px-4 py-1.5 rounded-lg transition-colors">Add</button>
+            <button onClick={() => setShowAdd(false)} className="text-sm text-[#8aaac8] hover:text-[#8aaac8] px-4 py-1.5 rounded-lg hover:bg-[#1e2d45] transition-colors">Cancel</button>
           </div>
         </div>
       )}
 
       {/* Entry cards */}
       {entries.length === 0 && !showAdd && (
-        <div className="bg-white border border-slate-200 rounded-xl py-12 text-center">
+        <div className="bg-[#1a2335] border border-[#1e2d45] rounded-xl py-12 text-center">
           <Flame size={28} className="text-slate-200 mx-auto mb-2" />
-          <p className="text-sm font-medium text-slate-500">No addresses being warmed up yet.</p>
-          <p className="text-xs text-slate-400 mt-1">Add your sending address to track its warm-up progress.</p>
+          <p className="text-sm font-medium text-[#8aaac8]">No addresses being warmed up yet.</p>
+          <p className="text-xs text-[#3a5070] mt-1">Add your sending address to track its warm-up progress.</p>
         </div>
       )}
       {entries.map(entry => {
@@ -159,18 +159,18 @@ function InboxWarmup() {
         const isPaused = entry.status === 'paused';
         const currentSchedule = SCHEDULE[Math.min(week - 1, 5)];
         return (
-          <div key={entry.id} className="bg-white border border-slate-200 rounded-xl p-4">
+          <div key={entry.id} className="bg-[#1a2335] border border-[#1e2d45] rounded-xl p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-semibold text-slate-900 truncate">{entry.email}</p>
-                  {entry.name && <span className="text-xs text-slate-400">{entry.name}</span>}
+                  <p className="text-sm font-semibold text-white truncate">{entry.email}</p>
+                  {entry.name && <span className="text-xs text-[#3a5070]">{entry.name}</span>}
                   {isReady ? (
-                    <span className="text-xs font-medium bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="text-xs font-medium bg-[#0a2518] text-[#4ab57a] px-2 py-0.5 rounded-full flex items-center gap-1">
                       <CheckCircle size={10} /> Inbox Ready
                     </span>
                   ) : isPaused ? (
-                    <span className="text-xs font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="text-xs font-medium bg-[#1e2d45] text-[#8aaac8] px-2 py-0.5 rounded-full flex items-center gap-1">
                       <Clock size={10} /> Paused
                     </span>
                   ) : (
@@ -179,7 +179,7 @@ function InboxWarmup() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-[#3a5070] mt-0.5">
                   Started {new Date(entry.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   {' · '}
                   {isReady ? '6+ weeks complete' : `Day ${days} · Week ${week} of 6`}
@@ -187,11 +187,11 @@ function InboxWarmup() {
 
                 {/* Progress bar */}
                 <div className="mt-2.5 mb-1.5">
-                  <div className="flex justify-between text-xs text-slate-400 mb-1">
+                  <div className="flex justify-between text-xs text-[#3a5070] mb-1">
                     <span>Warm-up progress</span>
                     <span>{pct}%</span>
                   </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-[#1e2d45] rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${isReady ? 'bg-emerald-500' : 'bg-orange-400'}`}
                       style={{ width: `${pct}%` }}
@@ -200,15 +200,15 @@ function InboxWarmup() {
                 </div>
 
                 {!isReady && !isPaused && (
-                  <p className="text-xs font-medium text-slate-700 mt-1">
-                    Today&apos;s target: <span className="text-teal-700">{targetForDay(days)}</span>
+                  <p className="text-xs font-medium text-[#8aaac8] mt-1">
+                    Today&apos;s target: <span className="text-[#4a90d9]">{targetForDay(days)}</span>
                     {currentSchedule && (
-                      <span className="text-slate-400 font-normal ml-1">({currentSchedule.label} of warm-up)</span>
+                      <span className="text-[#3a5070] font-normal ml-1">({currentSchedule.label} of warm-up)</span>
                     )}
                   </p>
                 )}
                 {isReady && (
-                  <p className="text-xs text-emerald-700 mt-1 font-medium">
+                  <p className="text-xs text-[#4ab57a] mt-1 font-medium">
                     This address is warmed up. Send at full volume with confidence.
                   </p>
                 )}
@@ -217,14 +217,14 @@ function InboxWarmup() {
                 {!isReady && (
                   <button
                     onClick={() => togglePause(entry.id)}
-                    className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
+                    className="text-xs px-2.5 py-1 rounded-lg border border-[#1e2d45] text-[#8aaac8] hover:bg-[#1e2d45] transition-colors"
                   >
                     {isPaused ? 'Resume' : 'Pause'}
                   </button>
                 )}
                 <button
                   onClick={() => remove(entry.id)}
-                  className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -235,27 +235,27 @@ function InboxWarmup() {
       })}
 
       {/* Schedule reference */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4">
-        <p className="text-sm font-semibold text-slate-900 mb-3">Warm-up Schedule</p>
+      <div className="bg-[#1a2335] border border-[#1e2d45] rounded-xl p-4">
+        <p className="text-sm font-semibold text-white mb-3">Warm-up Schedule</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {SCHEDULE.map((s, i) => (
-            <div key={s.label} className={`rounded-lg px-3 py-2 ${i === 5 ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50 border border-slate-100'}`}>
-              <p className={`text-xs font-semibold ${i === 5 ? 'text-emerald-700' : 'text-slate-700'}`}>{s.label}</p>
-              <p className={`text-xs mt-0.5 ${i === 5 ? 'text-emerald-600' : 'text-slate-500'}`}>{s.range}</p>
+            <div key={s.label} className={`rounded-lg px-3 py-2 ${i === 5 ? 'bg-[#0a2518] border border-[#0a4a2a]' : 'bg-[#1e2d45] border border-[#1e2d45]'}`}>
+              <p className={`text-xs font-semibold ${i === 5 ? 'text-[#4ab57a]' : 'text-[#8aaac8]'}`}>{s.label}</p>
+              <p className={`text-xs mt-0.5 ${i === 5 ? 'text-[#5ce0a0]' : 'text-[#8aaac8]'}`}>{s.range}</p>
             </div>
           ))}
         </div>
-        <p className="text-xs text-slate-400 mt-3">After 6 weeks your domain reputation is established. Continue sending consistently to maintain it.</p>
+        <p className="text-xs text-[#3a5070] mt-3">After 6 weeks your domain reputation is established. Continue sending consistently to maintain it.</p>
       </div>
 
       {/* Tips */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4">
-        <p className="text-sm font-semibold text-slate-900 mb-3">Deliverability Tips</p>
+      <div className="bg-[#1a2335] border border-[#1e2d45] rounded-xl p-4">
+        <p className="text-sm font-semibold text-white mb-3">Deliverability Tips</p>
         <div className="space-y-2">
           {TIPS.map((tip, i) => (
             <div key={i} className="flex items-start gap-2.5">
-              <tip.icon size={14} className="text-teal-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-slate-600 leading-relaxed">{tip.text}</p>
+              <tip.icon size={14} className="text-[#4a90d9] flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-[#8aaac8] leading-relaxed">{tip.text}</p>
             </div>
           ))}
         </div>
@@ -275,46 +275,46 @@ const TYPE_LABELS: Record<EmailType, string> = {
 };
 
 const TYPE_COLORS: Record<EmailType, string> = {
-  signing:     'bg-teal-100 text-teal-700',
-  agreement:   'bg-indigo-100 text-indigo-700',
-  newsletter:  'bg-violet-100 text-violet-700',
-  quarterly:   'bg-amber-100 text-amber-700',
-  report:      'bg-blue-100 text-blue-700',
-  other:       'bg-slate-100 text-slate-600',
+  signing:     'bg-[#162035] text-[#4a90d9]',
+  agreement:   'bg-[#1a1a35] text-[#d07af5]',
+  newsletter:  'bg-violet-100 text-[#d07af5]',
+  quarterly:   'bg-[#2a1a0a] text-[#d0954a]',
+  report:      'bg-[#162035] text-[#6ab0f5]',
+  other:       'bg-[#1e2d45] text-[#8aaac8]',
 };
 
 function StatusBadge({ log }: { log: EmailLog }) {
   const status = effectiveStatus(log);
   if (status === 'bounced' || status === 'complained') {
     return (
-      <span className="flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+      <span className="flex items-center gap-1 text-xs font-medium text-[#e05c5c] bg-[#2a0e0e] px-2 py-0.5 rounded-full">
         <AlertCircle size={10} /> Bounced
       </span>
     );
   }
   if (status === 'clicked') {
     return (
-      <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+      <span className="flex items-center gap-1 text-xs font-medium text-[#4ab57a] bg-[#0a2518] px-2 py-0.5 rounded-full">
         <MousePointer size={10} /> Clicked {log.clickCount > 1 ? `×${log.clickCount}` : ''}
       </span>
     );
   }
   if (status === 'opened') {
     return (
-      <span className="flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
+      <span className="flex items-center gap-1 text-xs font-medium text-[#4a90d9] bg-[#162035] px-2 py-0.5 rounded-full">
         <MailOpen size={10} /> Opened {log.openCount > 1 ? `×${log.openCount}` : ''}
       </span>
     );
   }
   if (status === 'delivered') {
     return (
-      <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+      <span className="flex items-center gap-1 text-xs font-medium text-[#6ab0f5] bg-[#162035] px-2 py-0.5 rounded-full">
         <CheckCircle size={10} /> Delivered
       </span>
     );
   }
   return (
-    <span className="flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+    <span className="flex items-center gap-1 text-xs font-medium text-[#8aaac8] bg-[#1e2d45] px-2 py-0.5 rounded-full">
       <Clock size={10} /> Sent
     </span>
   );
@@ -389,14 +389,14 @@ export default function EmailTracking() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Email Tracking</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Open rates, click data, and inbox warm-up</p>
+          <h1 className="text-xl font-bold text-white">Email Tracking</h1>
+          <p className="text-sm text-[#8aaac8] mt-0.5">Open rates, click data, and inbox warm-up</p>
         </div>
         {tab === 'logs' && (
           <button
             onClick={() => load(true)}
             disabled={refreshing}
-            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 border border-slate-200 bg-white px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-sm text-[#8aaac8] hover:text-[#8aaac8] border border-[#1e2d45] bg-[#1a2335] px-3 py-1.5 rounded-lg transition-colors"
           >
             <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
             Refresh
@@ -405,16 +405,16 @@ export default function EmailTracking() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit">
+      <div className="flex gap-1 bg-[#1e2d45] p-1 rounded-xl mb-6 w-fit">
         <button
           onClick={() => setTab('logs')}
-          className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors ${tab === 'logs' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors ${tab === 'logs' ? 'bg-[#1a2335] text-white shadow-sm' : 'text-[#8aaac8] hover:text-[#8aaac8]'}`}
         >
           <Mail size={14} /> Email Logs
         </button>
         <button
           onClick={() => setTab('warmup')}
-          className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors ${tab === 'warmup' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors ${tab === 'warmup' ? 'bg-[#1a2335] text-white shadow-sm' : 'text-[#8aaac8] hover:text-[#8aaac8]'}`}
         >
           <Flame size={14} /> Inbox Warm-up
         </button>
@@ -426,15 +426,15 @@ export default function EmailTracking() {
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Emails Sent',  value: stats.total,     sub: 'total logged',          color: 'text-slate-800' },
-          { label: 'Open Rate',    value: `${stats.openRate}%`,  sub: `${stats.opened} opened`,  color: 'text-teal-700' },
-          { label: 'Click Rate',   value: `${stats.clickRate}%`, sub: `${stats.clicked} clicked`, color: 'text-emerald-700' },
-          { label: 'Bounced',      value: stats.bounced,   sub: 'delivery failures',     color: 'text-red-600' },
+          { label: 'Emails Sent',  value: stats.total,     sub: 'total logged',          color: 'text-white' },
+          { label: 'Open Rate',    value: `${stats.openRate}%`,  sub: `${stats.opened} opened`,  color: 'text-[#4a90d9]' },
+          { label: 'Click Rate',   value: `${stats.clickRate}%`, sub: `${stats.clicked} clicked`, color: 'text-[#4ab57a]' },
+          { label: 'Bounced',      value: stats.bounced,   sub: 'delivery failures',     color: 'text-[#e05c5c]' },
         ].map(s => (
-          <div key={s.label} className="bg-white border border-slate-200 rounded-xl p-4">
-            <p className="text-xs text-slate-400 mb-1">{s.label}</p>
+          <div key={s.label} className="bg-[#1a2335] border border-[#1e2d45] rounded-xl p-4">
+            <p className="text-xs text-[#3a5070] mb-1">{s.label}</p>
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-            <p className="text-xs text-slate-400 mt-0.5">{s.sub}</p>
+            <p className="text-xs text-[#3a5070] mt-0.5">{s.sub}</p>
           </div>
         ))}
       </div>
@@ -444,7 +444,7 @@ export default function EmailTracking() {
         <select
           value={typeFilter}
           onChange={e => setTypeFilter(e.target.value as EmailType | 'all')}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+          className="text-sm border border-[#1e2d45] rounded-lg px-3 py-1.5 text-[#8aaac8] focus:outline-none focus:ring-2 focus:ring-[#4a90d9] bg-[#1a2335]"
         >
           <option value="all">All Types</option>
           {emailTypes.map(t => (
@@ -454,7 +454,7 @@ export default function EmailTracking() {
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value as EmailStatus | 'all')}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+          className="text-sm border border-[#1e2d45] rounded-lg px-3 py-1.5 text-[#8aaac8] focus:outline-none focus:ring-2 focus:ring-[#4a90d9] bg-[#1a2335]"
         >
           <option value="all">All Statuses</option>
           <option value="opened">Opened</option>
@@ -463,40 +463,40 @@ export default function EmailTracking() {
           <option value="sent">Sent (pending)</option>
           <option value="bounced">Bounced</option>
         </select>
-        <span className="text-sm text-slate-400 self-center ml-1">{filtered.length} emails</span>
+        <span className="text-sm text-[#3a5070] self-center ml-1">{filtered.length} emails</span>
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+      <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
         {loading ? (
-          <div className="py-16 text-center text-slate-400 text-sm">Loading…</div>
+          <div className="py-16 text-center text-[#3a5070] text-sm">Loading…</div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center">
-            <Mail size={32} className="text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 font-medium">No emails logged yet</p>
-            <p className="text-sm text-slate-400 mt-1">Emails will appear here after they're sent from the CRM</p>
+            <Mail size={32} className="text-[#3a5070] mx-auto mb-3" />
+            <p className="text-[#8aaac8] font-medium">No emails logged yet</p>
+            <p className="text-sm text-[#3a5070] mt-1">Emails will appear here after they're sent from the CRM</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100 overflow-y-auto" style={{ maxHeight: '60vh' }}>
             {filtered.map(log => (
-              <div key={log.id} className="px-5 py-3 hover:bg-slate-50 transition-colors">
+              <div key={log.id} className="px-5 py-3 hover:bg-[#1e2d45] transition-colors">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${TYPE_COLORS[log.emailType]}`}>
                         {TYPE_LABELS[log.emailType]}
                       </span>
-                      <span className="text-sm font-medium text-slate-800 truncate">{log.recipientEmail}</span>
+                      <span className="text-sm font-medium text-white truncate">{log.recipientEmail}</span>
                       {log.recipientName && (
-                        <span className="text-xs text-slate-400">({log.recipientName})</span>
+                        <span className="text-xs text-[#3a5070]">({log.recipientName})</span>
                       )}
                     </div>
                     {log.subject && (
-                      <p className="text-xs text-slate-500 mt-0.5 truncate">{log.subject}</p>
+                      <p className="text-xs text-[#8aaac8] mt-0.5 truncate">{log.subject}</p>
                     )}
-                    <p className="text-xs text-slate-400 mt-0.5">{fmtDate(log.sentAt)}</p>
+                    <p className="text-xs text-[#3a5070] mt-0.5">{fmtDate(log.sentAt)}</p>
                     {log.lastClickedUrl && (
-                      <p className="text-xs text-teal-600 mt-0.5 truncate" title={log.lastClickedUrl}>
+                      <p className="text-xs text-[#4a90d9] mt-0.5 truncate" title={log.lastClickedUrl}>
                         Clicked: {log.lastClickedUrl}
                       </p>
                     )}
@@ -504,7 +504,7 @@ export default function EmailTracking() {
                   <div className="flex-shrink-0">
                     <StatusBadge log={log} />
                     {log.openedAt && log.status !== 'bounced' && (
-                      <p className="text-xs text-slate-400 mt-1 text-right">{fmtDate(log.openedAt)}</p>
+                      <p className="text-xs text-[#3a5070] mt-1 text-right">{fmtDate(log.openedAt)}</p>
                     )}
                   </div>
                 </div>
@@ -514,15 +514,15 @@ export default function EmailTracking() {
         )}
       </div>
 
-      <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-        <p className="text-xs text-amber-800 font-medium mb-1">Setup required: Resend webhook</p>
-        <p className="text-xs text-amber-700">
+      <div className="mt-4 p-4 bg-[#2a1a0a] border border-[#5a3010] rounded-xl">
+        <p className="text-xs text-[#f5c55c] font-medium mb-1">Setup required: Resend webhook</p>
+        <p className="text-xs text-[#d0954a]">
           To see open/click data, go to your <strong>Resend dashboard → Webhooks</strong> and add a webhook pointing to{' '}
-          <code className="bg-amber-100 px-1 rounded">{window.location.origin}/api/documents</code>{' '}
-          with events: <code className="bg-amber-100 px-1 rounded">email.opened</code>,{' '}
-          <code className="bg-amber-100 px-1 rounded">email.clicked</code>,{' '}
-          <code className="bg-amber-100 px-1 rounded">email.delivered</code>,{' '}
-          <code className="bg-amber-100 px-1 rounded">email.bounced</code>.
+          <code className="bg-[#2a1a0a] px-1 rounded">{window.location.origin}/api/documents</code>{' '}
+          with events: <code className="bg-[#2a1a0a] px-1 rounded">email.opened</code>,{' '}
+          <code className="bg-[#2a1a0a] px-1 rounded">email.clicked</code>,{' '}
+          <code className="bg-[#2a1a0a] px-1 rounded">email.delivered</code>,{' '}
+          <code className="bg-[#2a1a0a] px-1 rounded">email.bounced</code>.
         </p>
       </div>
       </>)}

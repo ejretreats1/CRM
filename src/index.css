@@ -2,10 +2,18 @@
 
 @layer base {
   :root {
-    --teal-50: #f0fdfa;
-    --teal-100: #ccfbf1;
-    --teal-600: #0d9488;
-    --teal-700: #0f766e;
+    --teal-50: #162035;
+    --teal-100: #162035;
+    --teal-600: #4a90d9;
+    --teal-700: #3a80c9;
+    --color-navy-deep: #0f1623;
+    --color-navy-card: #1a2335;
+    --color-navy-hover: #1e2d45;
+    --color-blue-accent: #4a90d9;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #8aaac8;
+    --color-text-muted: #3a5070;
+    --color-border: #1e2d45;
   }
 
   * {
@@ -13,18 +21,19 @@
   }
 
   input, textarea, select {
-    background-color: #ffffff;
-    color: #0f172a;
-    color-scheme: light;
+    background-color: #1e2d45;
+    color: #ffffff;
+    color-scheme: dark;
+    border-color: #1e2d45;
   }
 
   input::placeholder, textarea::placeholder {
-    color: #94a3b8;
+    color: #3a5070;
   }
 
   option {
-    background-color: #ffffff;
-    color: #0f172a;
+    background-color: #1a2335;
+    color: #ffffff;
   }
 
   html, body {
@@ -35,8 +44,8 @@
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #f1f5f9;
-    color: #0f172a;
+    background-color: #0f1623;
+    color: #ffffff;
     overscroll-behavior-y: none;
   }
 
@@ -73,7 +82,7 @@
 
 /* Kanban drag-over highlight */
 .kanban-column.drag-over {
-  @apply ring-2 ring-teal-400 bg-teal-50;
+  @apply ring-2 ring-[#4a90d9] bg-[#162035];
 }
 
 /* Custom scrollbar */
@@ -82,12 +91,12 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #0f1623;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #3a5070;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #4a90d9;
 }

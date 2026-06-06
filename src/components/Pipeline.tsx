@@ -10,10 +10,10 @@ interface PipelineProps {
 }
 
 const STAGES: { id: LeadStage; label: string; color: string; dot: string }[] = [
-  { id: 'new',       label: 'New Lead',        color: 'bg-slate-100',   dot: 'bg-slate-400' },
+  { id: 'new',       label: 'New Lead',        color: 'bg-[#1e2d45]',   dot: 'bg-slate-400' },
   { id: 'contacted', label: 'Contacted',        color: 'bg-violet-50',   dot: 'bg-violet-400' },
-  { id: 'cold',      label: 'Old / Cold Lead', color: 'bg-blue-50',    dot: 'bg-blue-400' },
-  { id: 'won',       label: 'Won',             color: 'bg-emerald-50', dot: 'bg-emerald-500' },
+  { id: 'cold',      label: 'Old / Cold Lead', color: 'bg-[#162035]',    dot: 'bg-blue-400' },
+  { id: 'won',       label: 'Won',             color: 'bg-[#0a2518]', dot: 'bg-emerald-500' },
 ];
 
 function formatCurrency(n: number) {
@@ -61,29 +61,29 @@ function LeadCard({ lead, onView, onEdit, onDelete, onDragStart }: LeadCardProps
       draggable
       onDragStart={onDragStart}
       onClick={onView}
-      className="bg-white rounded-lg border border-slate-200 p-3.5 cursor-pointer shadow-sm hover:shadow-md hover:border-teal-300 transition-all select-none"
+      className="bg-[#1a2335] rounded-lg border border-[#1e2d45] p-3.5 cursor-pointer shadow-sm hover:shadow-md hover:border-[#4a90d9] transition-all select-none"
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-900 leading-tight">{lead.name}</p>
+        <p className="text-sm font-semibold text-white leading-tight">{lead.name}</p>
         <div className="relative flex-shrink-0" ref={menuRef}>
           <button
             onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
             onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
-            className="p-0.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            className="p-0.5 rounded text-[#3a5070] hover:text-[#8aaac8] hover:bg-[#1e2d45]"
           >
             <MoreVertical size={14} />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-6 bg-white border border-slate-200 rounded-lg shadow-lg z-10 py-1 min-w-[120px]">
+            <div className="absolute right-0 top-6 bg-[#1a2335] border border-[#1e2d45] rounded-lg shadow-lg z-10 py-1 min-w-[120px]">
               <button
                 onClick={e => { e.stopPropagation(); setMenuOpen(false); onEdit(); }}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 w-full"
+                className="flex items-center gap-2 px-3 py-1.5 text-xs text-[#8aaac8] hover:bg-[#1e2d45] w-full"
               >
                 <Edit2 size={12} /> Edit
               </button>
               <button
                 onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete(); }}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 w-full"
+                className="flex items-center gap-2 px-3 py-1.5 text-xs text-[#e05c5c] hover:bg-[#2a0e0e] w-full"
               >
                 <Trash2 size={12} /> Delete
               </button>
@@ -93,16 +93,16 @@ function LeadCard({ lead, onView, onEdit, onDelete, onDragStart }: LeadCardProps
       </div>
 
       <div className="flex items-center gap-1 mt-1.5">
-        <MapPin size={11} className="text-slate-400 flex-shrink-0" />
-        <span className="text-xs text-slate-500 truncate">{lead.propertyAddress}</span>
+        <MapPin size={11} className="text-[#3a5070] flex-shrink-0" />
+        <span className="text-xs text-[#8aaac8] truncate">{lead.propertyAddress}</span>
       </div>
 
       {/* Scheduled call badge */}
       {hasUpcomingCall && (
-        <div className="mt-2 bg-teal-50 border border-teal-200 rounded-md px-2 py-1.5 space-y-1">
+        <div className="mt-2 bg-[#162035] border border-[#1e3a5a] rounded-md px-2 py-1.5 space-y-1">
           <div className="flex items-center gap-1.5">
-            <Clock size={11} className="text-teal-600 flex-shrink-0" />
-            <span className="text-xs text-teal-700 font-medium truncate">
+            <Clock size={11} className="text-[#4a90d9] flex-shrink-0" />
+            <span className="text-xs text-[#4a90d9] font-medium truncate">
               {formatCallTime(lead.scheduledCallAt!)}
             </span>
           </div>
@@ -112,7 +112,7 @@ function LeadCard({ lead, onView, onEdit, onDelete, onDragStart }: LeadCardProps
               target="_blank"
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
-              className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-800 hover:underline truncate"
+              className="flex items-center gap-1 text-xs text-[#4a90d9] hover:text-[#6ab0f5] hover:underline truncate"
             >
               <Video size={11} className="flex-shrink-0" /> Join Meeting
             </a>
@@ -121,30 +121,30 @@ function LeadCard({ lead, onView, onEdit, onDelete, onDragStart }: LeadCardProps
       )}
 
       <div className="flex items-center justify-between mt-2.5">
-        <div className="flex items-center gap-1 text-xs text-teal-700 font-medium">
+        <div className="flex items-center gap-1 text-xs text-[#4a90d9] font-medium">
           <DollarSign size={11} />
           {formatCurrency(lead.estimatedRevenue)}/mo
         </div>
-        <span className="text-xs text-slate-400">{timeAgo(lead.updatedAt)}</span>
+        <span className="text-xs text-[#3a5070]">{timeAgo(lead.updatedAt)}</span>
       </div>
 
-      <div className="flex items-center gap-1 mt-2 pt-2 border-t border-slate-200">
-        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{lead.propertyType}</span>
-        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{lead.bedrooms}BR</span>
+      <div className="flex items-center gap-1 mt-2 pt-2 border-t border-[#1e2d45]">
+        <span className="text-xs bg-[#1e2d45] text-[#8aaac8] px-2 py-0.5 rounded-full">{lead.propertyType}</span>
+        <span className="text-xs bg-[#1e2d45] text-[#8aaac8] px-2 py-0.5 rounded-full">{lead.bedrooms}BR</span>
       </div>
 
       {lead.notes && (
-        <p className="text-xs text-slate-400 mt-2 line-clamp-2">{lead.notes}</p>
+        <p className="text-xs text-[#3a5070] mt-2 line-clamp-2">{lead.notes}</p>
       )}
 
       <div className="flex gap-2 mt-2.5">
         {lead.phone && (
-          <a href={`tel:${lead.phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1 text-xs text-teal-600 hover:underline">
+          <a href={`tel:${lead.phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1 text-xs text-[#4a90d9] hover:underline">
             <Phone size={11} />{lead.phone}
           </a>
         )}
         {lead.email && !lead.phone && (
-          <a href={`mailto:${lead.email}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1 text-xs text-teal-600 hover:underline">
+          <a href={`mailto:${lead.email}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1 text-xs text-[#4a90d9] hover:underline">
             <Mail size={11} />{lead.email}
           </a>
         )}
@@ -188,16 +188,16 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="px-6 py-5 bg-white border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+      <div className="px-6 py-5 bg-[#1a2335] border-b border-[#1e2d45] flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Lead Pipeline</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="text-xl font-bold text-white">Lead Pipeline</h1>
+          <p className="text-sm text-[#8aaac8] mt-0.5">
             {activeLeads.length} active leads · {formatCurrency(totalPipelineValue)}/mo pipeline value
           </p>
         </div>
         <button
           onClick={() => onOpenLeadModal()}
-          className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
           <Plus size={16} /> Add Lead
         </button>
@@ -219,20 +219,20 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
                 onDragLeave={() => setDragOverStage(null)}
                 className={`
                   flex flex-col w-72 rounded-xl border transition-all duration-150
-                  ${isOver ? 'ring-2 ring-teal-400 border-teal-300 bg-teal-50' : `${stage.color} border-slate-200`}
+                  ${isOver ? 'ring-2 ring-[#4a90d9] border-[#4a90d9] bg-[#162035]' : `${stage.color} border-[#1e2d45]`}
                 `}
               >
                 {/* Column header */}
-                <div className="px-3.5 py-3 border-b border-slate-200/60">
+                <div className="px-3.5 py-3 border-b border-[#1e2d45]/60">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${stage.dot}`} />
-                    <span className="text-sm font-semibold text-slate-700">{stage.label}</span>
-                    <span className="ml-auto bg-white text-slate-500 text-xs font-medium px-1.5 py-0.5 rounded-full border border-slate-200">
+                    <span className="text-sm font-semibold text-[#8aaac8]">{stage.label}</span>
+                    <span className="ml-auto bg-[#1a2335] text-[#8aaac8] text-xs font-medium px-1.5 py-0.5 rounded-full border border-[#1e2d45]">
                       {stageLeads.length}
                     </span>
                   </div>
                   {stageLeads.length > 0 && (
-                    <p className="text-xs text-slate-400 mt-1">{formatCurrency(stageValue)}/mo</p>
+                    <p className="text-xs text-[#3a5070] mt-1">{formatCurrency(stageValue)}/mo</p>
                   )}
                 </div>
 
@@ -249,7 +249,7 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
                     />
                   ))}
                   {stageLeads.length === 0 && (
-                    <div className="text-center py-8 text-slate-400 text-xs">
+                    <div className="text-center py-8 text-[#3a5070] text-xs">
                       Drop leads here
                     </div>
                   )}

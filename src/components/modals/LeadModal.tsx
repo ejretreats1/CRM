@@ -83,70 +83,70 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Full Name *</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Full Name *</label>
             <input required value={form.name} onChange={e => set('name', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="e.g. John & Jane Doe" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Phone</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Phone</label>
             <input value={form.phone} onChange={e => set('phone', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="(615) 555-0000" />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Email</label>
           <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="owner@email.com" />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Property Address *</label>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Property Address *</label>
           <input required value={form.propertyAddress} onChange={e => set('propertyAddress', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
             placeholder="123 Mountain View Dr, Gatlinburg, TN" />
         </div>
 
         <div className="grid sm:grid-cols-4 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Property Type</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Property Type</label>
             <input value={form.propertyType} onChange={e => set('propertyType', e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="Cabin, Lake House..." />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Bedrooms</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Bedrooms</label>
             <input type="number" min={1} max={20} value={form.bedrooms} onChange={e => set('bedrooms', Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Bathrooms</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Bathrooms</label>
             <input type="number" min={1} max={20} step={0.5} value={form.bathrooms} onChange={e => set('bathrooms', Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Est. Revenue/mo ($)</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Est. Revenue/mo ($)</label>
             <input type="number" min={0} value={form.estimatedRevenue} onChange={e => set('estimatedRevenue', Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
               placeholder="5000" />
           </div>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Stage</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Stage</label>
             <select value={form.stage} onChange={e => set('stage', e.target.value as LeadStage)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]">
               {STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Source</label>
+            <label className="block text-xs font-medium text-[#8aaac8] mb-1">Source</label>
             <select value={form.source} onChange={e => set('source', e.target.value as LeadSource)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+              className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]">
               {SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
@@ -154,28 +154,28 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
 
         {/* Scheduled Call */}
         <div className="space-y-2">
-          <label className="block text-xs font-medium text-slate-600">
+          <label className="block text-xs font-medium text-[#8aaac8]">
             Schedule Call
-            <span className="ml-1 font-normal text-slate-400">— shows on dashboard calendar</span>
+            <span className="ml-1 font-normal text-[#3a5070]">— shows on dashboard calendar</span>
           </label>
           <input
             type="datetime-local"
             value={form.scheduledCallAt}
             onChange={e => set('scheduledCallAt', e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
           />
           <input
             type="url"
             value={form.scheduledCallLink}
             onChange={e => set('scheduledCallLink', e.target.value)}
             placeholder="Google Meet / Zoom link (optional)"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
           />
           {(form.scheduledCallAt || form.scheduledCallLink) && (
             <button
               type="button"
               onClick={() => { set('scheduledCallAt', ''); set('scheduledCallLink', ''); }}
-              className="text-xs text-red-400 hover:text-red-500"
+              className="text-xs text-[#e05c5c] hover:text-[#e05c5c]"
             >
               Clear scheduled call
             </button>
@@ -183,19 +183,19 @@ export default function LeadModal({ lead, onSave, onClose }: LeadModalProps) {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
+          <label className="block text-xs font-medium text-[#8aaac8] mb-1">Notes</label>
           <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] resize-none"
             placeholder="Add notes about this lead..." />
         </div>
 
         <div className="flex gap-3 pt-2">
           <button type="button" onClick={onClose}
-            className="flex-1 border border-slate-200 text-slate-600 text-sm font-medium py-2.5 rounded-lg hover:bg-slate-100 transition-colors">
+            className="flex-1 border border-[#1e2d45] text-[#8aaac8] text-sm font-medium py-2.5 rounded-lg hover:bg-[#1e2d45] transition-colors">
             Cancel
           </button>
           <button type="submit"
-            className="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
+            className="flex-1 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
             {lead ? 'Save Changes' : 'Add Lead'}
           </button>
         </div>

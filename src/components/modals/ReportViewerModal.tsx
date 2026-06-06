@@ -7,15 +7,15 @@ interface Props {
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  const color = score >= 7 ? 'bg-emerald-100 text-emerald-700' : score >= 4 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500';
+  const color = score >= 7 ? 'bg-[#0a2518] text-[#4ab57a]' : score >= 4 ? 'bg-[#2a1a0a] text-[#d0954a]' : 'bg-[#1e2d45] text-[#8aaac8]';
   return <span className={`text-sm font-bold px-2.5 py-1 rounded-full ${color}`}>{score}/10</span>;
 }
 
 function MetricBox({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className={`rounded-xl p-3 ${accent ? 'bg-teal-50' : 'bg-slate-50'}`}>
-      <p className={`text-xs mb-0.5 ${accent ? 'text-teal-600' : 'text-slate-500'}`}>{label}</p>
-      <p className={`text-lg font-bold ${accent ? 'text-teal-700' : 'text-slate-800'}`}>{value}</p>
+    <div className={`rounded-xl p-3 ${accent ? 'bg-[#162035]' : 'bg-[#1e2d45]'}`}>
+      <p className={`text-xs mb-0.5 ${accent ? 'text-[#4a90d9]' : 'text-[#8aaac8]'}`}>{label}</p>
+      <p className={`text-lg font-bold ${accent ? 'text-[#4a90d9]' : 'text-white'}`}>{value}</p>
     </div>
   );
 }
@@ -48,24 +48,24 @@ export default function ReportViewerModal({ report, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col"
+        className="bg-[#1a2335] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-100 flex-shrink-0">
+        <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-[#1e2d45] flex-shrink-0">
           <div className="flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isMtr ? 'bg-indigo-100 text-indigo-700' : 'bg-teal-100 text-teal-700'}`}>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isMtr ? 'bg-[#1a1a35] text-[#d07af5]' : 'bg-[#162035] text-[#4a90d9]'}`}>
                 {isMtr ? 'MTR' : 'STR'} Report
               </span>
               {opportunityScore != null && <ScoreBadge score={opportunityScore} />}
             </div>
-            <h2 className="font-bold text-slate-900 text-base leading-snug">{report.reportTitle ?? report.propertyAddress}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <h2 className="font-bold text-white text-base leading-snug">{report.reportTitle ?? report.propertyAddress}</h2>
+            <p className="text-xs text-[#3a5070] mt-0.5">
               {report.propertyAddress} · {new Date(report.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
             </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 flex-shrink-0 mt-0.5">
+          <button onClick={onClose} className="text-[#3a5070] hover:text-[#8aaac8] flex-shrink-0 mt-0.5">
             <X size={18} />
           </button>
         </div>
@@ -96,23 +96,23 @@ export default function ReportViewerModal({ report, onClose }: Props) {
             const projected = extracted?.projectedAnnualRevenue ?? mtrProjected?.annualRevenue ?? 0;
             const gap = projected - report.ownerActualRevenue!;
             return (
-              <div className={`rounded-xl p-4 ${gap > 0 ? 'bg-rose-50 border border-rose-100' : 'bg-emerald-50 border border-emerald-100'}`}>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Owner vs. Market</p>
+              <div className={`rounded-xl p-4 ${gap > 0 ? 'bg-[#2a0e0e] border border-rose-100' : 'bg-[#0a2518] border border-emerald-100'}`}>
+                <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Owner vs. Market</p>
                 <div className="flex items-center gap-4">
                   <div className="text-center">
-                    <p className="text-xs text-slate-400">Owner Reported</p>
-                    <p className="text-xl font-bold text-slate-800">{fmt(report.ownerActualRevenue)}</p>
+                    <p className="text-xs text-[#3a5070]">Owner Reported</p>
+                    <p className="text-xl font-bold text-white">{fmt(report.ownerActualRevenue)}</p>
                   </div>
-                  <ChevronRight size={16} className="text-slate-300" />
+                  <ChevronRight size={16} className="text-[#3a5070]" />
                   <div className="text-center">
-                    <p className="text-xs text-slate-400">{isMtr ? 'MTR' : 'AirDNA'} Projected</p>
-                    <p className="text-xl font-bold text-teal-700">{fmt(projected)}</p>
+                    <p className="text-xs text-[#3a5070]">{isMtr ? 'MTR' : 'AirDNA'} Projected</p>
+                    <p className="text-xl font-bold text-[#4a90d9]">{fmt(projected)}</p>
                   </div>
-                  <div className={`ml-auto text-sm font-bold ${gap > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                  <div className={`ml-auto text-sm font-bold ${gap > 0 ? 'text-rose-700' : 'text-[#4ab57a]'}`}>
                     {gap > 0 ? `-${fmt(gap)} gap` : `+${fmt(Math.abs(gap))} above`}
                   </div>
                 </div>
-                {report.ownerNotes && <p className="text-xs text-slate-500 mt-2 italic">{report.ownerNotes}</p>}
+                {report.ownerNotes && <p className="text-xs text-[#8aaac8] mt-2 italic">{report.ownerNotes}</p>}
               </div>
             );
           })()}
@@ -120,7 +120,7 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Revenue projections */}
           {revenueProjections && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"><TrendingUp size={12} /> Revenue Projections</p>
+              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2 flex items-center gap-1.5"><TrendingUp size={12} /> Revenue Projections</p>
               <div className="grid grid-cols-3 gap-2">
                 <MetricBox label="Conservative" value={fmt(revenueProjections.conservative)} />
                 <MetricBox label="Realistic" value={fmt(revenueProjections.realistic)} accent />
@@ -132,23 +132,23 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Executive summary */}
           {executiveSummary && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Executive Summary</p>
-              <p className="text-sm text-slate-700 leading-relaxed">{executiveSummary}</p>
+              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Executive Summary</p>
+              <p className="text-sm text-[#8aaac8] leading-relaxed">{executiveSummary}</p>
             </div>
           )}
 
           {/* Market opportunity */}
           {marketOpportunity && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Market Opportunity</p>
-              <p className="text-sm text-slate-700 leading-relaxed">{marketOpportunity}</p>
+              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Market Opportunity</p>
+              <p className="text-sm text-[#8aaac8] leading-relaxed">{marketOpportunity}</p>
             </div>
           )}
 
           {/* Performance gap */}
           {performanceGap && (
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">Performance Gap</p>
+            <div className="bg-[#2a1a0a] border border-amber-100 rounded-xl p-4">
+              <p className="text-xs font-semibold text-[#d0954a] uppercase tracking-wide mb-2">Performance Gap</p>
               <p className="text-sm text-amber-900 leading-relaxed">{performanceGap}</p>
             </div>
           )}
@@ -156,10 +156,10 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Key findings */}
           {keyFindings.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"><Star size={12} /> Key Findings</p>
+              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2 flex items-center gap-1.5"><Star size={12} /> Key Findings</p>
               <ul className="space-y-2">
                 {keyFindings.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                  <li key={i} className="flex items-start gap-2 text-sm text-[#8aaac8]">
                     <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0" />
                     {f}
                   </li>
@@ -171,12 +171,12 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Recommendations */}
           {recommendations.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Recommendations</p>
+              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Recommendations</p>
               <div className="space-y-2.5">
                 {recommendations.map((rec, i) => (
-                  <div key={i} className="bg-slate-50 rounded-xl p-3">
-                    <p className="text-sm font-semibold text-slate-800 mb-0.5">{i + 1}. {rec.title}</p>
-                    <p className="text-xs text-slate-600 leading-relaxed">{rec.description}</p>
+                  <div key={i} className="bg-[#1e2d45] rounded-xl p-3">
+                    <p className="text-sm font-semibold text-white mb-0.5">{i + 1}. {rec.title}</p>
+                    <p className="text-xs text-[#8aaac8] leading-relaxed">{rec.description}</p>
                   </div>
                 ))}
               </div>
@@ -185,24 +185,24 @@ export default function ReportViewerModal({ report, onClose }: Props) {
 
           {/* STR vs MTR comparison */}
           {isMtr && strVsMtr && (
-            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-              <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide mb-2">STR vs MTR</p>
+            <div className="bg-[#1a1a35] border border-indigo-100 rounded-xl p-4">
+              <p className="text-xs font-semibold text-[#d07af5] uppercase tracking-wide mb-2">STR vs MTR</p>
               <div className="flex gap-4 mb-2">
                 <div className="text-center">
-                  <p className="text-xs text-slate-400">STR Estimate</p>
-                  <p className="text-lg font-bold text-slate-700">{fmt(strVsMtr.strAnnualEstimate)}</p>
+                  <p className="text-xs text-[#3a5070]">STR Estimate</p>
+                  <p className="text-lg font-bold text-[#8aaac8]">{fmt(strVsMtr.strAnnualEstimate)}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xs text-slate-400">MTR Estimate</p>
-                  <p className="text-lg font-bold text-indigo-700">{fmt(strVsMtr.mtrAnnualEstimate)}</p>
+                  <p className="text-xs text-[#3a5070]">MTR Estimate</p>
+                  <p className="text-lg font-bold text-[#d07af5]">{fmt(strVsMtr.mtrAnnualEstimate)}</p>
                 </div>
                 <div className="ml-auto">
-                  <span className={`text-xs font-bold px-2 py-1 rounded-full ${strVsMtr.recommendation === 'mtr' ? 'bg-indigo-100 text-indigo-700' : strVsMtr.recommendation === 'str' ? 'bg-teal-100 text-teal-700' : 'bg-amber-100 text-amber-700'}`}>
+                  <span className={`text-xs font-bold px-2 py-1 rounded-full ${strVsMtr.recommendation === 'mtr' ? 'bg-[#1a1a35] text-[#d07af5]' : strVsMtr.recommendation === 'str' ? 'bg-[#162035] text-[#4a90d9]' : 'bg-[#2a1a0a] text-[#d0954a]'}`}>
                     Recommend: {strVsMtr.recommendation.toUpperCase()}
                   </span>
                 </div>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed">{strVsMtr.reasoning}</p>
+              <p className="text-xs text-[#8aaac8] leading-relaxed">{strVsMtr.reasoning}</p>
             </div>
           )}
 
@@ -210,15 +210,15 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {isMtr && mtrProjected && (
             <div className="grid grid-cols-2 gap-3">
               {mtrProjected.recommendedLeaseLength && (
-                <div className="bg-slate-50 rounded-xl p-3">
-                  <p className="text-xs text-slate-400 mb-0.5">Lease Length</p>
-                  <p className="text-sm font-semibold text-slate-800">{mtrProjected.recommendedLeaseLength}</p>
+                <div className="bg-[#1e2d45] rounded-xl p-3">
+                  <p className="text-xs text-[#3a5070] mb-0.5">Lease Length</p>
+                  <p className="text-sm font-semibold text-white">{mtrProjected.recommendedLeaseLength}</p>
                 </div>
               )}
               {mtrProjected.targetTenantProfile && (
-                <div className="bg-slate-50 rounded-xl p-3">
-                  <p className="text-xs text-slate-400 mb-0.5">Target Tenant</p>
-                  <p className="text-sm font-semibold text-slate-800">{mtrProjected.targetTenantProfile}</p>
+                <div className="bg-[#1e2d45] rounded-xl p-3">
+                  <p className="text-xs text-[#3a5070] mb-0.5">Target Tenant</p>
+                  <p className="text-sm font-semibold text-white">{mtrProjected.targetTenantProfile}</p>
                 </div>
               )}
             </div>
@@ -227,10 +227,10 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Recommended platforms */}
           {recommendedPlatforms.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Recommended Platforms</p>
+              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Recommended Platforms</p>
               <div className="flex flex-wrap gap-2">
                 {recommendedPlatforms.map((p, i) => (
-                  <span key={i} className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full">{p}</span>
+                  <span key={i} className="text-xs bg-[#1e2d45] text-[#8aaac8] px-2.5 py-1 rounded-full">{p}</span>
                 ))}
               </div>
             </div>
@@ -239,7 +239,7 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Monthly seasonality */}
           {seasonality.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"><BarChart2 size={12} /> Monthly Seasonality</p>
+              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2 flex items-center gap-1.5"><BarChart2 size={12} /> Monthly Seasonality</p>
               <div className="grid grid-cols-6 gap-1.5">
                 {seasonality.map((m, i) => {
                   const maxRev = Math.max(...seasonality.map(s => s.revenue ?? 0), 1);
@@ -249,8 +249,8 @@ export default function ReportViewerModal({ report, onClose }: Props) {
                       <div className="h-12 flex items-end justify-center mb-1">
                         <div className="w-6 bg-teal-400 rounded-t" style={{ height: `${Math.max(pct, 4)}%` }} />
                       </div>
-                      <p className="text-xs text-slate-400">{m.month?.slice(0, 3)}</p>
-                      {m.revenue != null && <p className="text-xs font-medium text-slate-600">${Math.round(m.revenue / 1000)}k</p>}
+                      <p className="text-xs text-[#3a5070]">{m.month?.slice(0, 3)}</p>
+                      {m.revenue != null && <p className="text-xs font-medium text-[#8aaac8]">${Math.round(m.revenue / 1000)}k</p>}
                     </div>
                   );
                 })}
@@ -261,12 +261,12 @@ export default function ReportViewerModal({ report, onClose }: Props) {
           {/* Comparables */}
           {comparables.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Comparable Properties</p>
+              <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide mb-2">Comparable Properties</p>
               <div className="space-y-1.5">
                 {comparables.map((c, i) => (
-                  <div key={i} className="flex items-center gap-3 bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-600">
+                  <div key={i} className="flex items-center gap-3 bg-[#1e2d45] rounded-lg px-3 py-2 text-xs text-[#8aaac8]">
                     {c.bedrooms != null && <span className="font-medium">{c.bedrooms}bd</span>}
-                    {c.annualRevenue != null && <span className="text-teal-700 font-semibold">{fmt(c.annualRevenue)}/yr</span>}
+                    {c.annualRevenue != null && <span className="text-[#4a90d9] font-semibold">{fmt(c.annualRevenue)}/yr</span>}
                     {c.occupancyRate != null && <span>{fmtPct(c.occupancyRate)} occ</span>}
                     {c.adr != null && <span>{fmt(c.adr)} ADR</span>}
                   </div>

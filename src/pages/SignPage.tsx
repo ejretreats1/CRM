@@ -60,8 +60,8 @@ export default function SignPage({ token }: SignPageProps) {
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <p className="text-slate-500 text-sm">Loading document...</p>
+      <div className="min-h-screen bg-[#1e2d45] flex items-center justify-center">
+        <p className="text-[#8aaac8] text-sm">Loading document...</p>
       </div>
     );
   }
@@ -81,7 +81,7 @@ export default function SignPage({ token }: SignPageProps) {
             href={sigReq.signedDocumentUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-4 inline-block bg-teal-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-teal-700 transition-colors"
+            className="mt-4 inline-block bg-[#4a90d9] text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-[#3a80c9] transition-colors"
           >
             Download Signed Document
           </a>
@@ -99,7 +99,7 @@ export default function SignPage({ token }: SignPageProps) {
             href={signedUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-4 inline-block bg-teal-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-teal-700 transition-colors"
+            className="mt-4 inline-block bg-[#4a90d9] text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-[#3a80c9] transition-colors"
           >
             Download Signed Document
           </a>
@@ -110,26 +110,26 @@ export default function SignPage({ token }: SignPageProps) {
 
   // ── Ready / Submitting ───────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-100 py-8 px-4">
+    <div className="min-h-screen bg-[#1e2d45] py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-teal-100 mb-3">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#162035] mb-3">
             <span className="text-2xl">📄</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Sign Document</h1>
-          <p className="text-slate-500 text-sm mt-1">E&amp;J Retreats — {sigReq?.documentName}</p>
+          <h1 className="text-2xl font-bold text-white">Sign Document</h1>
+          <p className="text-[#8aaac8] text-sm mt-1">E&amp;J Retreats — {sigReq?.documentName}</p>
         </div>
 
         {/* PDF Preview */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-700">{sigReq?.documentName}</span>
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] overflow-hidden">
+          <div className="px-5 py-3 border-b border-[#1e2d45] flex items-center justify-between">
+            <span className="text-sm font-medium text-[#8aaac8]">{sigReq?.documentName}</span>
             <a
               href={sigReq?.documentUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-teal-600 hover:underline"
+              className="text-xs text-[#4a90d9] hover:underline"
             >
               Open in new tab
             </a>
@@ -143,18 +143,18 @@ export default function SignPage({ token }: SignPageProps) {
         </div>
 
         {/* Signature pad */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5">
           <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-medium text-slate-700">Your Signature *</label>
+            <label className="text-sm font-medium text-[#8aaac8]">Your Signature *</label>
             <button
               type="button"
               onClick={handleClear}
-              className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+              className="text-xs text-[#3a5070] hover:text-[#e05c5c] transition-colors"
             >
               Clear
             </button>
           </div>
-          <div className="border-2 border-dashed border-slate-200 rounded-lg overflow-hidden bg-slate-100">
+          <div className="border-2 border-dashed border-[#1e2d45] rounded-lg overflow-hidden bg-[#1e2d45]">
             <SignatureCanvas
               ref={sigCanvasRef}
               penColor="#1e293b"
@@ -164,21 +164,21 @@ export default function SignPage({ token }: SignPageProps) {
               }}
             />
           </div>
-          <p className="text-xs text-slate-400 mt-2">Draw your signature above using your mouse or finger.</p>
+          <p className="text-xs text-[#3a5070] mt-2">Draw your signature above using your mouse or finger.</p>
           {errorMsg && (
-            <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg mt-3">{errorMsg}</p>
+            <p className="text-xs text-[#e05c5c] bg-[#2a0e0e] px-3 py-2 rounded-lg mt-3">{errorMsg}</p>
           )}
         </div>
 
         {/* Consent + Submit */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-          <p className="text-xs text-slate-500 leading-relaxed">
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-4">
+          <p className="text-xs text-[#8aaac8] leading-relaxed">
             By clicking "Sign Document", I agree that my electronic signature is the legal equivalent of my manual signature and that I have reviewed the document above.
           </p>
           <button
             onClick={handleSubmit}
             disabled={status === 'submitting'}
-            className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors"
+            className="w-full bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors"
           >
             {status === 'submitting' ? 'Submitting...' : 'Sign Document'}
           </button>
@@ -192,11 +192,11 @@ function StatusScreen({
   icon, title, message, children,
 }: { icon: string; title: string; message: string; children?: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center max-w-md w-full">
+    <div className="min-h-screen bg-[#1e2d45] flex items-center justify-center px-4">
+      <div className="bg-[#1a2335] rounded-2xl border border-[#1e2d45] p-10 text-center max-w-md w-full">
         <div className="text-5xl mb-4">{icon}</div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">{title}</h2>
-        <p className="text-sm text-slate-500">{message}</p>
+        <h2 className="text-xl font-bold text-white mb-2">{title}</h2>
+        <p className="text-sm text-[#8aaac8]">{message}</p>
         {children}
       </div>
     </div>

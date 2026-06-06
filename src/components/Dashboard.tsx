@@ -254,7 +254,7 @@ export default function Dashboard({
       value: `$${totalMonthlyRevenue.toLocaleString()}`,
       sub: `last 30 days · ${activePropertyCount} properties`,
       icon: TrendingUp,
-      color: 'bg-teal-600',
+      color: 'bg-[#4a90d9]',
       onClick: () => setShowRevenueBreakdown(true),
     },
     {
@@ -311,12 +311,12 @@ export default function Dashboard({
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="hidden sm:block text-slate-500 text-sm mt-0.5">Welcome back to E&amp;J Retreats CRM</p>
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <p className="hidden sm:block text-[#8aaac8] text-sm mt-0.5">Welcome back to E&amp;J Retreats CRM</p>
         </div>
         {uplistingConnected ? (
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
+            <div className="flex items-center gap-1.5 text-xs text-[#5ce0a0] bg-[#0a2518] border border-[#0a4a2a] px-3 py-1.5 rounded-full">
               <Wifi size={12} /> Live from Uplisting
               {lastSync && (
                 <span className="text-emerald-500 ml-1">
@@ -326,7 +326,7 @@ export default function Dashboard({
             </div>
             <button
               onClick={onSync}
-              className="p-1.5 rounded-full text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"
+              className="p-1.5 rounded-full text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#162035] transition-colors"
               title="Sync now"
             >
               <RefreshCw size={14} />
@@ -335,7 +335,7 @@ export default function Dashboard({
         ) : (
           <button
             onClick={() => onNavigate('settings')}
-            className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 hover:bg-teal-50 hover:text-teal-600 border border-slate-200 hover:border-teal-200 px-3 py-1.5 rounded-full transition-colors"
+            className="flex items-center gap-1.5 text-xs text-[#8aaac8] bg-[#1e2d45] hover:bg-[#162035] hover:text-[#4a90d9] border border-[#1e2d45] hover:border-[#1e3a5a] px-3 py-1.5 rounded-full transition-colors"
           >
             <WifiOff size={12} /> Connect Uplisting
           </button>
@@ -346,7 +346,7 @@ export default function Dashboard({
       {uncontactedNewLeads > 0 && (
         <button
           onClick={() => onNavigate('pipeline')}
-          className="w-full flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 hover:bg-amber-100 transition-colors text-left"
+          className="w-full flex items-center gap-3 bg-[#2a1a0a] border border-[#5a3010] rounded-xl px-4 py-3 hover:bg-[#2a1a0a] transition-colors text-left"
         >
           <div className="w-8 h-8 rounded-lg bg-amber-400 flex items-center justify-center flex-shrink-0">
             <Bell size={15} className="text-white" />
@@ -356,7 +356,7 @@ export default function Dashboard({
               ? "1 new lead hasn't been contacted yet"
               : `${uncontactedNewLeads} new leads haven't been contacted yet`}
           </p>
-          <ArrowRight size={14} className="text-amber-500 flex-shrink-0" />
+          <ArrowRight size={14} className="text-[#d0954a] flex-shrink-0" />
         </button>
       )}
 
@@ -369,22 +369,22 @@ export default function Dashboard({
               <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center mb-3`}>
                 <Icon size={18} className="text-white" />
               </div>
-              <div className="text-lg font-bold text-slate-900 sm:text-2xl truncate">{value}</div>
-              <div className="text-sm font-medium text-slate-700 mt-0.5">{label}</div>
-              <div className="text-xs text-slate-400 mt-0.5 truncate">{sub}</div>
-              {handler && <div className="text-xs text-teal-600 font-medium mt-2 flex items-center gap-0.5">View <ArrowRight size={11} /></div>}
+              <div className="text-lg font-bold text-white sm:text-2xl truncate">{value}</div>
+              <div className="text-sm font-medium text-[#8aaac8] mt-0.5">{label}</div>
+              <div className="text-xs text-[#3a5070] mt-0.5 truncate">{sub}</div>
+              {handler && <div className="text-xs text-[#4a90d9] font-medium mt-2 flex items-center gap-0.5">View <ArrowRight size={11} /></div>}
             </>
           );
           return handler ? (
             <button
               key={label}
               onClick={handler}
-              className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm text-left hover:border-teal-300 hover:shadow-md transition-all overflow-hidden"
+              className="bg-[#1a2335] rounded-xl p-4 border border-[#1e2d45] shadow-sm text-left hover:border-[#4a90d9] hover:shadow-md transition-all overflow-hidden"
             >
               {inner}
             </button>
           ) : (
-            <div key={label} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm overflow-hidden">
+            <div key={label} className="bg-[#1a2335] rounded-xl p-4 border border-[#1e2d45] shadow-sm overflow-hidden">
               {inner}
             </div>
           );
@@ -394,16 +394,16 @@ export default function Dashboard({
       {/* Calendar + Todos row */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Google Calendar Widget */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-            <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-              <CalendarDays size={16} className="text-teal-600" /> Upcoming Calls/Meetings
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-sm">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
+            <h2 className="font-semibold text-white flex items-center gap-2">
+              <CalendarDays size={16} className="text-[#4a90d9]" /> Upcoming Calls/Meetings
             </h2>
             <div className="flex items-center gap-3">
               {allEvents.length > 0 && (
                 <button
                   onClick={() => setShowWeekly(true)}
-                  className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
+                  className="flex items-center gap-1 text-xs text-[#4a90d9] hover:text-[#4a90d9] font-medium"
                 >
                   <CalendarRange size={13} /> View week
                 </button>
@@ -411,7 +411,7 @@ export default function Dashboard({
               {!calendarUrl && (
                 <button
                   onClick={() => onNavigate('settings')}
-                  className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+                  className="text-xs text-[#4a90d9] hover:text-[#4a90d9] font-medium"
                 >
                   Connect Calendar
                 </button>
@@ -422,31 +422,31 @@ export default function Dashboard({
           {!calendarUrl ? (
             <div className="px-5 py-8 text-center">
               <CalendarDays size={28} className="text-slate-200 mx-auto mb-2" />
-              <p className="text-sm text-slate-400">No calendar connected.</p>
+              <p className="text-sm text-[#3a5070]">No calendar connected.</p>
               <button
                 onClick={() => onNavigate('settings')}
-                className="mt-2 text-xs text-teal-600 hover:underline"
+                className="mt-2 text-xs text-[#4a90d9] hover:underline"
               >
                 Add your Google Calendar iCal URL in Settings
               </button>
             </div>
           ) : calLoading ? (
             <div className="px-5 py-8 text-center">
-              <p className="text-sm text-slate-400">Loading events...</p>
+              <p className="text-sm text-[#3a5070]">Loading events...</p>
             </div>
           ) : allEvents.length === 0 ? (
             <div className="px-5 py-8 text-center">
-              <p className="text-sm text-slate-400">No upcoming events.</p>
+              <p className="text-sm text-[#3a5070]">No upcoming events.</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-[#1e2d45]">
               {/* Next event — featured */}
               {nextEvent && (() => {
                 const { day, time, isToday, isTomorrow } = formatEventDate(nextEvent.start);
                 const eventDate = new Date(nextEvent.start.length === 10 ? nextEvent.start + 'T00:00:00' : nextEvent.start);
                 return (
                   <div
-                    className={`px-5 py-4 ${nextEvent.isCrmCall ? 'bg-blue-50/50 cursor-pointer hover:bg-blue-100/50' : 'bg-teal-50/40'} transition-colors`}
+                    className={`px-5 py-4 ${nextEvent.isCrmCall ? 'bg-[#162035]/50 cursor-pointer hover:bg-[#162035]/50' : 'bg-[#162035]/40'} transition-colors`}
                     onClick={() => {
                       if (nextEvent.isCrmCall && nextEvent.leadId) {
                         const lead = leads.find(l => l.id === nextEvent.leadId);
@@ -457,45 +457,45 @@ export default function Dashboard({
                     <div className="flex items-start gap-3">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-sm ${
                         nextEvent.isCrmCall
-                          ? 'bg-blue-100 text-blue-700 text-base'
-                          : `font-bold ${isToday ? 'bg-teal-600 text-white' : 'bg-teal-100 text-teal-700'}`
+                          ? 'bg-[#162035] text-[#6ab0f5] text-base'
+                          : `font-bold ${isToday ? 'bg-[#4a90d9] text-white' : 'bg-[#162035] text-[#4a90d9]'}`
                       }`}>
                         {nextEvent.isCrmCall ? '📞' : eventDate.getDate()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-slate-900 text-sm truncate">{nextEvent.title}</p>
+                          <p className="font-semibold text-white text-sm truncate">{nextEvent.title}</p>
                           {(isToday || isTomorrow) && (
                             <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                              isToday ? 'bg-teal-100 text-teal-700' : 'bg-amber-100 text-amber-700'
+                              isToday ? 'bg-[#162035] text-[#4a90d9]' : 'bg-[#2a1a0a] text-[#d0954a]'
                             }`}>
                               {isToday ? 'Today' : 'Tomorrow'}
                             </span>
                           )}
                           {nextEvent.isCrmCall && (
-                            <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700">
+                            <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-[#162035] text-[#6ab0f5]">
                               Scheduled Call
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">{day} · {time}</p>
+                        <p className="text-xs text-[#8aaac8] mt-0.5">{day} · {time}</p>
                         {nextEvent.isCrmCall && nextEvent.location && (
-                          <a href={`tel:${nextEvent.location}`} className="text-xs text-teal-600 mt-0.5 flex items-center gap-1 hover:underline">
+                          <a href={`tel:${nextEvent.location}`} className="text-xs text-[#4a90d9] mt-0.5 flex items-center gap-1 hover:underline">
                             <Phone size={10} /> {nextEvent.location}
                           </a>
                         )}
                         {nextEvent.meetLink && (
-                          <a href={nextEvent.meetLink} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-blue-600 mt-0.5 flex items-center gap-1 hover:underline font-medium">
+                          <a href={nextEvent.meetLink} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-[#6ab0f5] mt-0.5 flex items-center gap-1 hover:underline font-medium">
                             <Video size={10} /> Join Meeting
                           </a>
                         )}
                         {!nextEvent.isCrmCall && !nextEvent.meetLink && nextEvent.location && (
-                          <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                          <p className="text-xs text-[#3a5070] mt-0.5 flex items-center gap-1">
                             <MapPin size={10} /> {nextEvent.location}
                           </p>
                         )}
                         {!nextEvent.isCrmCall && nextEvent.description && (
-                          <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">{nextEvent.description}</p>
+                          <p className="text-xs text-[#3a5070] mt-1 line-clamp-2 leading-relaxed">{nextEvent.description}</p>
                         )}
                       </div>
                     </div>
@@ -510,7 +510,7 @@ export default function Dashboard({
                 return (
                   <div
                     key={event.id}
-                    className={`flex items-center gap-3 px-5 py-3 ${event.isCrmCall ? 'cursor-pointer hover:bg-slate-100' : ''} transition-colors`}
+                    className={`flex items-center gap-3 px-5 py-3 ${event.isCrmCall ? 'cursor-pointer hover:bg-[#1e2d45]' : ''} transition-colors`}
                     onClick={() => {
                       if (event.isCrmCall && event.leadId) {
                         const lead = leads.find(l => l.id === event.leadId);
@@ -519,13 +519,13 @@ export default function Dashboard({
                     }}
                   >
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs ${
-                      event.isCrmCall ? 'bg-blue-50 text-blue-500 text-sm' : 'bg-slate-100 text-slate-500 font-bold'
+                      event.isCrmCall ? 'bg-[#162035] text-blue-500 text-sm' : 'bg-[#1e2d45] text-[#8aaac8] font-bold'
                     }`}>
                       {event.isCrmCall ? '📞' : eventDate.getDate()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-700 truncate font-medium">{event.title}</p>
-                      <p className="text-xs text-slate-400">{day} · {time}</p>
+                      <p className="text-sm text-[#8aaac8] truncate font-medium">{event.title}</p>
+                      <p className="text-xs text-[#3a5070]">{day} · {time}</p>
                     </div>
                     {event.meetLink && (
                       <a
@@ -533,13 +533,13 @@ export default function Dashboard({
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={e => e.stopPropagation()}
-                        className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-full flex-shrink-0 font-medium transition-colors"
+                        className="flex items-center gap-1 text-xs text-[#6ab0f5] bg-[#162035] hover:bg-[#162035] px-2 py-1 rounded-full flex-shrink-0 font-medium transition-colors"
                       >
                         <Video size={10} /> Join
                       </a>
                     )}
                     {event.isCrmCall && !event.meetLink && (
-                      <span className="text-xs text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full flex-shrink-0">Call</span>
+                      <span className="text-xs text-blue-500 bg-[#162035] px-1.5 py-0.5 rounded-full flex-shrink-0">Call</span>
                     )}
                   </div>
                 );
@@ -555,20 +555,20 @@ export default function Dashboard({
           const ASSIGNEE_CYCLE: Array<'ethan' | 'jess' | 'va'> = ['ethan', 'jess', 'va'];
           return (
             <div
-              className="bg-white rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-teal-300 hover:shadow-md transition-all group"
+              className="bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-sm cursor-pointer hover:border-[#4a90d9] hover:shadow-md transition-all group"
               onClick={() => onNavigate('va-hub')}
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-                <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-                  <ListTodo size={16} className="text-teal-600" /> Team To-Do
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
+                <h2 className="font-semibold text-white flex items-center gap-2">
+                  <ListTodo size={16} className="text-[#4a90d9]" /> Team To-Do
                 </h2>
-                <span className="flex items-center gap-1 text-xs text-teal-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="flex items-center gap-1 text-xs text-[#4a90d9] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                   Open VA Hub <ArrowRight size={13} />
                 </span>
               </div>
 
               {/* Quick add — stop propagation so it doesn't navigate */}
-              <div className="px-4 py-2.5 border-b border-slate-200" onClick={e => e.stopPropagation()}>
+              <div className="px-4 py-2.5 border-b border-[#1e2d45]" onClick={e => e.stopPropagation()}>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setTodoAssignee(a => ASSIGNEE_CYCLE[(ASSIGNEE_CYCLE.indexOf(a) + 1) % 3])}
@@ -581,38 +581,38 @@ export default function Dashboard({
                     onChange={e => setNewTodoText(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleAddTodo(); }}
                     placeholder="Quick add task..."
-                    className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="flex-1 border border-[#1e2d45] rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                   />
                   <button
                     onClick={handleAddTodo}
                     disabled={!newTodoText.trim()}
-                    className="bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white px-2.5 py-1.5 rounded-lg transition-colors"
+                    className="bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-40 text-white px-2.5 py-1.5 rounded-lg transition-colors"
                   >
                     <Plus size={15} />
                   </button>
                 </div>
               </div>
 
-              <div className="divide-y divide-slate-200">
+              <div className="divide-y divide-[#1e2d45]">
                 {incompleteTodos.length === 0 && (
                   <div className="px-5 py-8 text-center">
                     <CheckSquare size={24} className="text-slate-200 mx-auto mb-2" />
-                    <p className="text-sm text-slate-400">All caught up! No pending tasks.</p>
+                    <p className="text-sm text-[#3a5070]">All caught up! No pending tasks.</p>
                   </div>
                 )}
                 {incompleteTodos.map(todo => (
                   <div
                     key={todo.id}
-                    className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors"
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-[#1e2d45] transition-colors"
                     onClick={e => e.stopPropagation()}
                   >
                     <button
                       onClick={() => onToggleTodo({ ...todo, completed: true, updatedAt: new Date().toISOString() })}
-                      className="flex-shrink-0 text-slate-300 hover:text-teal-600 transition-colors"
+                      className="flex-shrink-0 text-[#3a5070] hover:text-[#4a90d9] transition-colors"
                     >
                       <Square size={15} />
                     </button>
-                    <span className="flex-1 text-sm text-slate-700 truncate">{todo.text}</span>
+                    <span className="flex-1 text-sm text-[#8aaac8] truncate">{todo.text}</span>
                     {todo.assignedTo && (
                       <span className={`flex-shrink-0 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full ${ASSIGNEE_COLORS[todo.assignedTo]}`}>
                         {ASSIGNEE_LABELS[todo.assignedTo]}
@@ -621,7 +621,7 @@ export default function Dashboard({
                   </div>
                 ))}
                 {todos.filter(t => !t.completed).length > 6 && (
-                  <div className="px-5 py-2.5 text-center text-xs text-slate-400">
+                  <div className="px-5 py-2.5 text-center text-xs text-[#3a5070]">
                     +{todos.filter(t => !t.completed).length - 6} more in VA Hub
                   </div>
                 )}
@@ -634,35 +634,35 @@ export default function Dashboard({
       {/* Recent leads + outreach row */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Recent leads */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-            <h2 className="font-semibold text-slate-900">Recent Leads</h2>
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-sm">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
+            <h2 className="font-semibold text-white">Recent Leads</h2>
             <button
               onClick={() => onNavigate('pipeline')}
-              className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
+              className="flex items-center gap-1 text-xs text-[#4a90d9] hover:text-[#4a90d9] font-medium"
             >
               View pipeline <ArrowRight size={13} />
             </button>
           </div>
-          <div className="divide-y divide-slate-200">
+          <div className="divide-y divide-[#1e2d45]">
             {recentLeads.length === 0 && (
-              <p className="text-sm text-slate-400 text-center py-8">No leads yet.</p>
+              <p className="text-sm text-[#3a5070] text-center py-8">No leads yet.</p>
             )}
             {recentLeads.map(lead => (
               <div key={lead.id} className="flex items-center gap-3 px-5 py-3">
-                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-teal-700 font-semibold text-xs">{lead.name.charAt(0)}</span>
+                <div className="w-8 h-8 rounded-full bg-[#162035] flex items-center justify-center flex-shrink-0">
+                  <span className="text-[#4a90d9] font-semibold text-xs">{lead.name.charAt(0)}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">{lead.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{lead.propertyAddress}</p>
+                  <p className="text-sm font-medium text-white truncate">{lead.name}</p>
+                  <p className="text-xs text-[#3a5070] truncate">{lead.propertyAddress}</p>
                 </div>
                 <span className={`
                   text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0
-                  ${lead.stage === 'won' ? 'bg-emerald-100 text-emerald-700' :
-                    lead.stage === 'cold' ? 'bg-blue-100 text-blue-700' :
-                    lead.stage === 'contacted' ? 'bg-violet-100 text-violet-700' :
-                    'bg-teal-100 text-teal-700'}
+                  ${lead.stage === 'won' ? 'bg-[#0a2518] text-[#4ab57a]' :
+                    lead.stage === 'cold' ? 'bg-[#162035] text-[#6ab0f5]' :
+                    lead.stage === 'contacted' ? 'bg-violet-100 text-[#d07af5]' :
+                    'bg-[#162035] text-[#4a90d9]'}
                 `}>
                   {STAGE_LABELS[lead.stage]}
                 </span>
@@ -672,28 +672,28 @@ export default function Dashboard({
         </div>
 
         {/* Recent outreach */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-            <h2 className="font-semibold text-slate-900">Recent Outreach</h2>
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-sm">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
+            <h2 className="font-semibold text-white">Recent Outreach</h2>
             <button
               onClick={() => onNavigate('outreach')}
-              className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
+              className="flex items-center gap-1 text-xs text-[#4a90d9] hover:text-[#4a90d9] font-medium"
             >
               View all <ArrowRight size={13} />
             </button>
           </div>
-          <div className="divide-y divide-slate-200">
+          <div className="divide-y divide-[#1e2d45]">
             {recentOutreach.length === 0 && (
-              <p className="text-sm text-slate-400 text-center py-8">No outreach yet.</p>
+              <p className="text-sm text-[#3a5070] text-center py-8">No outreach yet.</p>
             )}
             {recentOutreach.map(entry => (
               <div key={entry.id} className="flex items-start gap-3 px-5 py-3">
                 <span className="text-base mt-0.5">{OUTREACH_TYPE_ICONS[entry.type]}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">{entry.subject}</p>
-                  <p className="text-xs text-slate-500 truncate">{entry.contactName}</p>
+                  <p className="text-sm font-medium text-white truncate">{entry.subject}</p>
+                  <p className="text-xs text-[#8aaac8] truncate">{entry.contactName}</p>
                 </div>
-                <div className="text-xs text-slate-400 flex-shrink-0">
+                <div className="text-xs text-[#3a5070] flex-shrink-0">
                   {new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </div>
               </div>
@@ -704,38 +704,38 @@ export default function Dashboard({
 
       {/* Live Uplisting properties */}
       {uplistingConnected && uplistingProperties.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-            <h2 className="font-semibold text-slate-900 flex items-center gap-2">
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-sm">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
+            <h2 className="font-semibold text-white flex items-center gap-2">
               <Wifi size={14} className="text-emerald-500" /> Live Properties
             </h2>
-            <span className="text-xs text-slate-400">{uplistingProperties.length} from Uplisting</span>
+            <span className="text-xs text-[#3a5070]">{uplistingProperties.length} from Uplisting</span>
           </div>
-          <div className="divide-y divide-slate-200">
+          <div className="divide-y divide-[#1e2d45]">
             {uplistingProperties.map(p => {
               const rev = estimateMonthlyRevenue(p.id, uplistingReservations);
               const occ = estimateOccupancy(p.id, uplistingReservations);
               return (
                 <div key={p.id} className="flex items-center gap-4 px-5 py-3.5">
-                  <div className="w-9 h-9 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
-                    <Home size={16} className="text-teal-600" />
+                  <div className="w-9 h-9 rounded-lg bg-[#162035] flex items-center justify-center flex-shrink-0">
+                    <Home size={16} className="text-[#4a90d9]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{p.name || p.address}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-sm font-medium text-white truncate">{p.name || p.address}</p>
+                    <p className="text-xs text-[#3a5070]">
                       {[p.city, p.state].filter(Boolean).join(', ')} · {p.bedrooms}bd · {p.property_type}
                     </p>
                     {p.channels && p.channels.length > 0 && (
                       <div className="flex gap-1 mt-0.5 flex-wrap">
                         {p.channels.map(c => (
-                          <span key={c} className="text-xs bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded">{c}</span>
+                          <span key={c} className="text-xs bg-[#162035] text-blue-500 px-1.5 py-0.5 rounded">{c}</span>
                         ))}
                       </div>
                     )}
                   </div>
                   <div className="text-right flex-shrink-0">
-                    {rev > 0 && <p className="text-sm font-semibold text-teal-700">${rev.toLocaleString()}/mo</p>}
-                    {occ > 0 && <p className="text-xs text-slate-400">{occ}% occ.</p>}
+                    {rev > 0 && <p className="text-sm font-semibold text-[#4a90d9]">${rev.toLocaleString()}/mo</p>}
+                    {occ > 0 && <p className="text-xs text-[#3a5070]">{occ}% occ.</p>}
                   </div>
                 </div>
               );
@@ -745,19 +745,19 @@ export default function Dashboard({
       )}
 
       {/* Portfolio overview */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-          <h2 className="font-semibold text-slate-900">Portfolio Overview</h2>
+      <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-sm">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
+          <h2 className="font-semibold text-white">Portfolio Overview</h2>
           <button
             onClick={() => onNavigate('owners')}
-            className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium"
+            className="flex items-center gap-1 text-xs text-[#4a90d9] hover:text-[#4a90d9] font-medium"
           >
             View owners <ArrowRight size={13} />
           </button>
         </div>
-        <div className="divide-y divide-slate-200">
+        <div className="divide-y divide-[#1e2d45]">
           {owners.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-8">No owners yet.</p>
+            <p className="text-sm text-[#3a5070] text-center py-8">No owners yet.</p>
           )}
           {owners.map(owner => {
             const rev = owner.properties.reduce((s, p) => s + p.monthlyRevenue, 0);
@@ -766,23 +766,23 @@ export default function Dashboard({
               <button
                 key={owner.id}
                 onClick={() => onNavigate('owner-detail', owner.id)}
-                className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-slate-100 text-left transition-colors"
+                className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-[#1e2d45] text-left transition-colors"
               >
-                <div className="w-9 h-9 rounded-full bg-teal-600 flex items-center justify-center flex-shrink-0">
+                <div className="w-9 h-9 rounded-full bg-[#4a90d9] flex items-center justify-center flex-shrink-0">
                   <span className="text-white font-semibold text-sm">{owner.name.charAt(0)}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">{owner.name}</p>
-                  <p className="text-xs text-slate-400 truncate">
+                  <p className="text-sm font-semibold text-white truncate">{owner.name}</p>
+                  <p className="text-xs text-[#3a5070] truncate">
                     {owner.properties.length} {owner.properties.length === 1 ? 'property' : 'properties'}
                     {activeProps.length > 0 && ` · ${activeProps.length} active`}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-semibold text-slate-900">${rev.toLocaleString()}</p>
-                  <p className="text-xs text-slate-400">/mo</p>
+                  <p className="text-sm font-semibold text-white">${rev.toLocaleString()}</p>
+                  <p className="text-xs text-[#3a5070]">/mo</p>
                 </div>
-                <Home size={14} className="text-slate-300 flex-shrink-0" />
+                <Home size={14} className="text-[#3a5070] flex-shrink-0" />
               </button>
             );
           })}
@@ -791,56 +791,56 @@ export default function Dashboard({
 
       {/* Slack Feed */}
       {(slackToken && slackChannels.length > 0) && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-slate-200 flex-wrap">
+        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-sm">
+          <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-[#1e2d45] flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
-              <Hash size={16} className="text-purple-500 flex-shrink-0" />
-              <h2 className="font-semibold text-slate-900">Slack Notifications</h2>
+              <Hash size={16} className="text-[#d07af5] flex-shrink-0" />
+              <h2 className="font-semibold text-white">Slack Notifications</h2>
               {slackChannels.map(ch => (
-                <span key={ch.id} className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium">
+                <span key={ch.id} className="text-xs bg-[#2a1a35] text-[#d07af5] px-1.5 py-0.5 rounded-full font-medium">
                   #{ch.name || ch.id}
                 </span>
               ))}
             </div>
-            <span className="text-xs text-slate-400 flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs text-[#3a5070] flex items-center gap-1.5 flex-shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
               Live · 60s
             </span>
           </div>
 
           {slackError ? (
-            <div className="px-5 py-4 text-sm text-red-500">{slackError}</div>
+            <div className="px-5 py-4 text-sm text-[#e05c5c]">{slackError}</div>
           ) : slackLoading && slackMessages.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm text-slate-400">Loading messages...</div>
+            <div className="px-5 py-8 text-center text-sm text-[#3a5070]">Loading messages...</div>
           ) : slackMessages.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm text-slate-400">No recent messages.</div>
+            <div className="px-5 py-8 text-center text-sm text-[#3a5070]">No recent messages.</div>
           ) : (
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-[#1e2d45]">
               {(slackExpanded ? slackMessages : slackMessages.slice(0, 5)).map(msg => {
                 const body = msg.text || msg.attachmentText;
                 if (!body) return null;
                 return (
                   <div key={`${msg.channelName}-${msg.ts}`} className="flex items-start gap-3 px-5 py-3.5">
-                    <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-xs font-bold text-purple-600">
+                    <div className="w-7 h-7 rounded-lg bg-[#2a1a35] flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-[#d07af5]">
                         {msg.username.charAt(0).toUpperCase()}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-700">{msg.username}</span>
+                        <span className="text-xs font-semibold text-[#8aaac8]">{msg.username}</span>
                         {slackChannels.length > 1 && (
-                          <span className="text-xs bg-purple-50 text-purple-500 px-1.5 py-0.5 rounded-full">
+                          <span className="text-xs bg-[#2a1a35] text-[#d07af5] px-1.5 py-0.5 rounded-full">
                             #{msg.channelName}
                           </span>
                         )}
-                        <span className="text-xs text-slate-400">{timeAgoShort(msg.ts)}</span>
+                        <span className="text-xs text-[#3a5070]">{timeAgoShort(msg.ts)}</span>
                       </div>
-                      <p className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap break-words">
+                      <p className="text-sm text-[#8aaac8] mt-0.5 whitespace-pre-wrap break-words">
                         {renderSlackText(body)}
                       </p>
                       {msg.text && msg.attachmentText && msg.text !== msg.attachmentText && (
-                        <p className="text-xs text-slate-400 mt-1 italic truncate">{renderSlackText(msg.attachmentText)}</p>
+                        <p className="text-xs text-[#3a5070] mt-1 italic truncate">{renderSlackText(msg.attachmentText)}</p>
                       )}
                     </div>
                   </div>
@@ -849,7 +849,7 @@ export default function Dashboard({
               {slackMessages.length > 5 && (
                 <button
                   onClick={() => setSlackExpanded(v => !v)}
-                  className="w-full py-3 text-xs font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors"
+                  className="w-full py-3 text-xs font-medium text-[#d07af5] hover:text-purple-700 hover:bg-[#2a1a35] transition-colors"
                 >
                   {slackExpanded ? 'Show less' : `Show ${slackMessages.length - 5} more messages`}
                 </button>
@@ -870,40 +870,40 @@ export default function Dashboard({
 
       {showRevenueBreakdown && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setShowRevenueBreakdown(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <div className="bg-[#1a2335] rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
               <div>
-                <h2 className="font-bold text-slate-900">Revenue Breakdown</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Last 30 days per client</p>
+                <h2 className="font-bold text-white">Revenue Breakdown</h2>
+                <p className="text-xs text-[#3a5070] mt-0.5">Last 30 days per client</p>
               </div>
-              <button onClick={() => setShowRevenueBreakdown(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
+              <button onClick={() => setShowRevenueBreakdown(false)} className="text-[#3a5070] hover:text-[#8aaac8] transition-colors p-1">
                 <X size={18} />
               </button>
             </div>
             <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
               {ownerRevenueBreakdown.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-10">No revenue data yet.</p>
+                <p className="text-sm text-[#3a5070] text-center py-10">No revenue data yet.</p>
               ) : ownerRevenueBreakdown.map(({ owner, rev, activeCount }) => (
                 <div key={owner.id} className="flex items-center gap-3 px-5 py-3.5">
-                  <div className="w-9 h-9 rounded-full bg-teal-600 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-[#4a90d9] flex items-center justify-center flex-shrink-0">
                     <span className="text-white font-semibold text-sm">{owner.name.charAt(0)}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{owner.name}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-sm font-semibold text-white">{owner.name}</p>
+                    <p className="text-xs text-[#3a5070]">
                       {activeCount} active {activeCount === 1 ? 'property' : 'properties'}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-semibold text-teal-700">${rev.toLocaleString()}</p>
-                    <p className="text-xs text-slate-400">last 30d</p>
+                    <p className="text-sm font-semibold text-[#4a90d9]">${rev.toLocaleString()}</p>
+                    <p className="text-xs text-[#3a5070]">last 30d</p>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="px-5 py-3.5 border-t border-slate-200 flex items-center justify-between bg-slate-50 rounded-b-2xl">
-              <span className="text-xs font-medium text-slate-500">Portfolio total</span>
-              <span className="text-sm font-bold text-slate-900">${totalMonthlyRevenue.toLocaleString()}</span>
+            <div className="px-5 py-3.5 border-t border-[#1e2d45] flex items-center justify-between bg-[#1e2d45] rounded-b-2xl">
+              <span className="text-xs font-medium text-[#8aaac8]">Portfolio total</span>
+              <span className="text-sm font-bold text-white">${totalMonthlyRevenue.toLocaleString()}</span>
             </div>
           </div>
         </div>

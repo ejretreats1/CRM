@@ -19,7 +19,7 @@ type Section = {
 
 const SECTIONS: Section[] = [
   {
-    id: 'access', label: 'Access & Entry', icon: Key, color: 'text-amber-600',
+    id: 'access', label: 'Access & Entry', icon: Key, color: 'text-[#d0954a]',
     fields: [
       { key: 'doorCode', label: 'Front door code' },
       { key: 'lockboxCode', label: 'Lockbox code' },
@@ -29,14 +29,14 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    id: 'wifi', label: 'WiFi', icon: Wifi, color: 'text-blue-600',
+    id: 'wifi', label: 'WiFi', icon: Wifi, color: 'text-[#6ab0f5]',
     fields: [
       { key: 'wifiNetwork', label: 'Network name (SSID)' },
       { key: 'wifiPassword', label: 'Password' },
     ],
   },
   {
-    id: 'checkinout', label: 'Check-in / Check-out', icon: Clock, color: 'text-teal-600',
+    id: 'checkinout', label: 'Check-in / Check-out', icon: Clock, color: 'text-[#4a90d9]',
     fields: [
       { key: 'checkInTime', label: 'Check-in time' },
       { key: 'checkOutTime', label: 'Check-out time' },
@@ -56,7 +56,7 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    id: 'trash', label: 'Trash & Recycling', icon: Trash2, color: 'text-green-600',
+    id: 'trash', label: 'Trash & Recycling', icon: Trash2, color: 'text-[#5ce0a0]',
     fields: [
       { key: 'trashPickupDays', label: 'Pickup day(s)' },
       { key: 'trashBinLocation', label: 'Bin location' },
@@ -64,7 +64,7 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    id: 'rules', label: 'House Rules', icon: ScrollText, color: 'text-rose-600',
+    id: 'rules', label: 'House Rules', icon: ScrollText, color: 'text-[#e05c5c]',
     fields: [
       { key: 'quietHours', label: 'Quiet hours' },
       { key: 'petPolicy', label: 'Pet policy' },
@@ -73,11 +73,11 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    id: 'appliances', label: 'Appliances & Quirks', icon: Wrench, color: 'text-slate-600',
+    id: 'appliances', label: 'Appliances & Quirks', icon: Wrench, color: 'text-[#8aaac8]',
     fields: [{ key: 'applianceNotes', label: 'Notes', multiline: true }],
   },
   {
-    id: 'general', label: 'General Notes', icon: FileText, color: 'text-slate-500',
+    id: 'general', label: 'General Notes', icon: FileText, color: 'text-[#8aaac8]',
     fields: [{ key: 'generalNotes', label: 'Notes', multiline: true }],
   },
 ];
@@ -124,16 +124,16 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
   const hasAnyInfo = populatedSections.length > 0;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+    <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
         <div className="flex items-center gap-2">
-          <FileText size={14} className="text-teal-600" />
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Property Info</p>
+          <FileText size={14} className="text-[#4a90d9]" />
+          <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">Property Info</p>
         </div>
         {!editing ? (
           <button
             onClick={startEdit}
-            className="flex items-center gap-1 text-xs text-slate-400 hover:text-teal-600 transition-colors"
+            className="flex items-center gap-1 text-xs text-[#3a5070] hover:text-[#4a90d9] transition-colors"
           >
             <Edit2 size={11} /> {hasAnyInfo ? 'Edit' : 'Add info'}
           </button>
@@ -142,13 +142,13 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
             <button
               onClick={save}
               disabled={saving}
-              className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium transition-colors"
+              className="flex items-center gap-1 text-xs text-[#4a90d9] hover:text-[#4a90d9] font-medium transition-colors"
             >
               <Check size={12} /> {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               onClick={() => setEditing(false)}
-              className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+              className="flex items-center gap-1 text-xs text-[#3a5070] hover:text-[#8aaac8] transition-colors"
             >
               <X size={12} /> Cancel
             </button>
@@ -164,33 +164,33 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
               <div key={section.id}>
                 <div className="flex items-center gap-1.5 mb-3">
                   <Icon size={13} className={section.color} />
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{section.label}</p>
+                  <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">{section.label}</p>
                 </div>
                 <div className="space-y-2.5">
                   {section.fields.map(({ key, label, multiline }) => (
                     <div key={key}>
-                      <label className="block text-xs text-slate-400 mb-1">{label}</label>
+                      <label className="block text-xs text-[#3a5070] mb-1">{label}</label>
                       <div className="relative">
                         {multiline ? (
                           <textarea
                             value={form[key] as string ?? ''}
                             onChange={e => set(key, e.target.value)}
                             rows={2}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#4a90d9] resize-none"
                           />
                         ) : (
                           <input
                             type={isSensitive(key) && !revealed.has(key) ? 'password' : 'text'}
                             value={form[key] as string ?? ''}
                             onChange={e => set(key, e.target.value)}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-2 pr-9 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
+                            className="w-full border border-[#1e2d45] rounded-lg px-3 py-2 pr-9 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#4a90d9] font-mono"
                           />
                         )}
                         {isSensitive(key) && !multiline && (
                           <button
                             type="button"
                             onClick={() => toggleReveal(key)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#3a5070] hover:text-[#8aaac8]"
                           >
                             {revealed.has(key) ? <EyeOff size={14} /> : <Eye size={14} />}
                           </button>
@@ -206,8 +206,8 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
       ) : !hasAnyInfo ? (
         <div className="px-5 py-10 text-center">
           <FileText size={28} className="text-slate-200 mx-auto mb-2" />
-          <p className="text-sm text-slate-400">No property info yet.</p>
-          <p className="text-xs text-slate-400 mt-0.5">Add door codes, WiFi, check-in instructions, and more.</p>
+          <p className="text-sm text-[#3a5070]">No property info yet.</p>
+          <p className="text-xs text-[#3a5070] mt-0.5">Add door codes, WiFi, check-in instructions, and more.</p>
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
@@ -218,23 +218,23 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
               <div key={section.id} className="px-5 py-4">
                 <div className="flex items-center gap-1.5 mb-3">
                   <Icon size={13} className={section.color} />
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{section.label}</p>
+                  <p className="text-xs font-semibold text-[#8aaac8] uppercase tracking-wide">{section.label}</p>
                 </div>
                 <div className="space-y-2">
                   {populated.map(({ key, label, multiline }) => (
                     <div key={key}>
-                      <p className="text-xs text-slate-400 mb-0.5">{label}</p>
+                      <p className="text-xs text-[#3a5070] mb-0.5">{label}</p>
                       {multiline ? (
-                        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{info[key] as string}</p>
+                        <p className="text-sm text-[#8aaac8] whitespace-pre-wrap leading-relaxed">{info[key] as string}</p>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <p className={`text-sm text-slate-800 ${isSensitive(key) && !revealed.has(key) ? 'font-mono tracking-widest text-slate-400 select-none' : 'font-mono'}`}>
+                          <p className={`text-sm text-white ${isSensitive(key) && !revealed.has(key) ? 'font-mono tracking-widest text-[#3a5070] select-none' : 'font-mono'}`}>
                             {isSensitive(key) && !revealed.has(key) ? '••••••••' : info[key] as string}
                           </p>
                           {isSensitive(key) && (
                             <button
                               onClick={() => toggleReveal(key)}
-                              className="text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0"
+                              className="text-[#3a5070] hover:text-[#8aaac8] transition-colors flex-shrink-0"
                             >
                               {revealed.has(key) ? <EyeOff size={13} /> : <Eye size={13} />}
                             </button>

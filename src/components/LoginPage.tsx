@@ -5,12 +5,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 to-slate-100 flex flex-col items-center justify-center p-4">
       <div className="mb-8 flex flex-col items-center gap-3">
-        <div className="w-14 h-14 rounded-2xl bg-teal-600 flex items-center justify-center shadow-lg">
+        <div className="w-14 h-14 rounded-2xl bg-[#4a90d9] flex items-center justify-center shadow-lg">
           <Building2 size={28} className="text-white" />
         </div>
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-900">E&J Retreats</h1>
-          <p className="text-sm text-slate-500 mt-0.5">CRM Portal</p>
+          <h1 className="text-2xl font-bold text-white">E&J Retreats</h1>
+          <p className="text-sm text-[#8aaac8] mt-0.5">CRM Portal</p>
         </div>
       </div>
 
@@ -18,12 +18,12 @@ export default function LoginPage() {
         appearance={{
           elements: {
             rootBox: 'w-full max-w-md',
-            card: 'shadow-xl border border-slate-200 rounded-2xl',
-            headerTitle: 'text-slate-900',
-            headerSubtitle: 'text-slate-500',
-            socialButtonsBlockButton: 'border border-slate-200 rounded-lg',
-            formButtonPrimary: 'bg-teal-600 hover:bg-teal-700 text-sm',
-            footerActionLink: 'text-teal-600 hover:text-teal-700',
+            card: 'shadow-xl border border-[#1e2d45] rounded-2xl',
+            headerTitle: 'text-white',
+            headerSubtitle: 'text-[#8aaac8]',
+            socialButtonsBlockButton: 'border border-[#1e2d45] rounded-lg',
+            formButtonPrimary: 'bg-[#4a90d9] hover:bg-[#3a80c9] text-sm',
+            footerActionLink: 'text-[#4a90d9] hover:text-[#4a90d9]',
           },
         }}
       />
