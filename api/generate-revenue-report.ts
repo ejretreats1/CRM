@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateText, Output } from 'ai';
-import { anthropic } from '@ai-sdk/anthropic';
+import { gateway } from '@ai-sdk/gateway';
 import { z } from 'zod';
 
 export const config = { maxDuration: 120 };
@@ -130,7 +130,7 @@ SEASONALITY & COMPARABLES (extract carefully from the PDF visuals):
 async function runGenerate(reportType: 'str' | 'mtr', prompt: string, pdfBase64: string) {
   const schema = reportType === 'mtr' ? MtrReportSchema : StrReportSchema;
   const { output } = await generateText({
-    model: anthropic('claude-sonnet-4-6'),
+    model: gateway('anthropic/claude-sonnet-4-6'),
     output: Output.object({ schema }),
     messages: [{
       role: 'user',
@@ -201,7 +201,7 @@ Revise the report to incorporate this. Update affected sections; keep unaffected
 ${globalRules}`;
 
       const { output } = await generateText({
-        model: anthropic('claude-sonnet-4-6'),
+        model: gateway('anthropic/claude-sonnet-4-6'),
         output: Output.object({ schema }),
         messages: [{ role: 'user', content: prompt }],
       });
@@ -270,7 +270,7 @@ Focus on gross revenue and ROI only. Write as if presenting to investors evaluat
       ];
 
       const { output } = await generateText({
-        model: anthropic('claude-sonnet-4-6'),
+        model: gateway('anthropic/claude-sonnet-4-6'),
         output: Output.object({ schema: DealReportSchema }),
         messages: [{ role: 'user', content }],
       });
@@ -322,7 +322,7 @@ Focus on gross revenue only. No operating expenses, NOI, or cap rate.
 Do not use em dashes.`;
 
       const { output } = await generateText({
-        model: anthropic('claude-sonnet-4-6'),
+        model: gateway('anthropic/claude-sonnet-4-6'),
         output: Output.object({ schema: DealScoreSchema }),
         messages: [{ role: 'user', content: scorePrompt }],
       });
