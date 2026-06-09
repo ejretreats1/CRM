@@ -22,6 +22,7 @@ import EmailTracking from './components/EmailTracking';
 import DealScanner from './components/DealScanner';
 import ShareView from './components/ShareView';
 import PortalView from './components/PortalView';
+import OwnerPortalPage from './components/OwnerPortalPage';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -443,6 +444,8 @@ export default function App() {
   if (shareId) return <ShareView reportId={shareId} />;
   const portalId = searchParams.get('portal');
   if (portalId) return <PortalView personId={portalId} />;
+  const ownerPortalToken = searchParams.get('owner-portal');
+  if (ownerPortalToken) return <OwnerPortalPage token={ownerPortalToken} />;
 
   if (!isLoaded) {
     return (

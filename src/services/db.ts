@@ -42,6 +42,7 @@ export async function fetchOwners(): Promise<Owner[]> {
     source: o.source,
     createdAt: o.created_at,
     vendors: (o.vendors as Vendor[] | null) ?? [],
+    portalToken: o.portal_token ?? undefined,
     properties: (propRows ?? [])
       .filter(p => p.owner_id === o.id)
       .map(rowToProperty),
@@ -58,8 +59,19 @@ export async function upsertOwner(owner: Owner): Promise<void> {
     source: owner.source,
     vendors: owner.vendors ?? [],
     created_at: owner.createdAt,
+    ...(owner.portalToken !== undefined ? { portal_token: owner.portalToken } : {}),
   });
   if (error) throw error;
+}
+
+export async function generateOwnerPortalToken(ownerId: string): Promise<string> {
+  const token = crypto.randomUUID();
+  const { error } = await supabase
+    .from('owners')
+    .update({ portal_token: token })
+    .eq('id', ownerId);
+  if (error) throw error;
+  return token;
 }
 
 export async function deleteOwner(id: string): Promise<void> {

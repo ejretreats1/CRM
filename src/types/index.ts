@@ -92,6 +92,7 @@ export interface Owner {
   source: LeadSource;
   createdAt: string;
   vendors?: Vendor[];
+  portalToken?: string;
 }
 
 export interface OutreachEntry {
