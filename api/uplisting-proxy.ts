@@ -1,4 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
+
+export const config = { maxDuration: 30 };
+
+const supabaseAdmin = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+);
 
 // ── Calendar helpers ──────────────────────────────────────────────
 
@@ -219,6 +227,85 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     const body = await upstream.text();
     return res.status(upstream.status).setHeader('Content-Type', 'application/json').send(body);
+  }
+
+  // ── Owner Portal ────────────────────────────────────────────────
+  if (service === 'owner-portal') {
+    res.setHeader('Cache-Control', 'private, no-cache');
+    const { token } = req.query;
+    if (!token || typeof token !== 'string') return res.status(400).json({ error: 'Missing token' });
+
+    const { data: ownerRow } = await supabaseAdmin
+      .from('owners')
+      .select('id, name, email, phone, notes')
+      .eq('portal_token', token)
+      .maybeSingle();
+    if (!ownerRow) return res.status(404).json({ error: 'Portal not found' });
+
+    const { data: propRows } = await supabaseAdmin
+      .from('properties')
+      .select('id, name, address, bedrooms, bathrooms, property_type')
+      .eq('owner_id', ownerRow.id);
+
+    const { data: settings } = await supabaseAdmin
+      .from('settings')
+      .select('uplisting_api_key')
+      .eq('id', 'default')
+      .maybeSingle();
+
+    const uplistingKey = settings?.uplisting_api_key ?? '';
+    const properties = propRows ?? [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let reservations: any[] = [];
+
+    if (uplistingKey) {
+      const uplistingIds = properties
+        .map((p: { id: string }) => {
+          const parts = p.id.split('_');
+          return parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
+        })
+        .filter(Boolean) as string[];
+
+      if (uplistingIds.length > 0) {
+        const from = new Date(); from.setMonth(from.getMonth() - 12);
+        const to   = new Date(); to.setMonth(to.getMonth() + 6);
+        const fromStr = from.toISOString().slice(0, 10);
+        const toStr   = to.toISOString().slice(0, 10);
+        const encoded = Buffer.from(uplistingKey.trim()).toString('base64');
+
+        await Promise.allSettled(
+          uplistingIds.map(async (upId: string) => {
+            try {
+              const r = await fetch(`https://connect.uplisting.io/bookings/${upId}?from=${fromStr}&to=${toStr}`, {
+                headers: { Authorization: `Basic ${encoded}`, Accept: 'application/json' },
+              });
+              if (!r.ok) return;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const data: any = await r.json();
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const raw: any[] = data?.bookings ?? data?.data ?? (Array.isArray(data) ? data : []);
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              reservations.push(...raw.map((b: any) => ({
+                id:                  b.id ?? b.uid ?? '',
+                listing_id:          upId,
+                guest_name:          b.guest_name ?? b.guestName ?? 'Guest',
+                guest_email:         b.guest_email ?? b.guestEmail ?? '',
+                check_in:            b.check_in   ?? b.checkIn   ?? b.arrival   ?? '',
+                check_out:           b.check_out  ?? b.checkOut  ?? b.departure ?? '',
+                total_price:         Number(b.total_price ?? b.totalPrice ?? b.amount ?? 0),
+                accommodation_total: b.accommodation_total ? Number(b.accommodation_total) : null,
+                cleaning_fee:        b.cleaning_fee ? Number(b.cleaning_fee) : null,
+                status:              b.status ?? 'confirmed',
+                channel:             b.channel ?? b.source ?? b.booking_source ?? '',
+                nights:              b.nights ?? b.duration ?? null,
+              })));
+            } catch { /* skip failed property */ }
+          })
+        );
+      }
+    }
+
+    return res.status(200).json({ owner: ownerRow, properties, reservations });
   }
 
   // ── Hostaway proxy ──────────────────────────────────────────────
