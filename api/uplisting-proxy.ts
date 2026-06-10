@@ -235,12 +235,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { token } = req.query;
     if (!token || typeof token !== 'string') return res.status(400).json({ error: 'Missing token' });
 
-    const { data: ownerRow } = await supabaseAdmin
+    const { data: ownerRow, error: ownerErr } = await supabaseAdmin
       .from('owners')
       .select('id, name, email, phone, notes')
       .eq('portal_token', token)
       .maybeSingle();
-    if (!ownerRow) return res.status(404).json({ error: 'Portal not found' });
+    if (ownerErr) return res.status(500).json({ error: `DB error: ${ownerErr.message}`, hint: ownerErr.hint ?? '' });
+    if (!ownerRow) return res.status(404).json({ error: 'Portal not found', debug: { tokenLength: token.length, serviceKeySet: !!process.env.SUPABASE_SERVICE_KEY } });
 
     const { data: propRows } = await supabaseAdmin
       .from('properties')
