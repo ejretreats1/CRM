@@ -63,5 +63,6 @@ export async function saveSettings(patch: Partial<AppSettings>): Promise<void> {
   if (patch.lastIntelResult !== undefined)   row.last_intel_result    = patch.lastIntelResult;
   if (patch.lastIntelAt !== undefined)       row.last_intel_at        = patch.lastIntelAt;
 
-  await supabase.from('settings').upsert(row);
+  const { error } = await supabase.from('settings').upsert(row);
+  if (error) throw new Error(error.message);
 }

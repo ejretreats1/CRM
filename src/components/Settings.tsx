@@ -76,13 +76,20 @@ export default function Settings({
   const [showPlKey, setShowPlKey] = useState(false);
   const [plSaved, setPlSaved] = useState(false);
   const [plSaving, setPlSaving] = useState(false);
+  const [plSaveError, setPlSaveError] = useState('');
 
   const handleSavePriceLabs = async () => {
     setPlSaving(true);
-    await onSavePriceLabsApiKey(plKeyInput.trim());
-    setPlSaving(false);
-    setPlSaved(true);
-    setTimeout(() => setPlSaved(false), 2000);
+    setPlSaveError('');
+    try {
+      await onSavePriceLabsApiKey(plKeyInput.trim());
+      setPlSaved(true);
+      setTimeout(() => setPlSaved(false), 2000);
+    } catch (e) {
+      setPlSaveError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setPlSaving(false);
+    }
   };
 
   // Team management
@@ -607,6 +614,7 @@ export default function Settings({
             </button>
           )}
         </div>
+        {plSaveError && <p className="text-xs text-[#e05c5c]">{plSaveError}</p>}
         <p className="text-xs text-[#3a5070]">In PriceLabs: Account → API → Generate API Key.</p>
       </div>
 
