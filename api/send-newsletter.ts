@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const body = req.body as {
-    action?: 'newsletter' | 'report' | 'quarterly' | 'calendar-intel';
+    action?: 'newsletter' | 'report' | 'quarterly' | 'calendar-intel' | 'lead-outreach';
     // newsletter fields
     subject?: string;
     html?: string;
@@ -46,6 +46,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     toName?: string;
     reportSubject?: string;
     reportHtml?: string;
+    // lead-outreach fields
+    fromName?: string;
+    replyTo?: string;
+    campaignId?: string;
+    emails?: Array<{ to: string; subject: string; html: string; recipientName: string; leadId: string }>;
   };
 
   const newsletterFrom = process.env.NEWSLETTER_FROM_EMAIL ?? 'E&J Retreats <hello@ejretreats.com>';
@@ -253,6 +258,43 @@ IMPORTANT:
       console.error('calendar-intel error:', err);
       return res.status(500).json({ error: err instanceof Error ? err.message : 'Analysis failed' });
     }
+  }
+
+  // ── LEAD OUTREACH ────────────────────────────────────────────────────────
+  if (body.action === 'lead-outreach') {
+    const { fromName, replyTo: outreachReplyTo, emails } = body;
+    if (!emails?.length) {
+      return res.status(400).json({ error: 'emails array required' });
+    }
+    const baseFrom = process.env.NEWSLETTER_FROM_EMAIL ?? 'E&J Retreats <hello@ejretreats.com>';
+    const fromEmail = baseFrom.match(/<([^>]+)>/)?.[1] ?? baseFrom;
+    const from = `${fromName || 'E&J Retreats'} <${fromEmail}>`;
+
+    let sent = 0;
+    let failed = 0;
+    const chunkSize = 100;
+    for (let i = 0; i < emails.length; i += chunkSize) {
+      const chunk = emails.slice(i, i + chunkSize);
+      const batch = chunk.map(e => ({
+        from,
+        to: e.to,
+        subject: e.subject,
+        html: e.html,
+        ...(outreachReplyTo && { reply_to: outreachReplyTo }),
+      }));
+      try {
+        const { data: bd } = await resend.batch.send(batch) as { data: Array<{ id: string }> | null; error: unknown };
+        sent += chunk.length;
+        if (bd?.length) {
+          const ids = bd.map(e => e.id).filter(Boolean);
+          await logEmails(ids, 'outreach', chunk.map(e => ({ email: e.to, name: e.recipientName })), chunk[0]?.subject ?? '');
+        }
+      } catch (err) {
+        console.error('Lead outreach batch error:', err);
+        failed += chunk.length;
+      }
+    }
+    return res.status(200).json({ sent, failed });
   }
 
   // ── NEWSLETTER BATCH ─────────────────────────────────────────────────────

@@ -109,7 +109,7 @@ export interface OutreachEntry {
   followUpDate?: string;
 }
 
-export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings' | 'va-hub' | 'drive' | 'revenue-reports' | 'listing-optimizer' | 'newsletter' | 'guest-marketing' | 'quarterly-reports' | 'properties' | 'property-portal' | 'calendar-intel' | 'email-tracking' | 'deal-scanner';
+export type View = 'dashboard' | 'pipeline' | 'owners' | 'owner-detail' | 'outreach' | 'settings' | 'va-hub' | 'drive' | 'revenue-reports' | 'listing-optimizer' | 'newsletter' | 'guest-marketing' | 'quarterly-reports' | 'properties' | 'property-portal' | 'calendar-intel' | 'email-tracking' | 'deal-scanner' | 'campaigns';
 
 export type DealStage = 'new' | 'analyzing' | 'sent_to_client' | 'client_interested' | 'offer_submitted' | 'under_contract' | 'closed' | 'passed';
 export type StrRegStatus = 'allowed' | 'permit_required' | 'restricted' | 'prohibited' | 'unknown';

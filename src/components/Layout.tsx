@@ -19,6 +19,7 @@ import {
   Brain,
   MoreHorizontal,
   ScanSearch,
+  Send,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -44,6 +45,7 @@ const navItems = [
   { id: 'quarterly-reports' as View,'label': 'Quarterly Reports',  icon: BarChart3 },
   { id: 'email-tracking' as View,   label: 'Email Tracking',       icon: MailOpen },
   { id: 'deal-scanner' as View,     label: 'Deal Scanner',         icon: ScanSearch },
+  { id: 'campaigns' as View,        label: 'Lead Campaigns',        icon: Send },
 ];
 
 // Bottom 4 tabs

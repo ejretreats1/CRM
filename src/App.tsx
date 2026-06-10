@@ -20,6 +20,7 @@ import PropertyPortal from './components/PropertyPortal';
 import CalendarIntelligence from './components/CalendarIntelligence';
 import EmailTracking from './components/EmailTracking';
 import DealScanner from './components/DealScanner';
+import LeadCampaigns from './components/LeadCampaigns';
 import ShareView from './components/ShareView';
 import PortalView from './components/PortalView';
 import OwnerPortalPage from './components/OwnerPortalPage';
@@ -646,6 +647,8 @@ export default function App() {
       {view === 'email-tracking' && <EmailTracking />}
 
       {view === 'deal-scanner' && <DealScanner />}
+
+      {view === 'campaigns' && <LeadCampaigns leads={leads} />}
 
       {modal?.type === 'lead-detail' && (
         <LeadDetailModal

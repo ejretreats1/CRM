@@ -271,6 +271,7 @@ const TYPE_LABELS: Record<EmailType, string> = {
   newsletter:  'Newsletter',
   quarterly:   'Quarterly Report',
   report:      'Revenue Report',
+  outreach:    'Lead Outreach',
   other:       'Other',
 };
 
@@ -280,6 +281,7 @@ const TYPE_COLORS: Record<EmailType, string> = {
   newsletter:  'bg-[#1a1535] text-[#d07af5]',
   quarterly:   'bg-[#2a1a0a] text-[#d0954a]',
   report:      'bg-[#162035] text-[#6ab0f5]',
+  outreach:    'bg-[#0a2518] text-[#4ab57a]',
   other:       'bg-[#1e2d45] text-[#b8d4f0]',
 };
 
