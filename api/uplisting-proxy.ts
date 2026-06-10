@@ -286,20 +286,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const raw: any[] = data?.bookings ?? data?.data ?? (Array.isArray(data) ? data : []);
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              reservations.push(...raw.map((b: any) => ({
-                id:                  b.id ?? b.uid ?? '',
-                listing_id:          upId,
-                guest_name:          b.guest_name ?? b.guestName ?? 'Guest',
-                guest_email:         b.guest_email ?? b.guestEmail ?? '',
-                check_in:            b.check_in   ?? b.checkIn   ?? b.arrival   ?? '',
-                check_out:           b.check_out  ?? b.checkOut  ?? b.departure ?? '',
-                total_price:         Number(b.total_price ?? b.totalPrice ?? b.amount ?? 0),
-                accommodation_total: b.accommodation_total ? Number(b.accommodation_total) : null,
-                cleaning_fee:        b.cleaning_fee ? Number(b.cleaning_fee) : null,
-                status:              b.status ?? 'confirmed',
-                channel:             b.channel ?? b.source ?? b.booking_source ?? '',
-                nights:              b.nights ?? b.duration ?? null,
-              })));
+              reservations.push(...raw.map((b: any) => {
+                const a = b.attributes ?? b; // Uplisting uses JSON:API format
+                return {
+                  id:                  String(b.id ?? a.id ?? ''),
+                  listing_id:          upId,
+                  guest_name:          a.guest_name ?? a.guest?.name ?? 'Guest',
+                  guest_email:         a.guest_email ?? a.guest?.email ?? '',
+                  check_in:            a.check_in   ?? a.start_date  ?? '',
+                  check_out:           a.check_out  ?? a.end_date    ?? '',
+                  total_price:         Number(a.total_payout ?? a.host_payout ?? a.total_price ?? a.amount ?? 0),
+                  accommodation_total: a.accommodation_total != null ? Number(a.accommodation_total) : null,
+                  cleaning_fee:        a.cleaning_fee        != null ? Number(a.cleaning_fee)        : null,
+                  status:              a.status ?? 'confirmed',
+                  channel:             a.channel ?? a.source ?? a.booking_source ?? '',
+                  nights:              Number(a.number_of_nights ?? a.nights ?? 0) || null,
+                };
+              }));
             } catch { /* skip failed property */ }
           })
         );

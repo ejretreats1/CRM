@@ -289,9 +289,32 @@ export default function OwnerPortalPage({ token }: { token: string }) {
               {data.properties.map(prop => {
                 const upId = prop.id.split('_').slice(2).join('_');
                 const propRes = data.reservations.filter(r => r.listing_id === upId && r.status !== 'cancelled');
-                const todayStr = toDateStr(new Date());
+                const now = new Date();
+                const todayStr = toDateStr(now);
                 const upcoming = propRes.filter(r => r.check_in > todayStr);
                 const current = propRes.find(r => r.check_in <= todayStr && r.check_out > todayStr);
+
+                // Per-property revenue (last 30 days)
+                const thirtyAgo = new Date(now); thirtyAgo.setDate(now.getDate() - 30);
+                const thirtyAgoStr = toDateStr(thirtyAgo);
+                const propRevenue30d = propRes
+                  .filter(r => r.check_in >= thirtyAgoStr && r.check_in <= todayStr)
+                  .reduce((s, r) => s + r.total_price, 0);
+
+                // Per-property YTD revenue
+                const ytdStart = `${now.getFullYear()}-01-01`;
+                const propRevenueYTD = propRes
+                  .filter(r => r.check_in >= ytdStart && r.check_in <= todayStr)
+                  .reduce((s, r) => s + r.total_price, 0);
+
+                // Per-property occupancy (last 30 days)
+                let bookedNights = 0;
+                for (let d = new Date(thirtyAgo); d < now; d.setDate(d.getDate() + 1)) {
+                  const ds = toDateStr(d);
+                  if (propRes.some(r => ds >= r.check_in.slice(0, 10) && ds < r.check_out.slice(0, 10))) bookedNights++;
+                }
+                const occupancy = Math.round((bookedNights / 30) * 100);
+
                 return (
                   <div key={prop.id} className="bg-[#1a2335] rounded-2xl border border-[#243550] overflow-hidden">
                     <div className="p-4 border-b border-[#243550]">
@@ -302,7 +325,7 @@ export default function OwnerPortalPage({ token }: { token: string }) {
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-white text-sm truncate">{prop.name || prop.address}</p>
                           <p className="text-xs text-[#b8d4f0] truncate mt-0.5">{prop.address}</p>
-                          <div className="flex items-center gap-2 mt-1.5">
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                             <span className="text-xs bg-[#243550] text-[#b8d4f0] px-2 py-0.5 rounded-full">{prop.bedrooms}BR</span>
                             {current
                               ? <span className="text-xs bg-[#2a1515] text-[#e05c5c] border border-[#5a2020] px-2 py-0.5 rounded-full">Occupied</span>
@@ -311,6 +334,22 @@ export default function OwnerPortalPage({ token }: { token: string }) {
                                 : <span className="text-xs bg-[#1e2d45] text-[#3a5070] px-2 py-0.5 rounded-full">Vacant</span>
                             }
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Per-property stats */}
+                      <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-[#1e2d45]">
+                        <div className="text-center">
+                          <div className="text-sm font-bold text-[#4ab57a]">{fmt(propRevenue30d)}</div>
+                          <div className="text-[9px] text-[#3a5070] mt-0.5">Last 30d</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm font-bold text-white">{fmt(propRevenueYTD)}</div>
+                          <div className="text-[9px] text-[#3a5070] mt-0.5">YTD Revenue</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm font-bold text-[#4a90d9]">{occupancy}%</div>
+                          <div className="text-[9px] text-[#3a5070] mt-0.5">Occupancy</div>
                         </div>
                       </div>
                     </div>
