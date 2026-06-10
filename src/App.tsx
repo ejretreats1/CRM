@@ -443,6 +443,11 @@ export default function App() {
     await upsertWarmupEntry(updated).catch(() => {});
   };
 
+  const handleWarmupUpdate = async (updated: WarmupEntry) => {
+    setWarmupEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
+    await upsertWarmupEntry(updated).catch(() => {});
+  };
+
   const warmupAddresses = warmupEntries
     .filter(e => e.status !== 'paused')
     .map(e => e.email);
@@ -693,6 +698,7 @@ export default function App() {
           onWarmupAdd={handleWarmupAdd}
           onWarmupRemove={handleWarmupRemove}
           onWarmupTogglePause={handleWarmupTogglePause}
+          onWarmupUpdate={handleWarmupUpdate}
         />
       )}
 

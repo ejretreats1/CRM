@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Mail, RefreshCw, MailOpen, MousePointer, AlertCircle, CheckCircle, Clock, Flame, Plus, Trash2, ShieldCheck, Info } from 'lucide-react';
+import { Mail, RefreshCw, MailOpen, MousePointer, AlertCircle, CheckCircle, Clock, Flame, Plus, Trash2, ShieldCheck, Info, X } from 'lucide-react';
 import { fetchEmailLogs } from '../services/emailTracking';
 import type { EmailLog, EmailType, EmailStatus } from '../services/emailTracking';
 import type { WarmupEntry } from '../services/warmup';
@@ -43,13 +43,15 @@ interface InboxWarmupProps {
   onAdd: (e: WarmupEntry) => void;
   onRemove: (id: string) => void;
   onTogglePause: (id: string) => void;
+  onUpdate: (e: WarmupEntry) => void;
 }
 
-function InboxWarmup({ entries, onAdd, onRemove, onTogglePause }: InboxWarmupProps) {
+function InboxWarmup({ entries, onAdd, onRemove, onTogglePause, onUpdate }: InboxWarmupProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newStart, setNewStart] = useState(() => new Date().toISOString().slice(0, 10));
+  const [seedInputs, setSeedInputs] = useState<Record<string, string>>({});
 
   function add() {
     if (!newEmail.trim()) return;
@@ -60,8 +62,21 @@ function InboxWarmup({ entries, onAdd, onRemove, onTogglePause }: InboxWarmupPro
       name: newName.trim(),
       startDate: newStart,
       status: days >= 42 ? 'ready' : 'warming',
+      seedEmails: [],
     });
     setNewEmail(''); setNewName(''); setShowAdd(false);
+  }
+
+  function addSeed(entry: WarmupEntry) {
+    const val = (seedInputs[entry.id] ?? '').trim().toLowerCase();
+    if (!val || !val.includes('@')) return;
+    if (entry.seedEmails.includes(val)) return;
+    onUpdate({ ...entry, seedEmails: [...entry.seedEmails, val] });
+    setSeedInputs(p => ({ ...p, [entry.id]: '' }));
+  }
+
+  function removeSeed(entry: WarmupEntry, seed: string) {
+    onUpdate({ ...entry, seedEmails: entry.seedEmails.filter(s => s !== seed) });
   }
 
   return (
@@ -190,8 +205,44 @@ function InboxWarmup({ entries, onAdd, onRemove, onTogglePause }: InboxWarmupPro
                     This address is warmed up. Send at full volume with confidence.
                   </p>
                 )}
+
+                {/* Seed addresses */}
+                <div className="mt-3 pt-3 border-t border-[#1e2d45]">
+                  <p className="text-xs font-medium text-[#b8d4f0] mb-1.5">
+                    Seed inboxes
+                    <span className="text-[#3a5070] font-normal ml-1">— warmup emails send here daily, open them to build reputation</span>
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {entry.seedEmails.map(seed => (
+                      <span key={seed} className="flex items-center gap-1 text-xs bg-[#1e2d45] text-[#b8d4f0] px-2 py-0.5 rounded-full">
+                        {seed}
+                        <button onClick={() => removeSeed(entry, seed)} className="text-[#3a5070] hover:text-[#e05c5c] transition-colors ml-0.5">
+                          <X size={10} />
+                        </button>
+                      </span>
+                    ))}
+                    {entry.seedEmails.length === 0 && (
+                      <span className="text-xs text-[#3a5070]">No seeds yet — add your personal inboxes below</span>
+                    )}
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      value={seedInputs[entry.id] ?? ''}
+                      onChange={e => setSeedInputs(p => ({ ...p, [entry.id]: e.target.value }))}
+                      onKeyDown={e => e.key === 'Enter' && addSeed(entry)}
+                      placeholder="your@gmail.com"
+                      className="flex-1 bg-[#0f1623] border border-[#1e2d45] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-[#3a5070] focus:outline-none focus:ring-1 focus:ring-[#4a90d9]"
+                    />
+                    <button
+                      onClick={() => addSeed(entry)}
+                      className="text-xs bg-[#1e2d45] hover:bg-[#243550] text-[#b8d4f0] px-2.5 py-1.5 rounded-lg transition-colors"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0 self-start">
                 {!isReady && (
                   <button
                     onClick={() => onTogglePause(entry.id)}
@@ -250,6 +301,7 @@ const TYPE_LABELS: Record<EmailType, string> = {
   quarterly:   'Quarterly Report',
   report:      'Revenue Report',
   outreach:    'Lead Outreach',
+  warmup:      'Inbox Warmup',
   other:       'Other',
 };
 
@@ -260,6 +312,7 @@ const TYPE_COLORS: Record<EmailType, string> = {
   quarterly:   'bg-[#2a1a0a] text-[#d0954a]',
   report:      'bg-[#162035] text-[#6ab0f5]',
   outreach:    'bg-[#0a2518] text-[#4ab57a]',
+  warmup:      'bg-[#2a1a05] text-orange-400',
   other:       'bg-[#1e2d45] text-[#b8d4f0]',
 };
 
@@ -326,9 +379,10 @@ interface EmailTrackingProps {
   onWarmupAdd: (e: WarmupEntry) => void;
   onWarmupRemove: (id: string) => void;
   onWarmupTogglePause: (id: string) => void;
+  onWarmupUpdate: (e: WarmupEntry) => void;
 }
 
-export default function EmailTracking({ warmupEntries, onWarmupAdd, onWarmupRemove, onWarmupTogglePause }: EmailTrackingProps) {
+export default function EmailTracking({ warmupEntries, onWarmupAdd, onWarmupRemove, onWarmupTogglePause, onWarmupUpdate }: EmailTrackingProps) {
   const [tab, setTab] = useState<'logs' | 'warmup'>('logs');
   const [logs, setLogs] = useState<EmailLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -413,6 +467,7 @@ export default function EmailTracking({ warmupEntries, onWarmupAdd, onWarmupRemo
           onAdd={onWarmupAdd}
           onRemove={onWarmupRemove}
           onTogglePause={onWarmupTogglePause}
+          onUpdate={onWarmupUpdate}
         />
       )}
       {tab === 'logs' && (<>

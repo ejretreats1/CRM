@@ -11,16 +11,18 @@ export interface WarmupEntry {
   name: string;
   startDate: string;
   status: 'warming' | 'ready' | 'paused';
+  seedEmails: string[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToEntry(r: any): WarmupEntry {
   return {
-    id:        r.id,
-    email:     r.email ?? '',
-    name:      r.name ?? '',
-    startDate: r.start_date ?? '',
-    status:    (r.status as WarmupEntry['status']) ?? 'warming',
+    id:         r.id,
+    email:      r.email ?? '',
+    name:       r.name ?? '',
+    startDate:  r.start_date ?? '',
+    status:     (r.status as WarmupEntry['status']) ?? 'warming',
+    seedEmails: Array.isArray(r.seed_emails) ? r.seed_emails as string[] : [],
   };
 }
 
@@ -35,11 +37,12 @@ export async function fetchWarmupEntries(): Promise<WarmupEntry[]> {
 
 export async function upsertWarmupEntry(e: WarmupEntry): Promise<void> {
   const { error } = await supabase.from('warmup_addresses').upsert({
-    id:         e.id,
-    email:      e.email,
-    name:       e.name,
-    start_date: e.startDate,
-    status:     e.status,
+    id:          e.id,
+    email:       e.email,
+    name:        e.name,
+    start_date:  e.startDate,
+    status:      e.status,
+    seed_emails: e.seedEmails ?? [],
   });
   if (error) throw error;
 }
