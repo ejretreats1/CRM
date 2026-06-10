@@ -1,15 +1,21 @@
 {
   "name": "E&J Retreats CRM",
-  "short_name": "E&J CRM",
-  "description": "CRM portal for E&J Retreats",
+  "short_name": "E&J Retreats",
+  "description": "Property management portal for E&J Retreats",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f1f5f9",
-  "theme_color": "#0f766e",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
   "icons": [
     {
-      "src": "/logo.png",
-      "sizes": "any",
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
