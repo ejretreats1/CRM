@@ -1,9 +1,22 @@
 import { useState, useMemo } from 'react';
-import { Search, Send, CheckSquare, Square, X, RefreshCw } from 'lucide-react';
+import { Search, Send, CheckSquare, Square, X, RefreshCw, Flame } from 'lucide-react';
 import type { UplistingReservation } from '../services/uplisting';
 import { fetchReservations } from '../services/uplisting';
 
-const HISTORY_KEY = 'ej_uplisting_history';
+const HISTORY_KEY    = 'ej_uplisting_history';
+const WARMUP_LS_KEY  = 'ej_warmup_addresses';
+
+function getWarmupAddresses(): string[] {
+  try {
+    const raw = localStorage.getItem(WARMUP_LS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((a: unknown) => (typeof a === 'string' ? a : (a as Record<string,string>)?.email ?? ''))
+      .filter(Boolean);
+  } catch { return []; }
+}
 
 function loadHistory(): UplistingReservation[] {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]'); } catch { return []; }
@@ -51,9 +64,12 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
   const [composing, setComposing] = useState(false);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [fromName, setFromName] = useState('E&J Retreats');
   const [sending, setSending] = useState(false);
   const [sentResult, setSentResult] = useState<{ sent: number; failed: number } | null>(null);
   const [sendError, setSendError] = useState('');
+  const [warmupAddrs] = useState<string[]>(() => getWarmupAddresses());
+  const [warmupCopies, setWarmupCopies] = useState(1);
   const [history, setHistory] = useState<UplistingReservation[]>(() => loadHistory());
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState('');
@@ -170,19 +186,54 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
     setSending(true);
     setSendError('');
     setSentResult(null);
-    const recipients = filtered
-      .filter(g => g.email && selected.has(g.email))
-      .map(g => ({ email: g.email, name: g.name }));
-    if (!recipients.length) { setSending(false); return; }
+
+    const selectedGuests = filtered.filter(g => g.email && selected.has(g.email));
+    if (!selectedGuests.length) { setSending(false); return; }
+
+    // Build personalized email per guest
+    const emails = [
+      ...selectedGuests.map(g => {
+        const firstName = g.name.split(' ')[0] || g.name;
+        const pSubject = subject.replace(/\{\{first_name\}\}/gi, firstName);
+        const pBody    = body.replace(/\{\{first_name\}\}/gi, firstName);
+        return {
+          to:            g.email,
+          subject:       pSubject,
+          html:          buildGuestEmailHtml(pBody, pSubject, fromName),
+          recipientName: g.name,
+          leadId:        g.email,
+        };
+      }),
+      // Warmup copies
+      ...(warmupCopies > 0 && warmupAddrs.length > 0
+        ? [...warmupAddrs].sort(() => Math.random() - 0.5)
+            .slice(0, Math.min(warmupCopies, warmupAddrs.length))
+            .map((addr, i) => ({
+              to:            addr,
+              subject,
+              html:          buildGuestEmailHtml(body.replace(/\{\{first_name\}\}/gi, 'there'), subject, fromName),
+              recipientName: 'Warmup',
+              leadId:        `warmup_${i}`,
+            }))
+        : []),
+    ];
+
     try {
       const res = await fetch('/api/send-newsletter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'newsletter', subject, html: bodyToHtml(body, subject), recipients }),
+        body: JSON.stringify({
+          action:     'lead-outreach',
+          fromName,
+          replyTo:    'ejretreats1@gmail.com',
+          campaignId: `guest_${Date.now()}`,
+          emails,
+        }),
       });
-      const data = await res.json();
+      const data = await res.json() as { sent?: number; failed?: number; error?: string };
       if (!res.ok) throw new Error(data.error ?? 'Send failed');
-      setSentResult({ sent: data.sent ?? recipients.length, failed: data.failed ?? 0 });
+      const warmupSent = warmupCopies > 0 && warmupAddrs.length > 0 ? Math.min(warmupCopies, warmupAddrs.length) : 0;
+      setSentResult({ sent: (data.sent ?? selectedGuests.length) - warmupSent, failed: data.failed ?? 0 });
       setComposing(false);
       setSubject('');
       setBody('');
@@ -381,13 +432,22 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
+                <label className="block text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5">From Name</label>
+                <input
+                  type="text"
+                  value={fromName}
+                  onChange={e => setFromName(e.target.value)}
+                  className="w-full bg-[#111d30] border border-[#243550] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
+                />
+              </div>
+              <div>
                 <label className="block text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5">Subject</label>
                 <input
                   type="text"
                   value={subject}
                   onChange={e => setSubject(e.target.value)}
-                  placeholder="e.g. Book directly with us and save!"
-                  className="w-full border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
+                  placeholder="{{first_name}}, book directly with us and save!"
+                  className="w-full bg-[#111d30] border border-[#243550] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]"
                 />
               </div>
               <div>
@@ -395,12 +455,36 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
                 <textarea
                   value={body}
                   onChange={e => setBody(e.target.value)}
-                  rows={12}
-                  placeholder={`Hi [guest name],\n\nThank you for staying with us! We'd love to have you back...\n\nBook directly at ejretreats.com for exclusive rates.\n\nBest,\nE&J Retreats`}
-                  className="w-full border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a90d9] font-mono resize-none"
+                  rows={10}
+                  placeholder={`Hi {{first_name}},\n\nThank you for staying with us! We'd love to have you back...\n\nBook directly at ejretreats.com for exclusive rates.\n\nBest,\nE&J Retreats`}
+                  className="w-full bg-[#111d30] border border-[#243550] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:ring-2 focus:ring-[#4a90d9] font-mono resize-none"
                 />
-                <p className="text-xs text-[#3a5070] mt-1.5">Plain text — line breaks are preserved in the email.</p>
+                <p className="text-xs text-[#3a5070] mt-1.5">
+                  Use <code className="text-[#4a90d9]">{'{{first_name}}'}</code> to personalize — each guest gets their own email, which boosts deliverability.
+                </p>
               </div>
+
+              {/* Warmup */}
+              {warmupAddrs.length > 0 && (
+                <div className="bg-[#1a2a20] border border-[#1e4530] rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Flame size={13} className="text-[#f0a940]" />
+                    <span className="text-xs font-semibold text-white">Warmup mixing</span>
+                    <span className="text-xs text-[#4ab57a] ml-1">{warmupAddrs.length} seed addresses</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-[#b8d4f0]">Warmup copies per send:</span>
+                    <select
+                      className="bg-[#111d30] border border-[#243550] rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+                      value={warmupCopies}
+                      onChange={e => setWarmupCopies(Number(e.target.value))}
+                    >
+                      {[0, 1, 2, 3, 5].map(n => <option key={n} value={n}>{n === 0 ? 'Off' : n}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+
               {sendError && <p className="text-sm text-[#e05c5c]">{sendError}</p>}
             </div>
             <div className="px-6 py-4 border-t border-[#1e2d45] flex justify-end gap-3">
@@ -413,7 +497,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
                 className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
               >
                 <Send size={14} />
-                {sending ? 'Sending...' : `Send to ${selected.size} guest${selected.size !== 1 ? 's' : ''}`}
+                {sending ? 'Sending…' : `Send to ${selected.size} guest${selected.size !== 1 ? 's' : ''}${warmupCopies > 0 && warmupAddrs.length > 0 ? ` + ${Math.min(warmupCopies, warmupAddrs.length)} warmup` : ''}`}
               </button>
             </div>
           </div>
@@ -423,16 +507,37 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
   );
 }
 
-function bodyToHtml(text: string, subject: string): string {
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\n/g, '<br>');
-  return `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#1e293b;">
-<h2 style="font-size:18px;font-weight:700;margin-bottom:20px;color:#0f172a;">${subject}</h2>
-<div style="font-size:15px;line-height:1.7;color:#334155;">${escaped}</div>
-<hr style="margin:32px 0;border:none;border-top:1px solid #e2e8f0;">
-<p style="font-size:12px;color:#94a3b8;">E&amp;J Retreats · <a href="https://ejretreats.com" style="color:#0d9488;">ejretreats.com</a></p>
+function buildGuestEmailHtml(bodyText: string, preheader: string, fromName: string): string {
+  const preview = preheader.replace(/<[^>]+>/g, '').slice(0, 120);
+  const paragraphs = bodyText.split(/\n{2,}/).filter(Boolean);
+  const bodyHtml = paragraphs
+    .map(p => {
+      const safe = p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#1a1a1a">${safe.replace(/\n/g, '<br>')}</p>`;
+    })
+    .join('');
+  return `<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="x-apple-disable-message-reformatting">
+  <title>${preview}</title>
+</head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%">
+<!-- Preheader (shows in inbox preview line) -->
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:#f8fafc;line-height:1px">${preview}&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;&nbsp;&#847;</div>
+<div style="max-width:560px;margin:0 auto;padding:24px 16px">
+  <div style="background:#ffffff;border-radius:8px;padding:36px 32px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.06)">
+    ${bodyHtml}
+    <hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0 20px">
+    <p style="margin:0;font-size:13px;color:#64748b;line-height:1.6">
+      — ${fromName.replace(/&/g, '&amp;')}<br>
+      <a href="https://ejretreats.com" style="color:#0d9488;text-decoration:none">ejretreats.com</a>
+    </p>
+  </div>
+  <p style="margin:16px 0 0;font-size:11px;color:#94a3b8;text-align:center;line-height:1.5">
+    You're receiving this because you've stayed with E&amp;J Retreats.
+  </p>
+</div>
 </body></html>`;
 }
