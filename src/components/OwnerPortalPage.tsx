@@ -262,18 +262,16 @@ export default function OwnerPortalPage({ token }: { token: string }) {
         {stats && stats.monthly.some(m => m.revenue > 0) && (
           <div className="bg-[#1a2335] rounded-2xl border border-[#243550] p-5">
             <h2 className="text-sm font-bold text-white mb-4">Monthly Revenue</h2>
-            <div className="flex items-end gap-2 h-24">
+            <div className="flex items-end gap-2" style={{ height: 100 }}>
               {stats.monthly.map((m, i) => {
-                const pct = maxMonthlyRev > 0 ? (m.revenue / maxMonthlyRev) * 100 : 0;
+                const barH = maxMonthlyRev > 0 ? Math.max((m.revenue / maxMonthlyRev) * 64, 2) : 2;
                 const isLast = i === stats.monthly.length - 1;
                 return (
                   <div key={m.label} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="text-[9px] text-[#3a5070] font-medium">{m.revenue > 0 ? fmt(m.revenue) : ''}</div>
-                    <div className="w-full rounded-t-sm transition-all" style={{
-                      height: `${Math.max(pct, 2)}%`,
-                      background: isLast ? '#4a90d9' : '#243550',
-                    }} />
-                    <div className={`text-[9px] font-semibold ${isLast ? 'text-[#4a90d9]' : 'text-[#3a5070]'}`}>{m.label}</div>
+                    <div className="text-[9px] text-[#3a5070] font-medium leading-none">{m.revenue > 0 ? fmt(m.revenue) : ''}</div>
+                    <div className="flex-1" />
+                    <div className="w-full rounded-t-sm" style={{ height: barH, background: isLast ? '#4a90d9' : '#243550' }} />
+                    <div className={`text-[9px] font-semibold leading-none ${isLast ? 'text-[#4a90d9]' : 'text-[#3a5070]'}`}>{m.label}</div>
                   </div>
                 );
               })}
