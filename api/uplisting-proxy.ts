@@ -245,7 +245,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: propRows } = await supabaseAdmin
       .from('properties')
-      .select('id, name, address, bedrooms, bathrooms, property_type')
+      .select('id, address, city, state, type, bedrooms, bathrooms')
       .eq('owner_id', ownerRow.id);
 
     const { data: settings } = await supabaseAdmin
@@ -306,7 +306,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    return res.status(200).json({ owner: ownerRow, properties, reservations });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mappedProperties = (properties as any[]).map((p: any) => ({
+      id: p.id,
+      address: p.address,
+      city: p.city,
+      state: p.state,
+      property_type: p.type,
+      bedrooms: p.bedrooms,
+      bathrooms: p.bathrooms,
+    }));
+
+    return res.status(200).json({ owner: ownerRow, properties: mappedProperties, reservations });
   }
 
   // ── Hostaway proxy ──────────────────────────────────────────────
