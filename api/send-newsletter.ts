@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const body = req.body as {
-    action?: 'newsletter' | 'report' | 'quarterly' | 'calendar-intel' | 'lead-outreach';
+    action?: 'newsletter' | 'report' | 'quarterly' | 'calendar-intel' | 'pricelabs-optimize' | 'lead-outreach';
     // newsletter fields
     subject?: string;
     html?: string;
@@ -256,6 +256,92 @@ IMPORTANT:
       return res.status(200).json(output);
     } catch (err) {
       console.error('calendar-intel error:', err);
+      return res.status(500).json({ error: err instanceof Error ? err.message : 'Analysis failed' });
+    }
+  }
+
+  // ── PRICELABS OPTIMIZER ──────────────────────────────────────────────────
+  if (body.action === 'pricelabs-optimize') {
+    const { property, reservationStats, plListing } = body as {
+      property: {
+        address: string; city: string; state: string; type: string;
+        bedrooms: number; bathrooms: number; maxGuests: number;
+        monthlyRevenue: number; occupancyRate: number; platforms: string[];
+      };
+      reservationStats: {
+        totalReservations: number; avgNights: number; avgNightlyRate: number;
+        weekendPct: number; peakMonth: string; slowMonth: string;
+        last12MonthRevenue: number; avgBookingWindow: number;
+      };
+      plListing?: Record<string, unknown>;
+    };
+    if (!property) return res.status(400).json({ error: 'property required' });
+
+    const SettingSchema = z.object({
+      setting:     z.string(),
+      value:       z.string(),
+      priority:    z.enum(['high', 'medium', 'low']),
+      why:         z.string(),
+    });
+    const CategorySchema = z.object({
+      category: z.string(),
+      settings: z.array(SettingSchema),
+    });
+    const OutputSchema = z.object({
+      summary:         z.string(),
+      estimatedImpact: z.string(),
+      categories:      z.array(CategorySchema),
+    });
+
+    const plSection = plListing
+      ? `\nCURRENT PRICELABS LISTING DATA:\n${JSON.stringify(plListing, null, 2)}\n`
+      : '\n(No current PriceLabs data available — recommend settings from scratch)\n';
+
+    const prompt = `You are a PriceLabs expert and short-term rental revenue consultant. Analyze this property and provide exact, specific PriceLabs settings that will maximize annual revenue.
+
+PROPERTY:
+- Address: ${property.address}, ${property.city}, ${property.state}
+- Type: ${property.type} | ${property.bedrooms}BR / ${property.bathrooms}BA | Max ${property.maxGuests} guests
+- Platforms: ${property.platforms.join(', ') || 'unknown'}
+- Current monthly revenue: $${property.monthlyRevenue.toLocaleString()}
+- Current occupancy: ${property.occupancyRate}%
+
+RESERVATION HISTORY:
+- Total reservations analyzed: ${reservationStats?.totalReservations ?? 'N/A'}
+- Average stay length: ${reservationStats?.avgNights?.toFixed(1) ?? 'N/A'} nights
+- Average nightly rate: $${reservationStats?.avgNightlyRate?.toFixed(0) ?? 'N/A'}
+- Average booking window: ${reservationStats?.avgBookingWindow?.toFixed(0) ?? 'N/A'} days in advance
+- Weekend bookings: ${reservationStats?.weekendPct?.toFixed(0) ?? 'N/A'}% of total
+- Peak month: ${reservationStats?.peakMonth ?? 'N/A'}
+- Slowest month: ${reservationStats?.slowMonth ?? 'N/A'}
+- Trailing 12-month revenue: $${reservationStats?.last12MonthRevenue?.toLocaleString() ?? 'N/A'}
+${plSection}
+
+Provide specific PriceLabs settings across these exact categories. Use real dollar amounts, real percentages, real day counts — not ranges, not "consider". Be prescriptive.
+
+CATEGORIES TO COVER:
+1. "Base Pricing" — base price, min price, max price (actual $ values based on their avg nightly rate and market)
+2. "Minimum Stay Rules" — global min nights, weekend min nights, peak season min nights, orphan day exception
+3. "Last Minute Pricing" — 0–2 days: discount %, 3–7 days: discount %, 8–14 days: discount %
+4. "Far Future Pricing" — 90+ days: premium %, 60–90 days: premium %
+5. "Day of Week Adjustments" — Mon/Tue adjustment %, Wed/Thu adjustment %, Fri/Sat adjustment %, Sun adjustment %
+6. "Seasonal Multipliers" — list the 3 highest-demand months with premium % and 3 slowest with discount %
+7. "Orphan Day Gap Fill" — enable/disable, gap fill discount %, min gap size to fill
+8. "Health Score Optimizations" — 2–3 other specific PriceLabs settings to improve their score
+
+For each setting include: the exact PriceLabs UI label as "setting", the specific value as "value", priority (high/medium/low), and a one-sentence "why" referencing their actual data.
+
+Write a 2-sentence "summary" of the overall pricing strategy and a specific "estimatedImpact" sentence (e.g. "Optimizing these settings could increase annual revenue by 18–25% based on your current $X avg nightly rate and Y% occupancy gap").`;
+
+    try {
+      const { output } = await generateText({
+        model: gateway('anthropic/claude-sonnet-4-6'),
+        output: Output.object({ schema: OutputSchema }),
+        messages: [{ role: 'user', content: prompt }],
+      });
+      return res.status(200).json(output);
+    } catch (err) {
+      console.error('pricelabs-optimize error:', err);
       return res.status(500).json({ error: err instanceof Error ? err.message : 'Analysis failed' });
     }
   }
