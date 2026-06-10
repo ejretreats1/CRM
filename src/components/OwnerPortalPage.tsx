@@ -132,7 +132,7 @@ export default function OwnerPortalPage({ token }: { token: string }) {
   }, []);
 
   useEffect(() => {
-    fetch(`/api/owner-portal?token=${encodeURIComponent(token)}`)
+    fetch(`/api/uplisting-proxy?service=owner-portal&token=${encodeURIComponent(token)}`)
       .then(r => r.json())
       .then(d => { if (d.error) setError(d.error); else setData(d); })
       .catch(() => setError('Failed to load portal. Please try again.'))
