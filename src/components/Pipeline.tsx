@@ -1,12 +1,14 @@
-import { useState, useRef } from 'react';
-import { Plus, Phone, Mail, MapPin, DollarSign, MoreVertical, Trash2, Edit2, Clock, Video } from 'lucide-react';
+import { useState, useRef, useMemo } from 'react';
+import { Plus, Phone, Mail, MapPin, DollarSign, MoreVertical, Trash2, Edit2, Clock, Video, Upload } from 'lucide-react';
 import type { Lead, LeadStage } from '../types';
+import LeadImportModal from './modals/LeadImportModal';
 
 interface PipelineProps {
   leads: Lead[];
   onUpdateLeads: (leads: Lead[]) => void;
   onOpenLeadModal: (lead?: Lead) => void;
   onOpenLeadDetail: (lead: Lead) => void;
+  onImportLeads: (leads: Lead[]) => Promise<void>;
 }
 
 const STAGES: {
@@ -198,9 +200,15 @@ function LeadCard({ lead, onView, onEdit, onDelete, onDragStart }: LeadCardProps
   );
 }
 
-export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpenLeadDetail }: PipelineProps) {
+export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpenLeadDetail, onImportLeads }: PipelineProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<LeadStage | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const existingEmails = useMemo(
+    () => new Set(leads.map(l => l.email.toLowerCase()).filter(Boolean)),
+    [leads],
+  );
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedId(id);
@@ -231,6 +239,7 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
   const totalPipelineValue = activeLeads.reduce((s, l) => s + l.estimatedRevenue, 0);
 
   return (
+    <>
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="px-6 py-5 bg-[#1a2335] border-b border-[#1e2d45] flex items-center justify-between flex-shrink-0">
@@ -240,12 +249,20 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
             {activeLeads.length} active leads · <span className="text-[#4a90d9] font-semibold">{formatCurrency(totalPipelineValue)}/mo</span> pipeline value
           </p>
         </div>
-        <button
-          onClick={() => onOpenLeadModal()}
-          className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-lg shadow-[#4a90d9]/20"
-        >
-          <Plus size={16} /> Add Lead
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2 bg-[#1e2d45] hover:bg-[#243550] text-[#b8d4f0] text-sm font-semibold px-4 py-2 rounded-lg transition-colors border border-[#243550]"
+          >
+            <Upload size={15} /> Import
+          </button>
+          <button
+            onClick={() => onOpenLeadModal()}
+            className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shadow-lg shadow-[#4a90d9]/20"
+          >
+            <Plus size={16} /> Add Lead
+          </button>
+        </div>
       </div>
 
       {/* Kanban board */}
@@ -314,5 +331,14 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
         </div>
       </div>
     </div>
+
+    {importOpen && (
+      <LeadImportModal
+        existingEmails={existingEmails}
+        onImport={onImportLeads}
+        onClose={() => setImportOpen(false)}
+      />
+    )}
+    </>
   );
 }

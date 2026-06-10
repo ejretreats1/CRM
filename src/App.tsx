@@ -410,6 +410,12 @@ export default function App() {
     setTodos(prev => prev.filter(t => t.id !== id));
   };
 
+  // Bulk import
+  const importLeadsHandler = async (newLeads: Lead[]) => {
+    await Promise.all(newLeads.map(upsertLead));
+    setLeads(prev => [...newLeads, ...prev]);
+  };
+
   // Bulk handlers
   const updateLeadsHandler = async (updated: Lead[]) => {
     const deleted = leads.filter(l => !updated.find(u => u.id === l.id));
@@ -502,6 +508,7 @@ export default function App() {
           onUpdateLeads={updateLeadsHandler}
           onOpenLeadModal={(lead) => setModal({ type: 'lead', lead })}
           onOpenLeadDetail={(lead) => setModal({ type: 'lead-detail', lead })}
+          onImportLeads={importLeadsHandler}
         />
       )}
 
