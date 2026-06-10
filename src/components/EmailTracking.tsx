@@ -2,18 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { Mail, RefreshCw, MailOpen, MousePointer, AlertCircle, CheckCircle, Clock, Flame, Plus, Trash2, ShieldCheck, Info } from 'lucide-react';
 import { fetchEmailLogs } from '../services/emailTracking';
 import type { EmailLog, EmailType, EmailStatus } from '../services/emailTracking';
+import type { WarmupEntry } from '../services/warmup';
 
 // ── Inbox Warm-up ────────────────────────────────────────────────────────────
-
-interface WarmupEntry {
-  id: string;
-  email: string;
-  name: string;
-  startDate: string;
-  status: 'warming' | 'ready' | 'paused';
-}
-
-const WARMUP_KEY = 'ej_warmup_addresses';
 
 const SCHEDULE = [
   { label: 'Week 1', days: [1,7],   range: '10–15 / day' },
@@ -47,43 +38,30 @@ const TIPS = [
   { icon: Info, text: 'Engage your list: ask recipients to reply or add you to contacts in early sends.' },
 ];
 
-function InboxWarmup() {
-  const [entries, setEntries] = useState<WarmupEntry[]>(() => {
-    try { return JSON.parse(localStorage.getItem(WARMUP_KEY) ?? '[]'); } catch { return []; }
-  });
+interface InboxWarmupProps {
+  entries: WarmupEntry[];
+  onAdd: (e: WarmupEntry) => void;
+  onRemove: (id: string) => void;
+  onTogglePause: (id: string) => void;
+}
+
+function InboxWarmup({ entries, onAdd, onRemove, onTogglePause }: InboxWarmupProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newStart, setNewStart] = useState(() => new Date().toISOString().slice(0, 10));
 
-  function save(next: WarmupEntry[]) {
-    setEntries(next);
-    localStorage.setItem(WARMUP_KEY, JSON.stringify(next));
-  }
-
   function add() {
     if (!newEmail.trim()) return;
     const days = daysSince(newStart);
-    save([...entries, {
+    onAdd({
       id: `wu_${Date.now()}`,
       email: newEmail.trim(),
       name: newName.trim(),
       startDate: newStart,
       status: days >= 42 ? 'ready' : 'warming',
-    }]);
+    });
     setNewEmail(''); setNewName(''); setShowAdd(false);
-  }
-
-  function remove(id: string) { save(entries.filter(e => e.id !== id)); }
-
-  function togglePause(id: string) {
-    save(entries.map(e => {
-      if (e.id !== id) return e;
-      const days = daysSince(e.startDate);
-      if (e.status === 'paused') return { ...e, status: days >= 42 ? 'ready' : 'warming' };
-      if (e.status === 'warming') return { ...e, status: 'paused' };
-      return e;
-    }));
   }
 
   return (
@@ -216,14 +194,14 @@ function InboxWarmup() {
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 {!isReady && (
                   <button
-                    onClick={() => togglePause(entry.id)}
+                    onClick={() => onTogglePause(entry.id)}
                     className="text-xs px-2.5 py-1 rounded-lg border border-[#1e2d45] text-[#b8d4f0] hover:bg-[#1e2d45] transition-colors"
                   >
                     {isPaused ? 'Resume' : 'Pause'}
                   </button>
                 )}
                 <button
-                  onClick={() => remove(entry.id)}
+                  onClick={() => onRemove(entry.id)}
                   className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"
                 >
                   <Trash2 size={14} />
@@ -343,7 +321,14 @@ function effectiveStatus(log: EmailLog): EmailStatus {
   return log.status;
 }
 
-export default function EmailTracking() {
+interface EmailTrackingProps {
+  warmupEntries: WarmupEntry[];
+  onWarmupAdd: (e: WarmupEntry) => void;
+  onWarmupRemove: (id: string) => void;
+  onWarmupTogglePause: (id: string) => void;
+}
+
+export default function EmailTracking({ warmupEntries, onWarmupAdd, onWarmupRemove, onWarmupTogglePause }: EmailTrackingProps) {
   const [tab, setTab] = useState<'logs' | 'warmup'>('logs');
   const [logs, setLogs] = useState<EmailLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -422,7 +407,14 @@ export default function EmailTracking() {
         </button>
       </div>
 
-      {tab === 'warmup' && <InboxWarmup />}
+      {tab === 'warmup' && (
+        <InboxWarmup
+          entries={warmupEntries}
+          onAdd={onWarmupAdd}
+          onRemove={onWarmupRemove}
+          onTogglePause={onWarmupTogglePause}
+        />
+      )}
       {tab === 'logs' && (<>
 
       {/* Stats row */}

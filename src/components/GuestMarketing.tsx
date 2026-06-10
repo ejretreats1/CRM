@@ -3,20 +3,7 @@ import { Search, Send, CheckSquare, Square, X, RefreshCw, Flame } from 'lucide-r
 import type { UplistingReservation } from '../services/uplisting';
 import { fetchReservations } from '../services/uplisting';
 
-const HISTORY_KEY    = 'ej_uplisting_history';
-const WARMUP_LS_KEY  = 'ej_warmup_addresses';
-
-function getWarmupAddresses(): string[] {
-  try {
-    const raw = localStorage.getItem(WARMUP_LS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((a: unknown) => (typeof a === 'string' ? a : (a as Record<string,string>)?.email ?? ''))
-      .filter(Boolean);
-  } catch { return []; }
-}
+const HISTORY_KEY = 'ej_uplisting_history';
 
 function loadHistory(): UplistingReservation[] {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]'); } catch { return []; }
@@ -28,6 +15,7 @@ function saveHistory(r: UplistingReservation[]) {
 interface GuestMarketingProps {
   reservations: UplistingReservation[];
   apiKey?: string;
+  warmupAddresses?: string[];
 }
 
 interface Guest {
@@ -56,7 +44,7 @@ function isRealEmail(email: string) {
   return email.includes('@');
 }
 
-export default function GuestMarketing({ reservations, apiKey }: GuestMarketingProps) {
+export default function GuestMarketing({ reservations, apiKey, warmupAddresses = [] }: GuestMarketingProps) {
   const [search, setSearch] = useState('');
   const [channelFilter, setChannelFilter] = useState('all');
   const [showNoEmail, setShowNoEmail] = useState(false);
@@ -68,7 +56,7 @@ export default function GuestMarketing({ reservations, apiKey }: GuestMarketingP
   const [sending, setSending] = useState(false);
   const [sentResult, setSentResult] = useState<{ sent: number; failed: number } | null>(null);
   const [sendError, setSendError] = useState('');
-  const [warmupAddrs] = useState<string[]>(() => getWarmupAddresses());
+  const warmupAddrs = warmupAddresses;
   const [warmupCopies, setWarmupCopies] = useState(1);
   const [history, setHistory] = useState<UplistingReservation[]>(() => loadHistory());
   const [loadingHistory, setLoadingHistory] = useState(false);

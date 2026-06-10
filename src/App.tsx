@@ -37,6 +37,8 @@ import {
   fetchOutreach, upsertOutreach, deleteOutreach,
 } from './services/db';
 import { fetchContacts } from './services/contacts';
+import { fetchWarmupEntries, upsertWarmupEntry, deleteWarmupEntry } from './services/warmup';
+import type { WarmupEntry } from './services/warmup';
 import {
   fetchProjects, upsertProject, deleteProject as deleteProjectDb,
   fetchTodos, upsertTodo, deleteTodo,
@@ -67,6 +69,7 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [warmupEntries, setWarmupEntries] = useState<WarmupEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,7 +105,7 @@ export default function App() {
   useEffect(() => {
     async function loadAll() {
       try {
-        const [l, o, out, proj, td, settings, cts] = await Promise.all([
+        const [l, o, out, proj, td, settings, cts, wu] = await Promise.all([
           fetchLeads(),
           fetchOwners(),
           fetchOutreach(),
@@ -110,6 +113,7 @@ export default function App() {
           fetchTodos(),
           fetchSettings(),
           fetchContacts().catch(() => [] as Contact[]),
+          fetchWarmupEntries().catch(() => [] as WarmupEntry[]),
         ]);
         setLeads(l);
         setOwners(o);
@@ -117,6 +121,7 @@ export default function App() {
         setProjects(proj);
         setTodos(td);
         setContacts(cts);
+        setWarmupEntries(wu);
         setUplistingApiKey(settings.uplistingApiKey);
         setCalendarUrl(settings.calendarUrl);
         setSlackToken(settings.slackToken);
@@ -415,6 +420,33 @@ export default function App() {
   };
 
   // Bulk import
+  const handleWarmupAdd = async (e: WarmupEntry) => {
+    setWarmupEntries(prev => [...prev, e]);
+    await upsertWarmupEntry(e).catch(() => {});
+  };
+
+  const handleWarmupRemove = async (id: string) => {
+    setWarmupEntries(prev => prev.filter(e => e.id !== id));
+    await deleteWarmupEntry(id).catch(() => {});
+  };
+
+  const handleWarmupTogglePause = async (id: string) => {
+    const entry = warmupEntries.find(e => e.id === id);
+    if (!entry) return;
+    const days = Math.max(0, Math.floor((Date.now() - new Date(entry.startDate).getTime()) / 86_400_000));
+    let newStatus: WarmupEntry['status'];
+    if (entry.status === 'paused') newStatus = days >= 42 ? 'ready' : 'warming';
+    else if (entry.status === 'warming') newStatus = 'paused';
+    else newStatus = entry.status;
+    const updated = { ...entry, status: newStatus };
+    setWarmupEntries(prev => prev.map(e => e.id === id ? updated : e));
+    await upsertWarmupEntry(updated).catch(() => {});
+  };
+
+  const warmupAddresses = warmupEntries
+    .filter(e => e.status !== 'paused')
+    .map(e => e.email);
+
   const importLeadsHandler = async (newLeads: Lead[]) => {
     await Promise.all(newLeads.map(upsertLead));
     setLeads(prev => [...newLeads, ...prev]);
@@ -617,7 +649,7 @@ export default function App() {
       {view === 'newsletter' && <Newsletter leads={leads} owners={owners} />}
 
       {view === 'guest-marketing' && (
-        <GuestMarketing reservations={allReservations} apiKey={uplistingApiKey || undefined} />
+        <GuestMarketing reservations={allReservations} apiKey={uplistingApiKey || undefined} warmupAddresses={warmupAddresses} />
       )}
 
       {view === 'quarterly-reports' && (
@@ -655,7 +687,14 @@ export default function App() {
         <CalendarIntelligence owners={owners} reservations={allReservations} priceLabsApiKey={priceLabsApiKey || undefined} />
       )}
 
-      {view === 'email-tracking' && <EmailTracking />}
+      {view === 'email-tracking' && (
+        <EmailTracking
+          warmupEntries={warmupEntries}
+          onWarmupAdd={handleWarmupAdd}
+          onWarmupRemove={handleWarmupRemove}
+          onWarmupTogglePause={handleWarmupTogglePause}
+        />
+      )}
 
       {view === 'deal-scanner' && <DealScanner />}
 
@@ -664,6 +703,7 @@ export default function App() {
           leads={leads}
           contacts={contacts}
           onContactsChange={setContacts}
+          warmupAddresses={warmupAddresses}
         />
       )}
 

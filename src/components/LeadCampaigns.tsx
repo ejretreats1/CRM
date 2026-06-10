@@ -10,12 +10,11 @@ import { fetchCampaigns, upsertCampaign, deleteCampaign } from '../services/camp
 import { upsertContact, deleteContact } from '../services/contacts';
 import LeadImportModal from './modals/LeadImportModal';
 
-const WARMUP_LS_KEY = 'ej_warmup_addresses';
-
 interface Props {
   leads: Lead[];
   contacts: Contact[];
   onContactsChange: (contacts: Contact[]) => void;
+  warmupAddresses?: string[];
 }
 
 type TopTab   = 'campaigns' | 'contacts';
@@ -69,17 +68,6 @@ const CONTACT_CATS: { value: string; label: string }[] = [
   { value: 'other',             label: 'Other'             },
 ];
 
-function getWarmupAddresses(): string[] {
-  try {
-    const raw = localStorage.getItem(WARMUP_LS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((a: unknown) => (typeof a === 'string' ? a : (a as Record<string, string>)?.email ?? ''))
-      .filter(Boolean);
-  } catch { return []; }
-}
 
 function replaceTokens(text: string, r: { name: string; email: string; propertyAddress?: string }): string {
   const firstName = (r.name ?? '').split(' ')[0] || r.name;
@@ -121,7 +109,7 @@ function blankCampaign(): Campaign {
   };
 }
 
-export default function LeadCampaigns({ leads, contacts, onContactsChange }: Props) {
+export default function LeadCampaigns({ leads, contacts, onContactsChange, warmupAddresses = [] }: Props) {
   const [campaigns,    setCampaigns]    = useState<Campaign[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [topTab,       setTopTab]       = useState<TopTab>('campaigns');
@@ -132,7 +120,7 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange }: Pro
   const [saving,       setSaving]       = useState(false);
   const [sending,      setSending]      = useState(false);
   const [sendMsg,      setSendMsg]      = useState<string | null>(null);
-  const [warmupAddrs,  setWarmupAddrs]  = useState<string[]>([]);
+  const warmupAddrs = warmupAddresses;
   const [warmupCopies, setWarmupCopies] = useState(1);
   const [showPreview,  setShowPreview]  = useState(false);
   const [leadSearch,   setLeadSearch]   = useState('');
@@ -148,7 +136,6 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange }: Pro
       .then(c => setCampaigns(c))
       .catch(() => {})
       .finally(() => setLoading(false));
-    setWarmupAddrs(getWarmupAddresses());
   }, []);
 
   const detailCampaign = campaigns.find(c => c.id === detailId) ?? null;
