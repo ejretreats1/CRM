@@ -5,7 +5,7 @@ export const config = { maxDuration: 30 };
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 // ── Calendar helpers ──────────────────────────────────────────────
@@ -241,7 +241,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('portal_token', token)
       .maybeSingle();
     if (ownerErr) return res.status(500).json({ error: `DB error: ${ownerErr.message}`, hint: ownerErr.hint ?? '' });
-    if (!ownerRow) return res.status(404).json({ error: 'Portal not found', debug: { tokenLength: token.length, serviceKeySet: !!process.env.SUPABASE_SERVICE_KEY } });
+    if (!ownerRow) return res.status(404).json({ error: 'Portal not found', debug: { tokenLength: token.length, serviceKeySet: !!process.env.SUPABASE_SERVICE_ROLE_KEY } });
 
     const { data: propRows } = await supabaseAdmin
       .from('properties')
