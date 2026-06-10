@@ -14,6 +14,8 @@ export interface Campaign {
   body: string;
   leadIds: string[];
   sentLeadIds: string[];
+  contactIds: string[];
+  sentContactIds: string[];
   dailyLimit: number;
   status: 'draft' | 'active' | 'paused' | 'completed';
   createdAt: string;
@@ -23,35 +25,39 @@ export interface Campaign {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToCampaign(r: any): Campaign {
   return {
-    id:           r.id,
-    name:         r.name ?? '',
-    fromName:     r.from_name ?? '',
-    replyTo:      r.reply_to ?? '',
-    subject:      r.subject ?? '',
-    body:         r.body ?? '',
-    leadIds:      r.lead_ids ?? [],
-    sentLeadIds:  r.sent_lead_ids ?? [],
-    dailyLimit:   r.daily_limit ?? 20,
-    status:       r.status ?? 'draft',
-    createdAt:    r.created_at ?? '',
-    updatedAt:    r.updated_at ?? '',
+    id:              r.id,
+    name:            r.name ?? '',
+    fromName:        r.from_name ?? '',
+    replyTo:         r.reply_to ?? '',
+    subject:         r.subject ?? '',
+    body:            r.body ?? '',
+    leadIds:         r.lead_ids ?? [],
+    sentLeadIds:     r.sent_lead_ids ?? [],
+    contactIds:      r.contact_ids ?? [],
+    sentContactIds:  r.sent_contact_ids ?? [],
+    dailyLimit:      r.daily_limit ?? 20,
+    status:          r.status ?? 'draft',
+    createdAt:       r.created_at ?? '',
+    updatedAt:       r.updated_at ?? '',
   };
 }
 
 function campaignToRow(c: Campaign) {
   return {
-    id:             c.id,
-    name:           c.name,
-    from_name:      c.fromName,
-    reply_to:       c.replyTo,
-    subject:        c.subject,
-    body:           c.body,
-    lead_ids:       c.leadIds,
-    sent_lead_ids:  c.sentLeadIds,
-    daily_limit:    c.dailyLimit,
-    status:         c.status,
-    created_at:     c.createdAt,
-    updated_at:     c.updatedAt,
+    id:               c.id,
+    name:             c.name,
+    from_name:        c.fromName,
+    reply_to:         c.replyTo,
+    subject:          c.subject,
+    body:             c.body,
+    lead_ids:         c.leadIds,
+    sent_lead_ids:    c.sentLeadIds,
+    contact_ids:      c.contactIds,
+    sent_contact_ids: c.sentContactIds,
+    daily_limit:      c.dailyLimit,
+    status:           c.status,
+    created_at:       c.createdAt,
+    updated_at:       c.updatedAt,
   };
 }
 

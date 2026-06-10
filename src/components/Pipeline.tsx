@@ -334,8 +334,9 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
 
     {importOpen && (
       <LeadImportModal
+        mode="leads"
         existingEmails={existingEmails}
-        onImport={onImportLeads}
+        onImportLeads={onImportLeads}
         onClose={() => setImportOpen(false)}
       />
     )}

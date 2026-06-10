@@ -1,3 +1,15 @@
+export type ContactCategory = 'real_estate_agent' | 'investor' | 'referral_partner' | 'vendor' | 'other';
+
+export interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  category: ContactCategory;
+  notes: string;
+  createdAt: string;
+}
+
 export type LeadStage = 'new' | 'contacted' | 'cold' | 'won';
 export type OutreachType = 'call' | 'email' | 'text' | 'meeting' | 'other';
 export type OutreachOutcome = 'positive' | 'neutral' | 'negative' | 'no_response';

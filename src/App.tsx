@@ -36,6 +36,7 @@ import {
   upsertProperty, deleteProperty,
   fetchOutreach, upsertOutreach, deleteOutreach,
 } from './services/db';
+import { fetchContacts } from './services/contacts';
 import {
   fetchProjects, upsertProject, deleteProject as deleteProjectDb,
   fetchTodos, upsertTodo, deleteTodo,
@@ -43,7 +44,7 @@ import {
 import { fetchProperties, fetchReservations, estimateMonthlyRevenue, estimateOccupancy } from './services/uplisting';
 import { fetchHostawayProperties, fetchHostawayReservations } from './services/hostaway';
 import { fetchSettings, saveSettings } from './services/settings';
-import type { Lead, Owner, Property, OutreachEntry, View, Project, Todo } from './types';
+import type { Lead, Owner, Property, OutreachEntry, View, Project, Todo, Contact } from './types';
 import type { UplistingProperty, UplistingReservation } from './services/uplisting';
 import type { SlackChannel } from './services/settings';
 
@@ -65,6 +66,7 @@ export default function App() {
   const [outreach, setOutreach] = useState<OutreachEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,19 +102,21 @@ export default function App() {
   useEffect(() => {
     async function loadAll() {
       try {
-        const [l, o, out, proj, td, settings] = await Promise.all([
+        const [l, o, out, proj, td, settings, cts] = await Promise.all([
           fetchLeads(),
           fetchOwners(),
           fetchOutreach(),
           fetchProjects(),
           fetchTodos(),
           fetchSettings(),
+          fetchContacts().catch(() => [] as Contact[]),
         ]);
         setLeads(l);
         setOwners(o);
         setOutreach(out);
         setProjects(proj);
         setTodos(td);
+        setContacts(cts);
         setUplistingApiKey(settings.uplistingApiKey);
         setCalendarUrl(settings.calendarUrl);
         setSlackToken(settings.slackToken);
@@ -655,7 +659,13 @@ export default function App() {
 
       {view === 'deal-scanner' && <DealScanner />}
 
-      {view === 'campaigns' && <LeadCampaigns leads={leads} />}
+      {view === 'campaigns' && (
+        <LeadCampaigns
+          leads={leads}
+          contacts={contacts}
+          onContactsChange={setContacts}
+        />
+      )}
 
       {modal?.type === 'lead-detail' && (
         <LeadDetailModal
