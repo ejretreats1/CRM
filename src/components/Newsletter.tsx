@@ -94,7 +94,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch('/api/clerk-users')
+    fetch('/api/clerk-manage-users')
       .then(r => r.json())
       .then(d => {
         if (d.users) {
