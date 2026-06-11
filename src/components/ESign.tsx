@@ -101,6 +101,7 @@ export default function ESign({ userId }: Props) {
   const [sending, setSending] = useState(false);
   const [sendDone, setSendDone] = useState(false);
   const [sentToken, setSentToken] = useState('');
+  const [sentViaEmail, setSentViaEmail] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -289,10 +290,11 @@ export default function ESign({ userId }: Props) {
     setSendEmail('');
     setSendDone(false);
     setSentToken('');
+    setSentViaEmail(false);
     setCopied(false);
   }
 
-  async function handleSend() {
+  async function handleSend(skipEmail: boolean) {
     if (!sendTemplate || !sendName.trim() || !sendEmail.trim()) return;
     setSending(true);
     try {
@@ -308,12 +310,19 @@ export default function ESign({ userId }: Props) {
           guestName:  sendName.trim(),
           guestEmail: sendEmail.trim(),
           appUrl:     window.location.origin,
+          skipEmail,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      setSentToken(data.token ?? '');
+      const token = data.token ?? '';
+      setSentToken(token);
+      setSentViaEmail(!skipEmail);
       setSendDone(true);
+      if (skipEmail && token) {
+        navigator.clipboard.writeText(`${window.location.origin}/fill/${token}`);
+        setCopied(true);
+      }
       fetchAllSubmissions().then(setAllSubmissions).catch(() => {});
       setTemplateSubmissions(prev => {
         const next = { ...prev };
@@ -582,9 +591,14 @@ export default function ESign({ userId }: Props) {
               <div className="w-14 h-14 bg-[#0a2518] rounded-full flex items-center justify-center mx-auto mb-4">
                 <FileSignature size={24} className="text-[#5ce0a0]" />
               </div>
-              <p className="font-semibold text-white text-lg">Document Sent!</p>
+              <p className="font-semibold text-white text-lg">
+                {sentViaEmail ? 'Email Sent!' : 'Link Ready!'}
+              </p>
               <p className="text-sm text-[#b8d4f0] mt-1 mb-6">
-                Email sent to <strong>{sendEmail}</strong>.<br />Share the direct signing link:
+                {sentViaEmail
+                  ? <>Email sent to <strong>{sendEmail}</strong>. You can also share the direct link:</>
+                  : <>Link copied to clipboard. Share it with <strong>{sendName}</strong>:</>
+                }
               </p>
               {sentToken && (
                 <button
@@ -635,13 +649,22 @@ export default function ESign({ userId }: Props) {
                   />
                 </div>
               </div>
-              <button
-                onClick={handleSend}
-                disabled={sending || !sendName.trim() || !sendEmail.trim()}
-                className="mt-6 w-full flex items-center justify-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white font-medium text-sm py-2.5 rounded-lg transition-colors"
-              >
-                {sending ? 'Sending…' : <><Send size={14} /> Send Document</>}
-              </button>
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={() => handleSend(false)}
+                  disabled={sending || !sendName.trim() || !sendEmail.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white font-medium text-sm py-2.5 rounded-lg transition-colors"
+                >
+                  {sending ? 'Sending…' : <><Send size={14} /> Send Email</>}
+                </button>
+                <button
+                  onClick={() => handleSend(true)}
+                  disabled={sending || !sendName.trim() || !sendEmail.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 bg-[#1e2d45] hover:bg-[#162035] disabled:opacity-50 text-[#b8d4f0] font-medium text-sm py-2.5 rounded-lg border border-[#1e2d45] transition-colors"
+                >
+                  {sending ? '…' : <><Copy size={14} /> Copy Link</>}
+                </button>
+              </div>
             </>
           )}
         </div>

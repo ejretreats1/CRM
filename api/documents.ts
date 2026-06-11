@@ -197,7 +197,7 @@ interface AgreementField {
 }
 
 async function agreementSend(body: any, res: VercelResponse) {
-  const { templateId, propertyId, ownerId, guestName, guestEmail, appUrl } = body;
+  const { templateId, propertyId, ownerId, guestName, guestEmail, appUrl, skipEmail } = body;
   const supabase = getSupabase();
 
   const { data: tmpl, error: te } = await supabase
@@ -226,6 +226,8 @@ async function agreementSend(body: any, res: VercelResponse) {
   if (error) return res.status(500).json({ error: error.message });
 
   const fillUrl = `${appUrl}/fill/${token}`;
+
+  if (skipEmail) return res.status(200).json({ id, token });
 
   const agSubject = `Please review and sign: ${tmpl.name}`;
   const { data: agEmailData } = await resend.emails.send({
