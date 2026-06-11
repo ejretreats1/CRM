@@ -89,6 +89,7 @@ export default function ESign({ userId }: Props) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
@@ -425,17 +426,37 @@ export default function ESign({ userId }: Props) {
           {/* Main area — PDF viewer + overlay */}
           <div className="flex-1 overflow-auto bg-[#1e2d45] p-4">
             {!pdfDoc ? (
-              <label className="flex flex-col items-center justify-center h-full min-h-64 border-2 border-dashed border-slate-400 rounded-xl cursor-pointer hover:border-teal-500 transition-colors">
-                <Upload size={32} className="text-[#3a5070] mb-3" />
-                <p className="text-[#b8d4f0] font-medium">Upload PDF Document</p>
-                <p className="text-sm text-[#3a5070] mt-1">Click or drag a PDF file here</p>
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  className="sr-only"
-                  onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-                />
-              </label>
+              <div
+                className={`flex flex-col items-center justify-center h-full min-h-64 border-2 border-dashed rounded-xl transition-colors ${
+                  isDragging
+                    ? 'border-teal-400 bg-teal-900/20'
+                    : 'border-slate-400 hover:border-teal-500'
+                }`}
+                onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                onDragEnter={e => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={e => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleFileUpload(file);
+                }}
+              >
+                <Upload size={32} className={`mb-3 ${isDragging ? 'text-teal-400' : 'text-[#3a5070]'}`} />
+                <p className="text-[#b8d4f0] font-medium">
+                  {isDragging ? 'Drop PDF here' : 'Upload PDF Document'}
+                </p>
+                <p className="text-sm text-[#3a5070] mt-1">Drag a file here, or click to browse</p>
+                <label className="mt-3 text-xs text-[#4a90d9] hover:underline cursor-pointer">
+                  Browse file
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="sr-only"
+                    onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+                  />
+                </label>
+              </div>
             ) : (
               <div className="flex flex-col items-center gap-3">
                 {/* Page navigation + zoom */}
