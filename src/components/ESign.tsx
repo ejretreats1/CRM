@@ -93,6 +93,7 @@ export default function ESign({ userId }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // ── Send modal state ──────────────────────────────────────────────────────
   const [sendTemplate, setSendTemplate] = useState<AgreementTemplate | null>(null);
@@ -130,7 +131,9 @@ export default function ESign({ userId }: Props) {
     }
     const page = await doc.getPage(pageIndex + 1);
     const canvas = canvasRef.current;
-    const containerWidth = canvas.parentElement?.clientWidth ?? 700;
+    // Use the stable scroll container width so zoom doesn't change the base scale
+    const rawWidth = scrollContainerRef.current?.clientWidth ?? canvas.parentElement?.clientWidth ?? 700;
+    const containerWidth = Math.max(200, rawWidth - 32); // subtract p-4 padding (16px × 2)
     const viewport = page.getViewport({ scale: 1 });
     const baseScale = containerWidth / viewport.width;
     const scaledViewport = page.getViewport({ scale: baseScale * z });
@@ -160,7 +163,8 @@ export default function ESign({ userId }: Props) {
   function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
     if (!overlayRef.current || !canvasRef.current) return;
     if ((e.target as HTMLElement).closest('[data-field]')) return;
-    const rect = overlayRef.current.getBoundingClientRect();
+    // Use canvas rect so fractions are relative to the full canvas at any zoom level
+    const rect = canvasRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
     const defaults = FIELD_DEFAULTS[selectedFieldType];
@@ -191,10 +195,10 @@ export default function ESign({ userId }: Props) {
   function startDrag(e: React.MouseEvent, fieldId: string) {
     e.preventDefault();
     e.stopPropagation();
-    const overlay = overlayRef.current;
-    if (!overlay) return;
+    if (!overlayRef.current || !canvasRef.current) return;
     setSelectedFieldId(fieldId);
-    const rect = overlay.getBoundingClientRect();
+    // Use canvas rect so drag deltas map to document fractions correctly at any zoom
+    const rect = canvasRef.current.getBoundingClientRect();
     const field = fields.find(f => f.id === fieldId)!;
     const startX = e.clientX, startY = e.clientY;
     const origX = field.x, origY = field.y;
@@ -349,13 +353,19 @@ export default function ESign({ userId }: Props) {
           <button onClick={() => setShowBuilder(false)} className="text-[#3a5070] hover:text-[#b8d4f0] transition-colors">
             <ChevronLeft size={20} />
           </button>
-          <input
-            type="text"
-            value={templateName}
-            onChange={e => setTemplateName(e.target.value)}
-            placeholder="Document name…"
-            className="flex-1 text-sm font-semibold text-white bg-transparent border-none outline-none placeholder-slate-400"
-          />
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={templateName}
+              onChange={e => setTemplateName(e.target.value)}
+              placeholder="Document name (required)…"
+              className={`w-full text-sm font-semibold text-white bg-transparent outline-none border-b pb-0.5 transition-colors ${
+                !templateName.trim()
+                  ? 'border-orange-500/60 placeholder-orange-400/70'
+                  : 'border-transparent placeholder-slate-400'
+              }`}
+            />
+          </div>
           <select
             value={templateCategory}
             onChange={e => setTemplateCategory(e.target.value)}
@@ -366,7 +376,12 @@ export default function ESign({ userId }: Props) {
           <button
             onClick={handleSaveTemplate}
             disabled={saving || uploading || !templateName.trim() || (!pdfUrl && !pdfFile)}
-            className="flex items-center gap-1.5 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
+            title={
+              !templateName.trim() ? 'Enter a document name first'
+              : (!pdfUrl && !pdfFile) ? 'Upload a PDF first'
+              : ''
+            }
+            className="flex items-center gap-1.5 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
           >
             {saving ? 'Saving…' : uploading ? 'Uploading…' : 'Save Template'}
           </button>
@@ -433,7 +448,7 @@ export default function ESign({ userId }: Props) {
           </div>
 
           {/* Main area — PDF viewer + overlay */}
-          <div className="flex-1 overflow-auto bg-[#1e2d45] p-4">
+          <div ref={scrollContainerRef} className="flex-1 overflow-auto bg-[#1e2d45] p-4">
             {!pdfDoc ? (
               <div
                 className={`flex flex-col items-center justify-center h-full min-h-64 border-2 border-dashed rounded-xl transition-colors ${
@@ -513,7 +528,7 @@ export default function ESign({ userId }: Props) {
                 </div>
 
                 {/* PDF canvas + field overlay */}
-                <div className="relative shadow-xl rounded-sm overflow-hidden" style={{ maxWidth: '100%' }}>
+                <div className="relative shadow-xl rounded-sm" style={{ display: 'inline-block' }}>
                   <canvas ref={canvasRef} className="block" />
                   <div
                     ref={overlayRef}
