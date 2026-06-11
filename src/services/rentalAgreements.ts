@@ -26,6 +26,7 @@ export interface AgreementTemplate {
   propertyId: string;
   ownerId: string;
   name: string;
+  category: string;
   documentUrl: string;
   fields: AgreementField[];
   createdAt: string;
@@ -50,9 +51,10 @@ export interface AgreementSubmission {
 function rowToTemplate(r: Record<string, unknown>): AgreementTemplate {
   return {
     id:          String(r.id),
-    propertyId:  String(r.property_id),
+    propertyId:  String(r.property_id ?? 'global'),
     ownerId:     String(r.owner_id),
     name:        String(r.name),
+    category:    String(r.category ?? 'Rental Agreement'),
     documentUrl: String(r.document_url),
     fields:      (r.fields as AgreementField[]) ?? [],
     createdAt:   String(r.created_at),
@@ -93,6 +95,7 @@ export async function saveTemplate(t: Omit<AgreementTemplate, 'createdAt'>): Pro
     property_id:  t.propertyId,
     owner_id:     t.ownerId,
     name:         t.name,
+    category:     t.category,
     document_url: t.documentUrl,
     fields:       t.fields,
   };
@@ -139,6 +142,24 @@ export async function fetchSubmissionByToken(token: string): Promise<{ submissio
     submission: rowToSubmission(sub as Record<string, unknown>),
     template:   rowToTemplate(tmpl as Record<string, unknown>),
   };
+}
+
+export async function fetchAllTemplates(): Promise<AgreementTemplate[]> {
+  const { data, error } = await sb()
+    .from('rental_agreement_templates')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(rowToTemplate);
+}
+
+export async function fetchAllSubmissions(): Promise<AgreementSubmission[]> {
+  const { data, error } = await sb()
+    .from('rental_agreement_submissions')
+    .select('*')
+    .order('sent_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(rowToSubmission);
 }
 
 export async function uploadAgreementPdf(file: File, propertyId: string): Promise<string> {

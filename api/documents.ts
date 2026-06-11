@@ -234,7 +234,7 @@ async function agreementSend(body: any, res: VercelResponse) {
     subject: agSubject,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-        <h2 style="color:#0f766e">Rental Agreement</h2>
+        <h2 style="color:#0f766e">Document for Signature</h2>
         <p>Hi ${guestName},</p>
         <p>Please review and complete the following document: <strong>${tmpl.name}</strong></p>
         <p style="margin:32px 0">

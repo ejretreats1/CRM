@@ -226,6 +226,7 @@ export default function RentalAgreementBuilderModal({ propertyId, ownerId, onClo
       const saved = await saveTemplate({
         id, propertyId, ownerId,
         name: templateName.trim(),
+        category: editingTemplate?.category ?? 'Rental Agreement',
         documentUrl: docUrl,
         fields,
       });

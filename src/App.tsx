@@ -37,6 +37,7 @@ import {
   fetchOutreach, upsertOutreach, deleteOutreach,
 } from './services/db';
 import { fetchContacts } from './services/contacts';
+import ESign from './components/ESign';
 import { fetchWarmupEntries, upsertWarmupEntry, deleteWarmupEntry } from './services/warmup';
 import type { WarmupEntry } from './services/warmup';
 import {
@@ -711,6 +712,10 @@ export default function App() {
           onContactsChange={setContacts}
           warmupAddresses={warmupAddresses}
         />
+      )}
+
+      {view === 'esign' && (
+        <ESign userId={user?.id ?? 'crm'} />
       )}
 
       {modal?.type === 'lead-detail' && (

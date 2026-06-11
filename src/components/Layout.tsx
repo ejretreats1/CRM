@@ -20,6 +20,7 @@ import {
   MoreHorizontal,
   ScanSearch,
   Send,
+  FileSignature,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -46,6 +47,7 @@ const navItems = [
   { id: 'email-tracking' as View,   label: 'Email Tracking',       icon: MailOpen },
   { id: 'deal-scanner' as View,     label: 'Deal Scanner',         icon: ScanSearch },
   { id: 'campaigns' as View,        label: 'Lead Campaigns',        icon: Send },
+  { id: 'esign' as View,            label: 'E-Sign Documents',      icon: FileSignature },
 ];
 
 // Bottom 4 tabs
