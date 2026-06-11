@@ -105,6 +105,7 @@ export interface Owner {
   createdAt: string;
   vendors?: Vendor[];
   portalToken?: string;
+  archived?: boolean;
 }
 
 export interface OutreachEntry {

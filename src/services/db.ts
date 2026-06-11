@@ -43,6 +43,7 @@ export async function fetchOwners(): Promise<Owner[]> {
     createdAt: o.created_at,
     vendors: (o.vendors as Vendor[] | null) ?? [],
     portalToken: o.portal_token ?? undefined,
+    archived: o.archived ?? false,
     properties: (propRows ?? [])
       .filter(p => p.owner_id === o.id)
       .map(rowToProperty),
@@ -59,8 +60,14 @@ export async function upsertOwner(owner: Owner): Promise<void> {
     source: owner.source,
     vendors: owner.vendors ?? [],
     created_at: owner.createdAt,
+    archived: owner.archived ?? false,
     ...(owner.portalToken !== undefined ? { portal_token: owner.portalToken } : {}),
   });
+  if (error) throw error;
+}
+
+export async function archiveOwner(id: string, archived: boolean): Promise<void> {
+  const { error } = await supabase.from('owners').update({ archived }).eq('id', id);
   if (error) throw error;
 }
 
