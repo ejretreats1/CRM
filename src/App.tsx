@@ -320,8 +320,20 @@ export default function App() {
     setOwners(prev => prev.filter(o => o.id !== id));
   };
   const archiveOwnerHandler = async (id: string, archived: boolean) => {
-    await archiveOwner(id, archived);
+    // Optimistic update so UI responds immediately
     setOwners(prev => prev.map(o => o.id === id ? { ...o, archived } : o));
+    try {
+      await archiveOwner(id, archived);
+    } catch (err) {
+      // Roll back on failure
+      setOwners(prev => prev.map(o => o.id === id ? { ...o, archived: !archived } : o));
+      console.error('Archive failed:', err);
+      alert(
+        'Could not archive client. If this is the first time using this feature, run this SQL in your Supabase dashboard:\n\n' +
+        'ALTER TABLE owners ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT false;\n\n' +
+        'Then try again.'
+      );
+    }
   };
 
   // Property CRUD
