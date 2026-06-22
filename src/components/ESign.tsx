@@ -288,6 +288,23 @@ export default function ESign({ userId }: Props) {
     setTemplates(prev => prev.filter(t => t.id !== id));
   }
 
+  async function duplicateTemplate(template: AgreementTemplate) {
+    try {
+      const saved = await saveTemplate({
+        id:          `doc_${Date.now()}`,
+        propertyId:  'global',
+        ownerId:     userId,
+        name:        `${template.name} (Copy)`,
+        category:    template.category,
+        documentUrl: template.documentUrl,
+        fields:      template.fields,
+      });
+      setTemplates(prev => [saved, ...prev]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to duplicate.');
+    }
+  }
+
   function openSend(template: AgreementTemplate) {
     setSendTemplate(template);
     setSendName('');
@@ -809,6 +826,13 @@ export default function ESign({ userId }: Props) {
                           className="text-xs text-[#3a5070] hover:text-[#b8d4f0] border border-[#1e2d45] hover:border-[#1e3a5a] px-2.5 py-1.5 rounded-lg transition-colors"
                         >
                           Edit
+                        </button>
+                        <button
+                          onClick={() => duplicateTemplate(t)}
+                          title="Duplicate template"
+                          className="flex items-center gap-1 text-xs text-[#3a5070] hover:text-[#b8d4f0] border border-[#1e2d45] hover:border-[#1e3a5a] px-2.5 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Copy size={11} /> Duplicate
                         </button>
                         <button
                           onClick={() => handleDelete(t.id)}
