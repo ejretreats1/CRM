@@ -462,8 +462,11 @@ async function onboardingCreate(req: VercelRequest, res: VercelResponse) {
   const token = randomUUID();
   const id = `onboard_${Date.now()}`;
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  // existingOwnerId links this request to an existing client — submit will update, not create
+  const existingOwnerId: string | null = req.body.ownerId ?? null;
   const { error } = await supabase.from('onboarding_requests').insert({
     id, token, status: 'pending',
+    owner_id: existingOwnerId,
     created_at: new Date().toISOString(),
     expires_at: expiresAt,
   });
@@ -485,13 +488,72 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
   if (new Date(request.expires_at) < new Date()) return res.status(400).json({ error: 'Link expired' });
 
   const now = new Date().toISOString();
+  const notes = buildOnboardingNotes(formData);
+
+  const propInfo = {
+    doorCode:        formData.lockCode       || undefined,
+    wifiNetwork:     formData.wifiName       || undefined,
+    wifiPassword:    formData.wifiPassword   || undefined,
+    petPolicy:       formData.petsAllowed === 'Yes' ? 'Pets allowed ($75 fee)' : formData.petsAllowed === 'No' ? 'No pets' : undefined,
+    houseRulesNotes: formData.houseRules     || undefined,
+    generalNotes:    formData.otherAmenities || undefined,
+  };
+
+  if (request.owner_id) {
+    // ── Existing client: update notes, don't create a new owner ──────────────
+    const { error: updateErr } = await supabase
+      .from('owners')
+      .update({ notes, phone: formData.phone || undefined, email: formData.email || undefined })
+      .eq('id', request.owner_id);
+    if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+    // Update existing property's property_info if the address matches, otherwise add new
+    if (formData.propertyAddress?.trim()) {
+      const { data: existingProps } = await supabase
+        .from('properties')
+        .select('id, address')
+        .eq('owner_id', request.owner_id);
+      const match = existingProps?.find(p =>
+        p.address?.toLowerCase().trim() === formData.propertyAddress.toLowerCase().trim()
+      );
+      if (match) {
+        await supabase.from('properties').update({
+          type:        formData.propertyType || undefined,
+          bedrooms:    parseInt(formData.bedrooms)  || undefined,
+          bathrooms:   parseFloat(formData.bathrooms) || undefined,
+          max_guests:  parseInt(formData.maxGuests) || undefined,
+          platforms:   formData.platforms?.length ? formData.platforms : undefined,
+          property_info: propInfo,
+        }).eq('id', match.id).catch(() => {});
+      } else {
+        await supabase.from('properties').insert({
+          id: `prop_${Date.now()}`, owner_id: request.owner_id,
+          address: formData.propertyAddress, city: '', state: '',
+          type: formData.propertyType || '',
+          bedrooms: parseInt(formData.bedrooms) || 0,
+          bathrooms: parseFloat(formData.bathrooms) || 0,
+          max_guests: parseInt(formData.maxGuests) || 0,
+          monthly_revenue: 0, occupancy_rate: 0,
+          platforms: formData.platforms ?? [], status: 'onboarding', joined_at: now,
+          property_info: propInfo,
+        }).catch(() => {});
+      }
+    }
+
+    await supabase.from('onboarding_requests').update({
+      status: 'completed', form_data: formData, submitted_at: now,
+    }).eq('token', token);
+
+    return res.status(200).json({ success: true });
+  }
+
+  // ── New client: create owner + property ────────────────────────────────────
   const ownerId = `owner_${Date.now()}`;
   const portalToken = randomUUID();
 
   const { error: ownerErr } = await supabase.from('owners').insert({
     id: ownerId, name: formData.fullName, email: formData.email, phone: formData.phone,
-    notes: buildOnboardingNotes(formData), source: 'website',
-    vendors: [], created_at: now, archived: false, portal_token: portalToken,
+    notes, source: 'website', vendors: [], created_at: now, archived: false, portal_token: portalToken,
   });
   if (ownerErr) return res.status(500).json({ error: ownerErr.message });
 
@@ -505,14 +567,7 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
       max_guests: parseInt(formData.maxGuests) || 0,
       monthly_revenue: 0, occupancy_rate: 0,
       platforms: formData.platforms ?? [], status: 'onboarding', joined_at: now,
-      property_info: {
-        doorCode:        formData.lockCode      || undefined,
-        wifiNetwork:     formData.wifiName      || undefined,
-        wifiPassword:    formData.wifiPassword  || undefined,
-        petPolicy:       formData.petsAllowed === 'Yes' ? 'Pets allowed ($75 fee)' : formData.petsAllowed === 'No' ? 'No pets' : undefined,
-        houseRulesNotes: formData.houseRules    || undefined,
-        generalNotes:    formData.otherAmenities || undefined,
-      },
+      property_info: propInfo,
     }).catch(() => {});
   }
 

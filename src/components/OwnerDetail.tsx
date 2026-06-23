@@ -178,6 +178,9 @@ export default function OwnerDetail({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [onboardingData, setOnboardingData] = useState<Record<string, any> | null>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(true);
+  const [generatingOLink, setGeneratingOLink] = useState(false);
+  const [oLink, setOLink] = useState<string | null>(null);
+  const [oLinkCopied, setOLinkCopied] = useState(false);
 
   const ownerOutreach = outreach.filter(e => e.ownerId === owner.id);
   const activeProps   = owner.properties.filter(p => p.status === 'active');
@@ -189,6 +192,32 @@ export default function OwnerDetail({
     return s + (live ?? p.monthlyRevenue);
   }, 0);
   const totalRevenue = liveTotalRevenue;
+
+  async function generateOnboardingLink() {
+    setGeneratingOLink(true);
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'onboarding', action: 'create', ownerId: owner.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      setOLink(data.url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not generate link.');
+    } finally {
+      setGeneratingOLink(false);
+    }
+  }
+
+  function copyOLink() {
+    if (!oLink) return;
+    navigator.clipboard.writeText(oLink).then(() => {
+      setOLinkCopied(true);
+      setTimeout(() => setOLinkCopied(false), 2000);
+    });
+  }
 
   const loadOnboarding = useCallback(async () => {
     setOnboardingLoading(true);
@@ -434,7 +463,7 @@ export default function OwnerDetail({
           { id: 'documents',  label: 'Documents' },
           { id: 'vendors',    label: 'Vendors' },
           { id: 'outreach',   label: 'Outreach' },
-          ...(onboardingData ? [{ id: 'onboarding', label: 'Onboarding' }] : []),
+          { id: 'onboarding', label: 'Onboarding' },
         ] as { id: OwnerTab; label: string }[]).map(tab => (
           <button
             key={tab.id}
@@ -750,13 +779,45 @@ export default function OwnerDetail({
       {/* Outreach tab */}
       {activeTab === 'onboarding' && (
       <div className="space-y-3">
+        {/* Generate / re-send link bar */}
+        <div className="bg-[#1a2335] border border-[#243550] rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-sm font-medium text-white">
+              {onboardingData ? 'Re-send onboarding form' : 'Send onboarding form to this client'}
+            </p>
+            <p className="text-xs text-[#3a5070] mt-0.5">
+              {onboardingData
+                ? 'Generate a new link to let the client update their info — existing data will be overwritten on submit.'
+                : 'Generate a link — when they submit, their info updates this client profile (no duplicate created).'}
+            </p>
+          </div>
+          <button
+            onClick={generateOnboardingLink}
+            disabled={generatingOLink}
+            className="flex items-center gap-1.5 bg-[#4a90d9] hover:bg-[#3a80c9] disabled:opacity-50 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex-shrink-0"
+          >
+            {generatingOLink ? <Loader size={13} className="animate-spin" /> : <Link2 size={13} />}
+            {onboardingData ? 'Re-generate Link' : 'Generate Link'}
+          </button>
+        </div>
+
+        {/* Generated link display */}
+        {oLink && (
+          <div className="bg-[#0f1923] border border-[#1e3a5a] rounded-xl p-3 flex items-center gap-3">
+            <p className="text-xs text-[#b8d4f0] flex-1 break-all font-mono">{oLink}</p>
+            <button onClick={copyOLink} className="flex-shrink-0 p-1.5 rounded-lg bg-[#1e2d45] hover:bg-[#1e3a5a] transition-colors">
+              {oLinkCopied ? <Check size={14} className="text-[#4ab57a]" /> : <Copy size={14} className="text-[#4a90d9]" />}
+            </button>
+          </div>
+        )}
+
         {onboardingLoading ? (
           <div className="flex justify-center py-12"><Loader size={20} className="animate-spin text-[#4a90d9]" /></div>
         ) : !onboardingData ? (
           <div className="bg-[#1a2335] rounded-xl border border-[#243550] flex flex-col items-center justify-center py-14 text-center px-6">
             <ClipboardList size={32} className="text-[#3a5070] mb-3" />
             <p className="text-sm text-white font-medium mb-1">No onboarding data yet</p>
-            <p className="text-xs text-[#3a5070]">Once the client submits their onboarding form, all their info will appear here.</p>
+            <p className="text-xs text-[#3a5070]">Generate a link above and send it to the client — their answers will populate here automatically.</p>
           </div>
         ) : (
           <>
