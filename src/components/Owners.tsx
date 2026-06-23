@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Plus, Search, Home, TrendingUp, Phone, Mail, ChevronRight,
   Trash2, Archive, ArchiveRestore, ChevronDown, ChevronUp,
+  Link2, Copy, Check, X, Loader2,
 } from 'lucide-react';
 import type { Owner } from '../types';
 
@@ -22,6 +23,35 @@ const STATUS_COLORS: Record<string, string> = {
 export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDeleteOwner, onArchiveOwner }: OwnersProps) {
   const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [onboardingLink, setOnboardingLink] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  async function generateOnboardingLink() {
+    setGeneratingLink(true);
+    try {
+      const res = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to generate link');
+      setOnboardingLink(data.url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not generate onboarding link.');
+    } finally {
+      setGeneratingLink(false);
+    }
+  }
+
+  function copyLink() {
+    if (!onboardingLink) return;
+    navigator.clipboard.writeText(onboardingLink).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  }
 
   const active   = owners.filter(o => !o.archived);
   const archived = owners.filter(o => o.archived);
@@ -52,13 +82,56 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDelete
             {active.length} active · {totalProperties} properties · ${totalRevenue.toLocaleString()}/mo
           </p>
         </div>
-        <button
-          onClick={() => onOpenOwnerModal()}
-          className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus size={16} /> Add Client
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={generateOnboardingLink}
+            disabled={generatingLink}
+            className="flex items-center gap-1.5 border border-[#1e3a5a] text-[#4a90d9] hover:bg-[#1a2335] text-sm font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+            title="Generate onboarding link for a new client"
+          >
+            {generatingLink ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
+            <span className="hidden sm:inline">Onboarding Link</span>
+          </button>
+          <button
+            onClick={() => onOpenOwnerModal()}
+            className="flex items-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            <Plus size={16} /> Add Client
+          </button>
+        </div>
       </div>
+
+      {/* Onboarding link modal */}
+      {onboardingLink && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1a2335] border border-[#1e3a5a] rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-white">Onboarding Link Generated</h3>
+                <p className="text-xs text-[#3a5070] mt-0.5">Share this link with your new client · expires in 30 days</p>
+              </div>
+              <button onClick={() => setOnboardingLink(null)} className="text-[#3a5070] hover:text-white transition-colors p-1">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="bg-[#0f1923] border border-[#1e2d45] rounded-xl p-3 flex items-center gap-3 mb-4">
+              <p className="text-xs text-[#b8d4f0] flex-1 break-all font-mono leading-relaxed">{onboardingLink}</p>
+              <button
+                onClick={copyLink}
+                className="flex-shrink-0 p-2 rounded-lg bg-[#1e2d45] hover:bg-[#1e3a5a] transition-colors"
+              >
+                {linkCopied ? <Check size={15} className="text-[#4ab57a]" /> : <Copy size={15} className="text-[#4a90d9]" />}
+              </button>
+            </div>
+            <button
+              onClick={copyLink}
+              className="w-full flex items-center justify-center gap-2 bg-[#4a90d9] hover:bg-[#3a80c9] text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+            >
+              {linkCopied ? <><Check size={15} /> Copied!</> : <><Copy size={15} /> Copy Link</>}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">

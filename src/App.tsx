@@ -24,6 +24,7 @@ import LeadCampaigns from './components/LeadCampaigns';
 import ShareView from './components/ShareView';
 import PortalView from './components/PortalView';
 import OwnerPortalPage from './components/OwnerPortalPage';
+import OnboardingPage from './components/OnboardingPage';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -511,6 +512,8 @@ export default function App() {
   if (portalId) return <PortalView personId={portalId} />;
   const ownerPortalToken = searchParams.get('owner-portal');
   if (ownerPortalToken) return <OwnerPortalPage token={ownerPortalToken} />;
+  const onboardingToken = searchParams.get('onboarding');
+  if (onboardingToken) return <OnboardingPage token={onboardingToken} />;
 
   if (!isLoaded) {
     return (
