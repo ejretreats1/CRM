@@ -150,7 +150,7 @@ export default function OnboardingPage({ token }: { token: string }) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/onboarding?token=${token}`)
+    fetch(`/api/documents?flow=onboarding&token=${token}`)
       .then(r => r.json())
       .then(d => {
         if (d.status === 'pending')   setStatus('active');
@@ -176,10 +176,10 @@ export default function OnboardingPage({ token }: { token: string }) {
     setSubmitting(true);
     setSubmitError('');
     try {
-      const res = await fetch('/api/onboarding', {
+      const res = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'submit', token, formData: form }),
+        body: JSON.stringify({ flow: 'onboarding', action: 'submit', token, formData: form }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Submission failed');

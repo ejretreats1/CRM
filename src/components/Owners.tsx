@@ -30,10 +30,10 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDelete
   async function generateOnboardingLink() {
     setGeneratingLink(true);
     try {
-      const res = await fetch('/api/onboarding', {
+      const res = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create' }),
+        body: JSON.stringify({ flow: 'onboarding', action: 'create' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to generate link');

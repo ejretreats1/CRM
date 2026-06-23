@@ -425,9 +425,140 @@ async function handleResendWebhook(body: any, res: VercelResponse) {
   return res.status(200).end();
 }
 
+// ── ONBOARDING ───────────────────────────────────────────────────────────────
+/*
+ * Required Supabase table — run once in Supabase SQL editor:
+ *
+ *   create table if not exists onboarding_requests (
+ *     id           text primary key,
+ *     token        uuid unique not null,
+ *     status       text not null default 'pending',
+ *     owner_id     text,
+ *     form_data    jsonb,
+ *     created_at   timestamptz default now(),
+ *     expires_at   timestamptz not null,
+ *     submitted_at timestamptz
+ *   );
+ *   alter table onboarding_requests enable row level security;
+ *   create policy "anon all" on onboarding_requests
+ *     for all to anon using (true) with check (true);
+ */
+
+async function onboardingGet(token: string, res: VercelResponse) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('onboarding_requests')
+    .select('status, expires_at')
+    .eq('token', token)
+    .single();
+  if (error || !data) return res.status(404).json({ error: 'Not found' });
+  if (data.status === 'completed') return res.status(200).json({ status: 'completed' });
+  if (new Date(data.expires_at) < new Date()) return res.status(200).json({ status: 'expired' });
+  return res.status(200).json({ status: 'pending' });
+}
+
+async function onboardingCreate(req: VercelRequest, res: VercelResponse) {
+  const supabase = getSupabase();
+  const token = randomUUID();
+  const id = `onboard_${Date.now()}`;
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await supabase.from('onboarding_requests').insert({
+    id, token, status: 'pending',
+    created_at: new Date().toISOString(),
+    expires_at: expiresAt,
+  });
+  if (error) return res.status(500).json({ error: error.message });
+  const appUrl = (process.env.VITE_APP_URL ?? '').replace(/\/$/, '') || `https://${req.headers.host}`;
+  return res.status(200).json({ token, url: `${appUrl}?onboarding=${token}` });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function onboardingSubmit(body: any, res: VercelResponse) {
+  const { token, formData } = body;
+  if (!token || !formData) return res.status(400).json({ error: 'Missing token or formData' });
+  const supabase = getSupabase();
+
+  const { data: request, error: fetchErr } = await supabase
+    .from('onboarding_requests').select('*').eq('token', token).single();
+  if (fetchErr || !request) return res.status(404).json({ error: 'Invalid token' });
+  if (request.status === 'completed') return res.status(400).json({ error: 'Already submitted' });
+  if (new Date(request.expires_at) < new Date()) return res.status(400).json({ error: 'Link expired' });
+
+  const now = new Date().toISOString();
+  const ownerId = `owner_${Date.now()}`;
+  const portalToken = randomUUID();
+
+  const { error: ownerErr } = await supabase.from('owners').insert({
+    id: ownerId, name: formData.fullName, email: formData.email, phone: formData.phone,
+    notes: buildOnboardingNotes(formData), source: 'website',
+    vendors: [], created_at: now, archived: false, portal_token: portalToken,
+  });
+  if (ownerErr) return res.status(500).json({ error: ownerErr.message });
+
+  if (formData.propertyAddress?.trim()) {
+    await supabase.from('properties').insert({
+      id: `prop_${Date.now()}`, owner_id: ownerId,
+      address: formData.propertyAddress, city: '', state: '',
+      type: formData.propertyType || '',
+      bedrooms: parseInt(formData.bedrooms) || 0,
+      bathrooms: parseFloat(formData.bathrooms) || 0,
+      max_guests: parseInt(formData.maxGuests) || 0,
+      monthly_revenue: 0, occupancy_rate: 0,
+      platforms: formData.platforms ?? [], status: 'onboarding', joined_at: now,
+      property_info: {
+        doorCode:        formData.lockCode      || undefined,
+        wifiNetwork:     formData.wifiName      || undefined,
+        wifiPassword:    formData.wifiPassword  || undefined,
+        petPolicy:       formData.petsAllowed === 'Yes' ? 'Pets allowed ($75 fee)' : formData.petsAllowed === 'No' ? 'No pets' : undefined,
+        houseRulesNotes: formData.houseRules    || undefined,
+        generalNotes:    formData.otherAmenities || undefined,
+      },
+    }).catch(() => {});
+  }
+
+  await supabase.from('onboarding_requests').update({
+    status: 'completed', owner_id: ownerId, form_data: formData, submitted_at: now,
+  }).eq('token', token);
+
+  return res.status(200).json({ success: true });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildOnboardingNotes(f: any): string {
+  const lines: string[] = ['=== ONBOARDING FORM SUBMISSION ==='];
+  const add = (label: string, val: unknown) => { if (val) lines.push(`${label}: ${val}`); };
+  add('Monthly costs', f.monthlyCosts); add('Property type', f.propertyType);
+  add('Bedrooms', f.bedrooms); add('Bathrooms', f.bathrooms); add('Bed sizes', f.bedSizes);
+  add('Max guests', f.maxGuests); add('Door codes', f.doorCodes);
+  if (f.platforms?.length) lines.push(`Platforms: ${f.platforms.join(', ')}`);
+  add('Listing links', f.listingLinks); add('Airbnb login', f.airbnbLogin);
+  add('VRBO login', f.vrboLogin); add('Booking.com login', f.bookingLogin);
+  add('Stripe login', f.stripeLogin); add('Average ratings', f.averageRatings);
+  add('Account preference', f.accountPreference); add('Bank info', f.bankInfo);
+  add('Entry type', f.entryType); add('Lock code', f.lockCode);
+  if (f.wifiName) lines.push(`WiFi: ${f.wifiName} / ${f.wifiPassword ?? ''}`);
+  if (f.amenities?.length) lines.push(`Amenities: ${f.amenities.join(', ')}`);
+  add('Other amenities', f.otherAmenities); add('Stocked supplies', f.stockedSupplies);
+  add('Supply ordering', f.supplyOrdering); add('Preferred cleaner', f.preferredCleaner);
+  add('Cleaner contact', f.cleanerContact); add('Preferred handyman', f.preferredHandyman);
+  add('Handyman contact', f.handymanContact); add('Pricing tool', f.pricingTool);
+  add('PriceLabs', f.priceLabs); add('Blackout dates', f.blackoutDates); add('PMS', f.pms);
+  add('Pets allowed', f.petsAllowed); add('House rules', f.houseRules);
+  add('Professional photos', f.professionalPhotos); add('Additional info', f.additionalInfo);
+  add('Questions', f.questions);
+  return lines.join('\n');
+}
+
 // ── ROUTER ────────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // GET — onboarding token status check
+  if (req.method === 'GET') {
+    const token = req.query.token as string;
+    if (req.query.flow === 'onboarding' && token) return onboardingGet(token, res);
+    return res.status(405).end();
+  }
+
   if (req.method !== 'POST') return res.status(405).end();
   const body = req.body;
 
@@ -437,7 +568,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { action, flow } = body;
-  if (flow === 'agreement') {
+  if (flow === 'onboarding') {
+    if (action === 'create') return onboardingCreate(req, res);
+    if (action === 'submit') return onboardingSubmit(body, res);
+  } else if (flow === 'agreement') {
     if (action === 'send')     return agreementSend(body, res);
     if (action === 'complete') return agreementComplete(body, res);
   } else {
