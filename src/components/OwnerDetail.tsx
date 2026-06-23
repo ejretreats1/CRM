@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ArrowLeft, Mail, Phone, Home, TrendingUp, Plus, Edit2, Trash2, Wifi,
   FileSignature, FileText, Download, Clock, CheckCircle2, XCircle, X,
   UploadCloud, File, Loader, ExternalLink, FileBarChart2, Link2,
+  Copy, Check, ClipboardList,
 } from 'lucide-react';
 import type { Owner, Property, PropertyStatus, OutreachEntry, SignatureRequest, RevenueReport } from '../types';
+import { supabase } from '../services/supabase';
 import { fetchProperties } from '../services/uplisting';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
 import { fetchHostawayProperties } from '../services/hostaway';
@@ -40,7 +42,7 @@ interface OwnerDetailProps {
   onNavigateToProperty?: (ownerId: string, propertyId: string) => void;
 }
 
-type OwnerTab = 'properties' | 'revenue' | 'documents' | 'vendors' | 'outreach';
+type OwnerTab = 'properties' | 'revenue' | 'documents' | 'vendors' | 'outreach' | 'onboarding';
 type ImportSource = 'uplisting' | 'hostaway';
 
 const VENDOR_ROLES = ['Cleaner', 'Handyman', 'Plumber', 'Electrician', 'Landscaper', 'HVAC', 'Pool Service', 'Pest Control', 'Other'];
@@ -93,6 +95,50 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// ── Onboarding panel helpers ──────────────────────────────────────────────────
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  return (
+    <button onClick={copy} className="ml-2 text-[#3a5070] hover:text-[#4a90d9] transition-colors flex-shrink-0">
+      {copied ? <Check size={13} className="text-[#4ab57a]" /> : <Copy size={13} />}
+    </button>
+  );
+}
+
+function OField({ label, value, credential }: { label: string; value?: string | string[] | boolean | null; credential?: boolean }) {
+  if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) return null;
+  const display = Array.isArray(value) ? value.join(', ') : value === true ? 'Yes' : value === false ? 'No' : String(value);
+  return (
+    <div className="flex items-start justify-between gap-3 py-2.5 border-b border-[#1e2d45] last:border-0">
+      <span className="text-xs text-[#3a5070] flex-shrink-0 w-36 pt-0.5">{label}</span>
+      <div className="flex items-start flex-1 min-w-0">
+        <span className={`text-sm break-all ${credential ? 'font-mono text-[#d0954a]' : 'text-white'}`}>{display}</span>
+        {credential && <CopyButton value={display} />}
+      </div>
+    </div>
+  );
+}
+
+function OSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-[#1a2335] rounded-xl border border-[#243550] overflow-hidden">
+      <div className="px-4 py-3 border-b border-[#243550] bg-[#141e2e]">
+        <h3 className="text-xs font-semibold text-[#4a90d9] uppercase tracking-wider">{title}</h3>
+      </div>
+      <div className="px-4 py-1">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function OwnerDetail({
   owner, outreach, onBack, onEdit, onAddProperty, onEditProperty, onDeleteProperty, onAddOutreach, onUpdateOwner,
   uplistingApiKey, hostawayAccountId, hostawaySecret,
@@ -129,6 +175,10 @@ export default function OwnerDetail({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [onboardingData, setOnboardingData] = useState<Record<string, any> | null>(null);
+  const [onboardingLoading, setOnboardingLoading] = useState(true);
+
   const ownerOutreach = outreach.filter(e => e.ownerId === owner.id);
   const activeProps   = owner.properties.filter(p => p.status === 'active');
   const avgOccupancy  = activeProps.length
@@ -140,12 +190,27 @@ export default function OwnerDetail({
   }, 0);
   const totalRevenue = liveTotalRevenue;
 
+  const loadOnboarding = useCallback(async () => {
+    setOnboardingLoading(true);
+    const { data } = await supabase
+      .from('onboarding_requests')
+      .select('form_data, submitted_at')
+      .eq('owner_id', owner.id)
+      .eq('status', 'completed')
+      .order('submitted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setOnboardingData(data?.form_data ?? null);
+    setOnboardingLoading(false);
+  }, [owner.id]);
+
   useEffect(() => {
     fetchSignatureRequests(owner.id).then(setSigRequests).catch(() => {});
     fetchOwnerDocuments(owner.id).then(setOwnerDocs).catch(() => {});
     fetchOwnerDriveLinks(owner.id).then(setDriveLinks).catch(() => {});
     fetchRevenueReportsByOwner(owner.id).then(setRevenueReports).catch(() => {});
-  }, [owner.id]);
+    loadOnboarding();
+  }, [owner.id, loadOnboarding]);
 
   async function handleUpload(file: File) {
     setUploading(true);
@@ -369,6 +434,7 @@ export default function OwnerDetail({
           { id: 'documents',  label: 'Documents' },
           { id: 'vendors',    label: 'Vendors' },
           { id: 'outreach',   label: 'Outreach' },
+          ...(onboardingData ? [{ id: 'onboarding', label: 'Onboarding' }] : []),
         ] as { id: OwnerTab; label: string }[]).map(tab => (
           <button
             key={tab.id}
@@ -682,6 +748,87 @@ export default function OwnerDetail({
       )}
 
       {/* Outreach tab */}
+      {activeTab === 'onboarding' && (
+      <div className="space-y-3">
+        {onboardingLoading ? (
+          <div className="flex justify-center py-12"><Loader size={20} className="animate-spin text-[#4a90d9]" /></div>
+        ) : !onboardingData ? (
+          <div className="bg-[#1a2335] rounded-xl border border-[#243550] flex flex-col items-center justify-center py-14 text-center px-6">
+            <ClipboardList size={32} className="text-[#3a5070] mb-3" />
+            <p className="text-sm text-white font-medium mb-1">No onboarding data yet</p>
+            <p className="text-xs text-[#3a5070]">Once the client submits their onboarding form, all their info will appear here.</p>
+          </div>
+        ) : (
+          <>
+            <OSection title="Owner Information">
+              <OField label="Full Name"      value={onboardingData.fullName} />
+              <OField label="Email"          value={onboardingData.email} />
+              <OField label="Phone"          value={onboardingData.phone} />
+              <OField label="Monthly Costs"  value={onboardingData.monthlyCosts} />
+            </OSection>
+
+            <OSection title="Property Details">
+              <OField label="Address"        value={onboardingData.propertyAddress} />
+              <OField label="Type"           value={onboardingData.propertyType} />
+              <OField label="Bedrooms"       value={onboardingData.bedrooms} />
+              <OField label="Bathrooms"      value={onboardingData.bathrooms} />
+              <OField label="Bed Sizes"      value={onboardingData.bedSizes} />
+              <OField label="Door Codes"     value={onboardingData.doorCodes} credential />
+              <OField label="Max Guests"     value={onboardingData.maxGuests} />
+            </OSection>
+
+            <OSection title="Listing Platforms">
+              <OField label="Active Platforms"    value={onboardingData.platforms} />
+              <OField label="Listing Links"       value={onboardingData.listingLinks} />
+              <OField label="Average Rating"      value={onboardingData.averageRatings} />
+              <OField label="Account Preference"  value={onboardingData.accountPreference} />
+              <OField label="Airbnb Login"        value={onboardingData.airbnbLogin}    credential />
+              <OField label="VRBO Login"          value={onboardingData.vrboLogin}      credential />
+              <OField label="Booking.com Login"   value={onboardingData.bookingLogin}   credential />
+              <OField label="Stripe Login"        value={onboardingData.stripeLogin}    credential />
+              <OField label="Bank Account Info"   value={onboardingData.bankInfo}       credential />
+            </OSection>
+
+            <OSection title="Property Access">
+              <OField label="Entry Type"    value={onboardingData.entryType} />
+              <OField label="Lock Code"     value={onboardingData.lockCode}      credential />
+              <OField label="WiFi Network"  value={onboardingData.wifiName} />
+              <OField label="WiFi Password" value={onboardingData.wifiPassword}  credential />
+            </OSection>
+
+            <OSection title="Features & Amenities">
+              <OField label="Amenities"         value={onboardingData.amenities} />
+              <OField label="Other Amenities"   value={onboardingData.otherAmenities} />
+            </OSection>
+
+            <OSection title="Supplies & Maintenance">
+              <OField label="Stocked Supplies"    value={onboardingData.stockedSupplies} />
+              <OField label="Supply Ordering"     value={onboardingData.supplyOrdering} />
+              <OField label="Preferred Cleaner"   value={onboardingData.preferredCleaner} />
+              <OField label="Cleaner Contact"     value={onboardingData.cleanerContact} credential />
+              <OField label="Preferred Handyman"  value={onboardingData.preferredHandyman} />
+              <OField label="Handyman Contact"    value={onboardingData.handymanContact} credential />
+            </OSection>
+
+            <OSection title="Pricing & Preferences">
+              <OField label="Pricing Tool"    value={onboardingData.pricingTool} />
+              <OField label="PriceLabs"       value={onboardingData.priceLabs} />
+              <OField label="Blackout Dates"  value={onboardingData.blackoutDates} />
+              <OField label="PMS Software"    value={onboardingData.pms} />
+              <OField label="Pets Allowed"    value={onboardingData.petsAllowed} />
+              <OField label="House Rules"     value={onboardingData.houseRules} />
+            </OSection>
+
+            <OSection title="Final Notes">
+              <OField label="Pro Photos"      value={onboardingData.professionalPhotos} />
+              <OField label="Additional Info" value={onboardingData.additionalInfo} />
+              <OField label="Questions"       value={onboardingData.questions} />
+            </OSection>
+          </>
+        )}
+      </div>
+      )}
+
       {activeTab === 'outreach' && (
       <div className="bg-[#1a2335] rounded-xl border border-[#243550]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#243550]">
