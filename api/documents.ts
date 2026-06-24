@@ -635,6 +635,7 @@ const ContentResultSchema = z.object({
   thread: z.array(ThreadTweetSchema).optional(),
   caption: z.string().optional(),
   script: z.array(ScriptSceneSchema).optional(),
+  tweetCards: z.array(z.object({ text: z.string(), angle: z.string() })).optional(),
   hashtags: z.array(z.string()),
   cta: z.string(),
 });
@@ -660,6 +661,7 @@ async function contentGenerate(body: any, res: VercelResponse) {
   };
 
   const typeInstructions: Record<string, string> = {
+    'tweet-card': `Create exactly 3 tweet card variations. Each is a short, punchy tweet (max 240 chars) designed to be screenshotted and posted as a photo on Instagram. Make each a different angle: Variation 1 = bold statement or hot take, Variation 2 = data/stat-driven insight, Variation 3 = numbered list (max 5 items). Set the angle field to describe the approach (e.g. "Bold Statement", "Key Stats", "Quick List"). No hashtags inside the tweet text. Fill the tweetCards array. Do NOT fill slides, thread, caption, or script.`,
     carousel: `Create a 6-slide carousel. Slide 1 is the hook (bold statement or question that stops the scroll). Slides 2-5 are meaty content points with emoji. Slide 6 is the CTA (follow/save/share). Each headline max 8 words. Body max 25 words.`,
     caption: `Write a single-post caption. Start with a strong first line (hook). 3-4 short paragraphs. End with a direct CTA. 150-200 words total.`,
     thread: `Write a 6-tweet thread. Tweet 1 is the hook/teaser ending with "🧵". Tweets 2-5 are the value. Tweet 6 is the wrap-up + CTA. Each tweet max 240 characters.`,
@@ -680,12 +682,13 @@ Generate content that educates, entertains, or inspires property owners, investo
 Rules:
 - Do NOT use em dashes (—). Use commas or rewrite instead.
 - Always include a strong hook field (the very first sentence/line).
-- Always include 8-15 relevant hashtags in the hashtags array.
+- Always include 8-15 relevant hashtags in the hashtags array (used as IG caption hashtags).
 - Always include a clear cta field (call to action text, 1 sentence).
-- For carousel: fill the slides array (6 items). slides, thread, caption, script fields not used by this type should be omitted or empty.
-- For thread: fill the thread array (6 tweets).
+- For tweet-card: fill ONLY the tweetCards array (3 items). Leave all other content fields empty.
+- For carousel: fill the slides array (6 items) only.
+- For thread: fill the thread array (6 tweets) only.
 - For caption: fill the caption field only.
-- For script: fill the script array (5 scenes).`;
+- For script: fill the script array (5 scenes) only.`;
 
   const { output } = await generateText({
     model: gateway('anthropic/claude-sonnet-4-6'),
