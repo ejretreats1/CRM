@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Mail, Users, Send, CheckCircle, AlertCircle, Loader, Eye, EyeOff, ImagePlus, X, Link, Search, ChevronDown, ChevronUp, Save } from 'lucide-react';
 import type { Lead, Owner } from '../types';
+import { cacheGet, cacheSet, cacheRemove } from '../services/appCache';
 
 interface NewsletterProps {
   leads: Lead[];
@@ -21,16 +22,6 @@ type SendState = 'idle' | 'sending' | 'done' | 'error';
 
 const DRAFT_KEY = 'newsletter_draft';
 interface Draft { subject: string; blocks: Block[]; savedAt: string; }
-
-function loadDraft(): Draft | null {
-  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null'); } catch { return null; }
-}
-function saveDraft(subject: string, blocks: Block[]) {
-  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ subject, blocks, savedAt: new Date().toISOString() })); } catch { /* quota */ }
-}
-function clearDraft() {
-  localStorage.removeItem(DRAFT_KEY);
-}
 
 function newTextBlock(content = ''): TextBlock {
   return { id: `t_${Date.now()}_${Math.random()}`, type: 'text', content };
@@ -77,9 +68,18 @@ function nodeToText(node: Node): string {
 }
 
 export default function Newsletter({ leads, owners }: NewsletterProps) {
-  const [subject, setSubject] = useState(() => loadDraft()?.subject ?? '');
-  const [blocks, setBlocks] = useState<Block[]>(() => { const d = loadDraft(); return d?.blocks?.length ? d.blocks : [newTextBlock()]; });
-  const [lastSaved, setLastSaved] = useState<Date | null>(() => { const d = loadDraft(); return d ? new Date(d.savedAt) : null; });
+  const [subject, setSubject] = useState('');
+  const [blocks, setBlocks] = useState<Block[]>([newTextBlock()]);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  useEffect(() => {
+    cacheGet<Draft>(DRAFT_KEY).then(d => {
+      if (!d) return;
+      setSubject(d.subject);
+      if (d.blocks?.length) setBlocks(d.blocks);
+      setLastSaved(new Date(d.savedAt));
+    });
+  }, []);
   const [insertingAfter, setInsertingAfter] = useState<string | null>(null);
   const [insertMode, setInsertMode] = useState<'upload' | 'url' | null>(null);
   const [urlInput, setUrlInput] = useState('');
@@ -113,7 +113,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
     const hasAnyContent = subject.trim() || blocks.some(b => b.type === 'text' && b.content.trim()) || blocks.some(b => b.type === 'image');
     if (!hasAnyContent) return;
     const timer = setTimeout(() => {
-      saveDraft(subject, blocks);
+      cacheSet(DRAFT_KEY, { subject, blocks, savedAt: new Date().toISOString() });
       setLastSaved(new Date());
     }, 1500);
     return () => clearTimeout(timer);
@@ -281,7 +281,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
       if (!res.ok) throw new Error(data.error ?? 'Failed');
       setResult(data);
       setSendState('done');
-      clearDraft();
+      cacheRemove(DRAFT_KEY);
       setLastSaved(null);
     } catch {
       setSendState('error');
@@ -296,7 +296,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
     setResult(null);
     setConfirming(false);
     setLastSaved(null);
-    clearDraft();
+    cacheRemove(DRAFT_KEY);
     closeInsert();
   }
 
@@ -448,7 +448,7 @@ export default function Newsletter({ leads, owners }: NewsletterProps) {
                 )}
                 <button
                   type="button"
-                  onClick={() => { saveDraft(subject, blocks); setLastSaved(new Date()); }}
+                  onClick={() => { cacheSet(DRAFT_KEY, { subject, blocks, savedAt: new Date().toISOString() }); setLastSaved(new Date()); }}
                   className="flex items-center gap-1 text-xs text-[#3a5070] hover:text-[#4a90d9] transition-colors"
                   title="Save draft"
                 >

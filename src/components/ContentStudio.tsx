@@ -123,44 +123,9 @@ function TweetCard({ card, index }: { card: TweetCardItem; index: number }) {
           </div>
 
           {/* Tweet text */}
-          <p style={{ fontSize: 20, lineHeight: 1.5, color: '#0f1419', whiteSpace: 'pre-wrap', marginBottom: 16 }}>
+          <p style={{ fontSize: 20, lineHeight: 1.5, color: '#0f1419', whiteSpace: 'pre-wrap' }}>
             {card.text}
           </p>
-
-          {/* Timestamp + views */}
-          <p style={{ fontSize: 14, color: '#536471', marginBottom: 12 }}>
-            8:42 AM · Jun 24, 2026 ·{' '}
-            <span style={{ fontWeight: 700, color: '#0f1419' }}>18.4K</span> Views
-          </p>
-
-          {/* Divider */}
-          <div style={{ borderTop: '1px solid #eff3f4', paddingTop: 12 }}>
-            <div style={{ display: 'flex', gap: 24, color: '#536471' }}>
-              {/* Reply */}
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 7.879 3.77 7.879 8.25 0 4.296-3.27 7.75-7.879 7.75H6.256a.96.96 0 0 0-.68.28l-1.979 1.98c-.348.35-.921.1-.921-.39V19.75c0-.14-.056-.285-.148-.395C2.006 18.351 1.751 14.426 1.751 10z" stroke="#536471" strokeWidth="2" /></svg>
-                142
-              </span>
-              {/* Repost */}
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46L19.5 20.12l-4.432-4.14 1.364-1.46 2.068 1.93V8c0-1.1-.896-2-2-2z" fill="#536471" /></svg>
-                89
-              </span>
-              {/* Like */}
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20.884 13.19c-1.351 2.48-4.001 5.12-8.379 7.67l-.503.3-.504-.3c-4.379-2.55-7.029-5.19-8.382-7.67-1.36-2.5-1.41-4.86-.514-6.67.887-1.79 2.647-2.91 4.601-3.01 1.651-.09 3.368.56 4.798 2.01 1.429-1.45 3.146-2.1 4.796-2.01 1.954.1 3.714 1.22 4.601 3.01.896 1.81.846 4.17-.514 6.67z" stroke="#536471" strokeWidth="2" /></svg>
-                1.2K
-              </span>
-              {/* Bookmark */}
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5z" stroke="#536471" strokeWidth="2" /></svg>
-              </span>
-              {/* Share */}
-              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z" fill="#536471" /></svg>
-              </span>
-            </div>
-          </div>
         </div>
       </div>
     </div>

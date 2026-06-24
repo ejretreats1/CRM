@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { cacheGet, cacheSet } from '../services/appCache';
 import {
   Plus, Trash2, Edit2, ChevronDown, ChevronRight,
   CheckSquare, Square, ListTodo, FolderKanban, Hash, Bell, Clock, ClipboardList,
@@ -373,12 +374,11 @@ export default function VAHub({
   const [slackExpanded, setSlackExpanded] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('ej_va_notify_email');
-    if (saved) setVaNotifyEmail(saved);
+    cacheGet<string>('ej_va_notify_email').then(v => { if (v) setVaNotifyEmail(v); });
   }, []);
 
   function saveVaEmail() {
-    localStorage.setItem('ej_va_notify_email', vaEmailInput.trim());
+    cacheSet('ej_va_notify_email', vaEmailInput.trim());
     setVaNotifyEmail(vaEmailInput.trim());
     setShowVaEmailEdit(false);
   }

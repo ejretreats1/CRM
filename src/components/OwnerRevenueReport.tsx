@@ -3,6 +3,7 @@ import { Download, Calendar, Percent, Save, CheckCircle } from 'lucide-react';
 import type { Owner } from '../types';
 import type { UplistingReservation } from '../services/uplisting';
 import { uploadOwnerDocument } from '../services/ownerDocuments';
+import { cacheGet, cacheSet } from '../services/appCache';
 
 interface OwnerRevenueReportProps {
   owner: Owner;
@@ -75,25 +76,19 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
 
   // Load saved commission settings and per-reservation commissionable extras
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(commissionKey(owner.id));
-      if (saved) setCommission(JSON.parse(saved));
-    } catch { /* ignore */ }
-    try {
-      const extras = localStorage.getItem(commExtrasKey(owner.id));
-      if (extras) setCommExtras(JSON.parse(extras));
-    } catch { /* ignore */ }
+    cacheGet<CommissionSettings>(commissionKey(owner.id)).then(v => { if (v) setCommission(v); });
+    cacheGet<Record<string, number>>(commExtrasKey(owner.id)).then(v => { if (v) setCommExtras(v); });
   }, [owner.id]);
 
   function updateCommission(next: CommissionSettings) {
     setCommission(next);
-    localStorage.setItem(commissionKey(owner.id), JSON.stringify(next));
+    cacheSet(commissionKey(owner.id), next);
   }
 
   function updateCommExtra(reservationId: string, value: number) {
     const next = { ...commExtras, [reservationId]: value };
     setCommExtras(next);
-    localStorage.setItem(commExtrasKey(owner.id), JSON.stringify(next));
+    cacheSet(commExtrasKey(owner.id), next);
   }
 
   // Build map: uplistingId -> property address

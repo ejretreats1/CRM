@@ -6,16 +6,7 @@ import {
 import type { UplistingReservation } from '../services/uplisting';
 import { fetchReservations } from '../services/uplisting';
 import { supabase } from '../services/supabase';
-
-// ─── Reservation history ─────────────────────────────────────────────────────
-
-const HISTORY_KEY = 'ej_uplisting_history';
-function loadHistory(): UplistingReservation[] {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]'); } catch { return []; }
-}
-function saveHistory(r: UplistingReservation[]) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(r));
-}
+import { cacheGet, cacheSet } from '../services/appCache';
 
 // ─── Draft & Campaign types ──────────────────────────────────────────────────
 
@@ -154,12 +145,15 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
   }, []);
 
   // History
-  const [history, setHistory]                   = useState<UplistingReservation[]>(() => loadHistory());
-  const [loadingHistory, setLoadingHistory]     = useState(false);
-  const [historyError, setHistoryError]         = useState('');
-  const [historyLastFetched, setHistoryLastFetched] = useState<string | null>(
-    () => localStorage.getItem('ej_uplisting_history_date')
-  );
+  const [history, setHistory]               = useState<UplistingReservation[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError]     = useState('');
+  const [historyLastFetched, setHistoryLastFetched] = useState<string | null>(null);
+
+  useEffect(() => {
+    cacheGet<UplistingReservation[]>('ej_uplisting_history').then(v => { if (v) setHistory(v); });
+    cacheGet<string>('ej_uplisting_history_date').then(v => { if (v) setHistoryLastFetched(v); });
+  }, []);
 
   async function fetchHistory() {
     if (!apiKey) return;
@@ -168,8 +162,8 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
       const today = new Date().toISOString().slice(0, 10);
       const ago   = new Date(); ago.setFullYear(ago.getFullYear() - 3);
       const hist  = await fetchReservations(apiKey, ago.toISOString().slice(0, 10), today);
-      saveHistory(hist); setHistory(hist);
-      localStorage.setItem('ej_uplisting_history_date', today);
+      cacheSet('ej_uplisting_history', hist); setHistory(hist);
+      cacheSet('ej_uplisting_history_date', today);
       setHistoryLastFetched(today);
     } catch (err) { setHistoryError(err instanceof Error ? err.message : 'Failed'); }
     finally { setLoadingHistory(false); }

@@ -8,6 +8,7 @@ import type { Deal, DealStage, StrRegStatus } from '../types';
 import { fetchDeals, upsertDeal, deleteDeal } from '../services/deals';
 import { fetchScanConfig, saveScanConfig, DEFAULT_SCAN_CONFIG } from '../services/db';
 import type { ScanConfig } from '../services/db';
+import { cacheGet, cacheSet, cacheRemove } from '../services/appCache';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@ const YIELD_COLOR = (y: number | null) => {
   return 'text-[#e05c5c]';
 };
 
-// ── Markets (localStorage) ─────────────────────────────────────────────────
+// ── Markets ────────────────────────────────────────────────────────────────
 
 interface Market {
   id: string;
@@ -89,14 +90,7 @@ interface Market {
 }
 
 const MARKETS_KEY = 'ej_deal_markets';
-
-function loadMarkets(): Market[] {
-  try { return JSON.parse(localStorage.getItem(MARKETS_KEY) ?? '[]'); }
-  catch { return []; }
-}
-function saveMarkets(m: Market[]) {
-  localStorage.setItem(MARKETS_KEY, JSON.stringify(m));
-}
+const LAST_SCAN_KEY = 'ej_last_scan';
 
 // ── Deal form defaults ────────────────────────────────────────────────────
 
@@ -713,7 +707,7 @@ export default function DealScanner() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [markets, setMarkets] = useState<Market[]>(loadMarkets);
+  const [markets, setMarkets] = useState<Market[]>([]);
   const [search, setSearch] = useState('');
   const [filterStage, setFilterStage] = useState<DealStage | ''>('');
   const [filterStr, setFilterStr] = useState<StrRegStatus | ''>('');
@@ -729,16 +723,12 @@ export default function DealScanner() {
   const [scanMaxPrice, setScanMaxPrice] = useState('');
   const [scanMinBeds, setScanMinBeds] = useState('2');
   const [scanPropertyTypes, setScanPropertyTypes] = useState<string[]>([]);
-  const [scanResults, setScanResults] = useState<ScanResult[]>(() => {
-    try { return JSON.parse(localStorage.getItem(LAST_SCAN_KEY) ?? 'null')?.results ?? []; } catch { return []; }
-  });
+  const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [rentcastKey, setRentcastKey] = useState(() => localStorage.getItem('ej_rentcast_key') ?? '');
+  const [rentcastKey, setRentcastKey] = useState('');
   const [rentcastInput, setRentcastInput] = useState('');
   const [scanError, setScanError] = useState('');
-  const [scanTotal, setScanTotal] = useState<number | null>(() => {
-    try { return JSON.parse(localStorage.getItem(LAST_SCAN_KEY) ?? 'null')?.total ?? null; } catch { return null; }
-  });
+  const [scanTotal, setScanTotal] = useState<number | null>(null);
 
   const rentcastMonthKey = (() => {
     const d = new Date();
@@ -746,15 +736,10 @@ export default function DealScanner() {
   })();
   const RENTCAST_LIMIT = 50;
   const RENTCAST_WARN  = 40;
-  const [rentcastMonthlyCount, setRentcastMonthlyCount] = useState(() =>
-    parseInt(localStorage.getItem(rentcastMonthKey) ?? '0')
-  );
+  const [rentcastMonthlyCount, setRentcastMonthlyCount] = useState(0);
 
-  const LAST_SCAN_KEY = 'ej_last_scan';
   type LastScan = { results: ScanResult[]; total: number | null; location: string; date: string };
-  const [lastScan, setLastScan] = useState<LastScan | null>(() => {
-    try { return JSON.parse(localStorage.getItem(LAST_SCAN_KEY) ?? 'null'); } catch { return null; }
-  });
+  const [lastScan, setLastScan] = useState<LastScan | null>(null);
   const [scanConfig, setScanConfig] = useState<ScanConfig>({ ...DEFAULT_SCAN_CONFIG });
   const [scanConfigSaving, setScanConfigSaving] = useState(false);
   const [scanConfigSaved, setScanConfigSaved] = useState(false);
@@ -767,6 +752,16 @@ export default function DealScanner() {
       .catch(e => setError(e.message ?? 'Failed to load deals. Make sure the deals table exists in Supabase.'))
       .finally(() => setLoading(false));
     fetchScanConfig().then(setScanConfig).catch(() => {});
+    cacheGet<Market[]>(MARKETS_KEY).then(v => { if (v) setMarkets(v); });
+    cacheGet<string>('ej_rentcast_key').then(v => { if (v) setRentcastKey(v); });
+    const monthKey = (() => { const d = new Date(); return `ej_rentcast_count_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+    cacheGet<number>(monthKey).then(v => { if (v != null) setRentcastMonthlyCount(v); });
+    cacheGet<LastScan>(LAST_SCAN_KEY).then(v => {
+      if (!v) return;
+      setLastScan(v);
+      setScanResults(v.results ?? []);
+      setScanTotal(v.total ?? null);
+    });
   }, []);
 
   const filteredDeals = useMemo(() => {
@@ -807,7 +802,7 @@ export default function DealScanner() {
       ? markets.map(x => x.id === m.id ? m : x)
       : [...markets, m];
     setMarkets(next);
-    saveMarkets(next);
+    cacheSet(MARKETS_KEY, next);
     setShowMarketModal(false);
     setEditingMarket(undefined);
   }
@@ -815,7 +810,7 @@ export default function DealScanner() {
   function handleDeleteMarket(id: string) {
     const next = markets.filter(m => m.id !== id);
     setMarkets(next);
-    saveMarkets(next);
+    cacheSet(MARKETS_KEY, next);
   }
 
   async function runScan() {
@@ -847,11 +842,11 @@ export default function DealScanner() {
       setScanResults(listings);
       setScanTotal(total);
       setLastScan(saved);
-      localStorage.setItem(LAST_SCAN_KEY, JSON.stringify(saved));
+      cacheSet(LAST_SCAN_KEY, saved);
       // Track usage
       const newCount = rentcastMonthlyCount + 1;
       setRentcastMonthlyCount(newCount);
-      localStorage.setItem(rentcastMonthKey, String(newCount));
+      cacheSet(rentcastMonthKey, newCount);
     } catch (err) {
       setScanError(err instanceof Error ? err.message : 'Scan failed');
     } finally {
@@ -982,7 +977,7 @@ export default function DealScanner() {
                   onClick={() => {
                     const k = rentcastInput.trim();
                     if (!k) return;
-                    localStorage.setItem('ej_rentcast_key', k);
+                    cacheSet('ej_rentcast_key', k);
                     setRentcastKey(k);
                     setRentcastInput('');
                   }}
@@ -1024,7 +1019,7 @@ export default function DealScanner() {
                   </span>
                 </span>
                 <button
-                  onClick={() => { localStorage.removeItem('ej_rentcast_key'); setRentcastKey(''); }}
+                  onClick={() => { cacheRemove('ej_rentcast_key'); setRentcastKey(''); }}
                   className="text-xs text-[#3a5070] hover:text-[#e05c5c] transition-colors"
                 >
                   Disconnect
@@ -1140,7 +1135,7 @@ export default function DealScanner() {
                   {lastScan && <span className="text-[#3a5070]"> · Last scan: {lastScan.location} on {lastScan.date}</span>}
                 </p>
                 <button
-                  onClick={() => { setScanResults([]); setScanTotal(null); setLastScan(null); localStorage.removeItem(LAST_SCAN_KEY); }}
+                  onClick={() => { setScanResults([]); setScanTotal(null); setLastScan(null); cacheRemove(LAST_SCAN_KEY); }}
                   className="text-xs text-[#3a5070] hover:text-[#e05c5c] transition-colors"
                 >
                   Clear
