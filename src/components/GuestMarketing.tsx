@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Search, Send, CheckSquare, Square, X, RefreshCw, Flame,
   Calendar, Trash2, Play, Clock, CheckCircle, FileText, ChevronRight,
 } from 'lucide-react';
 import type { UplistingReservation } from '../services/uplisting';
 import { fetchReservations } from '../services/uplisting';
+import { supabase } from '../services/supabase';
 
 // ─── Reservation history ─────────────────────────────────────────────────────
 
@@ -45,16 +46,6 @@ interface Campaign {
   sentLog: Array<{ sentAt: string; count: number; failed: number }>;
 }
 
-const DRAFTS_KEY    = 'ej_gm_drafts';
-const CAMPAIGNS_KEY = 'ej_gm_campaigns';
-function loadDrafts(): EmailDraft[] {
-  try { return JSON.parse(localStorage.getItem(DRAFTS_KEY) ?? '[]'); } catch { return []; }
-}
-function persistDrafts(d: EmailDraft[]) { localStorage.setItem(DRAFTS_KEY, JSON.stringify(d)); }
-function loadCampaigns(): Campaign[] {
-  try { return JSON.parse(localStorage.getItem(CAMPAIGNS_KEY) ?? '[]'); } catch { return []; }
-}
-function persistCampaigns(c: Campaign[]) { localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(c)); }
 
 // ─── Guest types & helpers ───────────────────────────────────────────────────
 
@@ -147,11 +138,20 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
   const [campName, setCampName]       = useState('');
 
   // Drafts & campaigns
-  const [drafts, setDrafts]           = useState<EmailDraft[]>(() => loadDrafts());
-  const [campaigns, setCampaigns]     = useState<Campaign[]>(() => loadCampaigns());
+  const [drafts, setDrafts]       = useState<EmailDraft[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [sendingBatch, setSendingBatch] = useState<string | null>(null);
   const [batchError, setBatchError]   = useState<string | null>(null);
   const [batchResult, setBatchResult] = useState<{ id: string; sent: number } | null>(null);
+
+  useEffect(() => {
+    supabase.from('gm_drafts').select('data').order('created_at', { ascending: false })
+      .then(({ data }) => setDrafts((data ?? []).map((r: { data: EmailDraft }) => r.data)));
+    supabase.from('gm_campaigns').select('data').order('created_at', { ascending: false })
+      .then(({ data }) => setCampaigns(
+        (data ?? []).map((r: { data: Campaign }) => r.data).filter(c => c.status !== 'cancelled')
+      ));
+  }, []);
 
   // History
   const [history, setHistory]                   = useState<UplistingReservation[]>(() => loadHistory());
@@ -234,14 +234,16 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
     if (!subject.trim() && !body.trim()) { alert('Add a subject or body before saving.'); return; }
     const name = campName.trim() || subject.trim().slice(0, 40) || 'Untitled Draft';
     const d: EmailDraft = { id: `d_${Date.now()}`, name, subject, body, fromName, createdAt: new Date().toISOString() };
-    const next = [d, ...drafts]; setDrafts(next); persistDrafts(next);
+    setDrafts(prev => [d, ...prev]);
+    supabase.from('gm_drafts').upsert({ id: d.id, data: d, created_at: d.createdAt });
     alert(`Draft "${name}" saved!`);
   }
 
   function useDraft(d: EmailDraft) { setSubject(d.subject); setBody(d.body); setFromName(d.fromName); }
 
   function deleteDraft(id: string) {
-    const next = drafts.filter(d => d.id !== id); setDrafts(next); persistDrafts(next);
+    setDrafts(prev => prev.filter(d => d.id !== id));
+    supabase.from('gm_drafts').delete().eq('id', id);
   }
 
   // ── Send now ──────────────────────────────────────────────────────────────
@@ -272,7 +274,8 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
       batchesSent: 0, warmupCopies, status: 'scheduled',
       createdAt: new Date().toISOString(), sentLog: [],
     };
-    const next = [c, ...campaigns]; setCampaigns(next); persistCampaigns(next);
+    setCampaigns(prev => [c, ...prev]);
+    supabase.from('gm_campaigns').upsert({ id: c.id, data: c, created_at: c.createdAt });
     setComposing(false); setSubject(''); setBody(''); setSelected(new Set());
     setTab('campaigns');
   }
@@ -293,8 +296,8 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
         status: done ? 'completed' : 'in_progress',
         sentLog: [...c.sentLog, { sentAt: new Date().toISOString(), count: r.sent, failed: r.failed }],
       };
-      const next = campaigns.map(x => x.id === c.id ? updated : x);
-      setCampaigns(next); persistCampaigns(next);
+      setCampaigns(prev => prev.map(x => x.id === c.id ? updated : x));
+      supabase.from('gm_campaigns').upsert({ id: updated.id, data: updated, created_at: updated.createdAt });
       setBatchResult({ id: c.id, sent: r.sent });
     } catch (err) { setBatchError(err instanceof Error ? err.message : 'Send failed'); }
     finally { setSendingBatch(null); }
@@ -302,13 +305,17 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
 
   function cancelCampaign(id: string) {
     if (!confirm('Cancel this campaign?')) return;
-    const next = campaigns.map(c => c.id === id ? { ...c, status: 'cancelled' as const } : c);
-    setCampaigns(next); persistCampaigns(next);
+    const target = campaigns.find(c => c.id === id);
+    if (!target) return;
+    const updated = { ...target, status: 'cancelled' as const };
+    setCampaigns(prev => prev.filter(c => c.id !== id));
+    supabase.from('gm_campaigns').upsert({ id, data: updated, created_at: updated.createdAt });
   }
 
   function deleteCampaign(id: string) {
     if (!confirm('Delete this campaign permanently?')) return;
-    const next = campaigns.filter(c => c.id !== id); setCampaigns(next); persistCampaigns(next);
+    setCampaigns(prev => prev.filter(c => c.id !== id));
+    supabase.from('gm_campaigns').delete().eq('id', id);
   }
 
   // ── Derived counts ────────────────────────────────────────────────────────
