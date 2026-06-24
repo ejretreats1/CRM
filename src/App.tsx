@@ -39,6 +39,7 @@ import {
 } from './services/db';
 import { fetchContacts } from './services/contacts';
 import ESign from './components/ESign';
+import ContentStudio from './components/ContentStudio';
 import { fetchWarmupEntries, upsertWarmupEntry, deleteWarmupEntry } from './services/warmup';
 import type { WarmupEntry } from './services/warmup';
 import {
@@ -736,6 +737,10 @@ export default function App() {
 
       {view === 'esign' && (
         <ESign userId={user?.id ?? 'crm'} />
+      )}
+
+      {view === 'content-studio' && (
+        <ContentStudio />
       )}
 
       {modal?.type === 'lead-detail' && (

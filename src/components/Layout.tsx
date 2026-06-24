@@ -21,6 +21,7 @@ import {
   ScanSearch,
   Send,
   FileSignature,
+  Wand2,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -48,6 +49,7 @@ const navItems = [
   { id: 'deal-scanner' as View,     label: 'Deal Scanner',         icon: ScanSearch },
   { id: 'campaigns' as View,        label: 'Lead Campaigns',        icon: Send },
   { id: 'esign' as View,            label: 'E-Sign Documents',      icon: FileSignature },
+  { id: 'content-studio' as View,   label: 'Content Studio',        icon: Wand2 },
 ];
 
 // Bottom 4 tabs

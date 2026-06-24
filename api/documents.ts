@@ -3,6 +3,9 @@ import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { randomUUID } from 'crypto';
+import { generateText, Output } from 'ai';
+import { gateway } from '@ai-sdk/gateway';
+import { z } from 'zod';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -604,6 +607,106 @@ function buildOnboardingNotes(f: any): string {
   return lines.join('\n');
 }
 
+// ── CONTENT STUDIO ───────────────────────────────────────────────────────────
+
+export const config = { maxDuration: 60 };
+
+const SlideSchema = z.object({
+  slideNumber: z.number(),
+  headline: z.string(),
+  body: z.string(),
+  emoji: z.string().optional(),
+});
+
+const ThreadTweetSchema = z.object({
+  tweetNumber: z.number(),
+  text: z.string(),
+});
+
+const ScriptSceneSchema = z.object({
+  scene: z.string(),
+  text: z.string(),
+  duration: z.string(),
+});
+
+const ContentResultSchema = z.object({
+  hook: z.string(),
+  slides: z.array(SlideSchema).optional(),
+  thread: z.array(ThreadTweetSchema).optional(),
+  caption: z.string().optional(),
+  script: z.array(ScriptSceneSchema).optional(),
+  hashtags: z.array(z.string()),
+  cta: z.string(),
+});
+
+async function contentGenerate(body: any, res: VercelResponse) {
+  const { topic, platform, contentType, context: brandContext } = body as {
+    topic: string;
+    platform: string;
+    contentType: string;
+    context?: string;
+  };
+
+  if (!topic || !platform || !contentType) {
+    return res.status(400).json({ error: 'topic, platform, and contentType are required.' });
+  }
+
+  const platformGuide: Record<string, string> = {
+    instagram: 'Instagram (square format, casual yet professional, heavy emoji use, strong CTA to follow/save)',
+    twitter: 'X / Twitter (concise, punchy, conversational, max 280 chars per tweet)',
+    linkedin: 'LinkedIn (professional, data-driven, thought leadership tone, minimal emoji)',
+    facebook: 'Facebook (friendly, community-focused, slightly longer form, moderate emoji)',
+    tiktok: 'TikTok (very fast hook, trend-aware language, energetic, Gen Z friendly)',
+  };
+
+  const typeInstructions: Record<string, string> = {
+    carousel: `Create a 6-slide carousel. Slide 1 is the hook (bold statement or question that stops the scroll). Slides 2-5 are meaty content points with emoji. Slide 6 is the CTA (follow/save/share). Each headline max 8 words. Body max 25 words.`,
+    caption: `Write a single-post caption. Start with a strong first line (hook). 3-4 short paragraphs. End with a direct CTA. 150-200 words total.`,
+    thread: `Write a 6-tweet thread. Tweet 1 is the hook/teaser ending with "🧵". Tweets 2-5 are the value. Tweet 6 is the wrap-up + CTA. Each tweet max 240 characters.`,
+    script: `Write a short-form video script. Scene 1: 0-3s hook (shocking stat or question). Scenes 2-4: core value points with B-roll notes. Scene 5: CTA. Keep each scene 5-10 seconds max.`,
+  };
+
+  const prompt = `You are a social media content expert for E&J Retreats, a luxury short-term rental property management company based in the US. We manage high-end Airbnb/VRBO properties and help homeowners earn passive income.
+
+PLATFORM: ${platformGuide[platform] ?? platform}
+CONTENT TYPE: ${typeInstructions[contentType] ?? contentType}
+TOPIC: ${topic}
+${brandContext ? `BRAND CONTEXT / EXTRA DETAILS: ${brandContext}` : ''}
+
+BRAND VOICE: Confident, knowledgeable, approachable. We are the experts that property owners trust. We make STR ownership simple and profitable.
+
+Generate content that educates, entertains, or inspires property owners, investors, or people interested in short-term rentals. Make it highly shareable and valuable.
+
+Rules:
+- Do NOT use em dashes (—). Use commas or rewrite instead.
+- Always include a strong hook field (the very first sentence/line).
+- Always include 8-15 relevant hashtags in the hashtags array.
+- Always include a clear cta field (call to action text, 1 sentence).
+- For carousel: fill the slides array (6 items). slides, thread, caption, script fields not used by this type should be omitted or empty.
+- For thread: fill the thread array (6 tweets).
+- For caption: fill the caption field only.
+- For script: fill the script array (5 scenes).`;
+
+  const { output } = await generateText({
+    model: gateway('anthropic/claude-sonnet-4-6'),
+    output: Output.object({ schema: ContentResultSchema }),
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const supabase = getSupabase();
+  const id = `content_${Date.now()}`;
+  await supabase.from('content_pieces').insert({
+    id,
+    topic,
+    platform,
+    content_type: contentType,
+    result: output,
+    created_at: new Date().toISOString(),
+  });
+
+  return res.status(200).json({ id, result: output });
+}
+
 // ── ROUTER ────────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -623,7 +726,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { action, flow } = body;
-  if (flow === 'onboarding') {
+  if (flow === 'content') {
+    if (action === 'generate') return contentGenerate(body, res);
+  } else if (flow === 'onboarding') {
     if (action === 'create') return onboardingCreate(req, res);
     if (action === 'submit') return onboardingSubmit(body, res);
   } else if (flow === 'agreement') {
