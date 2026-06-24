@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Wand2, Copy, Check, ChevronLeft, ChevronRight, Loader2,
   Instagram, Twitter, Linkedin, Facebook, Clock, Trash2,
-  Download, RefreshCw, Hash, MessageSquare, Film, AlignLeft, LayoutGrid,
+  RefreshCw, Hash, MessageSquare, Film, AlignLeft, LayoutGrid,
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 
