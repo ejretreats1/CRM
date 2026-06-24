@@ -710,6 +710,126 @@ Rules:
   return res.status(200).json({ id, result: output });
 }
 
+// ── META (Facebook & Instagram) ──────────────────────────────────────────────
+
+const META_GRAPH = 'https://graph.facebook.com/v21.0';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function metaConnect(body: any, res: VercelResponse) {
+  const { shortLivedToken } = body;
+  const appId     = process.env.VITE_META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appId || !appSecret) return res.status(500).json({ error: 'Meta not configured on server (set VITE_META_APP_ID and META_APP_SECRET in Vercel).' });
+
+  const tokenRes = await fetch(
+    `${META_GRAPH}/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortLivedToken}`
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tokenData: any = await tokenRes.json();
+  if (tokenData.error) return res.status(400).json({ error: tokenData.error.message });
+  const longLivedToken: string = tokenData.access_token;
+  const expiresIn: number      = tokenData.expires_in ?? 5184000;
+
+  const pagesRes = await fetch(`${META_GRAPH}/me/accounts?fields=id,name,access_token&access_token=${longLivedToken}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pagesData: any = await pagesRes.json();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawPages: any[] = pagesData.data ?? [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pages = await Promise.all(rawPages.map(async (page: any) => {
+    let igAccount: { id: string; username: string } | null = null;
+    try {
+      const igCheckRes = await fetch(`${META_GRAPH}/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const igCheck: any = await igCheckRes.json();
+      if (igCheck.instagram_business_account?.id) {
+        const igInfoRes = await fetch(`${META_GRAPH}/${igCheck.instagram_business_account.id}?fields=id,username&access_token=${page.access_token}`);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const igInfo: any = await igInfoRes.json();
+        igAccount = { id: igInfo.id, username: igInfo.username };
+      }
+    } catch {}
+    return { id: page.id, name: page.name, access_token: page.access_token, igAccount };
+  }));
+
+  const connection = {
+    longLivedToken,
+    expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    pages,
+    connectedAt: new Date().toISOString(),
+  };
+  await getSupabase().from('app_cache').upsert({ key: 'meta_connection', value: connection, updated_at: new Date().toISOString() });
+
+  return res.status(200).json({
+    connection: {
+      pages: pages.map(p => ({ id: p.id, name: p.name, igAccount: p.igAccount })),
+      connectedAt: connection.connectedAt,
+      expiresAt: connection.expiresAt,
+    },
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function metaPostFacebook(body: any, res: VercelResponse) {
+  const { pageId, message, imageUrl } = body;
+  const { data } = await getSupabase().from('app_cache').select('value').eq('key', 'meta_connection').single();
+  if (!data) return res.status(400).json({ error: 'Meta account not connected. Connect in Settings first.' });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conn = data.value as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = (conn.pages as any[]).find((p: any) => p.id === pageId);
+  if (!page) return res.status(400).json({ error: 'Page not found in connection.' });
+
+  const endpoint = imageUrl ? `${META_GRAPH}/${pageId}/photos` : `${META_GRAPH}/${pageId}/feed`;
+  const payload: Record<string, string> = { access_token: page.access_token };
+  if (imageUrl) { payload.url = imageUrl; payload.caption = message; }
+  else          { payload.message = message; }
+
+  const r = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result: any = await r.json();
+  if (result.error) return res.status(400).json({ error: result.error.message });
+  return res.status(200).json({ postId: result.id ?? result.post_id });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function metaPostInstagram(body: any, res: VercelResponse) {
+  const { igAccountId, pageId, imageUrl, caption } = body;
+  const { data } = await getSupabase().from('app_cache').select('value').eq('key', 'meta_connection').single();
+  if (!data) return res.status(400).json({ error: 'Meta account not connected. Connect in Settings first.' });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conn = data.value as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = (conn.pages as any[]).find((p: any) => p.id === pageId);
+  if (!page) return res.status(400).json({ error: 'Page not found in connection.' });
+
+  const containerRes = await fetch(`${META_GRAPH}/${igAccountId}/media`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image_url: imageUrl, caption, access_token: page.access_token }),
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const container: any = await containerRes.json();
+  if (container.error) return res.status(400).json({ error: container.error.message });
+
+  await new Promise(r => setTimeout(r, 2000));
+
+  const publishRes = await fetch(`${META_GRAPH}/${igAccountId}/media_publish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ creation_id: container.id, access_token: page.access_token }),
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const published: any = await publishRes.json();
+  if (published.error) return res.status(400).json({ error: published.error.message });
+  return res.status(200).json({ postId: published.id });
+}
+
 // ── ROUTER ────────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -731,6 +851,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { action, flow } = body;
   if (flow === 'content') {
     if (action === 'generate') return contentGenerate(body, res);
+  } else if (flow === 'meta') {
+    if (action === 'connect')        return metaConnect(body, res);
+    if (action === 'post-facebook')  return metaPostFacebook(body, res);
+    if (action === 'post-instagram') return metaPostInstagram(body, res);
+    if (action === 'disconnect') {
+      await getSupabase().from('app_cache').delete().eq('key', 'meta_connection');
+      return res.status(200).json({ success: true });
+    }
   } else if (flow === 'onboarding') {
     if (action === 'create') return onboardingCreate(req, res);
     if (action === 'submit') return onboardingSubmit(body, res);

@@ -2,9 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Wand2, Copy, Check, ChevronLeft, ChevronRight, Loader2,
   Instagram, Twitter, Linkedin, Facebook, Clock, Trash2,
-  RefreshCw, Hash, MessageSquare, Film, AlignLeft, LayoutGrid,
+  RefreshCw, Hash, MessageSquare, Film, AlignLeft, LayoutGrid, Send,
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
+import { cacheGet } from '../services/appCache';
+import { postToFacebook, postToInstagram } from '../services/meta';
+import type { MetaConnection, MetaPage } from '../services/meta';
 
 type Platform = 'instagram' | 'twitter' | 'linkedin' | 'facebook' | 'tiktok';
 type ContentType = 'carousel' | 'caption' | 'thread' | 'script' | 'tweet-card';
@@ -75,6 +78,130 @@ function CopyBtn({ text }: { text: string }) {
       {copied ? <Check size={12} /> : <Copy size={12} />}
       {copied ? 'Copied' : 'Copy'}
     </button>
+  );
+}
+
+// ── Meta Publish Panel ────────────────────────────────────────────────────────
+
+type PostStatus = 'idle' | 'posting' | 'done' | 'error';
+
+function MetaPublish({ contentType, caption, hashtags }: { contentType: string; caption: string; hashtags: string[] }) {
+  const [conn, setConn] = useState<MetaConnection | null>(null);
+  const [selectedPage, setSelectedPage] = useState<MetaPage | null>(null);
+  const [igImageUrl, setIgImageUrl] = useState('');
+  const [fbStatus, setFbStatus] = useState<PostStatus>('idle');
+  const [igStatus, setIgStatus] = useState<PostStatus>('idle');
+  const [fbError, setFbError] = useState('');
+  const [igError, setIgError] = useState('');
+
+  useEffect(() => {
+    cacheGet<{ pages: MetaPage[]; connectedAt: string; expiresAt: string }>('meta_connection').then(v => {
+      if (!v) return;
+      const safe: MetaConnection = { pages: v.pages.map(p => ({ id: p.id, name: p.name, igAccount: p.igAccount })), connectedAt: v.connectedAt, expiresAt: v.expiresAt };
+      setConn(safe);
+      if (safe.pages.length > 0) setSelectedPage(safe.pages[0]);
+    });
+  }, []);
+
+  if (!conn) return (
+    <div className="bg-[#0f1923] border border-[#1e2d45] rounded-xl p-3 text-xs text-[#3a5070]">
+      <Facebook size={13} className="inline mr-1.5 text-[#1877F2]" />
+      Connect Meta in Settings to publish directly to Facebook and Instagram.
+    </div>
+  );
+
+  const fullCaption = caption + (hashtags.length ? '\n\n' + hashtags.map(h => `#${h.replace(/^#/, '')}`).join(' ') : '');
+  const igAccount   = selectedPage?.igAccount ?? null;
+
+  async function handlePostFacebook() {
+    if (!selectedPage) return;
+    setFbStatus('posting'); setFbError('');
+    try {
+      await postToFacebook(selectedPage.id, fullCaption);
+      setFbStatus('done');
+    } catch (e) {
+      setFbError(e instanceof Error ? e.message : 'Failed');
+      setFbStatus('error');
+    }
+  }
+
+  async function handlePostInstagram() {
+    if (!selectedPage || !igAccount || !igImageUrl.trim()) return;
+    setIgStatus('posting'); setIgError('');
+    try {
+      await postToInstagram(igAccount.id, selectedPage.id, igImageUrl.trim(), fullCaption);
+      setIgStatus('done');
+    } catch (e) {
+      setIgError(e instanceof Error ? e.message : 'Failed');
+      setIgStatus('error');
+    }
+  }
+
+  return (
+    <div className="bg-[#0f1923] border border-[#1e3a5a] rounded-xl p-4 space-y-3">
+      <p className="text-xs font-bold text-[#4a90d9] uppercase tracking-wide flex items-center gap-1.5">
+        <Send size={11} /> Publish
+      </p>
+
+      {/* Page selector */}
+      {conn.pages.length > 1 && (
+        <select
+          value={selectedPage?.id ?? ''}
+          onChange={e => setSelectedPage(conn.pages.find(p => p.id === e.target.value) ?? null)}
+          className="w-full bg-[#1a2335] border border-[#1e2d45] text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#1877F2]"
+        >
+          {conn.pages.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      )}
+
+      {/* Facebook post */}
+      {(contentType === 'caption' || contentType === 'tweet-card') && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handlePostFacebook}
+            disabled={fbStatus === 'posting' || fbStatus === 'done'}
+            className="flex items-center gap-1.5 bg-[#1877F2] hover:bg-[#1464d8] disabled:opacity-60 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <Facebook size={12} />
+            {fbStatus === 'posting' ? 'Posting…' : fbStatus === 'done' ? 'Posted!' : 'Post to Facebook'}
+          </button>
+          {fbStatus === 'error' && <p className="text-xs text-[#e05c5c] flex-1">{fbError}</p>}
+        </div>
+      )}
+
+      {/* Instagram post (requires image URL) */}
+      {igAccount && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Instagram size={12} className="text-[#d07af5] flex-shrink-0" />
+            <span className="text-xs text-[#b8d4f0]">@{igAccount.username}</span>
+          </div>
+          <input
+            type="url"
+            value={igImageUrl}
+            onChange={e => setIgImageUrl(e.target.value)}
+            placeholder="Paste public image URL to post to Instagram…"
+            className="w-full bg-[#1a2335] border border-[#1e2d45] text-white text-xs rounded-lg px-3 py-2 placeholder-[#3a5070] focus:outline-none focus:ring-1 focus:ring-[#d07af5]"
+          />
+          <button
+            onClick={handlePostInstagram}
+            disabled={!igImageUrl.trim() || igStatus === 'posting' || igStatus === 'done'}
+            className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+          >
+            <Instagram size={12} />
+            {igStatus === 'posting' ? 'Posting…' : igStatus === 'done' ? 'Posted!' : 'Post to Instagram'}
+          </button>
+          {igStatus === 'error' && <p className="text-xs text-[#e05c5c]">{igError}</p>}
+          <p className="text-xs text-[#3a5070]">Image must be a publicly accessible URL (JPEG/PNG). Screenshot the card above, upload it, then paste the URL.</p>
+        </div>
+      )}
+
+      {!igAccount && selectedPage && (
+        <p className="text-xs text-[#3a5070]">No Instagram Business account linked to this page. Connect one in Meta Business Suite.</p>
+      )}
+    </div>
   );
 }
 
@@ -631,6 +758,15 @@ export default function ContentStudio() {
                     </div>
                   )}
                 </>
+              )}
+
+              {/* Publish to Meta */}
+              {(contentType === 'caption' || contentType === 'tweet-card') && (
+                <MetaPublish
+                  contentType={contentType}
+                  caption={contentType === 'caption' ? (result.caption ?? result.hook) : result.hook}
+                  hashtags={result.hashtags}
+                />
               )}
 
               <button

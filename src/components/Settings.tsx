@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Key, CheckCircle, XCircle, Loader, Eye, EyeOff, RefreshCw, Trash2, CalendarDays, Save, Hash, Plus, X, Users, UserPlus, Copy, Check } from 'lucide-react';
+import { Key, CheckCircle, XCircle, Loader, Eye, EyeOff, RefreshCw, Trash2, CalendarDays, Save, Hash, Plus, X, Users, UserPlus, Copy, Check, Instagram, Facebook } from 'lucide-react';
 import { testConnection } from '../services/uplisting';
 import { testHostawayConnection } from '../services/hostaway';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
+import { cacheGet } from '../services/appCache';
+import { loadFbSdk, fbLogin, connectMeta, disconnectMeta } from '../services/meta';
+import type { MetaConnection } from '../services/meta';
 
 interface SlackChannel {
   id: string;
@@ -44,6 +47,114 @@ type Status = 'idle' | 'testing' | 'success' | 'error';
 
 interface TeamMember { id: string; email: string; name: string; role: string; }
 interface CreatedCreds { email: string; password: string; name: string; }
+
+const META_SCOPE = 'pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish';
+
+function MetaConnect() {
+  const appId = (import.meta as unknown as { env: Record<string, string> }).env.VITE_META_APP_ID as string | undefined;
+  const [conn, setConn] = useState<MetaConnection | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    cacheGet<MetaConnection>('meta_connection').then(v => {
+      setConn(v ? { pages: v.pages, connectedAt: v.connectedAt, expiresAt: v.expiresAt } : null);
+      setLoading(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (appId) loadFbSdk(appId);
+  }, [appId]);
+
+  async function handleConnect() {
+    if (typeof window.FB === 'undefined') { setError('Facebook SDK not ready — try again in a moment.'); return; }
+    setConnecting(true);
+    setError('');
+    try {
+      const token = await fbLogin(META_SCOPE);
+      if (!token) { setConnecting(false); return; }
+      const updated = await connectMeta(token);
+      setConn(updated);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Connection failed');
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    await disconnectMeta();
+    setConn(null);
+  }
+
+  if (loading) return null;
+
+  const hasIg = conn?.pages.some(p => p.igAccount);
+
+  return (
+    <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Facebook size={18} className="text-[#1877F2]" />
+        <h2 className="font-semibold text-white">Meta (Facebook & Instagram)</h2>
+        {conn && <span className="text-xs text-[#5ce0a0] bg-[#0a2518] border border-[#0a4a2a] px-2 py-0.5 rounded-full ml-auto">Connected</span>}
+      </div>
+
+      {!appId ? (
+        <div className="text-xs text-[#d0954a] space-y-1">
+          <p className="font-semibold">Setup required</p>
+          <ol className="list-decimal list-inside space-y-0.5 text-[#b87a30]">
+            <li>Go to <span className="font-mono">developers.facebook.com</span> → Create App → Business type</li>
+            <li>Add products: Facebook Login + Instagram Graph API</li>
+            <li>Copy your App ID and App Secret</li>
+            <li>In Vercel: add <span className="font-mono">VITE_META_APP_ID</span> and <span className="font-mono">META_APP_SECRET</span></li>
+            <li>Redeploy, then come back to connect</li>
+          </ol>
+        </div>
+      ) : conn ? (
+        <div className="space-y-3">
+          {conn.pages.map(page => (
+            <div key={page.id} className="bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 space-y-1">
+              <div className="flex items-center gap-2">
+                <Facebook size={13} className="text-[#1877F2] flex-shrink-0" />
+                <span className="text-sm font-medium text-white">{page.name}</span>
+                <CheckCircle size={12} className="text-[#5ce0a0] ml-auto" />
+              </div>
+              {page.igAccount && (
+                <div className="flex items-center gap-2 pl-5">
+                  <Instagram size={12} className="text-[#d07af5] flex-shrink-0" />
+                  <span className="text-xs text-[#b8d4f0]">@{page.igAccount.username}</span>
+                  <CheckCircle size={11} className="text-[#5ce0a0] ml-auto" />
+                </div>
+              )}
+            </div>
+          ))}
+          {!hasIg && (
+            <p className="text-xs text-[#d0954a]">No Instagram Business account linked. In Meta Business Suite, connect an Instagram Professional account to this Page.</p>
+          )}
+          <div className="flex items-center gap-3 pt-1">
+            <p className="text-xs text-[#3a5070] flex-1">Token expires {new Date(conn.expiresAt).toLocaleDateString()}</p>
+            <button onClick={handleDisconnect} className="text-xs text-[#e05c5c] hover:text-[#e05c5c] border border-[#5a1a1a] px-3 py-1.5 rounded-lg transition-colors">Disconnect</button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <button
+            onClick={handleConnect}
+            disabled={connecting}
+            className="flex items-center gap-2 bg-[#1877F2] hover:bg-[#1464d8] disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            {connecting ? <Loader size={14} className="animate-spin" /> : <Facebook size={14} />}
+            {connecting ? 'Connecting…' : 'Connect Meta Account'}
+          </button>
+          {error && <p className="text-xs text-[#e05c5c]">{error}</p>}
+          <p className="text-xs text-[#3a5070]">Opens a Facebook login popup. Grants access to post on your behalf to connected Pages and Instagram Business accounts.</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Settings({
   apiKey, onSaveApiKey,
@@ -617,6 +728,9 @@ export default function Settings({
         {plSaveError && <p className="text-xs text-[#e05c5c]">{plSaveError}</p>}
         <p className="text-xs text-[#3a5070]">In PriceLabs: Account → API → Generate API Key.</p>
       </div>
+
+      {/* Meta */}
+      <MetaConnect />
 
       {/* Help */}
       <div className="bg-[#162035] border border-[#1e3a5a] rounded-xl p-4 text-sm text-[#6ab0f5] space-y-1">
