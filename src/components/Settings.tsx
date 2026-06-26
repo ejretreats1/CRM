@@ -48,7 +48,7 @@ type Status = 'idle' | 'testing' | 'success' | 'error';
 interface TeamMember { id: string; email: string; name: string; role: string; }
 interface CreatedCreds { email: string; password: string; name: string; }
 
-const META_SCOPE = 'pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish';
+const META_SCOPE = 'pages_manage_posts,pages_read_engagement,pages_show_list';
 
 function MetaConnect() {
   const appId = (import.meta as unknown as { env: Record<string, string> }).env.VITE_META_APP_ID as string | undefined;
