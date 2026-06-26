@@ -118,6 +118,13 @@ function MetaPublish({ contentType, caption, hashtags, cardCount }: {
     </div>
   );
 
+  if (conn.pages.length === 0) return (
+    <div className="bg-[#1a1000] border border-[#3a2a00] rounded-xl p-3 space-y-1">
+      <p className="text-xs font-semibold text-[#d0954a]">No Facebook Pages found</p>
+      <p className="text-xs text-[#8a6030]">Go to Settings → Meta → Disconnect, then reconnect and make sure to grant access to your E&J Retreats page when the popup appears.</p>
+    </div>
+  );
+
   const fullCaption = caption + (hashtags.length ? '\n\n' + hashtags.map(h => `#${h.replace(/^#/, '')}`).join(' ') : '');
   const igAccount   = selectedPage?.igAccount ?? igOverride ?? null;
   const isTweetCard = contentType === 'tweet-card';
