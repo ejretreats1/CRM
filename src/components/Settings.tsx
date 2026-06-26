@@ -137,6 +137,11 @@ function MetaConnect() {
         </div>
       ) : conn ? (
         <div className="space-y-3">
+          {conn.pages.length === 0 && (
+            <div className="bg-[#1a1000] border border-[#3a2a00] rounded-lg px-3 py-2.5 text-xs text-[#d0954a]">
+              No Facebook Pages found. Disconnect and reconnect — make sure to grant access to your E&J Retreats page when the popup appears.
+            </div>
+          )}
           {conn.pages.map(page => (
             <div key={page.id} className="bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 space-y-1">
               <div className="flex items-center gap-2">
@@ -153,8 +158,8 @@ function MetaConnect() {
               )}
             </div>
           ))}
-          {/* Instagram manual override — always available */}
-          {conn.pages.length > 0 && (
+          {/* Instagram manual override — always available when connected */}
+          {(
             igOverride ? (
               <div className="bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5">
                 <div className="flex items-center gap-2 pl-5">
