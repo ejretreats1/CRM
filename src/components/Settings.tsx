@@ -50,18 +50,25 @@ interface CreatedCreds { email: string; password: string; name: string; }
 
 const META_SCOPE = 'pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic';
 
+interface IgOverride { id: string; username: string }
+
 function MetaConnect() {
   const appId = (import.meta as unknown as { env: Record<string, string> }).env.VITE_META_APP_ID as string | undefined;
   const [conn, setConn] = useState<MetaConnection | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState('');
+  const [igOverride, setIgOverride] = useState<IgOverride | null>(null);
+  const [igIdInput, setIgIdInput] = useState('');
+  const [igUsernameInput, setIgUsernameInput] = useState('');
+  const [igSaved, setIgSaved] = useState(false);
 
   useEffect(() => {
     cacheGet<MetaConnection>('meta_connection').then(v => {
       setConn(v ? { pages: v.pages, connectedAt: v.connectedAt, expiresAt: v.expiresAt } : null);
       setLoading(false);
     });
+    cacheGet<IgOverride>('meta_ig_override').then(v => { if (v) setIgOverride(v); });
   }, []);
 
   useEffect(() => {
@@ -89,9 +96,25 @@ function MetaConnect() {
     setConn(null);
   }
 
+  async function saveIgOverride() {
+    const v = { id: igIdInput.trim(), username: igUsernameInput.trim().replace(/^@/, '') };
+    const { cacheSet } = await import('../services/appCache');
+    await cacheSet('meta_ig_override', v);
+    setIgOverride(v);
+    setIgSaved(true);
+    setTimeout(() => setIgSaved(false), 2000);
+  }
+
+  async function removeIgOverride() {
+    const { cacheRemove } = await import('../services/appCache');
+    await cacheRemove('meta_ig_override');
+    setIgOverride(null);
+    setIgIdInput('');
+    setIgUsernameInput('');
+  }
+
   if (loading) return null;
 
-  const hasIg = conn?.pages.some(p => p.igAccount);
 
   return (
     <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 space-y-4">
@@ -130,8 +153,45 @@ function MetaConnect() {
               )}
             </div>
           ))}
-          {!hasIg && (
-            <p className="text-xs text-[#d0954a]">No Instagram Business account linked. In Meta Business Suite, connect an Instagram Professional account to this Page.</p>
+          {/* Instagram — auto-discovered or manual override */}
+          {conn.pages[0] && !conn.pages[0].igAccount && (
+            igOverride ? (
+              <div className="bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5">
+                <div className="flex items-center gap-2 pl-5">
+                  <Instagram size={12} className="text-[#d07af5] flex-shrink-0" />
+                  <span className="text-xs text-[#b8d4f0]">@{igOverride.username}</span>
+                  <span className="text-xs text-[#3a5070] ml-auto">(manual)</span>
+                  <button onClick={removeIgOverride} className="text-[#3a5070] hover:text-[#e05c5c] transition-colors ml-1"><X size={11} /></button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#1a1a2e] border border-[#2a1a35] rounded-lg px-3 py-3 space-y-2">
+                <p className="text-xs text-[#d07af5] font-semibold">Link Instagram manually</p>
+                <p className="text-xs text-[#3a5070]">API auto-discovery failed. Paste your Instagram Account ID and username below.</p>
+                <input
+                  type="text"
+                  value={igIdInput}
+                  onChange={e => setIgIdInput(e.target.value)}
+                  placeholder="Instagram Account ID  e.g. 17841475907866507"
+                  className="w-full bg-[#0f1923] border border-[#2a1a35] text-white text-xs rounded-lg px-3 py-2 placeholder-[#3a5070] focus:outline-none focus:ring-1 focus:ring-[#d07af5]"
+                />
+                <input
+                  type="text"
+                  value={igUsernameInput}
+                  onChange={e => setIgUsernameInput(e.target.value)}
+                  placeholder="Username  e.g. ejretreats"
+                  className="w-full bg-[#0f1923] border border-[#2a1a35] text-white text-xs rounded-lg px-3 py-2 placeholder-[#3a5070] focus:outline-none focus:ring-1 focus:ring-[#d07af5]"
+                />
+                <button
+                  onClick={saveIgOverride}
+                  disabled={!igIdInput.trim() || !igUsernameInput.trim()}
+                  className="flex items-center gap-1.5 bg-[#2a1a35] hover:bg-[#3a1a45] disabled:opacity-50 text-[#d07af5] text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  {igSaved ? <CheckCircle size={12} /> : <Save size={12} />}
+                  {igSaved ? 'Saved!' : 'Save Instagram Account'}
+                </button>
+              </div>
+            )
           )}
           <div className="flex items-center gap-3 pt-1">
             <p className="text-xs text-[#3a5070] flex-1">Token expires {new Date(conn.expiresAt).toLocaleDateString()}</p>

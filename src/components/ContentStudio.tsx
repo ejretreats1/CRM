@@ -88,6 +88,7 @@ type PostStatus = 'idle' | 'posting' | 'done' | 'error';
 function MetaPublish({ contentType, caption, hashtags }: { contentType: string; caption: string; hashtags: string[] }) {
   const [conn, setConn] = useState<MetaConnection | null>(null);
   const [selectedPage, setSelectedPage] = useState<MetaPage | null>(null);
+  const [igOverride, setIgOverride] = useState<{ id: string; username: string } | null>(null);
   const [igImageUrl, setIgImageUrl] = useState('');
   const [fbStatus, setFbStatus] = useState<PostStatus>('idle');
   const [igStatus, setIgStatus] = useState<PostStatus>('idle');
@@ -101,6 +102,7 @@ function MetaPublish({ contentType, caption, hashtags }: { contentType: string; 
       setConn(safe);
       if (safe.pages.length > 0) setSelectedPage(safe.pages[0]);
     });
+    cacheGet<{ id: string; username: string }>('meta_ig_override').then(v => { if (v) setIgOverride(v); });
   }, []);
 
   if (!conn) return (
@@ -111,7 +113,7 @@ function MetaPublish({ contentType, caption, hashtags }: { contentType: string; 
   );
 
   const fullCaption = caption + (hashtags.length ? '\n\n' + hashtags.map(h => `#${h.replace(/^#/, '')}`).join(' ') : '');
-  const igAccount   = selectedPage?.igAccount ?? null;
+  const igAccount   = selectedPage?.igAccount ?? igOverride ?? null;
 
   async function handlePostFacebook() {
     if (!selectedPage) return;
