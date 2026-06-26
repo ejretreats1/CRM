@@ -684,7 +684,7 @@ Rules:
 - Always include a strong hook field (the very first sentence/line).
 - Always include 8-15 relevant hashtags in the hashtags array (used as IG caption hashtags).
 - Always include a clear cta field (call to action text, 1 sentence).
-- For tweet-card: fill ONLY the tweetCards array (3 items). Leave all other content fields empty.
+- For tweet-card: fill the tweetCards array (3 items) AND the caption field (an Instagram-ready caption to post alongside the carousel, 80-120 words, engaging, ends with a CTA). Leave slides, thread, script empty.
 - For carousel: fill the slides array (6 items) only.
 - For thread: fill the thread array (6 tweets) only.
 - For caption: fill the caption field only.

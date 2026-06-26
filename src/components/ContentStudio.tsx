@@ -718,15 +718,24 @@ export default function ContentStudio() {
 
           {!generating && result && (
             <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5 space-y-5">
-              {/* Tweet Cards — no hook/hashtag clutter, just the cards */}
+              {/* Tweet Cards */}
               {contentType === 'tweet-card' && result.tweetCards && result.tweetCards.length > 0 ? (
                 <>
                   <TweetCardPreview cards={result.tweetCards} />
+                  {result.caption && (
+                    <div className="bg-[#0f1923] border border-[#1e3a5a] rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-[#4a90d9] uppercase tracking-wide">Caption</span>
+                        <CopyBtn text={result.caption + (result.hashtags.length ? '\n\n' + result.hashtags.map(h => `#${h.replace(/^#/, '')}`).join(' ') : '')} />
+                      </div>
+                      <p className="text-sm text-[#b8d4f0] leading-relaxed whitespace-pre-wrap">{result.caption}</p>
+                    </div>
+                  )}
                   {result.hashtags.length > 0 && (
                     <div className="bg-[#0f1923] border border-[#1e2d45] rounded-xl p-3">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs text-[#3a5070] uppercase tracking-wide font-semibold flex items-center gap-1">
-                          <Hash size={11} /> Hashtags for caption ({result.hashtags.length})
+                          <Hash size={11} /> Hashtags ({result.hashtags.length})
                         </span>
                         <button
                           onClick={copyHashtags}
@@ -802,7 +811,7 @@ export default function ContentStudio() {
               {(contentType === 'caption' || contentType === 'tweet-card') && (
                 <MetaPublish
                   contentType={contentType}
-                  caption={contentType === 'caption' ? (result.caption ?? result.hook) : result.hook}
+                  caption={result.caption ?? result.hook}
                   hashtags={result.hashtags}
                   cardCount={result.tweetCards?.length}
                 />
