@@ -230,9 +230,11 @@ function TweetCard({ card, index }: { card: TweetCardItem; index: number }) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               {/* Avatar */}
-              <div className="w-12 h-12 rounded-full bg-[#4a90d9] flex items-center justify-center flex-shrink-0">
-                <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>EJ</span>
-              </div>
+              <img
+                src="/tropical-logo.png"
+                alt="E&J Retreats"
+                style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid #e1e8ed' }}
+              />
               <div>
                 <div className="flex items-center gap-1">
                   <span style={{ fontWeight: 700, fontSize: 15, color: '#0f1419' }}>E&J Retreats</span>
