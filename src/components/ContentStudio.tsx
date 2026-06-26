@@ -85,11 +85,16 @@ function CopyBtn({ text }: { text: string }) {
 
 type PostStatus = 'idle' | 'posting' | 'done' | 'error';
 
-function MetaPublish({ contentType, caption, hashtags }: { contentType: string; caption: string; hashtags: string[] }) {
+function MetaPublish({ contentType, caption, hashtags, cardCount }: {
+  contentType: string;
+  caption: string;
+  hashtags: string[];
+  cardCount?: number;
+}) {
   const [conn, setConn] = useState<MetaConnection | null>(null);
   const [selectedPage, setSelectedPage] = useState<MetaPage | null>(null);
   const [igOverride, setIgOverride] = useState<{ id: string; username: string } | null>(null);
-  const [igImageUrl, setIgImageUrl] = useState('');
+  const [selectedCard, setSelectedCard] = useState(0);
   const [fbStatus, setFbStatus] = useState<PostStatus>('idle');
   const [igStatus, setIgStatus] = useState<PostStatus>('idle');
   const [fbError, setFbError] = useState('');
@@ -114,6 +119,22 @@ function MetaPublish({ contentType, caption, hashtags }: { contentType: string; 
 
   const fullCaption = caption + (hashtags.length ? '\n\n' + hashtags.map(h => `#${h.replace(/^#/, '')}`).join(' ') : '');
   const igAccount   = selectedPage?.igAccount ?? igOverride ?? null;
+  const isTweetCard = contentType === 'tweet-card';
+
+  async function captureCard(): Promise<string> {
+    const { toPng } = await import('html-to-image');
+    const el = document.getElementById(`tweet-card-${selectedCard}`);
+    if (!el) throw new Error('Card not found in DOM');
+    const dataUrl = await toPng(el, { pixelRatio: 2 });
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const filename = `ig-${Date.now()}.png`;
+    const { data, error } = await supabase.storage
+      .from('content-images')
+      .upload(filename, blob, { contentType: 'image/png', upsert: true });
+    if (error) throw new Error(`Upload failed: ${error.message}`);
+    return supabase.storage.from('content-images').getPublicUrl(data.path).data.publicUrl;
+  }
 
   async function handlePostFacebook() {
     if (!selectedPage) return;
@@ -128,10 +149,11 @@ function MetaPublish({ contentType, caption, hashtags }: { contentType: string; 
   }
 
   async function handlePostInstagram() {
-    if (!selectedPage || !igAccount || !igImageUrl.trim()) return;
+    if (!selectedPage || !igAccount) return;
     setIgStatus('posting'); setIgError('');
     try {
-      await postToInstagram(igAccount.id, selectedPage.id, igImageUrl.trim(), fullCaption);
+      const imageUrl = await captureCard();
+      await postToInstagram(igAccount.id, selectedPage.id, imageUrl, fullCaption);
       setIgStatus('done');
     } catch (e) {
       setIgError(e instanceof Error ? e.message : 'Failed');
@@ -158,50 +180,56 @@ function MetaPublish({ contentType, caption, hashtags }: { contentType: string; 
         </select>
       )}
 
-      {/* Facebook post */}
-      {(contentType === 'caption' || contentType === 'tweet-card') && (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handlePostFacebook}
-            disabled={fbStatus === 'posting' || fbStatus === 'done'}
-            className="flex items-center gap-1.5 bg-[#1877F2] hover:bg-[#1464d8] disabled:opacity-60 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <Facebook size={12} />
-            {fbStatus === 'posting' ? 'Posting…' : fbStatus === 'done' ? 'Posted!' : 'Post to Facebook'}
-          </button>
-          {fbStatus === 'error' && <p className="text-xs text-[#e05c5c] flex-1">{fbError}</p>}
+      {/* Card selector for tweet-card type */}
+      {isTweetCard && cardCount && cardCount > 1 && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-[#3a5070]">Post card:</span>
+          {Array.from({ length: cardCount }, (_, i) => (
+            <button
+              key={i}
+              onClick={() => setSelectedCard(i)}
+              className={`text-xs px-2 py-0.5 rounded-md transition-colors ${
+                selectedCard === i
+                  ? 'bg-[#1e3a5a] text-[#4a90d9] font-semibold'
+                  : 'text-[#3a5070] hover:text-[#b8d4f0]'
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Instagram post (requires image URL) */}
-      {igAccount && (
+      {/* Facebook post */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handlePostFacebook}
+          disabled={!selectedPage || fbStatus === 'posting' || fbStatus === 'done'}
+          className="flex items-center gap-1.5 bg-[#1877F2] hover:bg-[#1464d8] disabled:opacity-60 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+        >
+          <Facebook size={12} />
+          {fbStatus === 'posting' ? 'Posting…' : fbStatus === 'done' ? 'Posted!' : 'Post to Facebook'}
+        </button>
+        {fbStatus === 'error' && <p className="text-xs text-[#e05c5c] flex-1">{fbError}</p>}
+      </div>
+
+      {/* Instagram post — auto-captures tweet card */}
+      {isTweetCard && igAccount && (
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Instagram size={12} className="text-[#d07af5] flex-shrink-0" />
-            <span className="text-xs text-[#b8d4f0]">@{igAccount.username}</span>
-          </div>
-          <input
-            type="url"
-            value={igImageUrl}
-            onChange={e => setIgImageUrl(e.target.value)}
-            placeholder="Paste public image URL to post to Instagram…"
-            className="w-full bg-[#1a2335] border border-[#1e2d45] text-white text-xs rounded-lg px-3 py-2 placeholder-[#3a5070] focus:outline-none focus:ring-1 focus:ring-[#d07af5]"
-          />
           <button
             onClick={handlePostInstagram}
-            disabled={!igImageUrl.trim() || igStatus === 'posting' || igStatus === 'done'}
+            disabled={igStatus === 'posting' || igStatus === 'done'}
             className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
           >
             <Instagram size={12} />
-            {igStatus === 'posting' ? 'Posting…' : igStatus === 'done' ? 'Posted!' : 'Post to Instagram'}
+            {igStatus === 'posting' ? 'Capturing & posting…' : igStatus === 'done' ? 'Posted!' : `Post to @${igAccount.username}`}
           </button>
           {igStatus === 'error' && <p className="text-xs text-[#e05c5c]">{igError}</p>}
-          <p className="text-xs text-[#3a5070]">Image must be a publicly accessible URL (JPEG/PNG). Screenshot the card above, upload it, then paste the URL.</p>
         </div>
       )}
 
-      {!igAccount && selectedPage && (
-        <p className="text-xs text-[#3a5070]">No Instagram Business account linked to this page. Connect one in Meta Business Suite.</p>
+      {isTweetCard && !igAccount && selectedPage && (
+        <p className="text-xs text-[#3a5070]">Add Instagram account in Settings → Meta to enable IG posting.</p>
       )}
     </div>
   );
@@ -222,6 +250,7 @@ function TweetCard({ card, index }: { card: TweetCardItem; index: number }) {
 
       {/* The card itself — styled to look like a real Twitter/X screenshot */}
       <div
+        id={`tweet-card-${index}`}
         className="rounded-2xl overflow-hidden shadow-2xl border border-gray-200"
         style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', background: '#ffffff' }}
       >
@@ -770,6 +799,7 @@ export default function ContentStudio() {
                   contentType={contentType}
                   caption={contentType === 'caption' ? (result.caption ?? result.hook) : result.hook}
                   hashtags={result.hashtags}
+                  cardCount={result.tweetCards?.length}
                 />
               )}
 
