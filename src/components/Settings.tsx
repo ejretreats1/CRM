@@ -153,8 +153,8 @@ function MetaConnect() {
               )}
             </div>
           ))}
-          {/* Instagram — auto-discovered or manual override */}
-          {conn.pages[0] && !conn.pages[0].igAccount && (
+          {/* Instagram manual override — always available */}
+          {conn.pages.length > 0 && (
             igOverride ? (
               <div className="bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5">
                 <div className="flex items-center gap-2 pl-5">

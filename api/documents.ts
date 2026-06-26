@@ -754,22 +754,6 @@ async function metaConnect(body: any, res: VercelResponse) {
         if (igInfo.username) igAccount = { id: igInfo.id, username: igInfo.username };
       }
     } catch {}
-    // Fallback: try getting IG accounts directly from the user token
-    if (!igAccount) {
-      try {
-        const igDirectRes = await fetch(`${META_GRAPH}/me?fields=instagram_accounts&access_token=${longLivedToken}`);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const igDirect: any = await igDirectRes.json();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const firstIg = igDirect.instagram_accounts?.data?.[0] as any;
-        if (firstIg?.id) {
-          const igInfoRes = await fetch(`${META_GRAPH}/${firstIg.id}?fields=id,username&access_token=${longLivedToken}`);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const igInfo: any = await igInfoRes.json();
-          if (igInfo.username) igAccount = { id: igInfo.id, username: igInfo.username };
-        }
-      } catch {}
-    }
     return { id: page.id, name: page.name, access_token: page.access_token, igAccount };
   }));
 
