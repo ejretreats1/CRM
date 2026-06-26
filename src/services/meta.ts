@@ -75,6 +75,17 @@ export async function postToInstagram(igAccountId: string, pageId: string, image
   return d.postId as string;
 }
 
+export async function postCarousel(pageId: string, igAccountId: string | null, imageUrls: string[], caption: string): Promise<{ fbPostId: string | null; igPostId: string | null }> {
+  const r = await fetch(BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ flow: 'meta', action: 'post-carousel', pageId, igAccountId, imageUrls, caption }),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error ?? 'Post failed');
+  return d as { fbPostId: string | null; igPostId: string | null };
+}
+
 export async function disconnectMeta(): Promise<void> {
   await fetch(BASE, {
     method: 'POST',

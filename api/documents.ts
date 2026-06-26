@@ -834,6 +834,86 @@ async function metaPostInstagram(body: any, res: VercelResponse) {
   return res.status(200).json({ postId: published.id });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function metaPostCarousel(body: any, res: VercelResponse) {
+  const { pageId, igAccountId, imageUrls, caption } = body;
+  if (!Array.isArray(imageUrls) || imageUrls.length < 1) return res.status(400).json({ error: 'imageUrls required' });
+  const { data } = await getSupabase().from('app_cache').select('value').eq('key', 'meta_connection').single();
+  if (!data) return res.status(400).json({ error: 'Meta account not connected. Connect in Settings first.' });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conn = data.value as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = (conn.pages as any[]).find((p: any) => p.id === pageId);
+  if (!page) return res.status(400).json({ error: 'Page not found in connection.' });
+
+  // ── Facebook multi-photo post ──
+  const fbPhotoIds: string[] = [];
+  for (const url of imageUrls) {
+    const r = await fetch(`${META_GRAPH}/${pageId}/photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, published: false, access_token: page.access_token }),
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d: any = await r.json();
+    if (d.id) fbPhotoIds.push(d.id);
+  }
+  let fbPostId: string | null = null;
+  if (fbPhotoIds.length > 0) {
+    const fbFeedRes = await fetch(`${META_GRAPH}/${pageId}/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: caption,
+        attached_media: fbPhotoIds.map(id => ({ media_fbid: id })),
+        access_token: page.access_token,
+      }),
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fbFeed: any = await fbFeedRes.json();
+    if (fbFeed.error) return res.status(400).json({ error: `Facebook: ${fbFeed.error.message}` });
+    fbPostId = fbFeed.id;
+  }
+
+  // ── Instagram carousel ──
+  let igPostId: string | null = null;
+  if (igAccountId) {
+    const itemIds: string[] = [];
+    for (const url of imageUrls) {
+      const r = await fetch(`${META_GRAPH}/${igAccountId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_url: url, is_carousel_item: true, access_token: page.access_token }),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d: any = await r.json();
+      if (d.id) itemIds.push(d.id);
+    }
+    if (itemIds.length > 0) {
+      const carouselRes = await fetch(`${META_GRAPH}/${igAccountId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ media_type: 'CAROUSEL', children: itemIds.join(','), caption, access_token: page.access_token }),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const carousel: any = await carouselRes.json();
+      if (carousel.error) return res.status(400).json({ error: `Instagram: ${carousel.error.message}` });
+      await new Promise(r => setTimeout(r, 2000));
+      const publishRes = await fetch(`${META_GRAPH}/${igAccountId}/media_publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creation_id: carousel.id, access_token: page.access_token }),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const published: any = await publishRes.json();
+      if (published.error) return res.status(400).json({ error: `Instagram publish: ${published.error.message}` });
+      igPostId = published.id;
+    }
+  }
+
+  return res.status(200).json({ fbPostId, igPostId });
+}
+
 // ── ROUTER ────────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -859,6 +939,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'connect')        return metaConnect(body, res);
     if (action === 'post-facebook')  return metaPostFacebook(body, res);
     if (action === 'post-instagram') return metaPostInstagram(body, res);
+    if (action === 'post-carousel')  return metaPostCarousel(body, res);
     if (action === 'disconnect') {
       await getSupabase().from('app_cache').delete().eq('key', 'meta_connection');
       return res.status(200).json({ success: true });

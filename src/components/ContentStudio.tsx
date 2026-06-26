@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { cacheGet } from '../services/appCache';
-import { postToFacebook, postToInstagram } from '../services/meta';
+import { postToFacebook, postCarousel } from '../services/meta';
 import type { MetaConnection, MetaPage } from '../services/meta';
 
 type Platform = 'instagram' | 'twitter' | 'linkedin' | 'facebook' | 'tiktok';
@@ -85,6 +85,8 @@ function CopyBtn({ text }: { text: string }) {
 
 type PostStatus = 'idle' | 'posting' | 'done' | 'error';
 
+type PublishStatus = 'idle' | 'capturing' | 'uploading' | 'posting' | 'done' | 'error';
+
 function MetaPublish({ contentType, caption, hashtags, cardCount }: {
   contentType: string;
   caption: string;
@@ -94,11 +96,10 @@ function MetaPublish({ contentType, caption, hashtags, cardCount }: {
   const [conn, setConn] = useState<MetaConnection | null>(null);
   const [selectedPage, setSelectedPage] = useState<MetaPage | null>(null);
   const [igOverride, setIgOverride] = useState<{ id: string; username: string } | null>(null);
-  const [selectedCard, setSelectedCard] = useState(0);
+  const [status, setStatus] = useState<PublishStatus>('idle');
+  const [statusMsg, setStatusMsg] = useState('');
   const [fbStatus, setFbStatus] = useState<PostStatus>('idle');
-  const [igStatus, setIgStatus] = useState<PostStatus>('idle');
   const [fbError, setFbError] = useState('');
-  const [igError, setIgError] = useState('');
 
   useEffect(() => {
     cacheGet<{ pages: MetaPage[]; connectedAt: string; expiresAt: string }>('meta_connection').then(v => {
@@ -120,20 +121,40 @@ function MetaPublish({ contentType, caption, hashtags, cardCount }: {
   const fullCaption = caption + (hashtags.length ? '\n\n' + hashtags.map(h => `#${h.replace(/^#/, '')}`).join(' ') : '');
   const igAccount   = selectedPage?.igAccount ?? igOverride ?? null;
   const isTweetCard = contentType === 'tweet-card';
+  const count       = cardCount ?? 0;
 
-  async function captureCard(): Promise<string> {
+  async function captureAllCards(): Promise<string[]> {
     const { toPng } = await import('html-to-image');
-    const el = document.getElementById(`tweet-card-${selectedCard}`);
-    if (!el) throw new Error('Card not found in DOM');
-    const dataUrl = await toPng(el, { pixelRatio: 2 });
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
-    const filename = `ig-${Date.now()}.png`;
-    const { data, error } = await supabase.storage
-      .from('content-images')
-      .upload(filename, blob, { contentType: 'image/png', upsert: true });
-    if (error) throw new Error(`Upload failed: ${error.message}`);
-    return supabase.storage.from('content-images').getPublicUrl(data.path).data.publicUrl;
+    const urls: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const el = document.getElementById(`tweet-card-${i}`);
+      if (!el) continue;
+      setStatusMsg(`Capturing card ${i + 1} of ${count}…`);
+      const dataUrl = await toPng(el, { pixelRatio: 2 });
+      setStatusMsg(`Uploading card ${i + 1} of ${count}…`);
+      const blob = await (await fetch(dataUrl)).blob();
+      const filename = `ig-${Date.now()}-${i}.png`;
+      const { data, error } = await supabase.storage
+        .from('content-images')
+        .upload(filename, blob, { contentType: 'image/png', upsert: true });
+      if (error) throw new Error(`Upload failed: ${error.message}`);
+      urls.push(supabase.storage.from('content-images').getPublicUrl(data.path).data.publicUrl);
+    }
+    return urls;
+  }
+
+  async function handlePostAll() {
+    if (!selectedPage) return;
+    setStatus('capturing'); setStatusMsg('Capturing cards…');
+    try {
+      const imageUrls = await captureAllCards();
+      setStatus('posting'); setStatusMsg('Posting to Facebook & Instagram…');
+      await postCarousel(selectedPage.id, igAccount?.id ?? null, imageUrls, fullCaption);
+      setStatus('done'); setStatusMsg('');
+    } catch (e) {
+      setStatusMsg(e instanceof Error ? e.message : 'Failed');
+      setStatus('error');
+    }
   }
 
   async function handlePostFacebook() {
@@ -148,18 +169,7 @@ function MetaPublish({ contentType, caption, hashtags, cardCount }: {
     }
   }
 
-  async function handlePostInstagram() {
-    if (!selectedPage || !igAccount) return;
-    setIgStatus('posting'); setIgError('');
-    try {
-      const imageUrl = await captureCard();
-      await postToInstagram(igAccount.id, selectedPage.id, imageUrl, fullCaption);
-      setIgStatus('done');
-    } catch (e) {
-      setIgError(e instanceof Error ? e.message : 'Failed');
-      setIgStatus('error');
-    }
-  }
+  const busy = status === 'capturing' || status === 'uploading' || status === 'posting';
 
   return (
     <div className="bg-[#0f1923] border border-[#1e3a5a] rounded-xl p-4 space-y-3">
@@ -180,56 +190,44 @@ function MetaPublish({ contentType, caption, hashtags, cardCount }: {
         </select>
       )}
 
-      {/* Card selector for tweet-card type */}
-      {isTweetCard && cardCount && cardCount > 1 && (
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-[#3a5070]">Post card:</span>
-          {Array.from({ length: cardCount }, (_, i) => (
-            <button
-              key={i}
-              onClick={() => setSelectedCard(i)}
-              className={`text-xs px-2 py-0.5 rounded-md transition-colors ${
-                selectedCard === i
-                  ? 'bg-[#1e3a5a] text-[#4a90d9] font-semibold'
-                  : 'text-[#3a5070] hover:text-[#b8d4f0]'
-              }`}
-            >
-              {i + 1}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Facebook post */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handlePostFacebook}
-          disabled={!selectedPage || fbStatus === 'posting' || fbStatus === 'done'}
-          className="flex items-center gap-1.5 bg-[#1877F2] hover:bg-[#1464d8] disabled:opacity-60 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-        >
-          <Facebook size={12} />
-          {fbStatus === 'posting' ? 'Posting…' : fbStatus === 'done' ? 'Posted!' : 'Post to Facebook'}
-        </button>
-        {fbStatus === 'error' && <p className="text-xs text-[#e05c5c] flex-1">{fbError}</p>}
-      </div>
-
-      {/* Instagram post — auto-captures tweet card */}
-      {isTweetCard && igAccount && (
+      {/* Tweet cards: one button posts all as carousel to both platforms */}
+      {isTweetCard && (
         <div className="space-y-2">
           <button
-            onClick={handlePostInstagram}
-            disabled={igStatus === 'posting' || igStatus === 'done'}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+            onClick={handlePostAll}
+            disabled={busy || status === 'done' || !selectedPage}
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#1877F2] via-purple-600 to-pink-500 hover:opacity-90 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition-all"
           >
-            <Instagram size={12} />
-            {igStatus === 'posting' ? 'Capturing & posting…' : igStatus === 'done' ? 'Posted!' : `Post to @${igAccount.username}`}
+            {busy ? <Loader2 size={13} className="animate-spin" /> : status === 'done' ? <Check size={13} /> : <Send size={13} />}
+            {busy
+              ? statusMsg
+              : status === 'done'
+              ? 'Posted to Facebook & Instagram!'
+              : `Post all ${count > 0 ? count : ''} cards as carousel`}
           </button>
-          {igStatus === 'error' && <p className="text-xs text-[#e05c5c]">{igError}</p>}
+          {status === 'error' && <p className="text-xs text-[#e05c5c]">{statusMsg}</p>}
+          {!igAccount && (
+            <p className="text-xs text-[#3a5070]">
+              <Instagram size={10} className="inline mr-1" />
+              Add Instagram in Settings → Meta to include IG in the post.
+            </p>
+          )}
         </div>
       )}
 
-      {isTweetCard && !igAccount && selectedPage && (
-        <p className="text-xs text-[#3a5070]">Add Instagram account in Settings → Meta to enable IG posting.</p>
+      {/* Caption type: Facebook text post only */}
+      {!isTweetCard && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handlePostFacebook}
+            disabled={!selectedPage || fbStatus === 'posting' || fbStatus === 'done'}
+            className="flex items-center gap-1.5 bg-[#1877F2] hover:bg-[#1464d8] disabled:opacity-60 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <Facebook size={12} />
+            {fbStatus === 'posting' ? 'Posting…' : fbStatus === 'done' ? 'Posted!' : 'Post to Facebook'}
+          </button>
+          {fbStatus === 'error' && <p className="text-xs text-[#e05c5c] flex-1">{fbError}</p>}
+        </div>
       )}
     </div>
   );
