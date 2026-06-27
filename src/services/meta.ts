@@ -16,7 +16,7 @@ declare global {
       init(o: { appId: string; cookie: boolean; xfbml: boolean; version: string }): void;
       login(
         cb: (r: { authResponse: { accessToken: string } | null }) => void,
-        o: { scope: string }
+        o: { scope: string; auth_type?: string; return_scopes?: boolean }
       ): void;
     };
     fbAsyncInit: () => void;
@@ -38,7 +38,10 @@ export function loadFbSdk(appId: string): void {
 
 export function fbLogin(scope: string): Promise<string | null> {
   return new Promise(resolve => {
-    window.FB.login(r => resolve(r.authResponse?.accessToken ?? null), { scope });
+    window.FB.login(
+      r => resolve(r.authResponse?.accessToken ?? null),
+      { scope, auth_type: 'rerequest', return_scopes: true }
+    );
   });
 }
 
