@@ -4,7 +4,7 @@ import { testConnection } from '../services/uplisting';
 import { testHostawayConnection } from '../services/hostaway';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
 import { cacheGet } from '../services/appCache';
-import { loadFbSdk, fbLogin, connectMeta, disconnectMeta } from '../services/meta';
+import { loadFbSdk, fbLogin, connectMeta, disconnectMeta, addMetaPage } from '../services/meta';
 import type { MetaConnection } from '../services/meta';
 
 interface SlackChannel {
@@ -62,6 +62,9 @@ function MetaConnect() {
   const [igIdInput, setIgIdInput] = useState('');
   const [igUsernameInput, setIgUsernameInput] = useState('');
   const [igSaved, setIgSaved] = useState(false);
+  const [pageIdInput, setPageIdInput] = useState('');
+  const [pageAdding, setPageAdding] = useState(false);
+  const [pageError, setPageError] = useState('');
 
   useEffect(() => {
     cacheGet<MetaConnection>('meta_connection').then(v => {
@@ -105,6 +108,20 @@ function MetaConnect() {
     setTimeout(() => setIgSaved(false), 2000);
   }
 
+  async function handleAddPage() {
+    if (!pageIdInput.trim()) return;
+    setPageAdding(true); setPageError('');
+    try {
+      const updated = await addMetaPage(pageIdInput.trim());
+      setConn(updated);
+      setPageIdInput('');
+    } catch (e) {
+      setPageError(e instanceof Error ? e.message : 'Failed to add page');
+    } finally {
+      setPageAdding(false);
+    }
+  }
+
   async function removeIgOverride() {
     const { cacheRemove } = await import('../services/appCache');
     await cacheRemove('meta_ig_override');
@@ -138,8 +155,27 @@ function MetaConnect() {
       ) : conn ? (
         <div className="space-y-3">
           {conn.pages.length === 0 && (
-            <div className="bg-[#1a1000] border border-[#3a2a00] rounded-lg px-3 py-2.5 text-xs text-[#d0954a]">
-              No Facebook Pages found. Disconnect and reconnect — make sure to grant access to your E&J Retreats page when the popup appears.
+            <div className="bg-[#1a1000] border border-[#3a2a00] rounded-lg px-3 py-3 space-y-2">
+              <p className="text-xs font-semibold text-[#d0954a]">No Facebook Pages found automatically</p>
+              <p className="text-xs text-[#8a6030]">Enter your Page ID manually. Find it at <span className="font-mono">facebook.com/YOUR_PAGE</span> → About → scroll to "Page ID".</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={pageIdInput}
+                  onChange={e => setPageIdInput(e.target.value)}
+                  placeholder="Facebook Page ID  e.g. 123456789012345"
+                  className="flex-1 bg-[#0f1923] border border-[#3a2a00] text-white text-xs rounded-lg px-3 py-2 placeholder-[#5a4020] focus:outline-none focus:ring-1 focus:ring-[#d0954a]"
+                />
+                <button
+                  onClick={handleAddPage}
+                  disabled={pageAdding || !pageIdInput.trim()}
+                  className="flex items-center gap-1.5 bg-[#d0954a] hover:bg-[#b07030] disabled:opacity-50 text-black text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  {pageAdding ? <Loader size={11} className="animate-spin" /> : <Plus size={11} />}
+                  {pageAdding ? 'Adding…' : 'Add Page'}
+                </button>
+              </div>
+              {pageError && <p className="text-xs text-[#e05c5c]">{pageError}</p>}
             </div>
           )}
           {conn.pages.map(page => (

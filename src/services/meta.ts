@@ -78,6 +78,17 @@ export async function postToInstagram(igAccountId: string, pageId: string, image
   return d.postId as string;
 }
 
+export async function addMetaPage(pageId: string): Promise<MetaConnection> {
+  const r = await fetch(BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ flow: 'meta', action: 'add-page', pageId }),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error ?? 'Failed to add page');
+  return d.connection as MetaConnection;
+}
+
 export async function postCarousel(pageId: string, igAccountId: string | null, imageUrls: string[], caption: string): Promise<{ fbPostId: string | null; igPostId: string | null }> {
   const r = await fetch(BASE, {
     method: 'POST',

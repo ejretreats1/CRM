@@ -835,6 +835,38 @@ async function metaPostInstagram(body: any, res: VercelResponse) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function metaAddPage(body: any, res: VercelResponse) {
+  const { pageId } = body;
+  if (!pageId) return res.status(400).json({ error: 'pageId required' });
+  const { data } = await getSupabase().from('app_cache').select('value').eq('key', 'meta_connection').single();
+  if (!data) return res.status(400).json({ error: 'Meta account not connected. Connect first.' });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conn = data.value as any;
+  const userToken: string = conn.longLivedToken;
+  if (!userToken) return res.status(400).json({ error: 'No stored user token — please disconnect and reconnect.' });
+
+  const pageRes = await fetch(`${META_GRAPH}/${pageId}?fields=id,name,access_token&access_token=${userToken}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pageData: any = await pageRes.json();
+  if (pageData.error) return res.status(400).json({ error: `Facebook: ${pageData.error.message}` });
+  if (!pageData.access_token) return res.status(400).json({ error: 'Page found but no access token returned — make sure you are an admin of this page.' });
+
+  const newPage = { id: pageData.id, name: pageData.name, access_token: pageData.access_token, igAccount: null };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const existingPages = (conn.pages as any[]).filter((p: any) => p.id !== newPage.id);
+  const updatedConn = { ...conn, pages: [...existingPages, newPage] };
+  await getSupabase().from('app_cache').upsert({ key: 'meta_connection', value: updatedConn, updated_at: new Date().toISOString() });
+
+  return res.status(200).json({
+    connection: {
+      pages: updatedConn.pages.map((p: any) => ({ id: p.id, name: p.name, igAccount: p.igAccount })),
+      connectedAt: updatedConn.connectedAt,
+      expiresAt: updatedConn.expiresAt,
+    },
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function metaPostCarousel(body: any, res: VercelResponse) {
   const { pageId, igAccountId, imageUrls, caption } = body;
   if (!Array.isArray(imageUrls) || imageUrls.length < 1) return res.status(400).json({ error: 'imageUrls required' });
@@ -939,6 +971,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'connect')        return metaConnect(body, res);
     if (action === 'post-facebook')  return metaPostFacebook(body, res);
     if (action === 'post-instagram') return metaPostInstagram(body, res);
+    if (action === 'add-page')       return metaAddPage(body, res);
     if (action === 'post-carousel')  return metaPostCarousel(body, res);
     if (action === 'disconnect') {
       await getSupabase().from('app_cache').delete().eq('key', 'meta_connection');
