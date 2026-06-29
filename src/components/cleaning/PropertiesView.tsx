@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, Home, DollarSign, Users } from 'lucide-react';
+import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap } from 'lucide-react';
 import type { CleaningPropertyConfig, AssignedCleaner, Cleaner } from '../../types/cleaning';
-import type { UplistingProperty } from '../../services/uplisting';
+import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 
 interface Props {
   configs: CleaningPropertyConfig[];
   cleaners: Cleaner[];
   uplistingProperties: UplistingProperty[];
+  reservations: UplistingReservation[];
   onSave: (c: CleaningPropertyConfig) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
@@ -15,14 +16,15 @@ interface FormState {
   propertyId: string;
   propertyName: string;
   cleaningFee: string;
+  feeAutoFilled: boolean;
   assignedCleaners: AssignedCleaner[];
 }
 
 const EMPTY: FormState = {
-  propertyId: '', propertyName: '', cleaningFee: '', assignedCleaners: [],
+  propertyId: '', propertyName: '', cleaningFee: '', feeAutoFilled: false, assignedCleaners: [],
 };
 
-export default function PropertiesView({ configs, cleaners, uplistingProperties, onSave, onDelete }: Props) {
+export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete }: Props) {
   const [editing, setEditing] = useState<CleaningPropertyConfig | null | 'new'>(null);
   const [form, setForm] = useState<FormState>({ ...EMPTY });
   const [saving, setSaving] = useState(false);
@@ -41,6 +43,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       propertyId: config.propertyId,
       propertyName: config.propertyName,
       cleaningFee: String(config.cleaningFee),
+      feeAutoFilled: false,
       assignedCleaners: [...config.assignedCleaners],
     });
     setEditing(config);
@@ -48,10 +51,16 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
 
   function onPropertySelect(pid: string) {
     const prop = uplistingProperties.find(p => p.id === pid);
+    // Pull cleaning fee from the most recent reservation for this property
+    const autoFee = reservations
+      .filter(r => r.listing_id === pid && (r.cleaning_fee ?? 0) > 0)
+      .sort((a, b) => b.check_out.localeCompare(a.check_out))[0]?.cleaning_fee;
     setForm(f => ({
       ...f,
       propertyId: pid,
       propertyName: prop?.name ?? prop?.nickname ?? pid,
+      cleaningFee: autoFee ? String(autoFee) : f.cleaningFee,
+      feeAutoFilled: !!autoFee,
     }));
   }
 
@@ -244,14 +253,22 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
 
               {/* Client charge */}
               <div>
-                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Client Charge ($)</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-[#3a5070]">Client Charge ($)</label>
+                  {form.feeAutoFilled && (
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-[#5ce0a0] bg-[#0a2518] border border-[#1e4030] px-2 py-0.5 rounded-full">
+                      <Zap size={9} />
+                      Auto-filled from Uplisting
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="0"
                   step="5"
                   className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
                   value={form.cleaningFee}
-                  onChange={e => setForm(f => ({ ...f, cleaningFee: e.target.value }))}
+                  onChange={e => setForm(f => ({ ...f, cleaningFee: e.target.value, feeAutoFilled: false }))}
                   placeholder="150"
                 />
                 <p className="text-xs text-[#3a5070] mt-1">What you charge the property owner per clean</p>

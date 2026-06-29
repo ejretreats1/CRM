@@ -391,6 +391,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
             configs={configs}
             cleaners={cleaners}
             uplistingProperties={uplistingProperties}
+            reservations={reservations}
             onSave={handleSaveConfig}
             onDelete={handleDeleteConfig}
           />
