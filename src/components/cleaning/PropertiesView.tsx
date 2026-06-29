@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, Send, CheckCircle2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail } from 'lucide-react';
 import type { CleaningPropertyConfig, AssignedCleaner, Cleaner } from '../../types/cleaning';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 
@@ -30,22 +30,96 @@ function displayName(propertyId: string | undefined, propertyName: string, props
 }
 
 export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete }: Props) {
+  // --- Edit modal state ---
   const [editing, setEditing] = useState<CleaningPropertyConfig | null | 'new'>(null);
   const [form, setForm] = useState<FormState>({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Onboarding send modal
-  const [onboarding, setOnboarding] = useState<CleaningPropertyConfig | null>(null);
-  const [onboardForm, setOnboardForm] = useState({ clientName: '', clientEmail: '' });
-  const [onboardSending, setOnboardSending] = useState(false);
-  const [onboardSent, setOnboardSent] = useState(false);
-  const [onboardError, setOnboardError] = useState<string | null>(null);
+  // --- Batch onboarding state ---
+  const [selectedForOnboard, setSelectedForOnboard] = useState<Set<string>>(new Set());
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [batchClientName, setBatchClientName] = useState('');
+  const [batchClientEmail, setBatchClientEmail] = useState('');
+  const [batchSending, setBatchSending] = useState(false);
+  const [batchLink, setBatchLink] = useState<string | null>(null);
+  const [batchError, setBatchError] = useState<string | null>(null);
+  const [batchCopied, setBatchCopied] = useState(false);
+  const [batchEmailSent, setBatchEmailSent] = useState(false);
 
   const activeCleaners = cleaners.filter(c => c.status === 'active');
   const enrolledIds = new Set(configs.map(c => c.propertyId));
   const unenrolled = uplistingProperties.filter(p => !enrolledIds.has(p.id));
+  const nonOnboardedConfigs = configs.filter(c => !c.onboardedAt);
+  const selectedConfigs = configs.filter(c => selectedForOnboard.has(c.id));
 
+  function toggleSelect(id: string) {
+    setSelectedForOnboard(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function openBatchModal() {
+    const firstId = [...selectedForOnboard][0];
+    const firstConfig = configs.find(c => c.id === firstId);
+    setBatchClientName(firstConfig?.clientName ?? '');
+    setBatchClientEmail(firstConfig?.clientEmail ?? '');
+    setBatchLink(null);
+    setBatchError(null);
+    setBatchCopied(false);
+    setBatchEmailSent(false);
+    setBatchModalOpen(true);
+  }
+
+  function closeBatchModal() {
+    setBatchModalOpen(false);
+  }
+
+  async function handleBatchAction(copyOnly: boolean) {
+    if (!selectedConfigs.length || !batchClientEmail.trim()) return;
+    setBatchSending(true);
+    setBatchError(null);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flow: 'cleaning-client',
+          action: 'send-onboarding',
+          propertyConfigIds: selectedConfigs.map(c => c.id),
+          propertyNames: selectedConfigs.map(c => c.propertyName),
+          clientName: batchClientName.trim() || null,
+          clientEmail: batchClientEmail.trim(),
+          copyOnly,
+          appUrl: window.location.origin,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Failed.');
+      const link: string = d.link;
+      setBatchLink(link);
+      if (copyOnly) {
+        try { await navigator.clipboard.writeText(link); } catch {}
+        setBatchCopied(true);
+      } else {
+        setBatchEmailSent(true);
+      }
+    } catch (e: unknown) {
+      setBatchError(e instanceof Error ? e.message : 'Failed.');
+    } finally {
+      setBatchSending(false);
+    }
+  }
+
+  async function reCopyLink() {
+    if (!batchLink) return;
+    try { await navigator.clipboard.writeText(batchLink); setBatchCopied(true); } catch {}
+  }
+
+  // --- Edit modal helpers ---
   function openAdd() {
     setForm({ ...EMPTY });
     setSaveError(null);
@@ -65,7 +139,6 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
 
   function onPropertySelect(pid: string) {
     const prop = uplistingProperties.find(p => p.id === pid);
-    // Pull cleaning fee from the most recent reservation for this property
     const autoFee = reservations
       .filter(r => r.listing_id === pid && (r.cleaning_fee ?? 0) > 0)
       .sort((a, b) => b.check_out.localeCompare(a.check_out))[0]?.cleaning_fee;
@@ -133,42 +206,6 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
     return cleaners.find(c => c.id === id)?.name ?? id;
   }
 
-  function openOnboarding(config: CleaningPropertyConfig) {
-    setOnboardForm({ clientName: config.clientName ?? '', clientEmail: config.clientEmail ?? '' });
-    setOnboardSent(false);
-    setOnboardError(null);
-    setOnboarding(config);
-  }
-
-  async function handleSendOnboarding() {
-    if (!onboarding || !onboardForm.clientEmail.trim()) return;
-    setOnboardSending(true);
-    setOnboardError(null);
-    try {
-      const r = await fetch('/api/documents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          flow: 'cleaning-client',
-          action: 'send-onboarding',
-          propertyConfigId: onboarding.id,
-          propertyName: onboarding.propertyName,
-          cleaningFee: onboarding.cleaningFee,
-          clientName: onboardForm.clientName.trim() || null,
-          clientEmail: onboardForm.clientEmail.trim(),
-          appUrl: window.location.origin,
-        }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? 'Failed to send.');
-      setOnboardSent(true);
-    } catch (e: unknown) {
-      setOnboardError(e instanceof Error ? e.message : 'Failed to send.');
-    } finally {
-      setOnboardSending(false);
-    }
-  }
-
   function avgPayout(config: CleaningPropertyConfig) {
     if (!config.assignedCleaners.length) return null;
     const payouts = config.assignedCleaners.map(c => c.payout).filter(p => p > 0);
@@ -183,14 +220,29 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
           <h1 className="text-xl font-bold text-white">Cleaning Properties</h1>
           <p className="text-sm text-[#3a5070] mt-0.5">{configs.length} properties enrolled in cleaning service</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-[#4a90d9] hover:bg-[#5aa0e9] text-white text-sm font-semibold rounded-xl transition-colors"
-        >
-          <Plus size={16} />
-          Enroll Property
-        </button>
+        <div className="flex items-center gap-2">
+          {selectedForOnboard.size > 0 && (
+            <button
+              onClick={openBatchModal}
+              className="flex items-center gap-2 px-4 py-2 bg-[#1e4030] border border-[#2a6040] hover:bg-[#2a5040] text-[#5ce0a0] text-sm font-semibold rounded-xl transition-colors"
+            >
+              <Mail size={15} />
+              Send Onboarding ({selectedForOnboard.size})
+            </button>
+          )}
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2 bg-[#4a90d9] hover:bg-[#5aa0e9] text-white text-sm font-semibold rounded-xl transition-colors"
+          >
+            <Plus size={16} />
+            Enroll Property
+          </button>
+        </div>
       </div>
+
+      {nonOnboardedConfigs.length > 0 && (
+        <p className="text-xs text-[#3a5070]">Check properties below to batch-send onboarding links to your clients.</p>
+      )}
 
       {configs.length === 0 ? (
         <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-10 flex flex-col items-center gap-3 text-center">
@@ -203,60 +255,75 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
           {configs.map(c => {
             const avg = avgPayout(c);
             const profit = avg !== null ? c.cleaningFee - avg : null;
+            const isSelected = selectedForOnboard.has(c.id);
             return (
-              <div key={c.id} className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-4">
+              <div
+                key={c.id}
+                className={`bg-[#1a2335] border rounded-2xl p-4 transition-colors ${
+                  isSelected ? 'border-[#3a8060]' : 'border-[#1e2d45]'
+                }`}
+              >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Home size={16} className="text-[#4a90d9] flex-shrink-0" />
-                      <p className="font-semibold text-white truncate">{displayName(c.propertyId, c.propertyName, uplistingProperties)}</p>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-4">
-                      <div className="flex items-center gap-1.5">
-                        <DollarSign size={13} className="text-[#5ce0a0]" />
-                        <span className="text-xs text-[#3a5070]">Client charge:</span>
-                        <span className="text-xs font-semibold text-white">${c.cleaningFee}</span>
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    {/* Checkbox (non-onboarded only) */}
+                    {!c.onboardedAt ? (
+                      <button
+                        onClick={() => toggleSelect(c.id)}
+                        className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                          isSelected
+                            ? 'bg-[#3a8060] border-[#3a8060]'
+                            : 'border-[#2a4060] hover:border-[#5ce0a0]'
+                        }`}
+                      >
+                        {isSelected && <Check size={11} className="text-white" />}
+                      </button>
+                    ) : (
+                      <div className="w-5 flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Home size={16} className="text-[#4a90d9] flex-shrink-0" />
+                        <p className="font-semibold text-white truncate">{displayName(c.propertyId, c.propertyName, uplistingProperties)}</p>
                       </div>
-                      {profit !== null && (
+                      <div className="mt-2 flex flex-wrap gap-4">
                         <div className="flex items-center gap-1.5">
-                          <DollarSign size={13} className="text-[#d0954a]" />
-                          <span className="text-xs text-[#3a5070]">Avg profit:</span>
-                          <span className="text-xs font-semibold text-[#d0954a]">${profit.toFixed(0)}</span>
+                          <DollarSign size={13} className="text-[#5ce0a0]" />
+                          <span className="text-xs text-[#3a5070]">Client charge:</span>
+                          <span className="text-xs font-semibold text-white">${c.cleaningFee}</span>
+                        </div>
+                        {profit !== null && (
+                          <div className="flex items-center gap-1.5">
+                            <DollarSign size={13} className="text-[#d0954a]" />
+                            <span className="text-xs text-[#3a5070]">Avg profit:</span>
+                            <span className="text-xs font-semibold text-[#d0954a]">${profit.toFixed(0)}</span>
+                          </div>
+                        )}
+                      </div>
+                      {c.assignedCleaners.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <Users size={13} className="text-[#4a90d9] flex-shrink-0" />
+                            <span className="text-xs text-[#3a5070] font-medium">Cleaners (dispatch order):</span>
+                          </div>
+                          {c.assignedCleaners.map((ac, i) => (
+                            <div key={ac.id} className="ml-5 flex items-center gap-2 text-xs">
+                              <span className="text-[#2a4060] font-semibold w-4">{i + 1}.</span>
+                              <span className="text-[#b8d4f0]">{getCleanerName(ac.id)}</span>
+                              {ac.payout > 0 && (
+                                <span className="text-[#d07af5] font-semibold">${ac.payout}</span>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
-                    {c.assignedCleaners.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          <Users size={13} className="text-[#4a90d9] flex-shrink-0" />
-                          <span className="text-xs text-[#3a5070] font-medium">Cleaners (dispatch order):</span>
-                        </div>
-                        {c.assignedCleaners.map((ac, i) => (
-                          <div key={ac.id} className="ml-5 flex items-center gap-2 text-xs">
-                            <span className="text-[#2a4060] font-semibold w-4">{i + 1}.</span>
-                            <span className="text-[#b8d4f0]">{getCleanerName(ac.id)}</span>
-                            {ac.payout > 0 && (
-                              <span className="text-[#d07af5] font-semibold">${ac.payout}</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {c.onboardedAt ? (
+                    {c.onboardedAt && (
                       <span className="flex items-center gap-1 text-[10px] font-semibold text-[#5ce0a0] bg-[#0a2518] border border-[#1e4030] px-2 py-0.5 rounded-full mr-1">
                         <CheckCircle2 size={10} />
                         Onboarded
                       </span>
-                    ) : (
-                      <button
-                        onClick={() => openOnboarding(c)}
-                        title="Send client onboarding link"
-                        className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#5ce0a0] hover:bg-[#0a2518] transition-colors"
-                      >
-                        <Send size={14} />
-                      </button>
                     )}
                     <button
                       onClick={() => openEdit(c)}
@@ -278,72 +345,99 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         </div>
       )}
 
-      {/* Onboarding Send Modal */}
-      {onboarding !== null && (
+      {/* Batch Onboarding Modal */}
+      {batchModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl shadow-2xl w-full max-w-sm">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
               <h2 className="font-bold text-white">Send Onboarding Link</h2>
-              <button onClick={() => setOnboarding(null)} className="text-[#3a5070] hover:text-white text-xl leading-none">&times;</button>
+              <button onClick={closeBatchModal} className="text-[#3a5070] hover:text-white text-xl leading-none">&times;</button>
             </div>
-            {onboardSent ? (
-              <div className="p-6 text-center space-y-3">
-                <div className="text-4xl">✅</div>
-                <p className="text-white font-semibold">Link sent!</p>
-                <p className="text-sm text-[#3a5070]">
-                  {onboardForm.clientEmail} will receive an email to sign the agreement and add their card.
+            <div className="p-5 space-y-4">
+              {/* Selected properties */}
+              <div>
+                <p className="text-xs font-semibold text-[#3a5070] mb-1.5">
+                  {selectedConfigs.length === 1 ? 'Property' : `${selectedConfigs.length} Properties`}
                 </p>
+                <div className="space-y-1">
+                  {selectedConfigs.map(c => (
+                    <div key={c.id} className="flex items-center gap-2 text-sm text-[#b8d4f0]">
+                      <Home size={12} className="text-[#4a90d9] flex-shrink-0" />
+                      <span className="truncate">{displayName(c.propertyId, c.propertyName, uplistingProperties)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-1">Client Name</label>
+                <input
+                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                  value={batchClientName}
+                  onChange={e => setBatchClientName(e.target.value)}
+                  placeholder="Jane Smith"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-1">Client Email *</label>
+                <input
+                  type="email"
+                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                  value={batchClientEmail}
+                  onChange={e => setBatchClientEmail(e.target.value)}
+                  placeholder="owner@example.com"
+                />
+              </div>
+
+              {batchError && (
+                <p className="text-xs text-[#e05c5c] bg-[#2a0e0e] border border-[#5a1a1a] rounded-lg px-3 py-2">{batchError}</p>
+              )}
+
+              {/* Success feedback */}
+              {(batchCopied || batchEmailSent) && batchLink && (
+                <div className="bg-[#0a2518] border border-[#1e4030] rounded-lg px-3 py-2.5 space-y-1.5">
+                  {batchCopied && (
+                    <p className="text-xs font-semibold text-[#5ce0a0] flex items-center gap-1.5">
+                      <Check size={12} /> Link copied to clipboard
+                    </p>
+                  )}
+                  {batchEmailSent && (
+                    <p className="text-xs font-semibold text-[#5ce0a0] flex items-center gap-1.5">
+                      <Check size={12} /> Email sent to {batchClientEmail}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <p className="text-xs text-[#3a5070] truncate flex-1 font-mono">{batchLink}</p>
+                    <button
+                      onClick={reCopyLink}
+                      title="Copy link"
+                      className="p-1 rounded text-[#3a5070] hover:text-[#5ce0a0] flex-shrink-0 transition-colors"
+                    >
+                      <Copy size={13} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
                 <button
-                  onClick={() => setOnboarding(null)}
-                  className="w-full py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors mt-2"
+                  onClick={() => handleBatchAction(true)}
+                  disabled={batchSending || !batchClientEmail.trim()}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] disabled:opacity-50 transition-colors"
                 >
-                  Done
+                  <Copy size={14} />
+                  Copy Link
+                </button>
+                <button
+                  onClick={() => handleBatchAction(false)}
+                  disabled={batchSending || !batchClientEmail.trim()}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] disabled:opacity-50 transition-colors"
+                >
+                  <Mail size={14} />
+                  {batchEmailSent ? 'Resend' : 'Send Email'}
                 </button>
               </div>
-            ) : (
-              <div className="p-5 space-y-4">
-                <p className="text-xs text-[#3a5070]">
-                  Send <strong className="text-[#b8d4f0]">{onboarding.propertyName}</strong>'s client a link to sign the service agreement and put a card on file.
-                </p>
-                <div>
-                  <label className="block text-xs font-semibold text-[#3a5070] mb-1">Client Name</label>
-                  <input
-                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
-                    value={onboardForm.clientName}
-                    onChange={e => setOnboardForm(f => ({ ...f, clientName: e.target.value }))}
-                    placeholder="Jane Smith"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#3a5070] mb-1">Client Email *</label>
-                  <input
-                    type="email"
-                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
-                    value={onboardForm.clientEmail}
-                    onChange={e => setOnboardForm(f => ({ ...f, clientEmail: e.target.value }))}
-                    placeholder="owner@example.com"
-                  />
-                </div>
-                {onboardError && (
-                  <p className="text-xs text-[#e05c5c] bg-[#2a0e0e] border border-[#5a1a1a] rounded-lg px-3 py-2">{onboardError}</p>
-                )}
-                <div className="flex gap-3 pt-1">
-                  <button
-                    onClick={() => setOnboarding(null)}
-                    className="flex-1 px-4 py-2.5 bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSendOnboarding}
-                    disabled={onboardSending || !onboardForm.clientEmail.trim()}
-                    className="flex-1 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
-                  >
-                    {onboardSending ? 'Sending…' : 'Send Link'}
-                  </button>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       )}
@@ -433,7 +527,6 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                             selected ? 'bg-[#162035] border-[#1e3a5a]' : 'bg-[#0f1923] border-[#1e2d45]'
                           }`}
                         >
-                          {/* Checkbox + priority */}
                           <button
                             onClick={() => toggleCleaner(cl.id)}
                             className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
@@ -442,16 +535,12 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                           >
                             {selected && <span className="text-white text-[10px] font-bold">{priority + 1}</span>}
                           </button>
-
-                          {/* Name */}
                           <button
                             onClick={() => toggleCleaner(cl.id)}
                             className="flex-1 text-left"
                           >
                             <span className={`text-sm font-medium ${selected ? 'text-white' : 'text-[#3a5070]'}`}>{cl.name}</span>
                           </button>
-
-                          {/* Per-cleaner payout input */}
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <span className={`text-xs ${selected ? 'text-[#3a5070]' : 'text-[#2a4060]'}`}>$</span>
                             <input

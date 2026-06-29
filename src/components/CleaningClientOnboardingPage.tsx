@@ -22,6 +22,7 @@ By adding a payment method, you agree to the following terms:
 
 interface OnboardingData {
   propertyConfigId: string;
+  propertyConfigIds: string[];
   propertyName: string;
   clientName: string | null;
   clientEmail: string | null;
@@ -179,7 +180,11 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
           <div className="text-5xl mb-4">✅</div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">You're all set!</h2>
           <p className="text-gray-500 text-sm">
-            Your cleaning service for <strong>{data?.propertyName ?? 'your property'}</strong> is active. Your card is on file and will only be charged after each completed cleaning.
+            {data && (data.propertyConfigIds?.length ?? 1) > 1
+              ? <>Your cleaning service for <strong>{data.propertyConfigIds.length} properties</strong> is active.</>
+              : <>Your cleaning service for <strong>{data?.propertyName ?? 'your property'}</strong> is active.</>
+            }{' '}
+            Your card is on file and will only be charged after each completed cleaning.
           </p>
         </div>
       </div>
@@ -192,11 +197,29 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
         <div className="max-w-lg mx-auto">
           <div className="text-2xl mb-1">🏠</div>
           <h1 className="text-xl font-bold">Cleaning Service Setup</h1>
-          <p className="text-blue-200 text-sm mt-0.5">{data?.propertyName}</p>
+          <p className="text-blue-200 text-sm mt-0.5">
+            {data && (data.propertyConfigIds?.length ?? 1) > 1
+              ? `${data.propertyConfigIds.length} Properties`
+              : data?.propertyName}
+          </p>
         </div>
       </div>
 
       <div className="max-w-lg mx-auto p-4 pt-6 pb-16">
+        {/* Properties (batch) */}
+        {data && (data.propertyConfigIds?.length ?? 1) > 1 && (
+          <div className="bg-white rounded-2xl border shadow-sm p-5 mb-5">
+            <h2 className="font-semibold text-gray-800 mb-3">Properties</h2>
+            <ul className="space-y-1">
+              {data.propertyName.split(', ').map(name => (
+                <li key={name} className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="text-blue-600">🏠</span> {name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* What's included */}
         <div className="bg-white rounded-2xl border shadow-sm p-5 mb-5">
           <h2 className="font-semibold text-gray-800 mb-3">What's included</h2>
