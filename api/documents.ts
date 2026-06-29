@@ -607,6 +607,56 @@ function buildOnboardingNotes(f: any): string {
   return lines.join('\n');
 }
 
+// ── CLEANING DISPATCH ─────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningDispatch(body: any, res: VercelResponse) {
+  const { jobId, propertyName, checkoutDate, checkinDate, guestName, cleanerPayout, notes, cleaners } = body;
+
+  if (!cleaners?.length) return res.status(400).json({ error: 'No cleaners provided.' });
+
+  const dateLabel = new Date(checkoutDate + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  });
+
+  const results = await Promise.allSettled(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (cleaners as any[]).map((c: { name: string; email: string }) =>
+      resend.emails.send({
+        from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+        to: c.email,
+        subject: `🧹 Cleaning Job Available: ${propertyName} – ${dateLabel}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+            <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+              <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">🧹 Cleaning Job Available</h2>
+              <p style="color:#334155;margin:0 0 20px">Hi ${c.name},</p>
+              <p style="color:#334155;margin:0 0 16px">A cleaning job is available for one of your assigned properties. This is <strong>first-come, first-served</strong> — reply to this email to accept.</p>
+
+              <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
+                <table style="width:100%;border-collapse:collapse">
+                  <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${propertyName}</td></tr>
+                  <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
+                  ${checkinDate ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Next Check-in</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${new Date(checkinDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'})}</td></tr>` : ''}
+                  ${guestName ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Departing Guest</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${guestName}</td></tr>` : ''}
+                  <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:16px">$${cleanerPayout}</td></tr>
+                  ${notes ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px;vertical-align:top">Notes</td><td style="padding:4px 0;color:#0f172a;font-size:14px">${notes}</td></tr>` : ''}
+                </table>
+              </div>
+
+              <p style="color:#334155;margin:0 0 8px;font-size:14px"><strong>To accept this job:</strong> Reply to this email with "ACCEPT" and we'll confirm the booking with you.</p>
+              <p style="color:#94a3b8;font-size:13px;margin:0">— E&amp;J Retreats Team<br>Job ID: ${jobId}</p>
+            </div>
+          </div>
+        `,
+      })
+    )
+  );
+
+  const sent = results.filter(r => r.status === 'fulfilled').length;
+  return res.status(200).json({ sent });
+}
+
 // ── CONTENT STUDIO ───────────────────────────────────────────────────────────
 
 export const config = { maxDuration: 60 };
@@ -965,7 +1015,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { action, flow } = body;
-  if (flow === 'content') {
+  if (flow === 'cleaning') {
+    if (action === 'dispatch') return cleaningDispatch(body, res);
+  } else if (flow === 'content') {
     if (action === 'generate') return contentGenerate(body, res);
   } else if (flow === 'meta') {
     if (action === 'connect')        return metaConnect(body, res);

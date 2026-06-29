@@ -746,7 +746,12 @@ export default function App() {
 
       {(view === 'cleaning-dashboard' || view === 'cleaning-schedule' || view === 'cleaning-jobs' ||
         view === 'cleaning-properties' || view === 'cleaning-cleaners' || view === 'cleaning-payments') && (
-        <CleaningBusiness currentView={view} onNavigate={navigate} />
+        <CleaningBusiness
+          currentView={view}
+          onNavigate={navigate}
+          reservations={allReservations}
+          uplistingProperties={allProperties}
+        />
       )}
 
       {modal?.type === 'lead-detail' && (
