@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, Edit2, Trash2, Home, DollarSign, Users } from 'lucide-react';
-import type { CleaningPropertyConfig, Cleaner } from '../../types/cleaning';
+import type { CleaningPropertyConfig, AssignedCleaner, Cleaner } from '../../types/cleaning';
 import type { UplistingProperty } from '../../services/uplisting';
 
 interface Props {
@@ -15,12 +15,11 @@ interface FormState {
   propertyId: string;
   propertyName: string;
   cleaningFee: string;
-  cleanerPayout: string;
-  assignedCleanerIds: string[];
+  assignedCleaners: AssignedCleaner[];
 }
 
 const EMPTY: FormState = {
-  propertyId: '', propertyName: '', cleaningFee: '', cleanerPayout: '', assignedCleanerIds: [],
+  propertyId: '', propertyName: '', cleaningFee: '', assignedCleaners: [],
 };
 
 export default function PropertiesView({ configs, cleaners, uplistingProperties, onSave, onDelete }: Props) {
@@ -42,8 +41,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       propertyId: config.propertyId,
       propertyName: config.propertyName,
       cleaningFee: String(config.cleaningFee),
-      cleanerPayout: String(config.cleanerPayout),
-      assignedCleanerIds: [...config.assignedCleanerIds],
+      assignedCleaners: [...config.assignedCleaners],
     });
     setEditing(config);
   }
@@ -57,28 +55,44 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
     }));
   }
 
-  function toggleCleaner(id: string) {
+  function isAssigned(cleanerId: string) {
+    return form.assignedCleaners.some(c => c.id === cleanerId);
+  }
+
+  function getPayout(cleanerId: string): string {
+    return String(form.assignedCleaners.find(c => c.id === cleanerId)?.payout ?? '');
+  }
+
+  function toggleCleaner(cleanerId: string) {
+    setForm(f => {
+      if (f.assignedCleaners.some(c => c.id === cleanerId)) {
+        return { ...f, assignedCleaners: f.assignedCleaners.filter(c => c.id !== cleanerId) };
+      }
+      return { ...f, assignedCleaners: [...f.assignedCleaners, { id: cleanerId, payout: 0 }] };
+    });
+  }
+
+  function setCleanerPayout(cleanerId: string, val: string) {
     setForm(f => ({
       ...f,
-      assignedCleanerIds: f.assignedCleanerIds.includes(id)
-        ? f.assignedCleanerIds.filter(c => c !== id)
-        : [...f.assignedCleanerIds, id],
+      assignedCleaners: f.assignedCleaners.map(c =>
+        c.id === cleanerId ? { ...c, payout: parseFloat(val) || 0 } : c
+      ),
     }));
   }
 
   async function handleSave() {
-    if (!form.propertyId || !form.propertyName) return;
+    if (!form.propertyId && !form.propertyName) return;
     setSaving(true);
     try {
       const now = new Date().toISOString();
       const existing = editing !== 'new' ? editing : null;
       const config: CleaningPropertyConfig = {
         id: existing?.id ?? `cpc_${Date.now()}`,
-        propertyId: form.propertyId,
+        propertyId: form.propertyId || form.propertyName,
         propertyName: form.propertyName,
         cleaningFee: parseFloat(form.cleaningFee) || 0,
-        cleanerPayout: parseFloat(form.cleanerPayout) || 0,
-        assignedCleanerIds: form.assignedCleanerIds,
+        assignedCleaners: form.assignedCleaners,
         enrolledAt: existing?.enrolledAt ?? now,
       };
       await onSave(config);
@@ -88,11 +102,16 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
     }
   }
 
-  function getCleanerNames(ids: string[]) {
-    return ids.map(id => cleaners.find(c => c.id === id)?.name ?? id).join(', ');
+  function getCleanerName(id: string) {
+    return cleaners.find(c => c.id === id)?.name ?? id;
   }
 
-  const profit = (fee: number, payout: number) => fee - payout;
+  function avgPayout(config: CleaningPropertyConfig) {
+    if (!config.assignedCleaners.length) return null;
+    const payouts = config.assignedCleaners.map(c => c.payout).filter(p => p > 0);
+    if (!payouts.length) return null;
+    return payouts.reduce((s, p) => s + p, 0) / payouts.length;
+  }
 
   return (
     <div className="space-y-4">
@@ -118,58 +137,67 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         </div>
       ) : (
         <div className="grid gap-3">
-          {configs.map(c => (
-            <div key={c.id} className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Home size={16} className="text-[#4a90d9] flex-shrink-0" />
-                    <p className="font-semibold text-white truncate">{c.propertyName}</p>
+          {configs.map(c => {
+            const avg = avgPayout(c);
+            const profit = avg !== null ? c.cleaningFee - avg : null;
+            return (
+              <div key={c.id} className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Home size={16} className="text-[#4a90d9] flex-shrink-0" />
+                      <p className="font-semibold text-white truncate">{c.propertyName}</p>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-4">
+                      <div className="flex items-center gap-1.5">
+                        <DollarSign size={13} className="text-[#5ce0a0]" />
+                        <span className="text-xs text-[#3a5070]">Client charge:</span>
+                        <span className="text-xs font-semibold text-white">${c.cleaningFee}</span>
+                      </div>
+                      {profit !== null && (
+                        <div className="flex items-center gap-1.5">
+                          <DollarSign size={13} className="text-[#d0954a]" />
+                          <span className="text-xs text-[#3a5070]">Avg profit:</span>
+                          <span className="text-xs font-semibold text-[#d0954a]">${profit.toFixed(0)}</span>
+                        </div>
+                      )}
+                    </div>
+                    {c.assignedCleaners.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <Users size={13} className="text-[#4a90d9] flex-shrink-0" />
+                          <span className="text-xs text-[#3a5070] font-medium">Cleaners (dispatch order):</span>
+                        </div>
+                        {c.assignedCleaners.map((ac, i) => (
+                          <div key={ac.id} className="ml-5 flex items-center gap-2 text-xs">
+                            <span className="text-[#2a4060] font-semibold w-4">{i + 1}.</span>
+                            <span className="text-[#b8d4f0]">{getCleanerName(ac.id)}</span>
+                            {ac.payout > 0 && (
+                              <span className="text-[#d07af5] font-semibold">${ac.payout}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-4">
-                    <div className="flex items-center gap-1.5">
-                      <DollarSign size={13} className="text-[#5ce0a0]" />
-                      <span className="text-xs text-[#3a5070]">Client charge:</span>
-                      <span className="text-xs font-semibold text-white">${c.cleaningFee}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <DollarSign size={13} className="text-[#d07af5]" />
-                      <span className="text-xs text-[#3a5070]">Cleaner payout:</span>
-                      <span className="text-xs font-semibold text-white">${c.cleanerPayout}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <DollarSign size={13} className="text-[#d0954a]" />
-                      <span className="text-xs text-[#3a5070]">Your profit:</span>
-                      <span className="text-xs font-semibold text-[#d0954a]">${profit(c.cleaningFee, c.cleanerPayout)}</span>
-                    </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => openEdit(c)}
+                      className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#1e2d45] transition-colors"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button
+                      onClick={() => { if (confirm('Remove this property from cleaning?')) onDelete(c.id); }}
+                      className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                  {c.assignedCleanerIds.length > 0 && (
-                    <div className="mt-2 flex items-center gap-1.5">
-                      <Users size={13} className="text-[#4a90d9] flex-shrink-0" />
-                      <p className="text-xs text-[#3a5070]">
-                        <span className="font-medium text-[#b8d4f0]">{getCleanerNames(c.assignedCleanerIds)}</span>
-                        <span className="text-[#2a4060]"> · dispatch priority order</span>
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    onClick={() => openEdit(c)}
-                    className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#1e2d45] transition-colors"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                  <button
-                    onClick={() => { if (confirm('Remove this property from cleaning?')) onDelete(c.id); }}
-                    className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"
-                  >
-                    <Trash2 size={14} />
-                  </button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -182,6 +210,8 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
               <button onClick={() => setEditing(null)} className="text-[#3a5070] hover:text-white transition-colors text-xl leading-none">&times;</button>
             </div>
             <div className="p-5 space-y-4 overflow-y-auto">
+
+              {/* Property selector */}
               <div>
                 <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Property *</label>
                 {editing === 'new' ? (
@@ -212,73 +242,99 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Client Charge ($)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="5"
-                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
-                    value={form.cleaningFee}
-                    onChange={e => setForm(f => ({ ...f, cleaningFee: e.target.value }))}
-                    placeholder="150"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Cleaner Payout ($)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="5"
-                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
-                    value={form.cleanerPayout}
-                    onChange={e => setForm(f => ({ ...f, cleanerPayout: e.target.value }))}
-                    placeholder="120"
-                  />
-                </div>
+              {/* Client charge */}
+              <div>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Client Charge ($)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="5"
+                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                  value={form.cleaningFee}
+                  onChange={e => setForm(f => ({ ...f, cleaningFee: e.target.value }))}
+                  placeholder="150"
+                />
+                <p className="text-xs text-[#3a5070] mt-1">What you charge the property owner per clean</p>
               </div>
 
-              {form.cleaningFee && form.cleanerPayout && (
-                <div className="bg-[#0a2518] border border-[#1e3a2a] rounded-lg px-3 py-2 text-xs text-[#5ce0a0]">
-                  Your profit per clean: <span className="font-bold">${(parseFloat(form.cleaningFee || '0') - parseFloat(form.cleanerPayout || '0')).toFixed(0)}</span>
-                </div>
-              )}
-
+              {/* Per-cleaner payout */}
               <div>
-                <label className="block text-xs font-semibold text-[#3a5070] mb-2">
-                  Assigned Cleaners <span className="text-[#2a4060] font-normal">(dispatch priority order — top = first to receive email)</span>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-1">
+                  Assign Cleaners &amp; Set Their Payout
                 </label>
+                <p className="text-xs text-[#2a4060] mb-2">Check to assign · each cleaner has their own negotiated rate · order = dispatch priority</p>
                 {activeCleaners.length === 0 ? (
                   <p className="text-xs text-[#3a5070]">No active cleaners yet. Add cleaners in the Cleaners tab first.</p>
                 ) : (
                   <div className="space-y-2">
-                    {activeCleaners.map((cl) => {
-                      const selected = form.assignedCleanerIds.includes(cl.id);
-                      const priority = form.assignedCleanerIds.indexOf(cl.id);
+                    {activeCleaners.map(cl => {
+                      const selected = isAssigned(cl.id);
+                      const payoutVal = getPayout(cl.id);
+                      const priority = form.assignedCleaners.findIndex(c => c.id === cl.id);
                       return (
-                        <button
+                        <div
                           key={cl.id}
-                          onClick={() => toggleCleaner(cl.id)}
-                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm transition-colors ${
-                            selected
-                              ? 'bg-[#162035] border-[#1e3a5a] text-white'
-                              : 'bg-[#0f1923] border-[#1e2d45] text-[#3a5070] hover:border-[#2a4060]'
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-colors ${
+                            selected ? 'bg-[#162035] border-[#1e3a5a]' : 'bg-[#0f1923] border-[#1e2d45]'
                           }`}
                         >
-                          <div className="flex items-center gap-2">
-                            <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${selected ? 'bg-[#4a90d9] border-[#4a90d9]' : 'border-[#2a4060]'}`}>
-                              {selected && <span className="text-white text-[10px] font-bold">{priority + 1}</span>}
-                            </div>
-                            <span className="font-medium">{cl.name}</span>
+                          {/* Checkbox + priority */}
+                          <button
+                            onClick={() => toggleCleaner(cl.id)}
+                            className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                              selected ? 'bg-[#4a90d9] border-[#4a90d9]' : 'border-[#2a4060] hover:border-[#4a90d9]'
+                            }`}
+                          >
+                            {selected && <span className="text-white text-[10px] font-bold">{priority + 1}</span>}
+                          </button>
+
+                          {/* Name */}
+                          <button
+                            onClick={() => toggleCleaner(cl.id)}
+                            className="flex-1 text-left"
+                          >
+                            <span className={`text-sm font-medium ${selected ? 'text-white' : 'text-[#3a5070]'}`}>{cl.name}</span>
+                          </button>
+
+                          {/* Per-cleaner payout input */}
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <span className={`text-xs ${selected ? 'text-[#3a5070]' : 'text-[#2a4060]'}`}>$</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="5"
+                              disabled={!selected}
+                              value={selected ? payoutVal : ''}
+                              onChange={e => setCleanerPayout(cl.id, e.target.value)}
+                              placeholder="payout"
+                              className="w-20 bg-[#0f1923] border border-[#1e2d45] rounded px-2 py-1 text-xs text-white placeholder-[#2a4060] focus:outline-none focus:border-[#4a90d9] disabled:opacity-30 disabled:cursor-not-allowed"
+                            />
                           </div>
-                          <span className="text-xs text-[#3a5070]">{cl.email}</span>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
                 )}
               </div>
+
+              {/* Profit preview */}
+              {form.cleaningFee && form.assignedCleaners.some(c => c.payout > 0) && (
+                <div className="bg-[#0a1a10] border border-[#1e3a2a] rounded-lg px-3 py-2.5 space-y-1">
+                  <p className="text-xs font-semibold text-[#5ce0a0]">Profit per clean (client ${form.cleaningFee})</p>
+                  {form.assignedCleaners.filter(c => c.payout > 0).map(ac => {
+                    const name = getCleanerName(ac.id);
+                    const profit = parseFloat(form.cleaningFee || '0') - ac.payout;
+                    return (
+                      <div key={ac.id} className="flex justify-between text-xs">
+                        <span className="text-[#3a5070]">{name}</span>
+                        <span className={`font-semibold ${profit >= 0 ? 'text-[#5ce0a0]' : 'text-[#e05c5c]'}`}>
+                          ${profit.toFixed(0)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div className="flex gap-3 px-5 pb-5 flex-shrink-0">
               <button

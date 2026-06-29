@@ -611,7 +611,7 @@ function buildOnboardingNotes(f: any): string {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleaningDispatch(body: any, res: VercelResponse) {
-  const { jobId, propertyName, checkoutDate, checkinDate, guestName, cleanerPayout, notes, cleaners } = body;
+  const { jobId, propertyName, checkoutDate, checkinDate, guestName, notes, cleaners } = body;
 
   if (!cleaners?.length) return res.status(400).json({ error: 'No cleaners provided.' });
 
@@ -621,7 +621,7 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
 
   const results = await Promise.allSettled(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (cleaners as any[]).map((c: { name: string; email: string }) =>
+    (cleaners as any[]).map((c: { name: string; email: string; payout?: number }) =>
       resend.emails.send({
         from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
         to: c.email,
@@ -639,7 +639,7 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
                   <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
                   ${checkinDate ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Next Check-in</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${new Date(checkinDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'})}</td></tr>` : ''}
                   ${guestName ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Departing Guest</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${guestName}</td></tr>` : ''}
-                  <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:16px">$${cleanerPayout}</td></tr>
+                  ${c.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:16px">$${c.payout}</td></tr>` : ''}
                   ${notes ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px;vertical-align:top">Notes</td><td style="padding:4px 0;color:#0f172a;font-size:14px">${notes}</td></tr>` : ''}
                 </table>
               </div>

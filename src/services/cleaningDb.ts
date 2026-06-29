@@ -53,8 +53,7 @@ function rowToConfig(r: any): CleaningPropertyConfig {
     propertyId: r.property_id,
     propertyName: r.property_name,
     cleaningFee: Number(r.cleaning_fee),
-    cleanerPayout: Number(r.cleaner_payout),
-    assignedCleanerIds: r.assigned_cleaner_ids ?? [],
+    assignedCleaners: r.assigned_cleaners ?? [],
     enrolledAt: r.enrolled_at,
   };
 }
@@ -65,8 +64,7 @@ function configToRow(c: CleaningPropertyConfig) {
     property_id: c.propertyId,
     property_name: c.propertyName,
     cleaning_fee: c.cleaningFee,
-    cleaner_payout: c.cleanerPayout,
-    assigned_cleaner_ids: c.assignedCleanerIds,
+    assigned_cleaners: c.assignedCleaners,
     enrolled_at: c.enrolledAt,
   };
 }

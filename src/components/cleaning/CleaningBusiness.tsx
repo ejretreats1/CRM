@@ -281,8 +281,7 @@ CREATE POLICY "anon_all" ON cleaners FOR ALL USING (true) WITH CHECK (true);
 CREATE TABLE IF NOT EXISTS cleaning_property_configs (
   id TEXT PRIMARY KEY, property_id TEXT NOT NULL UNIQUE,
   property_name TEXT NOT NULL, cleaning_fee NUMERIC NOT NULL DEFAULT 0,
-  cleaner_payout NUMERIC NOT NULL DEFAULT 0,
-  assigned_cleaner_ids JSONB NOT NULL DEFAULT '[]',
+  assigned_cleaners JSONB NOT NULL DEFAULT '[]',
   enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE cleaning_property_configs ENABLE ROW LEVEL SECURITY;

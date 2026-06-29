@@ -11,13 +11,17 @@ export interface Cleaner {
   createdAt: string;
 }
 
+export interface AssignedCleaner {
+  id: string;
+  payout: number;
+}
+
 export interface CleaningPropertyConfig {
   id: string;
   propertyId: string;
   propertyName: string;
   cleaningFee: number;
-  cleanerPayout: number;
-  assignedCleanerIds: string[];
+  assignedCleaners: AssignedCleaner[]; // priority order, each with their own negotiated payout
   enrolledAt: string;
 }
 

@@ -115,7 +115,7 @@ export default function JobsView({ jobs, configs, cleaners, reservations, onSync
           checkinDate: undefined,
           status: 'pending' as const,
           cleaningFee: config.cleaningFee,
-          cleanerPayout: config.cleanerPayout,
+          cleanerPayout: 0, // set when cleaner accepts (each has own negotiated rate)
           source: 'uplisting' as const,
           createdAt: now,
           updatedAt: now,
@@ -131,13 +131,17 @@ export default function JobsView({ jobs, configs, cleaners, reservations, onSync
 
   async function handleDispatch(job: CleaningJob) {
     const config = configMap.get(job.propertyId);
-    if (!config || config.assignedCleanerIds.length === 0) {
+    if (!config || config.assignedCleaners.length === 0) {
       alert('No cleaners assigned to this property. Go to Properties tab to assign cleaners.');
       return;
     }
-    const assignedCleaners = config.assignedCleanerIds
-      .map(id => cleaners.find(c => c.id === id))
-      .filter((c): c is Cleaner => !!c && c.status === 'active');
+    // Build list: cleaner profile + their negotiated payout for this property
+    const assignedCleaners = config.assignedCleaners
+      .map(ac => {
+        const profile = cleaners.find(c => c.id === ac.id);
+        return profile && profile.status === 'active' ? { ...profile, payout: ac.payout } : null;
+      })
+      .filter((c): c is Cleaner & { payout: number } => !!c);
 
     if (assignedCleaners.length === 0) {
       alert('No active cleaners assigned to this property.');
@@ -152,9 +156,9 @@ export default function JobsView({ jobs, configs, cleaners, reservations, onSync
         checkoutDate: job.checkoutDate,
         checkinDate: job.checkinDate,
         guestName: job.guestName,
-        cleanerPayout: job.cleanerPayout,
+        cleanerPayout: 0, // individual payouts shown per-cleaner in email
         notes: job.notes,
-        cleaners: assignedCleaners.map(c => ({ id: c.id, name: c.name, email: c.email })),
+        cleaners: assignedCleaners.map(c => ({ id: c.id, name: c.name, email: c.email, payout: c.payout })),
       });
       const now = new Date().toISOString();
       await onUpdateJob({ ...job, status: 'dispatched', dispatchedAt: now, updatedAt: now });
@@ -189,7 +193,7 @@ export default function JobsView({ jobs, configs, cleaners, reservations, onSync
         checkoutDate: manualForm.checkoutDate,
         status: 'pending',
         cleaningFee: configForProp?.cleaningFee ?? 0,
-        cleanerPayout: configForProp?.cleanerPayout ?? 0,
+        cleanerPayout: 0, // set per-cleaner when they accept
         notes: manualForm.notes || undefined,
         source: 'manual',
         createdAt: now,
@@ -332,10 +336,10 @@ export default function JobsView({ jobs, configs, cleaners, reservations, onSync
                           <span className="text-[#b8d4f0]">{assignedCleaner.name}</span>
                         </div>
                       )}
-                      {config && config.assignedCleanerIds.length > 0 && !assignedCleaner && (
+                      {config && config.assignedCleaners.length > 0 && !assignedCleaner && (
                         <div className="flex items-center gap-1.5 text-xs text-[#3a5070]">
                           <User size={12} />
-                          <span>{config.assignedCleanerIds.length} cleaner{config.assignedCleanerIds.length > 1 ? 's' : ''} on roster</span>
+                          <span>{config.assignedCleaners.length} cleaner{config.assignedCleaners.length > 1 ? 's' : ''} on roster</span>
                         </div>
                       )}
                     </div>
