@@ -28,6 +28,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   const [editing, setEditing] = useState<CleaningPropertyConfig | null | 'new'>(null);
   const [form, setForm] = useState<FormState>({ ...EMPTY });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const activeCleaners = cleaners.filter(c => c.status === 'active');
   const enrolledIds = new Set(configs.map(c => c.propertyId));
@@ -35,6 +36,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
 
   function openAdd() {
     setForm({ ...EMPTY });
+    setSaveError(null);
     setEditing('new');
   }
 
@@ -93,6 +95,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   async function handleSave() {
     if (!form.propertyId && !form.propertyName) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const now = new Date().toISOString();
       const existing = editing !== 'new' ? editing : null;
@@ -106,6 +109,8 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       };
       await onSave(config);
       setEditing(null);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Save failed. Check the console for details.');
     } finally {
       setSaving(false);
     }
@@ -353,6 +358,11 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                 </div>
               )}
             </div>
+            {saveError && (
+              <div className="mx-5 mb-3 px-3 py-2 bg-[#2a0e0e] border border-[#5a1a1a] rounded-lg text-xs text-[#e05c5c]">
+                {saveError}
+              </div>
+            )}
             <div className="flex gap-3 px-5 pb-5 flex-shrink-0">
               <button
                 onClick={() => setEditing(null)}
