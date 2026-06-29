@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap } from 'lucide-react';
+import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, Send, CheckCircle2 } from 'lucide-react';
 import type { CleaningPropertyConfig, AssignedCleaner, Cleaner } from '../../types/cleaning';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 
@@ -29,6 +29,13 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   const [form, setForm] = useState<FormState>({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Onboarding send modal
+  const [onboarding, setOnboarding] = useState<CleaningPropertyConfig | null>(null);
+  const [onboardForm, setOnboardForm] = useState({ clientName: '', clientEmail: '' });
+  const [onboardSending, setOnboardSending] = useState(false);
+  const [onboardSent, setOnboardSent] = useState(false);
+  const [onboardError, setOnboardError] = useState<string | null>(null);
 
   const activeCleaners = cleaners.filter(c => c.status === 'active');
   const enrolledIds = new Set(configs.map(c => c.propertyId));
@@ -120,6 +127,42 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
     return cleaners.find(c => c.id === id)?.name ?? id;
   }
 
+  function openOnboarding(config: CleaningPropertyConfig) {
+    setOnboardForm({ clientName: config.clientName ?? '', clientEmail: config.clientEmail ?? '' });
+    setOnboardSent(false);
+    setOnboardError(null);
+    setOnboarding(config);
+  }
+
+  async function handleSendOnboarding() {
+    if (!onboarding || !onboardForm.clientEmail.trim()) return;
+    setOnboardSending(true);
+    setOnboardError(null);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flow: 'cleaning-client',
+          action: 'send-onboarding',
+          propertyConfigId: onboarding.id,
+          propertyName: onboarding.propertyName,
+          cleaningFee: onboarding.cleaningFee,
+          clientName: onboardForm.clientName.trim() || null,
+          clientEmail: onboardForm.clientEmail.trim(),
+          appUrl: window.location.origin,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Failed to send.');
+      setOnboardSent(true);
+    } catch (e: unknown) {
+      setOnboardError(e instanceof Error ? e.message : 'Failed to send.');
+    } finally {
+      setOnboardSending(false);
+    }
+  }
+
   function avgPayout(config: CleaningPropertyConfig) {
     if (!config.assignedCleaners.length) return null;
     const payouts = config.assignedCleaners.map(c => c.payout).filter(p => p > 0);
@@ -195,6 +238,20 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                     )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
+                    {c.onboardedAt ? (
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-[#5ce0a0] bg-[#0a2518] border border-[#1e4030] px-2 py-0.5 rounded-full mr-1">
+                        <CheckCircle2 size={10} />
+                        Onboarded
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => openOnboarding(c)}
+                        title="Send client onboarding link"
+                        className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#5ce0a0] hover:bg-[#0a2518] transition-colors"
+                      >
+                        <Send size={14} />
+                      </button>
+                    )}
                     <button
                       onClick={() => openEdit(c)}
                       className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#1e2d45] transition-colors"
@@ -212,6 +269,76 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Onboarding Send Modal */}
+      {onboarding !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
+              <h2 className="font-bold text-white">Send Onboarding Link</h2>
+              <button onClick={() => setOnboarding(null)} className="text-[#3a5070] hover:text-white text-xl leading-none">&times;</button>
+            </div>
+            {onboardSent ? (
+              <div className="p-6 text-center space-y-3">
+                <div className="text-4xl">✅</div>
+                <p className="text-white font-semibold">Link sent!</p>
+                <p className="text-sm text-[#3a5070]">
+                  {onboardForm.clientEmail} will receive an email to sign the agreement and add their card.
+                </p>
+                <button
+                  onClick={() => setOnboarding(null)}
+                  className="w-full py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors mt-2"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div className="p-5 space-y-4">
+                <p className="text-xs text-[#3a5070]">
+                  Send <strong className="text-[#b8d4f0]">{onboarding.propertyName}</strong>'s client a link to sign the service agreement and put a card on file.
+                </p>
+                <div>
+                  <label className="block text-xs font-semibold text-[#3a5070] mb-1">Client Name</label>
+                  <input
+                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                    value={onboardForm.clientName}
+                    onChange={e => setOnboardForm(f => ({ ...f, clientName: e.target.value }))}
+                    placeholder="Jane Smith"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#3a5070] mb-1">Client Email *</label>
+                  <input
+                    type="email"
+                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                    value={onboardForm.clientEmail}
+                    onChange={e => setOnboardForm(f => ({ ...f, clientEmail: e.target.value }))}
+                    placeholder="owner@example.com"
+                  />
+                </div>
+                {onboardError && (
+                  <p className="text-xs text-[#e05c5c] bg-[#2a0e0e] border border-[#5a1a1a] rounded-lg px-3 py-2">{onboardError}</p>
+                )}
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => setOnboarding(null)}
+                    className="flex-1 px-4 py-2.5 bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendOnboarding}
+                    disabled={onboardSending || !onboardForm.clientEmail.trim()}
+                    className="flex-1 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
+                  >
+                    {onboardSending ? 'Sending…' : 'Send Link'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

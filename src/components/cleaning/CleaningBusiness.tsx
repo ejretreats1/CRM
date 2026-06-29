@@ -134,7 +134,7 @@ function CleaningDashboard({ jobs, cleaners, configs }: { jobs: CleaningJob[]; c
             { phase: 'Phase 1', label: 'CRM split + structure', done: true },
             { phase: 'Phase 2', label: 'Job engine — Uplisting sync, dispatch emails, status tracking', done: true },
             { phase: 'Phase 3', label: 'Cleaner portal — photos, checklist, damage reports', done: true },
-            { phase: 'Phase 4', label: 'Client onboarding — agreement + card on file', done: false },
+            { phase: 'Phase 4', label: 'Client onboarding — agreement + card on file', done: true },
             { phase: 'Phase 5', label: 'Automated payments — charge clients, pay cleaners via Stripe', done: false },
             { phase: 'Phase 6', label: 'Profit dashboard + reporting', done: false },
           ].map(row => (

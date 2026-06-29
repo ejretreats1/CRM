@@ -55,6 +55,11 @@ function rowToConfig(r: any): CleaningPropertyConfig {
     cleaningFee: Number(r.cleaning_fee),
     assignedCleaners: r.assigned_cleaners ?? [],
     enrolledAt: r.enrolled_at,
+    stripeCustomerId: r.stripe_customer_id ?? undefined,
+    stripePaymentMethodId: r.stripe_payment_method_id ?? undefined,
+    clientEmail: r.client_email ?? undefined,
+    clientName: r.client_name ?? undefined,
+    onboardedAt: r.onboarded_at ?? undefined,
   };
 }
 
@@ -66,6 +71,11 @@ function configToRow(c: CleaningPropertyConfig) {
     cleaning_fee: c.cleaningFee,
     assigned_cleaners: c.assignedCleaners,
     enrolled_at: c.enrolledAt,
+    stripe_customer_id: c.stripeCustomerId ?? null,
+    stripe_payment_method_id: c.stripePaymentMethodId ?? null,
+    client_email: c.clientEmail ?? null,
+    client_name: c.clientName ?? null,
+    onboarded_at: c.onboardedAt ?? null,
   };
 }
 

@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { generateText, Output } from 'ai';
 import { gateway } from '@ai-sdk/gateway';
 import { z } from 'zod';
+import Stripe from 'stripe';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -810,6 +811,166 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
   return res.status(200).json({ success: true });
 }
 
+// ── CLEANING CLIENT ONBOARDING ────────────────────────────────────────────────
+
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningClientGet(token: string, res: VercelResponse) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('cleaning_client_onboarding')
+    .select('*')
+    .eq('token', token)
+    .single();
+  if (error || !data) return res.status(404).json({ error: 'Invalid or expired link.' });
+  if (new Date(data.expires_at) < new Date()) return res.status(410).json({ error: 'This onboarding link has expired.' });
+  return res.status(200).json({
+    id: data.id,
+    propertyConfigId: data.property_config_id,
+    propertyName: data.property_name,
+    clientName: data.client_name,
+    clientEmail: data.client_email,
+    status: data.status,
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningClientSend(body: any, res: VercelResponse) {
+  const { propertyConfigId, propertyName, clientName, clientEmail, appUrl } = body;
+  if (!clientEmail || !propertyConfigId) return res.status(400).json({ error: 'clientEmail and propertyConfigId are required.' });
+
+  const supabase = getSupabase();
+  const token = randomUUID();
+  const id = `cco_${Date.now()}`;
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { error } = await supabase.from('cleaning_client_onboarding').insert({
+    id, token,
+    property_config_id: propertyConfigId,
+    property_name: propertyName,
+    client_name: clientName ?? null,
+    client_email: clientEmail,
+    status: 'pending',
+    created_at: new Date().toISOString(),
+    expires_at: expiresAt,
+  });
+  if (error) return res.status(500).json({ error: error.message });
+
+  const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+  const link = `${base}?cleaning-onboard=${token}`;
+
+  await resend.emails.send({
+    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+    to: clientEmail,
+    subject: `Action required: Set up cleaning service for ${propertyName}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+        <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+          <h2 style="color:#1e40af;margin:0 0 16px">🏠 Cleaning Service Setup</h2>
+          <p style="color:#334155">Hi ${clientName ?? 'there'},</p>
+          <p style="color:#334155">Your property <strong>${propertyName}</strong> is enrolled in E&amp;J Retreats' professional cleaning service. To activate, please review our service agreement and add a payment method on file.</p>
+          <ul style="color:#334155;font-size:14px;line-height:1.8">
+            <li>Professional cleaning after every guest checkout</li>
+            <li>Cleaning fee: <strong>$${body.cleaningFee ?? '—'} per clean</strong></li>
+            <li>Charged automatically — only after each completed cleaning</li>
+            <li>Photo report submitted by cleaner after every job</li>
+          </ul>
+          <p style="margin:28px 0;text-align:center">
+            <a href="${link}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
+              Complete Setup
+            </a>
+          </p>
+          <p style="color:#94a3b8;font-size:12px;text-align:center">Link expires in 30 days. You will not be charged until a cleaning is completed.&nbsp;&mdash;&nbsp;E&amp;J Retreats</p>
+        </div>
+      </div>
+    `,
+  });
+
+  return res.status(200).json({ id, token, link });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningClientSetupIntent(body: any, res: VercelResponse) {
+  const { token } = body;
+  const supabase = getSupabase();
+
+  const { data: record } = await supabase.from('cleaning_client_onboarding').select('*').eq('token', token).single();
+  if (!record) return res.status(404).json({ error: 'Invalid link.' });
+  if (new Date(record.expires_at) < new Date()) return res.status(410).json({ error: 'Link expired.' });
+
+  const stripe = getStripe();
+  const { data: config } = await supabase
+    .from('cleaning_property_configs')
+    .select('stripe_customer_id')
+    .eq('id', record.property_config_id)
+    .single();
+
+  let customerId: string = config?.stripe_customer_id ?? '';
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      name: record.client_name ?? '',
+      email: record.client_email ?? '',
+      metadata: { property_config_id: record.property_config_id, property_name: record.property_name },
+    });
+    customerId = customer.id;
+    await supabase.from('cleaning_property_configs').update({
+      stripe_customer_id: customerId,
+      client_name: record.client_name,
+      client_email: record.client_email,
+    }).eq('id', record.property_config_id);
+  }
+
+  const setupIntent = await stripe.setupIntents.create({
+    customer: customerId,
+    payment_method_types: ['card'],
+    metadata: { property_config_id: record.property_config_id, token },
+  });
+
+  return res.status(200).json({ clientSecret: setupIntent.client_secret });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningClientConfirm(body: any, res: VercelResponse) {
+  const { token, setupIntentId } = body;
+  const supabase = getSupabase();
+
+  const { data: record } = await supabase.from('cleaning_client_onboarding').select('*').eq('token', token).single();
+  if (!record) return res.status(404).json({ error: 'Invalid link.' });
+
+  const stripe = getStripe();
+  const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+  if (setupIntent.status !== 'succeeded') return res.status(400).json({ error: 'Payment setup not completed.' });
+
+  const pmId = typeof setupIntent.payment_method === 'string'
+    ? setupIntent.payment_method
+    : setupIntent.payment_method?.id ?? '';
+
+  const now = new Date().toISOString();
+  await supabase.from('cleaning_property_configs').update({
+    stripe_payment_method_id: pmId,
+    client_name: record.client_name,
+    client_email: record.client_email,
+    onboarded_at: now,
+  }).eq('id', record.property_config_id);
+
+  await supabase.from('cleaning_client_onboarding').update({
+    status: 'completed',
+    completed_at: now,
+  }).eq('token', token);
+
+  await resend.emails.send({
+    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+    to: 'ejretreats1@gmail.com',
+    subject: `✅ Client onboarded: ${record.property_name}`,
+    html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${record.client_name ?? record.client_email}</strong> completed onboarding for <strong>${record.property_name}</strong>. Card is on file and ready to charge after each cleaning.</p></div>`,
+  }).catch(() => {});
+
+  return res.status(200).json({ success: true });
+}
+
 // ── CONTENT STUDIO ───────────────────────────────────────────────────────────
 
 export const config = { maxDuration: 60 };
@@ -1157,6 +1318,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const token = req.query.token as string;
     if (req.query.flow === 'onboarding' && token) return onboardingGet(token, res);
     if (req.query.flow === 'cleaning' && token) return cleaningGet(token, res);
+    if (req.query.flow === 'cleaning-client' && token) return cleaningClientGet(token, res);
     return res.status(405).end();
   }
 
@@ -1173,6 +1335,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'dispatch') return cleaningDispatch(body, res);
     if (action === 'accept')   return cleaningAccept(body, res);
     if (action === 'submit')   return cleaningSubmit(body, res);
+  } else if (flow === 'cleaning-client') {
+    if (action === 'send-onboarding') return cleaningClientSend(body, res);
+    if (action === 'setup-intent')    return cleaningClientSetupIntent(body, res);
+    if (action === 'confirm')         return cleaningClientConfirm(body, res);
   } else if (flow === 'content') {
     if (action === 'generate') return contentGenerate(body, res);
   } else if (flow === 'meta') {

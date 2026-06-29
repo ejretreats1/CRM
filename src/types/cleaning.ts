@@ -23,6 +23,11 @@ export interface CleaningPropertyConfig {
   cleaningFee: number;
   assignedCleaners: AssignedCleaner[]; // priority order, each with their own negotiated payout
   enrolledAt: string;
+  stripeCustomerId?: string;
+  stripePaymentMethodId?: string;
+  clientEmail?: string;
+  clientName?: string;
+  onboardedAt?: string;
 }
 
 export interface CleaningPortalData {
