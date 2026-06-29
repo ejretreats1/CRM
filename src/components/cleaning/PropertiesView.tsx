@@ -24,6 +24,11 @@ const EMPTY: FormState = {
   propertyId: '', propertyName: '', cleaningFee: '', feeAutoFilled: false, assignedCleaners: [],
 };
 
+function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
+  const p = props.find(up => up.id === propertyId);
+  return p?.nickname || p?.name || propertyName;
+}
+
 export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete }: Props) {
   const [editing, setEditing] = useState<CleaningPropertyConfig | null | 'new'>(null);
   const [form, setForm] = useState<FormState>({ ...EMPTY });
@@ -204,7 +209,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <Home size={16} className="text-[#4a90d9] flex-shrink-0" />
-                      <p className="font-semibold text-white truncate">{c.propertyName}</p>
+                      <p className="font-semibold text-white truncate">{displayName(c.propertyId, c.propertyName, uplistingProperties)}</p>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-4">
                       <div className="flex items-center gap-1.5">

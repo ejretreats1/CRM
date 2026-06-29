@@ -3,7 +3,7 @@ import {
   RefreshCw, Plus, Send, CheckCircle, XCircle, Clock, AlertCircle, Home, User, DollarSign, Calendar,
 } from 'lucide-react';
 import type { CleaningJob, CleaningPropertyConfig, Cleaner } from '../../types/cleaning';
-import type { UplistingReservation } from '../../services/uplisting';
+import type { UplistingReservation, UplistingProperty } from '../../services/uplisting';
 import { dispatchCleaningJob } from '../../services/cleaningApi';
 
 interface Props {
@@ -11,9 +11,15 @@ interface Props {
   configs: CleaningPropertyConfig[];
   cleaners: Cleaner[];
   reservations: UplistingReservation[];
+  uplistingProperties: UplistingProperty[];
   onSyncJobs: (newJobs: CleaningJob[]) => Promise<void>;
   onUpdateJob: (job: CleaningJob) => Promise<void>;
   onDeleteJob?: (id: string) => Promise<void>;
+}
+
+function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
+  const p = props.find(p => p.id === propertyId);
+  return p?.nickname || p?.name || propertyName;
 }
 
 type StatusFilter = 'all' | 'pending' | 'dispatched' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
@@ -52,7 +58,7 @@ interface ManualJobForm {
   notes: string;
 }
 
-export default function JobsView({ jobs, configs, cleaners, reservations, onSyncJobs, onUpdateJob }: Props) {
+export default function JobsView({ jobs, configs, cleaners, reservations, uplistingProperties, onSyncJobs, onUpdateJob }: Props) {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
@@ -290,7 +296,7 @@ export default function JobsView({ jobs, configs, cleaners, reservations, onSync
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className="flex items-center gap-1.5">
                         <Home size={14} className="text-[#4a90d9] flex-shrink-0" />
-                        <span className="font-semibold text-white text-sm">{job.propertyName}</span>
+                        <span className="font-semibold text-white text-sm">{displayName(job.propertyId, job.propertyName, uplistingProperties)}</span>
                       </div>
                       <StatusBadge status={job.status} />
                       {job.source === 'manual' && (
@@ -417,7 +423,7 @@ export default function JobsView({ jobs, configs, cleaners, reservations, onSync
                     }}
                   >
                     <option value="">Select enrolled property…</option>
-                    {configs.map(c => <option key={c.id} value={c.propertyId}>{c.propertyName}</option>)}
+                    {configs.map(c => <option key={c.id} value={c.propertyId}>{displayName(c.propertyId, c.propertyName, uplistingProperties)}</option>)}
                     <option value="__custom">Other / custom property</option>
                   </select>
                 ) : (

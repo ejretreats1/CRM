@@ -1,10 +1,17 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Home, User, Calendar } from 'lucide-react';
 import type { CleaningJob, Cleaner } from '../../types/cleaning';
+import type { UplistingProperty } from '../../services/uplisting';
 
 interface Props {
   jobs: CleaningJob[];
   cleaners: Cleaner[];
+  uplistingProperties: UplistingProperty[];
+}
+
+function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
+  const p = props.find(p => p.id === propertyId);
+  return p?.nickname || p?.name || propertyName;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -39,7 +46,7 @@ function fmtDayLabel(d: Date): { weekday: string; day: string; month: string } {
   };
 }
 
-export default function ScheduleView({ jobs, cleaners }: Props) {
+export default function ScheduleView({ jobs, cleaners, uplistingProperties }: Props) {
   const [weekOffset, setWeekOffset] = useState(0);
 
   const today = new Date();
@@ -121,7 +128,7 @@ export default function ScheduleView({ jobs, cleaners }: Props) {
                     >
                       <div className="flex items-center gap-1 mb-0.5">
                         <Home size={9} className="flex-shrink-0" />
-                        <span className="font-semibold truncate">{job.propertyName}</span>
+                        <span className="font-semibold truncate">{displayName(job.propertyId, job.propertyName, uplistingProperties)}</span>
                       </div>
                       <p className="opacity-70">{STATUS_LABELS[job.status]}</p>
                       {cleaner && (
@@ -165,7 +172,7 @@ export default function ScheduleView({ jobs, cleaners }: Props) {
                 return (
                   <div key={job.id} className="bg-[#1a2335] border border-[#1e2d45] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-white text-sm truncate">{job.propertyName}</p>
+                      <p className="font-semibold text-white text-sm truncate">{displayName(job.propertyId, job.propertyName, uplistingProperties)}</p>
                       <p className="text-xs text-[#3a5070]">{dateLabel} {job.guestName && `· ${job.guestName}`}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">

@@ -6,6 +6,11 @@ import {
 import type { View } from '../../types';
 import type { CleaningJob, Cleaner, CleaningPropertyConfig } from '../../types/cleaning';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
+
+function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
+  const p = props.find(up => up.id === propertyId);
+  return p?.nickname || p?.name || propertyName;
+}
 import {
   fetchCleaners, upsertCleaner, deleteCleaner,
   fetchPropertyConfigs, upsertPropertyConfig, deletePropertyConfig,
@@ -51,7 +56,7 @@ function fmtCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 
-function CleaningDashboard({ jobs, cleaners, configs }: { jobs: CleaningJob[]; cleaners: Cleaner[]; configs: CleaningPropertyConfig[] }) {
+function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties }: { jobs: CleaningJob[]; cleaners: Cleaner[]; configs: CleaningPropertyConfig[]; uplistingProperties: UplistingProperty[] }) {
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0,0,0,0);
   const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
@@ -113,7 +118,7 @@ function CleaningDashboard({ jobs, cleaners, configs }: { jobs: CleaningJob[]; c
               return (
                 <div key={job.id} className="flex items-center justify-between gap-3 py-1.5 border-b border-[#1e2d45] last:border-0">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{job.propertyName}</p>
+                    <p className="text-sm font-medium text-white truncate">{displayName(job.propertyId, job.propertyName, uplistingProperties)}</p>
                     <p className="text-xs text-[#3a5070]">{d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} {job.guestName && `· ${job.guestName}`}</p>
                   </div>
                   <span className={`text-xs font-semibold ${statusBg[job.status] ?? 'text-[#3a5070]'}`}>{job.status}</span>
@@ -370,10 +375,10 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
         {active === 'cleaning-dashboard' && (
-          <CleaningDashboard jobs={jobs} cleaners={cleaners} configs={configs} />
+          <CleaningDashboard jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} />
         )}
         {active === 'cleaning-schedule' && (
-          <ScheduleView jobs={jobs} cleaners={cleaners} />
+          <ScheduleView jobs={jobs} cleaners={cleaners} uplistingProperties={uplistingProperties} />
         )}
         {active === 'cleaning-jobs' && (
           <JobsView
@@ -381,6 +386,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
             configs={configs}
             cleaners={cleaners}
             reservations={reservations}
+            uplistingProperties={uplistingProperties}
             onSyncJobs={handleSyncJobs}
             onUpdateJob={handleUpdateJob}
             onDeleteJob={handleDeleteJob}
