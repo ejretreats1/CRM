@@ -25,6 +25,13 @@ export interface CleaningPropertyConfig {
   enrolledAt: string;
 }
 
+export interface CleaningPortalData {
+  checklist: Record<string, boolean>;
+  photos: string[];
+  damageNotes?: string;
+  submittedAt: string;
+}
+
 export interface CleaningJob {
   id: string;
   reservationId?: string;
@@ -42,6 +49,7 @@ export interface CleaningJob {
   acceptedAt?: string;
   completedAt?: string;
   notes?: string;
+  portalData?: CleaningPortalData;
   source: CleaningJobSource;
   createdAt: string;
   updatedAt: string;

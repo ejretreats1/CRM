@@ -109,6 +109,7 @@ function rowToJob(r: any): CleaningJob {
     acceptedAt: r.accepted_at ?? undefined,
     completedAt: r.completed_at ?? undefined,
     notes: r.notes ?? undefined,
+    portalData: r.portal_data ?? undefined,
     source: r.source,
     createdAt: r.created_at,
     updatedAt: r.updated_at,

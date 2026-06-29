@@ -610,19 +610,66 @@ function buildOnboardingNotes(f: any): string {
 // ── CLEANING DISPATCH ─────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningGet(combined: string, res: VercelResponse) {
+  const colonIdx = combined.indexOf(':');
+  const jobId  = combined.slice(0, colonIdx);
+  const token  = combined.slice(colonIdx + 1);
+  if (!jobId || !token) return res.status(400).json({ error: 'Invalid link.' });
+
+  const supabase = getSupabase();
+  const { data: row } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
+  if (!row) return res.status(404).json({ error: 'Job not found.' });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tokens = (row.dispatch_tokens ?? {}) as Record<string, any>;
+  const cleanerInfo = tokens[token];
+  if (!cleanerInfo) return res.status(401).json({ error: 'Invalid or expired link.' });
+
+  return res.status(200).json({
+    job: {
+      id: row.id, propertyName: row.property_name, checkoutDate: row.checkout_date,
+      checkinDate: row.checkin_date, guestName: row.guest_name, notes: row.notes,
+      status: row.status, assignedCleanerId: row.assigned_cleaner_id,
+      portalData: row.portal_data,
+    },
+    cleaner: cleanerInfo,
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleaningDispatch(body: any, res: VercelResponse) {
-  const { jobId, propertyName, checkoutDate, checkinDate, guestName, notes, cleaners } = body;
+  const { jobId, propertyName, checkoutDate, checkinDate, guestName, notes, cleaners, appUrl } = body;
 
   if (!cleaners?.length) return res.status(400).json({ error: 'No cleaners provided.' });
 
+  const supabase = getSupabase();
   const dateLabel = new Date(checkoutDate + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   });
 
+  // Generate a unique token per cleaner and build dispatch_tokens map
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dispatchTokens: Record<string, any> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cleanerTokens: { cleaner: any; token: string }[] = (cleaners as any[]).map(c => {
+    const token = randomUUID();
+    dispatchTokens[token] = { cleanerId: c.id, cleanerName: c.name, cleanerEmail: c.email, payout: c.payout ?? 0 };
+    return { cleaner: c, token };
+  });
+
+  // Store tokens + mark job as dispatched
+  await supabase.from('cleaning_jobs').update({
+    status: 'dispatched',
+    dispatched_at: new Date().toISOString(),
+    dispatch_tokens: dispatchTokens,
+  }).eq('id', jobId);
+
+  const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+
   const results = await Promise.allSettled(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (cleaners as any[]).map((c: { name: string; email: string; payout?: number }) =>
-      resend.emails.send({
+    cleanerTokens.map(({ cleaner: c, token }) => {
+      const portalLink = `${base}?cleaner=${jobId}:${token}`;
+      return resend.emails.send({
         from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
         to: c.email,
         subject: `🧹 Cleaning Job Available: ${propertyName} – ${dateLabel}`,
@@ -631,30 +678,136 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
             <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
               <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">🧹 Cleaning Job Available</h2>
               <p style="color:#334155;margin:0 0 20px">Hi ${c.name},</p>
-              <p style="color:#334155;margin:0 0 16px">A cleaning job is available for one of your assigned properties. This is <strong>first-come, first-served</strong> — reply to this email to accept.</p>
-
+              <p style="color:#334155;margin:0 0 16px">A cleaning job is available for one of your assigned properties. This is <strong>first-come, first-served</strong> — tap the button below to claim it.</p>
               <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
                 <table style="width:100%;border-collapse:collapse">
                   <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${propertyName}</td></tr>
                   <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
                   ${checkinDate ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Next Check-in</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${new Date(checkinDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'})}</td></tr>` : ''}
                   ${guestName ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Departing Guest</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${guestName}</td></tr>` : ''}
-                  ${c.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:16px">$${c.payout}</td></tr>` : ''}
+                  ${c.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:18px">$${c.payout}</td></tr>` : ''}
                   ${notes ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px;vertical-align:top">Notes</td><td style="padding:4px 0;color:#0f172a;font-size:14px">${notes}</td></tr>` : ''}
                 </table>
               </div>
-
-              <p style="color:#334155;margin:0 0 8px;font-size:14px"><strong>To accept this job:</strong> Reply to this email with "ACCEPT" and we'll confirm the booking with you.</p>
-              <p style="color:#94a3b8;font-size:13px;margin:0">— E&amp;J Retreats Team<br>Job ID: ${jobId}</p>
+              <div style="text-align:center;margin:24px 0">
+                <a href="${portalLink}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
+                  Accept This Job
+                </a>
+              </div>
+              <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">First cleaner to accept gets the job. Link expires when the job is claimed.<br>— E&amp;J Retreats</p>
             </div>
           </div>
         `,
-      })
-    )
+      });
+    })
   );
 
   const sent = results.filter(r => r.status === 'fulfilled').length;
   return res.status(200).json({ sent });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningAccept(body: any, res: VercelResponse) {
+  const { combined } = body;
+  const colonIdx = (combined as string).indexOf(':');
+  const jobId = combined.slice(0, colonIdx);
+  const token = combined.slice(colonIdx + 1);
+
+  const supabase = getSupabase();
+  const { data: row } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
+  if (!row) return res.status(404).json({ error: 'Job not found.' });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tokens = (row.dispatch_tokens ?? {}) as Record<string, any>;
+  const cleanerInfo = tokens[token];
+  if (!cleanerInfo) return res.status(401).json({ error: 'Invalid or expired link.' });
+
+  if (row.status === 'accepted' || row.status === 'in_progress' || row.status === 'completed') {
+    if (row.assigned_cleaner_id === cleanerInfo.cleanerId) {
+      // This cleaner already accepted — return success so they see the portal
+      return res.status(200).json({ alreadyAccepted: true });
+    }
+    return res.status(409).json({ error: 'Sorry — this job was already claimed by another cleaner.' });
+  }
+
+  if (row.status === 'cancelled') {
+    return res.status(410).json({ error: 'This job has been cancelled.' });
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('cleaning_jobs').update({
+    status: 'accepted',
+    assigned_cleaner_id: cleanerInfo.cleanerId,
+    assigned_cleaner_name: cleanerInfo.cleanerName,
+    cleaner_payout: cleanerInfo.payout,
+    accepted_at: now,
+    updated_at: now,
+  }).eq('id', jobId).in('status', ['dispatched', 'pending']);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  // Notify admin
+  await resend.emails.send({
+    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+    to: 'ejretreats1@gmail.com',
+    subject: `✅ ${cleanerInfo.cleanerName} accepted: ${row.property_name}`,
+    html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${cleanerInfo.cleanerName}</strong> accepted the cleaning job for <strong>${row.property_name}</strong> on ${new Date(row.checkout_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}.</p></div>`,
+  }).catch(() => {});
+
+  return res.status(200).json({ success: true });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningSubmit(body: any, res: VercelResponse) {
+  const { combined, checklist, photos, damageNotes } = body;
+  const colonIdx = (combined as string).indexOf(':');
+  const jobId = combined.slice(0, colonIdx);
+  const token = combined.slice(colonIdx + 1);
+
+  const supabase = getSupabase();
+  const { data: row } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
+  if (!row) return res.status(404).json({ error: 'Job not found.' });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tokens = (row.dispatch_tokens ?? {}) as Record<string, any>;
+  const cleanerInfo = tokens[token];
+  if (!cleanerInfo) return res.status(401).json({ error: 'Invalid link.' });
+  if (row.assigned_cleaner_id !== cleanerInfo.cleanerId) return res.status(403).json({ error: 'You are not assigned to this job.' });
+
+  const now = new Date().toISOString();
+  const portalData = { checklist, photos: photos ?? [], damageNotes: damageNotes ?? '', submittedAt: now };
+
+  await supabase.from('cleaning_jobs').update({
+    status: 'completed',
+    completed_at: now,
+    updated_at: now,
+    portal_data: portalData,
+  }).eq('id', jobId);
+
+  const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const photoCount = (photos ?? []).length;
+  const checklistDone = Object.values(checklist as Record<string, boolean>).filter(Boolean).length;
+  const checklistTotal = Object.keys(checklist as Record<string, boolean>).length;
+
+  await resend.emails.send({
+    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+    to: 'ejretreats1@gmail.com',
+    subject: `📸 Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+        <h2 style="color:#0f766e">🧹 Cleaning Job Submitted</h2>
+        <p><strong>${cleanerInfo.cleanerName}</strong> has submitted the cleaning for <strong>${row.property_name}</strong> (${dateLabel}).</p>
+        <p>✅ Checklist: ${checklistDone}/${checklistTotal} items completed<br>
+           📸 Photos uploaded: ${photoCount}<br>
+           ${damageNotes ? `⚠️ Damage notes: ${damageNotes}` : ''}
+        </p>
+        ${photoCount > 0 ? `<p>${(photos as string[]).map((url: string) => `<img src="${url}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;margin:4px" />`).join('')}</p>` : ''}
+        <p style="color:#64748b;font-size:13px">Payout: $${cleanerInfo.payout} — approve in the CRM to trigger payment.</p>
+      </div>
+    `,
+  }).catch(() => {});
+
+  return res.status(200).json({ success: true });
 }
 
 // ── CONTENT STUDIO ───────────────────────────────────────────────────────────
@@ -999,10 +1152,11 @@ async function metaPostCarousel(body: any, res: VercelResponse) {
 // ── ROUTER ────────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // GET — onboarding token status check
+  // GET — token status checks
   if (req.method === 'GET') {
     const token = req.query.token as string;
     if (req.query.flow === 'onboarding' && token) return onboardingGet(token, res);
+    if (req.query.flow === 'cleaning' && token) return cleaningGet(token, res);
     return res.status(405).end();
   }
 
@@ -1017,6 +1171,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { action, flow } = body;
   if (flow === 'cleaning') {
     if (action === 'dispatch') return cleaningDispatch(body, res);
+    if (action === 'accept')   return cleaningAccept(body, res);
+    if (action === 'submit')   return cleaningSubmit(body, res);
   } else if (flow === 'content') {
     if (action === 'generate') return contentGenerate(body, res);
   } else if (flow === 'meta') {

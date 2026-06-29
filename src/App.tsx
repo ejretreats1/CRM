@@ -25,6 +25,7 @@ import ShareView from './components/ShareView';
 import PortalView from './components/PortalView';
 import OwnerPortalPage from './components/OwnerPortalPage';
 import OnboardingPage from './components/OnboardingPage';
+import CleanerPortalPage from './components/CleanerPortalPage';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -516,6 +517,8 @@ export default function App() {
   if (ownerPortalToken) return <OwnerPortalPage token={ownerPortalToken} />;
   const onboardingToken = searchParams.get('onboarding');
   if (onboardingToken) return <OnboardingPage token={onboardingToken} />;
+  const cleanerParam = searchParams.get('cleaner');
+  if (cleanerParam) return <CleanerPortalPage combined={cleanerParam} />;
 
   if (!isLoaded) {
     return (
