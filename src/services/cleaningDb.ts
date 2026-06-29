@@ -71,11 +71,6 @@ function configToRow(c: CleaningPropertyConfig) {
     cleaning_fee: c.cleaningFee,
     assigned_cleaners: c.assignedCleaners,
     enrolled_at: c.enrolledAt,
-    stripe_customer_id: c.stripeCustomerId ?? null,
-    stripe_payment_method_id: c.stripePaymentMethodId ?? null,
-    client_email: c.clientEmail ?? null,
-    client_name: c.clientName ?? null,
-    onboarded_at: c.onboardedAt ?? null,
   };
 }
 

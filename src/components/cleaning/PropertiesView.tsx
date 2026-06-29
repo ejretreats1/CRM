@@ -116,8 +116,9 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       };
       await onSave(config);
       setEditing(null);
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Save failed. Check the console for details.');
+    } catch (err: unknown) {
+      const msg = (err instanceof Error ? err.message : (err as { message?: string })?.message) ?? 'Save failed.';
+      setSaveError(msg);
     } finally {
       setSaving(false);
     }
