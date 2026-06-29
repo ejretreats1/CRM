@@ -53,6 +53,10 @@ export interface CleaningJob {
   dispatchedAt?: string;
   acceptedAt?: string;
   completedAt?: string;
+  chargedAt?: string;
+  stripeChargeId?: string;
+  payoutSentAt?: string;
+  stripeTransferId?: string;
   notes?: string;
   portalData?: CleaningPortalData;
   source: CleaningJobSource;

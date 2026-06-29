@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  RefreshCw, Plus, Send, CheckCircle, XCircle, Clock, AlertCircle, Home, User, DollarSign, Calendar,
+  RefreshCw, Plus, Send, CheckCircle, XCircle, Clock, AlertCircle, Home, User, DollarSign, Calendar, CreditCard,
 } from 'lucide-react';
 import type { CleaningJob, CleaningPropertyConfig, Cleaner } from '../../types/cleaning';
 import type { UplistingReservation, UplistingProperty } from '../../services/uplisting';
@@ -63,6 +63,8 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
   const [dispatching, setDispatching] = useState<string | null>(null);
+  const [charging, setCharging] = useState<string | null>(null);
+  const [chargeErrors, setChargeErrors] = useState<Record<string, string>>({});
   const [showManual, setShowManual] = useState(false);
   const [manualForm, setManualForm] = useState<ManualJobForm>({
     propertyId: '', propertyName: '', checkoutDate: '', guestName: '', notes: '',
@@ -181,6 +183,27 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
     if (status === 'completed') updates.completedAt = now;
     if (status === 'accepted')  updates.acceptedAt  = now;
     await onUpdateJob({ ...job, ...updates });
+  }
+
+  async function handleCharge(job: CleaningJob) {
+    if (!confirm(`Charge $${job.cleaningFee} to the client card on file for ${displayName(job.propertyId, job.propertyName, uplistingProperties)}?`)) return;
+    setCharging(job.id);
+    setChargeErrors(prev => { const next = { ...prev }; delete next[job.id]; return next; });
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'charge-and-payout', jobId: job.id }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Charge failed.');
+      const now = new Date().toISOString();
+      await onUpdateJob({ ...job, chargedAt: now, updatedAt: now });
+    } catch (e: unknown) {
+      setChargeErrors(prev => ({ ...prev, [job.id]: e instanceof Error ? e.message : 'Charge failed.' }));
+    } finally {
+      setCharging(null);
+    }
   }
 
   async function handleSaveManual() {
@@ -350,8 +373,24 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
                       )}
                     </div>
 
+                    {/* Charge status row */}
+                    {job.chargedAt && (
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-1.5 text-xs text-[#5ce0a0]">
+                          <CreditCard size={12} />
+                          <span>Charged {new Date(job.chargedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                        {job.payoutSentAt && (
+                          <span className="text-xs text-[#d07af5]">· Payout sent</span>
+                        )}
+                      </div>
+                    )}
+
                     {job.notes && (
                       <p className="text-xs text-[#3a5070] italic">{job.notes}</p>
+                    )}
+                    {chargeErrors[job.id] && (
+                      <p className="text-xs text-[#e05c5c]">{chargeErrors[job.id]}</p>
                     )}
                   </div>
 
@@ -383,6 +422,16 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
                       >
                         <CheckCircle size={12} />
                         Complete
+                      </button>
+                    )}
+                    {job.status === 'completed' && config?.stripePaymentMethodId && !job.chargedAt && (
+                      <button
+                        onClick={() => handleCharge(job)}
+                        disabled={charging === job.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e4030] border border-[#2a6040] text-[#5ce0a0] text-xs font-semibold rounded-lg hover:bg-[#2a5040] transition-colors disabled:opacity-50 whitespace-nowrap"
+                      >
+                        <CreditCard size={12} />
+                        {charging === job.id ? 'Charging…' : `Charge $${job.cleaningFee}`}
                       </button>
                     )}
                     {(job.status === 'pending' || job.status === 'dispatched') && (

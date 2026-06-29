@@ -1000,6 +1000,109 @@ async function cleaningClientConfirm(body: any, res: VercelResponse) {
   return res.status(200).json({ success: true });
 }
 
+// ── CLEANING CHARGE & PAYOUT ──────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
+  const { jobId } = body;
+  if (!jobId) return res.status(400).json({ error: 'jobId required.' });
+
+  const supabase = getSupabase();
+
+  const { data: job } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
+  if (job.status !== 'completed') return res.status(400).json({ error: 'Job must be completed before charging.' });
+  if (job.charged_at) return res.status(400).json({ error: 'This job has already been charged.' });
+
+  const { data: config } = await supabase
+    .from('cleaning_property_configs')
+    .select('*')
+    .eq('property_id', job.property_id)
+    .maybeSingle();
+
+  if (!config?.stripe_customer_id || !config?.stripe_payment_method_id) {
+    return res.status(400).json({ error: 'Client has not completed onboarding — no payment method on file.' });
+  }
+
+  const stripe = getStripe();
+  const amountCents = Math.round(Number(config.cleaning_fee) * 100);
+
+  // Optionally route payout directly to cleaner's Stripe Connect account
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let transferData: any = undefined;
+  let cleanerStripeId: string | null = null;
+
+  if (job.assigned_cleaner_id && Number(job.cleaner_payout) > 0) {
+    const { data: cleaner } = await supabase
+      .from('cleaners').select('stripe_account_id').eq('id', job.assigned_cleaner_id).single();
+    if (cleaner?.stripe_account_id) {
+      cleanerStripeId = cleaner.stripe_account_id;
+      transferData = {
+        amount: Math.round(Number(job.cleaner_payout) * 100),
+        destination: cleanerStripeId,
+      };
+    }
+  }
+
+  // Charge the client
+  let paymentIntent;
+  try {
+    paymentIntent = await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: 'usd',
+      customer: config.stripe_customer_id,
+      payment_method: config.stripe_payment_method_id,
+      confirm: true,
+      off_session: true,
+      description: `Cleaning: ${job.property_name} — ${job.checkout_date}`,
+      metadata: { job_id: jobId, property_id: job.property_id },
+      ...(transferData ? { transfer_data: transferData } : {}),
+    });
+  } catch (err: unknown) {
+    const msg = (err instanceof Error ? err.message : (err as { message?: string })?.message) ?? 'Payment failed.';
+    return res.status(402).json({ error: msg });
+  }
+
+  const now = new Date().toISOString();
+  const payoutSent = !!transferData && paymentIntent.status === 'succeeded';
+
+  await supabase.from('cleaning_jobs').update({
+    charged_at: now,
+    stripe_charge_id: paymentIntent.id,
+    payout_sent_at: payoutSent ? now : null,
+    stripe_transfer_id: null,
+    updated_at: now,
+  }).eq('id', jobId);
+
+  const dateLabel = new Date(job.checkout_date + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  });
+
+  await resend.emails.send({
+    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+    to: 'ejretreats1@gmail.com',
+    subject: `💳 Charged $${config.cleaning_fee}: ${job.property_name}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+        <h2 style="color:#0f766e">💳 Payment Charged</h2>
+        <p><strong>${job.property_name}</strong> cleaning (${dateLabel}) has been charged.</p>
+        <ul style="font-size:14px;color:#334155;line-height:2">
+          <li>Client charge: <strong>$${config.cleaning_fee}</strong></li>
+          ${job.cleaner_payout ? `<li>Cleaner payout: <strong>$${job.cleaner_payout}</strong>${payoutSent ? ' — sent via Stripe Connect ✓' : cleanerStripeId ? ' — transfer failed, pay manually' : ' — no Stripe Connect account, pay manually'}</li>` : ''}
+          <li>Stripe PaymentIntent: ${paymentIntent.id}</li>
+        </ul>
+      </div>
+    `,
+  }).catch(() => {});
+
+  return res.status(200).json({
+    success: true,
+    charged: config.cleaning_fee,
+    payoutSent,
+    paymentIntentId: paymentIntent.id,
+  });
+}
+
 // ── CONTENT STUDIO ───────────────────────────────────────────────────────────
 
 export const config = { maxDuration: 60 };
@@ -1361,9 +1464,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { action, flow } = body;
   if (flow === 'cleaning') {
-    if (action === 'dispatch') return cleaningDispatch(body, res);
-    if (action === 'accept')   return cleaningAccept(body, res);
-    if (action === 'submit')   return cleaningSubmit(body, res);
+    if (action === 'dispatch')          return cleaningDispatch(body, res);
+    if (action === 'accept')            return cleaningAccept(body, res);
+    if (action === 'submit')            return cleaningSubmit(body, res);
+    if (action === 'charge-and-payout') return cleaningChargeAndPayout(body, res);
   } else if (flow === 'cleaning-client') {
     if (action === 'send-onboarding') return cleaningClientSend(body, res);
     if (action === 'setup-intent')    return cleaningClientSetupIntent(body, res);
