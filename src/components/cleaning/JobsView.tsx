@@ -428,10 +428,11 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
                       <button
                         onClick={() => handleCharge(job)}
                         disabled={charging === job.id}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e4030] border border-[#2a6040] text-[#5ce0a0] text-xs font-semibold rounded-lg hover:bg-[#2a5040] transition-colors disabled:opacity-50 whitespace-nowrap"
+                        title="Auto-charge failed — click to retry"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50 whitespace-nowrap"
                       >
                         <CreditCard size={12} />
-                        {charging === job.id ? 'Charging…' : `Charge $${job.cleaningFee}`}
+                        {charging === job.id ? 'Retrying…' : `Retry Charge $${job.cleaningFee}`}
                       </button>
                     )}
                     {(job.status === 'pending' || job.status === 'dispatched') && (

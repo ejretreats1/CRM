@@ -785,25 +785,33 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
     portal_data: portalData,
   }).eq('id', jobId);
 
+  // Auto-charge client and initiate payout — don't fail the submit if payment errors
+  const paymentResult = await doChargeAndPayout({ ...row, assigned_cleaner_id: row.assigned_cleaner_id ?? cleanerInfo.cleanerId, cleaner_payout: cleanerInfo.payout })
+    .catch(e => ({ charged: false, payoutSent: false, error: (e as Error).message ?? 'Unexpected error' }));
+
   const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const photoCount = (photos ?? []).length;
   const checklistDone = Object.values(checklist as Record<string, boolean>).filter(Boolean).length;
   const checklistTotal = Object.keys(checklist as Record<string, boolean>).length;
 
+  const paymentLine = paymentResult.charged
+    ? `💳 <strong>$${paymentResult.cleaningFee} charged</strong> to client automatically${paymentResult.payoutSent ? ` · $${paymentResult.cleanerPayout} payout sent to cleaner via Stripe Connect ✓` : paymentResult.cleanerStripeId ? ` · Payout transfer failed — pay manually` : ` · Cleaner has no Stripe Connect account — pay manually`}`
+    : `⚠️ <strong>Auto-charge failed:</strong> ${paymentResult.error ?? 'No payment method on file'} — use the CRM to retry`;
+
   await resend.emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
-    subject: `📸 Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`,
+    subject: `${paymentResult.charged ? '✅' : '⚠️'} Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
         <h2 style="color:#0f766e">🧹 Cleaning Job Submitted</h2>
         <p><strong>${cleanerInfo.cleanerName}</strong> has submitted the cleaning for <strong>${row.property_name}</strong> (${dateLabel}).</p>
         <p>✅ Checklist: ${checklistDone}/${checklistTotal} items completed<br>
            📸 Photos uploaded: ${photoCount}<br>
-           ${damageNotes ? `⚠️ Damage notes: ${damageNotes}` : ''}
+           ${damageNotes ? `⚠️ Damage notes: ${damageNotes}<br>` : ''}
+           ${paymentLine}
         </p>
         ${photoCount > 0 ? `<p>${(photos as string[]).map((url: string) => `<img src="${url}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;margin:4px" />`).join('')}</p>` : ''}
-        <p style="color:#64748b;font-size:13px">Payout: $${cleanerInfo.payout} — approve in the CRM to trigger payment.</p>
       </div>
     `,
   }).catch(() => {});
@@ -1002,17 +1010,20 @@ async function cleaningClientConfirm(body: any, res: VercelResponse) {
 
 // ── CLEANING CHARGE & PAYOUT ──────────────────────────────────────────────────
 
+interface ChargeResult {
+  charged: boolean;
+  payoutSent: boolean;
+  error?: string;
+  paymentIntentId?: string;
+  cleaningFee?: number;
+  cleanerPayout?: number;
+  cleanerStripeId?: string | null;
+}
+
+// Shared helper — called automatically on submit and manually as a retry
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
-  const { jobId } = body;
-  if (!jobId) return res.status(400).json({ error: 'jobId required.' });
-
+async function doChargeAndPayout(job: Record<string, any>): Promise<ChargeResult> {
   const supabase = getSupabase();
-
-  const { data: job } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
-  if (!job) return res.status(404).json({ error: 'Job not found.' });
-  if (job.status !== 'completed') return res.status(400).json({ error: 'Job must be completed before charging.' });
-  if (job.charged_at) return res.status(400).json({ error: 'This job has already been charged.' });
 
   const { data: config } = await supabase
     .from('cleaning_property_configs')
@@ -1021,13 +1032,12 @@ async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
     .maybeSingle();
 
   if (!config?.stripe_customer_id || !config?.stripe_payment_method_id) {
-    return res.status(400).json({ error: 'Client has not completed onboarding — no payment method on file.' });
+    return { charged: false, payoutSent: false, error: 'No payment method on file — client onboarding not complete.' };
   }
 
   const stripe = getStripe();
   const amountCents = Math.round(Number(config.cleaning_fee) * 100);
 
-  // Optionally route payout directly to cleaner's Stripe Connect account
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let transferData: any = undefined;
   let cleanerStripeId: string | null = null;
@@ -1044,7 +1054,6 @@ async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
     }
   }
 
-  // Charge the client
   let paymentIntent;
   try {
     paymentIntent = await stripe.paymentIntents.create({
@@ -1055,12 +1064,12 @@ async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
       confirm: true,
       off_session: true,
       description: `Cleaning: ${job.property_name} — ${job.checkout_date}`,
-      metadata: { job_id: jobId, property_id: job.property_id },
+      metadata: { job_id: job.id, property_id: job.property_id },
       ...(transferData ? { transfer_data: transferData } : {}),
     });
   } catch (err: unknown) {
     const msg = (err instanceof Error ? err.message : (err as { message?: string })?.message) ?? 'Payment failed.';
-    return res.status(402).json({ error: msg });
+    return { charged: false, payoutSent: false, error: msg, cleanerStripeId };
   }
 
   const now = new Date().toISOString();
@@ -1070,37 +1079,34 @@ async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
     charged_at: now,
     stripe_charge_id: paymentIntent.id,
     payout_sent_at: payoutSent ? now : null,
-    stripe_transfer_id: null,
     updated_at: now,
-  }).eq('id', jobId);
+  }).eq('id', job.id);
 
-  const dateLabel = new Date(job.checkout_date + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-  });
-
-  await resend.emails.send({
-    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-    to: 'ejretreats1@gmail.com',
-    subject: `💳 Charged $${config.cleaning_fee}: ${job.property_name}`,
-    html: `
-      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-        <h2 style="color:#0f766e">💳 Payment Charged</h2>
-        <p><strong>${job.property_name}</strong> cleaning (${dateLabel}) has been charged.</p>
-        <ul style="font-size:14px;color:#334155;line-height:2">
-          <li>Client charge: <strong>$${config.cleaning_fee}</strong></li>
-          ${job.cleaner_payout ? `<li>Cleaner payout: <strong>$${job.cleaner_payout}</strong>${payoutSent ? ' — sent via Stripe Connect ✓' : cleanerStripeId ? ' — transfer failed, pay manually' : ' — no Stripe Connect account, pay manually'}</li>` : ''}
-          <li>Stripe PaymentIntent: ${paymentIntent.id}</li>
-        </ul>
-      </div>
-    `,
-  }).catch(() => {});
-
-  return res.status(200).json({
-    success: true,
-    charged: config.cleaning_fee,
+  return {
+    charged: true,
     payoutSent,
     paymentIntentId: paymentIntent.id,
-  });
+    cleaningFee: Number(config.cleaning_fee),
+    cleanerPayout: Number(job.cleaner_payout),
+    cleanerStripeId,
+  };
+}
+
+// Manual retry endpoint — guards against double-charging
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
+  const { jobId } = body;
+  if (!jobId) return res.status(400).json({ error: 'jobId required.' });
+
+  const supabase = getSupabase();
+  const { data: job } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
+  if (job.status !== 'completed') return res.status(400).json({ error: 'Job must be completed before charging.' });
+  if (job.charged_at) return res.status(400).json({ error: 'This job has already been charged.' });
+
+  const result = await doChargeAndPayout(job);
+  if (!result.charged) return res.status(402).json({ error: result.error ?? 'Charge failed.' });
+  return res.status(200).json(result);
 }
 
 // ── CONTENT STUDIO ───────────────────────────────────────────────────────────
