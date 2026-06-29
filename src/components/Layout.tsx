@@ -22,6 +22,7 @@ import {
   Send,
   FileSignature,
   Wand2,
+  Brush,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -31,6 +32,11 @@ interface LayoutProps {
   isAdmin: boolean;
   children: React.ReactNode;
 }
+
+const CLEANING_VIEWS = new Set<View>([
+  'cleaning-dashboard', 'cleaning-schedule', 'cleaning-jobs',
+  'cleaning-properties', 'cleaning-cleaners', 'cleaning-payments',
+]);
 
 const navItems = [
   { id: 'dashboard' as View,        label: 'Dashboard',            icon: LayoutDashboard },
@@ -80,6 +86,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
 
   const activeView = currentView === 'owner-detail' ? 'owners'
     : currentView === 'property-portal' ? 'properties'
+    : CLEANING_VIEWS.has(currentView) ? 'cleaning-dashboard'
     : currentView;
 
   const topLabel = TOP_LABELS[currentView]
@@ -133,6 +140,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          <p className="px-3 pb-1.5 text-[10px] font-bold tracking-widest text-[#2a4060] uppercase">Property Management</p>
           {navItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -148,6 +156,24 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
               {label}
             </button>
           ))}
+          {/* Cleaning Business section */}
+          <div className="pt-3 pb-1">
+            <div className="border-t border-[#1e2d45] pt-3">
+              <p className="px-3 pb-1.5 text-[10px] font-bold tracking-widest text-[#2a4060] uppercase">Cleaning Business</p>
+              <button
+                onClick={() => handleNav('cleaning-dashboard')}
+                className={`
+                  w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                  ${activeView === 'cleaning-dashboard'
+                    ? 'bg-[#162035] text-[#4a90d9] border border-[#1e3a5a]'
+                    : 'text-[#b8d4f0] hover:bg-[#1e2d45] hover:text-white border border-transparent'}
+                `}
+              >
+                <Brush size={18} />
+                Cleaning
+              </button>
+            </div>
+          </div>
         </nav>
 
         {/* Bottom: Settings + user row */}
@@ -230,6 +256,17 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
                   <span className="text-center leading-tight">{label}</span>
                 </button>
               ))}
+              <button
+                onClick={() => handleNav('cleaning-dashboard')}
+                className={`flex flex-col items-center gap-1.5 px-2 py-3.5 rounded-xl text-xs font-medium transition-colors ${
+                  activeView === 'cleaning-dashboard'
+                    ? 'bg-[#162035] text-[#4a90d9]'
+                    : 'bg-[#1e2d45] text-[#b8d4f0] active:bg-[#1e2d45]'
+                }`}
+              >
+                <Brush size={22} />
+                <span>Cleaning</span>
+              </button>
               {isAdmin && (
                 <button
                   onClick={() => handleNav('settings')}

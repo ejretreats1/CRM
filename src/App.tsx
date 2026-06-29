@@ -40,6 +40,7 @@ import {
 import { fetchContacts } from './services/contacts';
 import ESign from './components/ESign';
 import ContentStudio from './components/ContentStudio';
+import CleaningBusiness from './components/cleaning/CleaningBusiness';
 import { fetchWarmupEntries, upsertWarmupEntry, deleteWarmupEntry } from './services/warmup';
 import type { WarmupEntry } from './services/warmup';
 import {
@@ -741,6 +742,11 @@ export default function App() {
 
       {view === 'content-studio' && (
         <ContentStudio />
+      )}
+
+      {(view === 'cleaning-dashboard' || view === 'cleaning-schedule' || view === 'cleaning-jobs' ||
+        view === 'cleaning-properties' || view === 'cleaning-cleaners' || view === 'cleaning-payments') && (
+        <CleaningBusiness currentView={view} onNavigate={navigate} />
       )}
 
       {modal?.type === 'lead-detail' && (
