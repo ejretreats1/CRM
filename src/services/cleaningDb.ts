@@ -11,6 +11,7 @@ function rowToCleaner(r: any): Cleaner {
     email: r.email,
     phone: r.phone ?? undefined,
     stripeAccountId: r.stripe_account_id ?? undefined,
+    stripeConnectStatus: r.stripe_connect_status ?? undefined,
     status: r.status,
     createdAt: r.created_at,
   };
@@ -22,9 +23,10 @@ function cleanerToRow(c: Cleaner) {
     name: c.name,
     email: c.email,
     phone: c.phone ?? null,
-    stripe_account_id: c.stripeAccountId ?? null,
     status: c.status,
     created_at: c.createdAt,
+    // Only include stripe_account_id if explicitly set — prevents clearing it on edit
+    ...(c.stripeAccountId !== undefined && { stripe_account_id: c.stripeAccountId }),
   };
 }
 

@@ -7,6 +7,7 @@ export interface Cleaner {
   email: string;
   phone?: string;
   stripeAccountId?: string;
+  stripeConnectStatus?: 'pending' | 'active';
   status: 'active' | 'inactive';
   createdAt: string;
 }

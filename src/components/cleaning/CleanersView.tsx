@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard } from 'lucide-react';
 import type { Cleaner } from '../../types/cleaning';
 
 interface Props {
@@ -16,6 +16,14 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
   const [editing, setEditing] = useState<Cleaner | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
+
+  // Stripe Connect modal state
+  const [stripeModal, setStripeModal] = useState<Cleaner | null>(null);
+  const [stripeSending, setStripeSending] = useState(false);
+  const [stripeCopied, setStripeCopied] = useState(false);
+  const [stripeLink, setStripeLink] = useState('');
+  const [stripeEmailSent, setStripeEmailSent] = useState(false);
+  const [stripeError, setStripeError] = useState('');
 
   function openAdd() {
     setForm({ ...EMPTY });
@@ -52,6 +60,75 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
     await onDelete(id);
   }
 
+  function openStripeModal(c: Cleaner) {
+    setStripeModal(c);
+    setStripeLink('');
+    setStripeCopied(false);
+    setStripeEmailSent(false);
+    setStripeError('');
+  }
+  function closeStripeModal() { setStripeModal(null); }
+
+  async function handleStripeAction(copyOnly: boolean) {
+    if (!stripeModal) return;
+    setStripeSending(true);
+    setStripeError('');
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flow: 'cleaner',
+          action: 'send-connect',
+          cleanerId: stripeModal.id,
+          cleanerName: stripeModal.name,
+          cleanerEmail: stripeModal.email,
+          appUrl: window.location.origin,
+          sendEmail: !copyOnly,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setStripeError(d.error ?? 'Failed to generate link.'); return; }
+      if (copyOnly) {
+        setStripeLink(d.link);
+        await navigator.clipboard.writeText(d.link).catch(() => {});
+        setStripeCopied(true);
+      } else {
+        setStripeEmailSent(true);
+      }
+    } catch {
+      setStripeError('Network error. Please try again.');
+    } finally {
+      setStripeSending(false);
+    }
+  }
+
+  async function copyStripeLink() {
+    if (!stripeLink) return;
+    await navigator.clipboard.writeText(stripeLink);
+    setStripeCopied(true);
+  }
+
+  function stripeStatusBadge(c: Cleaner) {
+    if (c.stripeConnectStatus === 'active') {
+      return (
+        <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
+          <CreditCard size={11} /> Stripe Active
+        </span>
+      );
+    }
+    if (c.stripeConnectStatus === 'pending') {
+      return (
+        <span className="flex items-center gap-1 text-xs text-amber-400 font-medium">
+          <CreditCard size={11} /> Stripe Pending
+        </span>
+      );
+    }
+    return (
+      <span className="text-xs text-[#3a5070]">No Stripe</span>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -83,6 +160,7 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                 <th className="text-left px-4 py-3 hidden sm:table-cell">Email</th>
                 <th className="text-left px-4 py-3 hidden md:table-cell">Phone</th>
                 <th className="text-left px-4 py-3">Status</th>
+                <th className="text-left px-4 py-3 hidden lg:table-cell">Stripe</th>
                 <th className="text-right px-4 py-3">Actions</th>
               </tr>
             </thead>
@@ -124,8 +202,20 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                       </span>
                     )}
                   </td>
+                  <td className="px-4 py-3 hidden lg:table-cell">
+                    {stripeStatusBadge(c)}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
+                      {c.stripeConnectStatus !== 'active' && (
+                        <button
+                          onClick={() => openStripeModal(c)}
+                          title="Setup Stripe Connect"
+                          className="p-1.5 rounded-lg text-[#3a5070] hover:text-amber-400 hover:bg-[#1e2d45] transition-colors"
+                        >
+                          <CreditCard size={14} />
+                        </button>
+                      )}
                       <button
                         onClick={() => openEdit(c)}
                         className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#1e2d45] transition-colors"
@@ -210,6 +300,71 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                 className="flex-1 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save Cleaner'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stripe Connect Modal */}
+      {stripeModal !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
+              <div>
+                <h2 className="font-bold text-white">Setup Stripe Payouts</h2>
+                <p className="text-xs text-[#3a5070] mt-0.5">{stripeModal.name}</p>
+              </div>
+              <button onClick={closeStripeModal} className="text-[#3a5070] hover:text-white transition-colors text-xl leading-none">&times;</button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-[#b8d4f0]">
+                Send {stripeModal.name} a link to connect their Stripe account so they can receive payouts automatically after each job.
+              </p>
+
+              {stripeError && (
+                <div className="bg-[#2a0e0e] border border-[#5a1a1a] text-[#e05c5c] text-xs rounded-lg px-3 py-2">
+                  {stripeError}
+                </div>
+              )}
+
+              {stripeEmailSent && (
+                <div className="bg-[#0a1f14] border border-[#1a4a2e] text-[#5ce0a0] text-xs rounded-lg px-3 py-2 flex items-center gap-2">
+                  <CheckCircle size={12} />
+                  Email sent to {stripeModal.email}
+                </div>
+              )}
+
+              {stripeLink && (
+                <div className="bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 space-y-2">
+                  <p className="text-xs text-[#3a5070]">Setup link (share this):</p>
+                  <p className="text-xs text-[#b8d4f0] break-all font-mono">{stripeLink}</p>
+                  <button
+                    onClick={copyStripeLink}
+                    className="flex items-center gap-1.5 text-xs text-[#4a90d9] hover:text-[#5aa0e9] font-medium"
+                  >
+                    <Link2 size={11} />
+                    {stripeCopied ? 'Copied!' : 'Copy link'}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 px-5 pb-5">
+              <button
+                onClick={() => handleStripeAction(true)}
+                disabled={stripeSending}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors disabled:opacity-50"
+              >
+                <Link2 size={14} />
+                {stripeSending && !stripeEmailSent ? 'Generating…' : 'Copy Link'}
+              </button>
+              <button
+                onClick={() => handleStripeAction(false)}
+                disabled={stripeSending}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
+              >
+                <Send size={14} />
+                {stripeSending && !stripeCopied ? 'Sending…' : 'Send Email'}
               </button>
             </div>
           </div>

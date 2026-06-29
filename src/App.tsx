@@ -27,6 +27,8 @@ import OwnerPortalPage from './components/OwnerPortalPage';
 import OnboardingPage from './components/OnboardingPage';
 import CleanerPortalPage from './components/CleanerPortalPage';
 import CleaningClientOnboardingPage from './components/CleaningClientOnboardingPage';
+import CleanerSetupPage from './components/CleanerSetupPage';
+import CleanerConnectPage from './components/CleanerConnectPage';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -522,6 +524,10 @@ export default function App() {
   if (cleanerParam) return <CleanerPortalPage combined={cleanerParam} />;
   const cleaningOnboardToken = searchParams.get('cleaning-onboard');
   if (cleaningOnboardToken) return <CleaningClientOnboardingPage token={cleaningOnboardToken} />;
+  const cleanerSetupParam = searchParams.get('cleaner-setup');
+  if (cleanerSetupParam) return <CleanerSetupPage combined={cleanerSetupParam} />;
+  const cleanerConnectedParam = searchParams.get('cleaner-connected');
+  if (cleanerConnectedParam) return <CleanerConnectPage combined={cleanerConnectedParam} />;
 
   if (!isLoaded) {
     return (
