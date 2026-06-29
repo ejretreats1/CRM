@@ -23,6 +23,7 @@ import {
   FileSignature,
   Wand2,
   Brush,
+  ArrowLeftRight,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -31,6 +32,8 @@ interface LayoutProps {
   onNavigate: (view: View, extra?: string) => void;
   isAdmin: boolean;
   children: React.ReactNode;
+  mode: 'property' | 'cleaning';
+  onSwitchMode: () => void;
 }
 
 const CLEANING_VIEWS = new Set<View>([
@@ -79,7 +82,7 @@ const TOP_LABELS: Partial<Record<View, string>> = {
   'deal-scanner':    'Deal Scanner',
 };
 
-export default function Layout({ currentView, onNavigate, isAdmin, children }: LayoutProps) {
+export default function Layout({ currentView, onNavigate, isAdmin, children, mode, onSwitchMode }: LayoutProps) {
   const [moreOpen, setMoreOpen] = useState(false);
   const { signOut } = useClerk();
   const { user } = useUser();
@@ -136,6 +139,22 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
             <div className="font-bold text-white leading-tight text-sm">E&J Retreats</div>
             <div className="text-xs text-[#3a5070]">CRM Portal</div>
           </div>
+        </div>
+
+        {/* Mode switch button */}
+        <div className="px-3 pt-3 pb-1">
+          <button
+            onClick={onSwitchMode}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-[#1e2d45] hover:border-[#2a4060] hover:bg-[#1e2d45] transition-colors group"
+          >
+            <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${mode === 'property' ? 'bg-[#1a2a3f]' : 'bg-[#0f2018]'}`}>
+              {mode === 'property' ? <Building2 size={13} className="text-[#4a90d9]" /> : <Brush size={13} className="text-[#3dd68c]" />}
+            </div>
+            <span className="text-xs font-semibold text-[#b8d4f0] truncate">
+              {mode === 'property' ? 'Property Management' : 'Cleaning Business'}
+            </span>
+            <ArrowLeftRight size={12} className="text-[#3a5070] group-hover:text-[#b8d4f0] ml-auto flex-shrink-0 transition-colors" />
+          </button>
         </div>
 
         {/* Nav */}
@@ -281,6 +300,20 @@ export default function Layout({ currentView, onNavigate, isAdmin, children }: L
                 </button>
               )}
             </div>
+            {/* Switch mode */}
+            <div className="mx-4 mt-3">
+              <button
+                onClick={() => { setMoreOpen(false); onSwitchMode(); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#1e2d45] hover:bg-[#2a3d55] transition-colors"
+              >
+                <ArrowLeftRight size={16} className="text-[#3a5070]" />
+                <span className="text-sm text-[#b8d4f0] font-medium">Switch Mode</span>
+                <span className="ml-auto text-xs text-[#3a5070]">
+                  {mode === 'property' ? 'Cleaning →' : 'Property →'}
+                </span>
+              </button>
+            </div>
+
             {/* User row + sign out */}
             <div className="mx-4 mt-3 pt-3 border-t border-[#1e2d45] flex items-center gap-2.5">
               {user?.imageUrl ? (

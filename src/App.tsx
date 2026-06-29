@@ -29,6 +29,7 @@ import CleanerPortalPage from './components/CleanerPortalPage';
 import CleaningClientOnboardingPage from './components/CleaningClientOnboardingPage';
 import CleanerSetupPage from './components/CleanerSetupPage';
 import CleanerConnectPage from './components/CleanerConnectPage';
+import ModeSelector from './components/ModeSelector';
 import LeadModal from './components/modals/LeadModal';
 import LeadDetailModal from './components/modals/LeadDetailModal';
 import OwnerModal from './components/modals/OwnerModal';
@@ -104,6 +105,7 @@ export default function App() {
   const allProperties  = useMemo(() => [...uplistingProperties,  ...hostawayProperties],  [uplistingProperties,  hostawayProperties]);
   const allReservations = useMemo(() => [...uplistingReservations, ...hostawayReservations], [uplistingReservations, hostawayReservations]);
 
+  const [mode, setMode] = useState<'property' | 'cleaning' | null>(null);
   const [view, setView] = useState<View>('dashboard');
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
@@ -537,6 +539,17 @@ export default function App() {
     );
   }
   if (!isSignedIn) return <LoginPage />;
+
+  if (mode === null) {
+    return (
+      <ModeSelector
+        onSelect={m => {
+          setMode(m);
+          setView(m === 'cleaning' ? 'cleaning-dashboard' : 'dashboard');
+        }}
+      />
+    );
+  }
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#1e2d45]">
@@ -555,7 +568,7 @@ export default function App() {
   }
 
   return (
-    <Layout currentView={view} onNavigate={navigate} isAdmin={isAdmin}>
+    <Layout currentView={view} onNavigate={navigate} isAdmin={isAdmin} mode={mode!} onSwitchMode={() => setMode(null)}>
       {view === 'dashboard' && (
         <Dashboard
           leads={leads}
