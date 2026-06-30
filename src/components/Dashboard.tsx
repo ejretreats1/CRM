@@ -186,7 +186,7 @@ export default function Dashboard({
 
     setSlackLoading(true);
     load();
-    const interval = setInterval(load, 60_000);
+    const interval = setInterval(() => { if (!document.hidden) load(); }, 5 * 60_000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slackToken, JSON.stringify(slackChannels)]);

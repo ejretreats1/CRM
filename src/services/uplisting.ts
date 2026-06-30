@@ -101,24 +101,24 @@ export async function fetchProperties(apiKey: string): Promise<UplistingProperty
 export async function fetchReservations(
   apiKey: string,
   from?: string,
-  to?: string
+  to?: string,
+  properties?: UplistingProperty[]
 ): Promise<UplistingReservation[]> {
   const params: Record<string, string> = {};
   if (from) params.from = from;
   if (to) params.to = to;
   // bookings endpoint requires a listing_id; fetch all properties first and aggregate
-  const properties = await fetchProperties(apiKey);
-  const allBookings: UplistingReservation[] = [];
-  for (const prop of properties) {
+  // (callers that already fetched properties can pass them in to avoid refetching)
+  const props = properties ?? await fetchProperties(apiKey);
+  const allBookings: UplistingReservation[] = (await Promise.all(props.map(async prop => {
     try {
       const data = await apiFetch(`bookings/${prop.id}`, apiKey, params);
       const rawList: any[] = data?.bookings ?? data?.data ?? data ?? [];
-      const bookings = rawList.map(normalizeReservation);
-      allBookings.push(...bookings);
+      return rawList.map(normalizeReservation);
     } catch {
-      // skip properties that fail
+      return [];
     }
-  }
+  }))).flat();
   return allBookings;
 }
 
