@@ -15,6 +15,7 @@ interface Props {
   onSyncJobs: (newJobs: CleaningJob[]) => Promise<void>;
   onUpdateJob: (job: CleaningJob) => Promise<void>;
   onDeleteJob?: (id: string) => Promise<void>;
+  autoSyncing?: boolean;
 }
 
 function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
@@ -58,7 +59,7 @@ interface ManualJobForm {
   notes: string;
 }
 
-export default function JobsView({ jobs, configs, cleaners, reservations, uplistingProperties, onSyncJobs, onUpdateJob }: Props) {
+export default function JobsView({ jobs, configs, cleaners, reservations, uplistingProperties, onSyncJobs, onUpdateJob, autoSyncing }: Props) {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
@@ -247,11 +248,11 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
         <div className="flex gap-2">
           <button
             onClick={handleSync}
-            disabled={syncing}
+            disabled={syncing || autoSyncing}
             className="flex items-center gap-2 px-3 py-2 bg-[#162035] border border-[#1e3a5a] text-[#4a90d9] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors disabled:opacity-50"
           >
-            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-            Sync Uplisting
+            <RefreshCw size={14} className={syncing || autoSyncing ? 'animate-spin' : ''} />
+            {autoSyncing ? 'Auto-syncing…' : 'Sync Uplisting'}
           </button>
           <button
             onClick={() => setShowManual(true)}

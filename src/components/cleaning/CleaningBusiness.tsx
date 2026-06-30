@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, CalendarDays, Briefcase, Home, Users, CreditCard,
-  CheckCircle, TrendingUp, DollarSign, Sparkles,
+  CheckCircle, TrendingUp, DollarSign, Sparkles, AlertCircle, RefreshCw,
 } from 'lucide-react';
 import type { View } from '../../types';
 import type { CleaningJob, Cleaner, CleaningPropertyConfig } from '../../types/cleaning';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
+import { dispatchCleaningJob } from '../../services/cleaningApi';
 
 function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
   const p = props.find(up => up.id === propertyId);
@@ -39,19 +40,6 @@ const TABS: { id: CleaningView; label: string; icon: React.ElementType }[] = [
   { id: 'cleaning-payments',    label: 'Payments',    icon: CreditCard },
 ];
 
-function ComingSoonCard({ icon: Icon, title, description }: { icon: React.ElementType; title: string; description: string }) {
-  return (
-    <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-8 flex flex-col items-center text-center gap-3">
-      <div className="w-14 h-14 rounded-2xl bg-[#162035] border border-[#1e3a5a] flex items-center justify-center">
-        <Icon size={26} className="text-[#4a90d9]" />
-      </div>
-      <h3 className="text-white font-semibold text-base">{title}</h3>
-      <p className="text-xs text-[#3a5070] max-w-xs leading-relaxed">{description}</p>
-      <span className="text-xs bg-[#0f1923] border border-[#1e3a5a] text-[#4a90d9] px-3 py-1 rounded-full font-medium">Coming soon</span>
-    </div>
-  );
-}
-
 function fmtCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
@@ -67,19 +55,21 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties }: { j
   const monthStr = monthStart.toISOString().slice(0,10);
 
   const jobsThisWeek = jobs.filter(j => j.checkoutDate >= weekStr && j.checkoutDate < weekEndStr && j.status !== 'cancelled').length;
-  const revenueThisMonth = jobs
-    .filter(j => j.checkoutDate >= monthStr && j.status === 'completed')
+  const chargedThisMonth = jobs
+    .filter(j => j.checkoutDate >= monthStr && j.chargedAt)
     .reduce((s, j) => s + j.cleaningFee, 0);
   const activeCleaners = cleaners.filter(c => c.status === 'active').length;
   const profitThisMonth = jobs
-    .filter(j => j.checkoutDate >= monthStr && j.status === 'completed')
+    .filter(j => j.checkoutDate >= monthStr && j.chargedAt)
     .reduce((s, j) => s + (j.cleaningFee - j.cleanerPayout), 0);
 
+  const awaitingCharge = jobs.filter(j => j.status === 'completed' && !j.chargedAt);
+
   const stats = [
-    { label: 'Jobs This Week',    value: jobsThisWeek > 0 ? String(jobsThisWeek) : '—', icon: Briefcase,   color: 'text-[#4a90d9]', bg: 'bg-[#0d1e35]' },
-    { label: 'Revenue This Month', value: revenueThisMonth > 0 ? fmtCurrency(revenueThisMonth) : '—', icon: DollarSign, color: 'text-[#5ce0a0]', bg: 'bg-[#0a2518]' },
-    { label: 'Active Cleaners',   value: activeCleaners > 0 ? String(activeCleaners) : '—', icon: Users,       color: 'text-[#d07af5]', bg: 'bg-[#1a0a2e]' },
-    { label: 'Net Profit',        value: profitThisMonth > 0 ? fmtCurrency(profitThisMonth) : '—', icon: TrendingUp,  color: 'text-[#d0954a]', bg: 'bg-[#1a1000]' },
+    { label: 'Jobs This Week',      value: jobsThisWeek > 0 ? String(jobsThisWeek) : '—', icon: Briefcase,   color: 'text-[#4a90d9]', bg: 'bg-[#0d1e35]' },
+    { label: 'Charged This Month',  value: chargedThisMonth > 0 ? fmtCurrency(chargedThisMonth) : '—', icon: DollarSign, color: 'text-[#5ce0a0]', bg: 'bg-[#0a2518]' },
+    { label: 'Active Cleaners',     value: activeCleaners > 0 ? String(activeCleaners) : '—', icon: Users,       color: 'text-[#d07af5]', bg: 'bg-[#1a0a2e]' },
+    { label: 'Net Profit',          value: profitThisMonth > 0 ? fmtCurrency(profitThisMonth) : '—', icon: TrendingUp,  color: 'text-[#d0954a]', bg: 'bg-[#1a1000]' },
   ];
 
   const upcomingJobs = jobs
@@ -105,6 +95,15 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties }: { j
           </div>
         ))}
       </div>
+
+      {awaitingCharge.length > 0 && (
+        <div className="flex items-center gap-2.5 bg-[#1a1000] border border-[#3a3200] rounded-xl px-4 py-3">
+          <AlertCircle size={16} className="text-[#d0954a] flex-shrink-0" />
+          <p className="text-xs text-[#d0954a]">
+            <strong>{awaitingCharge.length}</strong> completed job{awaitingCharge.length > 1 ? 's' : ''} {awaitingCharge.length > 1 ? 'are' : 'is'} still awaiting charge — auto-charge may have failed. Check the Payments tab to retry.
+          </p>
+        </div>
+      )}
 
       {upcomingJobs.length > 0 && (
         <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5">
@@ -137,11 +136,11 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties }: { j
         <div className="space-y-2">
           {[
             { phase: 'Phase 1', label: 'CRM split + structure', done: true },
-            { phase: 'Phase 2', label: 'Job engine — Uplisting sync, dispatch emails, status tracking', done: true },
+            { phase: 'Phase 2', label: 'Job engine — auto-create + auto-dispatch jobs from Uplisting checkouts', done: true },
             { phase: 'Phase 3', label: 'Cleaner portal — photos, checklist, damage reports', done: true },
-            { phase: 'Phase 4', label: 'Client onboarding — agreement + card on file', done: true },
-            { phase: 'Phase 5', label: 'Automated payments — charge clients, pay cleaners via Stripe', done: false },
-            { phase: 'Phase 6', label: 'Profit dashboard + reporting', done: false },
+            { phase: 'Phase 4', label: 'Client onboarding — agreement + card on file, batch invites', done: true },
+            { phase: 'Phase 5', label: 'Automated payments — charge clients, pay cleaners via Stripe', done: true },
+            { phase: 'Phase 6', label: 'Profit dashboard + payments reporting', done: true },
           ].map(row => (
             <div key={row.phase} className="flex items-center gap-3">
               <CheckCircle size={14} className={row.done ? 'text-[#5ce0a0]' : 'text-[#1e3a5a]'} />
@@ -155,18 +154,164 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties }: { j
   );
 }
 
-function CleaningPayments() {
+type PaymentFilter = 'all' | 'charged' | 'not_charged' | 'payout_sent';
+
+function CleaningPayments({
+  jobs, uplistingProperties, onRetryCharge,
+}: {
+  jobs: CleaningJob[];
+  uplistingProperties: UplistingProperty[];
+  onRetryCharge: (job: CleaningJob) => Promise<void>;
+}) {
+  const [filter, setFilter] = useState<PaymentFilter>('all');
+  const [retrying, setRetrying] = useState<string | null>(null);
+  const [retryErrors, setRetryErrors] = useState<Record<string, string>>({});
+
+  const completed = jobs.filter(j => j.status === 'completed');
+  const totalCharged = completed.filter(j => j.chargedAt).reduce((s, j) => s + j.cleaningFee, 0);
+  const totalPayouts = completed.filter(j => j.payoutSentAt).reduce((s, j) => s + j.cleanerPayout, 0);
+  const netProfit = totalCharged - totalPayouts;
+  const pendingCount = completed.filter(j => !j.chargedAt).length;
+
+  const summary = [
+    { label: 'Total Charged',   value: fmtCurrency(totalCharged), icon: DollarSign, color: 'text-[#5ce0a0]', bg: 'bg-[#0a2518]' },
+    { label: 'Total Payouts',   value: fmtCurrency(totalPayouts), icon: CreditCard, color: 'text-[#d07af5]', bg: 'bg-[#1a0a2e]' },
+    { label: 'Net Profit',      value: fmtCurrency(netProfit),    icon: TrendingUp, color: 'text-[#d0954a]', bg: 'bg-[#1a1000]' },
+    { label: 'Awaiting Charge', value: String(pendingCount),      icon: AlertCircle, color: pendingCount > 0 ? 'text-[#e05c5c]' : 'text-[#3a5070]', bg: pendingCount > 0 ? 'bg-[#1a0e0e]' : 'bg-[#0d1e35]' },
+  ];
+
+  const FILTERS: { id: PaymentFilter; label: string }[] = [
+    { id: 'all', label: 'All Completed' },
+    { id: 'not_charged', label: 'Awaiting Charge' },
+    { id: 'charged', label: 'Charged' },
+    { id: 'payout_sent', label: 'Payout Sent' },
+  ];
+
+  let filtered = completed;
+  if (filter === 'charged') filtered = filtered.filter(j => j.chargedAt);
+  if (filter === 'not_charged') filtered = filtered.filter(j => !j.chargedAt);
+  if (filter === 'payout_sent') filtered = filtered.filter(j => j.payoutSentAt);
+  filtered = [...filtered].sort((a, b) => b.checkoutDate.localeCompare(a.checkoutDate));
+
+  async function handleRetry(job: CleaningJob) {
+    setRetrying(job.id);
+    setRetryErrors(prev => { const next = { ...prev }; delete next[job.id]; return next; });
+    try {
+      await onRetryCharge(job);
+    } catch (e) {
+      setRetryErrors(prev => ({ ...prev, [job.id]: e instanceof Error ? e.message : 'Retry failed.' }));
+    } finally {
+      setRetrying(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-bold text-white">Payments</h1>
         <p className="text-sm text-[#3a5070] mt-0.5">Client charges, cleaner payouts, and profit tracking</p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <ComingSoonCard icon={DollarSign}  title="Client Charges"   description="Automatic card charge at check-in via Stripe. View status of each charge — pending, captured, or failed." />
-        <ComingSoonCard icon={CreditCard}  title="Cleaner Payouts"  description="Triggered automatically when cleaner submits photos and checklist. Sent to their Stripe Express account." />
-        <ComingSoonCard icon={TrendingUp}  title="Profit Tracker"   description="Revenue collected minus cleaner payouts minus Stripe fees = your net profit per job, per property, per month." />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {summary.map(s => (
+          <div key={s.label} className={`${s.bg} border border-[#1e2d45] rounded-2xl p-4 space-y-2`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#3a5070] font-medium">{s.label}</span>
+              <s.icon size={16} className={s.color} />
+            </div>
+            <p className="text-2xl font-bold text-white">{s.value}</p>
+          </div>
+        ))}
       </div>
+
+      <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-1">
+        {FILTERS.map(f => (
+          <button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+              filter === f.id
+                ? 'bg-[#4a90d9] text-white'
+                : 'bg-[#1a2335] border border-[#1e2d45] text-[#3a5070] hover:text-[#b8d4f0]'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-10 flex flex-col items-center gap-3 text-center">
+          <DollarSign size={28} className="text-[#4a90d9]" />
+          <p className="text-sm font-semibold text-white">No jobs here yet</p>
+          <p className="text-xs text-[#3a5070]">Completed jobs with charge &amp; payout activity will show up here.</p>
+        </div>
+      ) : (
+        <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#1e2d45] text-[#3a5070] text-xs uppercase tracking-wider">
+                <th className="text-left px-4 py-3">Property</th>
+                <th className="text-left px-4 py-3 hidden sm:table-cell">Date</th>
+                <th className="text-right px-4 py-3">Fee</th>
+                <th className="text-right px-4 py-3 hidden md:table-cell">Payout</th>
+                <th className="text-right px-4 py-3 hidden lg:table-cell">Net</th>
+                <th className="text-left px-4 py-3">Charge</th>
+                <th className="text-left px-4 py-3 hidden sm:table-cell">Payout</th>
+                <th className="text-right px-4 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#1e2d45]">
+              {filtered.map(job => (
+                <tr key={job.id} className="hover:bg-[#162035] transition-colors">
+                  <td className="px-4 py-3 text-white font-medium">{displayName(job.propertyId, job.propertyName, uplistingProperties)}</td>
+                  <td className="px-4 py-3 text-[#b8d4f0] hidden sm:table-cell">
+                    {new Date(job.checkoutDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </td>
+                  <td className="px-4 py-3 text-right text-[#5ce0a0] font-semibold">${job.cleaningFee}</td>
+                  <td className="px-4 py-3 text-right text-[#d07af5] hidden md:table-cell">${job.cleanerPayout}</td>
+                  <td className="px-4 py-3 text-right text-[#d0954a] font-semibold hidden lg:table-cell">${job.cleaningFee - job.cleanerPayout}</td>
+                  <td className="px-4 py-3">
+                    {job.chargedAt ? (
+                      <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
+                        <CheckCircle size={11} /> Charged
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-xs text-[#e05c5c] font-medium">
+                        <AlertCircle size={11} /> Not charged
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    {job.payoutSentAt ? (
+                      <span className="flex items-center gap-1 text-xs text-[#d07af5] font-medium">
+                        <CheckCircle size={11} /> Sent
+                      </span>
+                    ) : (
+                      <span className="text-xs text-[#3a5070]">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {!job.chargedAt && (
+                      <button
+                        onClick={() => handleRetry(job)}
+                        disabled={retrying === job.id}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50 ml-auto"
+                      >
+                        <CreditCard size={11} />
+                        {retrying === job.id ? 'Retrying…' : 'Retry'}
+                      </button>
+                    )}
+                    {retryErrors[job.id] && (
+                      <p className="text-xs text-[#e05c5c] mt-1 max-w-[160px]">{retryErrors[job.id]}</p>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -246,6 +391,110 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
   async function handleDeleteJob(id: string) {
     await deleteCleaningJob(id);
     setJobs(prev => prev.filter(j => j.id !== id));
+  }
+  async function handleRetryCharge(job: CleaningJob) {
+    const r = await fetch('/api/documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flow: 'cleaning', action: 'charge-and-payout', jobId: job.id }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error ?? 'Charge failed.');
+    const now = new Date().toISOString();
+    await handleUpdateJob({ ...job, chargedAt: now, updatedAt: now });
+  }
+
+  // Auto-create + auto-dispatch jobs the moment a new reservation checkout appears —
+  // no manual "Sync" or "Dispatch" click needed when a property has an assigned cleaner roster.
+  const autoSyncRef = useRef(false);
+  const [autoSyncing, setAutoSyncing] = useState(false);
+
+  useEffect(() => {
+    if (loading || dbError) return;
+    autoSyncAndDispatch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, dbError, reservations, configs]);
+
+  async function autoSyncAndDispatch() {
+    if (autoSyncRef.current) return;
+    autoSyncRef.current = true;
+    setAutoSyncing(true);
+    try {
+      const configMap = new Map(configs.map(c => [c.propertyId, c]));
+      const existingReservationIds = new Set(jobs.map(j => j.reservationId).filter(Boolean));
+
+      const today = new Date();
+      const windowStart = new Date(today); windowStart.setDate(today.getDate() - 14);
+      const windowEnd = new Date(today); windowEnd.setDate(today.getDate() + 90);
+      const startStr = windowStart.toISOString().slice(0, 10);
+      const endStr = windowEnd.toISOString().slice(0, 10);
+
+      const relevant = reservations.filter(r => {
+        if (!r.check_out) return false;
+        if (r.check_out < startStr || r.check_out > endStr) return false;
+        if (!configMap.has(r.listing_id)) return false;
+        if (existingReservationIds.has(r.id)) return false;
+        return true;
+      });
+
+      if (relevant.length === 0) return;
+
+      const now = new Date().toISOString();
+      const newJobs: CleaningJob[] = relevant.map(r => {
+        const config = configMap.get(r.listing_id)!;
+        return {
+          id: `cj_${Date.now()}_${r.id}`,
+          reservationId: r.id,
+          propertyId: r.listing_id,
+          propertyName: config.propertyName,
+          guestName: r.guest_name || undefined,
+          checkoutDate: r.check_out,
+          checkinDate: undefined,
+          status: 'pending' as const,
+          cleaningFee: config.cleaningFee,
+          cleanerPayout: 0,
+          source: 'uplisting' as const,
+          createdAt: now,
+          updatedAt: now,
+        };
+      });
+
+      await handleSyncJobs(newJobs);
+
+      // Dispatch each freshly created job to its property's full cleaner roster —
+      // first cleaner to accept locks the job (race-safe on the server).
+      for (const job of newJobs) {
+        const config = configMap.get(job.propertyId)!;
+        const assignedCleaners = config.assignedCleaners
+          .map(ac => {
+            const profile = cleaners.find(c => c.id === ac.id);
+            return profile && profile.status === 'active' ? { id: profile.id, name: profile.name, email: profile.email, payout: ac.payout } : null;
+          })
+          .filter((c): c is { id: string; name: string; email: string; payout: number } => !!c);
+
+        if (assignedCleaners.length === 0) continue; // no roster yet — leave pending for manual dispatch
+
+        try {
+          await dispatchCleaningJob({
+            jobId: job.id,
+            propertyName: job.propertyName,
+            checkoutDate: job.checkoutDate,
+            checkinDate: job.checkinDate,
+            guestName: job.guestName,
+            cleanerPayout: 0,
+            notes: job.notes,
+            cleaners: assignedCleaners,
+          });
+          const dispatchedAt = new Date().toISOString();
+          await handleUpdateJob({ ...job, status: 'dispatched', dispatchedAt, updatedAt: dispatchedAt });
+        } catch {
+          // leave as pending — admin can dispatch manually from the Jobs tab
+        }
+      }
+    } finally {
+      setAutoSyncing(false);
+      autoSyncRef.current = false;
+    }
   }
 
   if (loading) {
@@ -354,21 +603,29 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
     <div className="flex flex-col h-full">
       {/* Sub-navigation */}
       <div className="border-b border-[#1e2d45] bg-[#1a2335] px-4 flex-shrink-0">
-        <div className="flex gap-1 overflow-x-auto hide-scrollbar">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => onNavigate(id)}
-              className={`flex items-center gap-2 px-3 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
-                active === id
-                  ? 'border-[#4a90d9] text-[#4a90d9]'
-                  : 'border-transparent text-[#3a5070] hover:text-[#b8d4f0]'
-              }`}
-            >
-              <Icon size={14} />
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center justify-between">
+          <div className="flex gap-1 overflow-x-auto hide-scrollbar">
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => onNavigate(id)}
+                className={`flex items-center gap-2 px-3 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
+                  active === id
+                    ? 'border-[#4a90d9] text-[#4a90d9]'
+                    : 'border-transparent text-[#3a5070] hover:text-[#b8d4f0]'
+                }`}
+              >
+                <Icon size={14} />
+                {label}
+              </button>
+            ))}
+          </div>
+          {autoSyncing && (
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#3a5070] flex-shrink-0 pr-1">
+              <RefreshCw size={11} className="animate-spin" />
+              Auto-syncing…
+            </div>
+          )}
         </div>
       </div>
 
@@ -390,6 +647,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
             onSyncJobs={handleSyncJobs}
             onUpdateJob={handleUpdateJob}
             onDeleteJob={handleDeleteJob}
+            autoSyncing={autoSyncing}
           />
         )}
         {active === 'cleaning-properties' && (
@@ -409,7 +667,9 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
             onDelete={handleDeleteCleaner}
           />
         )}
-        {active === 'cleaning-payments' && <CleaningPayments />}
+        {active === 'cleaning-payments' && (
+          <CleaningPayments jobs={jobs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} />
+        )}
       </div>
     </div>
   );
