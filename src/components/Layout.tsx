@@ -94,29 +94,29 @@ const TOP_LABELS: Partial<Record<View, string>> = {
 };
 
 function ModeToggle({
-  mode, onSelect, compact,
-}: { mode: 'property' | 'cleaning'; onSelect: (mode: 'property' | 'cleaning') => void; compact?: boolean }) {
+  mode, onSelect,
+}: { mode: 'property' | 'cleaning'; onSelect: (mode: 'property' | 'cleaning') => void }) {
   return (
-    <div className={`flex items-center bg-[#0f1923] border border-[#1e2d45] rounded-full p-0.5 gap-0.5 ${compact ? '' : 'flex-1'}`}>
+    <div className="flex items-center bg-[#0f1923] border border-[#1e2d45] rounded-full p-0.5 gap-0.5">
       <button
         onClick={() => onSelect('property')}
         title="Property Management"
-        className={`flex items-center justify-center rounded-full transition-colors ${compact ? 'w-7 h-7' : 'flex-1 gap-1.5 px-3 py-1.5'} ${
+        className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${
           mode === 'property' ? 'bg-[#4a90d9] text-white' : 'text-[#3a5070] hover:text-[#b8d4f0]'
         }`}
       >
         <Building2 size={13} />
-        {!compact && <span className="text-xs font-semibold">Property</span>}
+        <span className="text-xs font-semibold">Property</span>
       </button>
       <button
         onClick={() => onSelect('cleaning')}
         title="Cleaning Business"
-        className={`flex items-center justify-center rounded-full transition-colors ${compact ? 'w-7 h-7' : 'flex-1 gap-1.5 px-3 py-1.5'} ${
+        className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${
           mode === 'cleaning' ? 'bg-[#3dd68c] text-[#0f2018]' : 'text-[#3a5070] hover:text-[#b8d4f0]'
         }`}
       >
         <Brush size={13} />
-        {!compact && <span className="text-xs font-semibold">Cleaning</span>}
+        <span className="text-xs font-semibold">Cleaning</span>
       </button>
     </div>
   );
@@ -356,7 +356,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
 
         {/* Mobile top header */}
         <header className="lg:hidden bg-[#1a2335] border-b border-[#1e2d45] print:hidden mobile-header-safe">
-          <div className="flex items-center justify-between gap-2 px-4 pb-3">
+          <div className="flex items-center justify-between gap-2 px-4 pb-2.5">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <img
                 src="/logo.png"
@@ -374,7 +374,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
               </div>
               <span className="font-bold text-white text-sm truncate">{topLabel}</span>
             </div>
-            {/* Permanent mode toggle + app picker + avatar */}
+            {/* App picker + avatar */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
                 onClick={onGoHome}
@@ -383,7 +383,6 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
               >
                 <LayoutGrid size={16} />
               </button>
-              <ModeToggle mode={mode} onSelect={onSelectMode} compact />
               <button
                 onClick={() => setMoreOpen(true)}
                 className="flex-shrink-0"
@@ -397,6 +396,10 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
                 )}
               </button>
             </div>
+          </div>
+          {/* Permanent mode toggle — full width so labels are readable like on desktop */}
+          <div className="px-4 pb-2.5">
+            <ModeToggle mode={mode} onSelect={onSelectMode} />
           </div>
         </header>
 
