@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  LayoutDashboard, CalendarDays, Briefcase, Home, Users, CreditCard,
+  Briefcase, Users, CreditCard,
   CheckCircle, TrendingUp, DollarSign, Sparkles, AlertCircle, RefreshCw,
 } from 'lucide-react';
 import type { View } from '../../types';
@@ -30,15 +30,6 @@ interface Props {
   reservations: UplistingReservation[];
   uplistingProperties: UplistingProperty[];
 }
-
-const TABS: { id: CleaningView; label: string; icon: React.ElementType }[] = [
-  { id: 'cleaning-dashboard',   label: 'Dashboard',   icon: LayoutDashboard },
-  { id: 'cleaning-schedule',    label: 'Schedule',    icon: CalendarDays },
-  { id: 'cleaning-jobs',        label: 'Jobs',        icon: Briefcase },
-  { id: 'cleaning-properties',  label: 'Properties',  icon: Home },
-  { id: 'cleaning-cleaners',    label: 'Cleaners',    icon: Users },
-  { id: 'cleaning-payments',    label: 'Payments',    icon: CreditCard },
-];
 
 function fmtCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -316,7 +307,7 @@ function CleaningPayments({
   );
 }
 
-export default function CleaningBusiness({ currentView, onNavigate, reservations, uplistingProperties }: Props) {
+export default function CleaningBusiness({ currentView, reservations, uplistingProperties }: Props) {
   const active = (currentView as CleaningView) || 'cleaning-dashboard';
 
   const [cleaners, setCleaners] = useState<Cleaner[]>([]);
@@ -499,26 +490,8 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
 
   if (loading) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="border-b border-[#1e2d45] bg-[#1a2335] px-4 flex-shrink-0">
-          <div className="flex gap-1 overflow-x-auto hide-scrollbar">
-            {TABS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => onNavigate(id)}
-                className={`flex items-center gap-2 px-3 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
-                  active === id ? 'border-[#4a90d9] text-[#4a90d9]' : 'border-transparent text-[#3a5070] hover:text-[#b8d4f0]'
-                }`}
-              >
-                <Icon size={14} />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-[#3a5070]">Loading cleaning data…</p>
-        </div>
+      <div className="flex-1 flex items-center justify-center h-full">
+        <p className="text-sm text-[#3a5070]">Loading cleaning data…</p>
       </div>
     );
   }
@@ -558,18 +531,6 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
   if (dbError === 'SETUP_NEEDED') {
     return (
       <div className="flex flex-col h-full">
-        <div className="border-b border-[#1e2d45] bg-[#1a2335] px-4 flex-shrink-0">
-          <div className="flex gap-1 overflow-x-auto hide-scrollbar">
-            {TABS.map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => onNavigate(id)}
-                className={`flex items-center gap-2 px-3 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
-                  active === id ? 'border-[#4a90d9] text-[#4a90d9]' : 'border-transparent text-[#3a5070] hover:text-[#b8d4f0]'
-                }`}>
-                <Icon size={14} />{label}
-              </button>
-            ))}
-          </div>
-        </div>
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="max-w-2xl mx-auto space-y-4">
             <div className="bg-[#1a1000] border border-[#3a3200] rounded-2xl p-5">
@@ -601,33 +562,14 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
 
   return (
     <div className="flex flex-col h-full">
-      {/* Sub-navigation */}
-      <div className="border-b border-[#1e2d45] bg-[#1a2335] px-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-1 overflow-x-auto hide-scrollbar">
-            {TABS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => onNavigate(id)}
-                className={`flex items-center gap-2 px-3 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${
-                  active === id
-                    ? 'border-[#4a90d9] text-[#4a90d9]'
-                    : 'border-transparent text-[#3a5070] hover:text-[#b8d4f0]'
-                }`}
-              >
-                <Icon size={14} />
-                {label}
-              </button>
-            ))}
+      {autoSyncing && (
+        <div className="border-b border-[#1e2d45] bg-[#1a2335] px-4 py-1.5 flex-shrink-0 hidden sm:flex items-center justify-end">
+          <div className="flex items-center gap-1.5 text-xs text-[#3a5070]">
+            <RefreshCw size={11} className="animate-spin" />
+            Auto-syncing…
           </div>
-          {autoSyncing && (
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#3a5070] flex-shrink-0 pr-1">
-              <RefreshCw size={11} className="animate-spin" />
-              Auto-syncing…
-            </div>
-          )}
         </div>
-      </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">

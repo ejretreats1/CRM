@@ -540,15 +540,13 @@ export default function App() {
   }
   if (!isSignedIn) return <LoginPage />;
 
+  function selectMode(m: 'property' | 'cleaning') {
+    setMode(m);
+    setView(m === 'cleaning' ? 'cleaning-dashboard' : 'dashboard');
+  }
+
   if (mode === null) {
-    return (
-      <ModeSelector
-        onSelect={m => {
-          setMode(m);
-          setView(m === 'cleaning' ? 'cleaning-dashboard' : 'dashboard');
-        }}
-      />
-    );
+    return <ModeSelector onSelect={selectMode} />;
   }
   if (loading) {
     return (
@@ -568,7 +566,7 @@ export default function App() {
   }
 
   return (
-    <Layout currentView={view} onNavigate={navigate} isAdmin={isAdmin} mode={mode!} onSwitchMode={() => setMode(null)}>
+    <Layout currentView={view} onNavigate={navigate} isAdmin={isAdmin} mode={mode!} onSelectMode={selectMode} onGoHome={() => setMode(null)}>
       {view === 'dashboard' && (
         <Dashboard
           leads={leads}

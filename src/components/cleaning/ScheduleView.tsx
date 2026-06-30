@@ -101,8 +101,65 @@ export default function ScheduleView({ jobs, cleaners, uplistingProperties }: Pr
         </div>
       </div>
 
-      {/* Day columns */}
-      <div className="grid grid-cols-7 gap-2">
+      {/* Day rows — stacked vertically on mobile so each day and its jobs are easy to read */}
+      <div className="lg:hidden flex flex-col gap-2">
+        {days.map(d => {
+          const dateStr = toLocalDateStr(d);
+          const { weekday, day, month } = fmtDayLabel(d);
+          const isToday = dateStr === toLocalDateStr(today);
+          const dayJobs = (jobsByDate.get(dateStr) ?? []).filter(j => j.status !== 'cancelled');
+
+          return (
+            <div key={dateStr} className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
+              {/* Day header */}
+              <div className={`flex items-center gap-3 px-4 py-2.5 ${isToday ? 'bg-[#4a90d9]' : 'bg-[#162035]'}`}>
+                <div className="flex flex-col items-center w-10 flex-shrink-0">
+                  <span className={`text-[10px] font-semibold leading-none ${isToday ? 'text-white/80' : 'text-[#3a5070]'}`}>{weekday}</span>
+                  <span className={`text-lg font-bold leading-none mt-0.5 ${isToday ? 'text-white' : 'text-[#b8d4f0]'}`}>{day}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-medium ${isToday ? 'text-white/80' : 'text-[#3a5070]'}`}>{month}</p>
+                </div>
+                <span className={`text-xs font-semibold flex-shrink-0 ${isToday ? 'text-white/80' : 'text-[#3a5070]'}`}>
+                  {dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              {/* Jobs for this day */}
+              {dayJobs.length === 0 ? (
+                <p className="px-4 py-3 text-xs text-[#3a5070]">No cleanings scheduled.</p>
+              ) : (
+                <div className="divide-y divide-[#1e2d45]">
+                  {dayJobs.map(job => {
+                    const cleaner = job.assignedCleanerId ? cleaners.find(c => c.id === job.assignedCleanerId) : null;
+                    return (
+                      <div key={job.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Home size={15} className="text-[#3a5070] flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">{displayName(job.propertyId, job.propertyName, uplistingProperties)}</p>
+                            {cleaner && (
+                              <p className="text-xs text-[#3a5070] flex items-center gap-1 mt-0.5">
+                                <User size={11} />
+                                {cleaner.name}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full border flex-shrink-0 ${STATUS_COLORS[job.status]}`}>
+                          {STATUS_LABELS[job.status]}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Day columns — desktop grid */}
+      <div className="hidden lg:grid grid-cols-7 gap-2">
         {days.map(d => {
           const dateStr = toLocalDateStr(d);
           const { weekday, day, month } = fmtDayLabel(d);

@@ -23,7 +23,10 @@ import {
   FileSignature,
   Wand2,
   Brush,
-  ArrowLeftRight,
+  CalendarDays,
+  Briefcase,
+  CreditCard,
+  LayoutGrid,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -33,15 +36,11 @@ interface LayoutProps {
   isAdmin: boolean;
   children: React.ReactNode;
   mode: 'property' | 'cleaning';
-  onSwitchMode: () => void;
+  onSelectMode: (mode: 'property' | 'cleaning') => void;
+  onGoHome: () => void;
 }
 
-const CLEANING_VIEWS = new Set<View>([
-  'cleaning-dashboard', 'cleaning-schedule', 'cleaning-jobs',
-  'cleaning-properties', 'cleaning-cleaners', 'cleaning-payments',
-]);
-
-const navItems = [
+const PROPERTY_NAV_ITEMS = [
   { id: 'dashboard' as View,        label: 'Dashboard',            icon: LayoutDashboard },
   { id: 'pipeline' as View,         label: 'Pipeline',             icon: Columns3 },
   { id: 'owners' as View,           label: 'Clients',              icon: Users },
@@ -61,10 +60,18 @@ const navItems = [
   { id: 'content-studio' as View,   label: 'Content Studio',        icon: Wand2 },
 ];
 
-// Bottom 4 tabs
-const TAB_IDS: View[] = ['dashboard', 'pipeline', 'owners', 'properties'];
-const tabItems = navItems.filter(i => TAB_IDS.includes(i.id));
-const moreItems = navItems.filter(i => !TAB_IDS.includes(i.id));
+const CLEANING_NAV_ITEMS = [
+  { id: 'cleaning-dashboard' as View,  label: 'Dashboard',  icon: LayoutDashboard },
+  { id: 'cleaning-schedule' as View,   label: 'Schedule',   icon: CalendarDays },
+  { id: 'cleaning-jobs' as View,       label: 'Jobs',       icon: Briefcase },
+  { id: 'cleaning-properties' as View, label: 'Properties', icon: Home },
+  { id: 'cleaning-cleaners' as View,   label: 'Cleaners',   icon: Users },
+  { id: 'cleaning-payments' as View,   label: 'Payments',   icon: CreditCard },
+];
+
+// Bottom tab bar shows the 4 most-used views per mode; the rest live in "More"
+const PROPERTY_TAB_IDS: View[] = ['dashboard', 'pipeline', 'owners', 'properties'];
+const CLEANING_TAB_IDS: View[] = ['cleaning-dashboard', 'cleaning-schedule', 'cleaning-jobs', 'cleaning-payments'];
 
 // Short labels for bottom tab bar
 const TAB_LABELS: Partial<Record<View, string>> = {
@@ -72,6 +79,10 @@ const TAB_LABELS: Partial<Record<View, string>> = {
   pipeline: 'Pipeline',
   owners: 'Clients',
   properties: 'Properties',
+  'cleaning-dashboard': 'Home',
+  'cleaning-schedule': 'Schedule',
+  'cleaning-jobs': 'Jobs',
+  'cleaning-payments': 'Payments',
 };
 
 // Top header label per view
@@ -82,14 +93,47 @@ const TOP_LABELS: Partial<Record<View, string>> = {
   'deal-scanner':    'Deal Scanner',
 };
 
-export default function Layout({ currentView, onNavigate, isAdmin, children, mode, onSwitchMode }: LayoutProps) {
+function ModeToggle({
+  mode, onSelect, compact,
+}: { mode: 'property' | 'cleaning'; onSelect: (mode: 'property' | 'cleaning') => void; compact?: boolean }) {
+  return (
+    <div className={`flex items-center bg-[#0f1923] border border-[#1e2d45] rounded-full p-0.5 gap-0.5 ${compact ? '' : 'flex-1'}`}>
+      <button
+        onClick={() => onSelect('property')}
+        title="Property Management"
+        className={`flex items-center justify-center rounded-full transition-colors ${compact ? 'w-7 h-7' : 'flex-1 gap-1.5 px-3 py-1.5'} ${
+          mode === 'property' ? 'bg-[#4a90d9] text-white' : 'text-[#3a5070] hover:text-[#b8d4f0]'
+        }`}
+      >
+        <Building2 size={13} />
+        {!compact && <span className="text-xs font-semibold">Property</span>}
+      </button>
+      <button
+        onClick={() => onSelect('cleaning')}
+        title="Cleaning Business"
+        className={`flex items-center justify-center rounded-full transition-colors ${compact ? 'w-7 h-7' : 'flex-1 gap-1.5 px-3 py-1.5'} ${
+          mode === 'cleaning' ? 'bg-[#3dd68c] text-[#0f2018]' : 'text-[#3a5070] hover:text-[#b8d4f0]'
+        }`}
+      >
+        <Brush size={13} />
+        {!compact && <span className="text-xs font-semibold">Cleaning</span>}
+      </button>
+    </div>
+  );
+}
+
+export default function Layout({ currentView, onNavigate, isAdmin, children, mode, onSelectMode, onGoHome }: LayoutProps) {
   const [moreOpen, setMoreOpen] = useState(false);
   const { signOut } = useClerk();
   const { user } = useUser();
 
+  const navItems = mode === 'cleaning' ? CLEANING_NAV_ITEMS : PROPERTY_NAV_ITEMS;
+  const tabIds = mode === 'cleaning' ? CLEANING_TAB_IDS : PROPERTY_TAB_IDS;
+  const tabItems = navItems.filter(i => tabIds.includes(i.id));
+  const moreItems = navItems.filter(i => !tabIds.includes(i.id));
+
   const activeView = currentView === 'owner-detail' ? 'owners'
     : currentView === 'property-portal' ? 'properties'
-    : CLEANING_VIEWS.has(currentView) ? 'cleaning-dashboard'
     : currentView;
 
   const topLabel = TOP_LABELS[currentView]
@@ -97,7 +141,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
     ?? 'E&J CRM';
 
   // "More" tab is highlighted when active view isn't one of the 4 tabs
-  const isMoreActive = !TAB_IDS.includes(activeView);
+  const isMoreActive = !tabIds.includes(activeView);
 
   function handleNav(id: View) {
     onNavigate(id);
@@ -141,25 +185,23 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
           </div>
         </div>
 
-        {/* Mode switch button */}
-        <div className="px-3 pt-3 pb-1">
+        {/* Home + mode toggle */}
+        <div className="flex items-center gap-2 px-3 pt-3 pb-1">
           <button
-            onClick={onSwitchMode}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-[#1e2d45] hover:border-[#2a4060] hover:bg-[#1e2d45] transition-colors group"
+            onClick={onGoHome}
+            title="Back to app picker"
+            className="w-9 h-9 flex-shrink-0 rounded-lg border border-[#1e2d45] hover:border-[#2a4060] hover:bg-[#1e2d45] flex items-center justify-center text-[#3a5070] hover:text-[#b8d4f0] transition-colors"
           >
-            <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${mode === 'property' ? 'bg-[#1a2a3f]' : 'bg-[#0f2018]'}`}>
-              {mode === 'property' ? <Building2 size={13} className="text-[#4a90d9]" /> : <Brush size={13} className="text-[#3dd68c]" />}
-            </div>
-            <span className="text-xs font-semibold text-[#b8d4f0] truncate">
-              {mode === 'property' ? 'Property Management' : 'Cleaning Business'}
-            </span>
-            <ArrowLeftRight size={12} className="text-[#3a5070] group-hover:text-[#b8d4f0] ml-auto flex-shrink-0 transition-colors" />
+            <LayoutGrid size={16} />
           </button>
+          <ModeToggle mode={mode} onSelect={onSelectMode} />
         </div>
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          <p className="px-3 pb-1.5 text-[10px] font-bold tracking-widest text-[#2a4060] uppercase">Property Management</p>
+          <p className="px-3 pb-1.5 text-[10px] font-bold tracking-widest text-[#2a4060] uppercase">
+            {mode === 'cleaning' ? 'Cleaning Business' : 'Property Management'}
+          </p>
           {navItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -167,7 +209,9 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
               className={`
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                 ${activeView === id
-                  ? 'bg-[#162035] text-[#4a90d9] border border-[#1e3a5a]'
+                  ? mode === 'cleaning'
+                    ? 'bg-[#0f2018] text-[#3dd68c] border border-[#1a4030]'
+                    : 'bg-[#162035] text-[#4a90d9] border border-[#1e3a5a]'
                   : 'text-[#b8d4f0] hover:bg-[#1e2d45] hover:text-white border border-transparent'}
               `}
             >
@@ -175,24 +219,6 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
               {label}
             </button>
           ))}
-          {/* Cleaning Business section */}
-          <div className="pt-3 pb-1">
-            <div className="border-t border-[#1e2d45] pt-3">
-              <p className="px-3 pb-1.5 text-[10px] font-bold tracking-widest text-[#2a4060] uppercase">Cleaning Business</p>
-              <button
-                onClick={() => handleNav('cleaning-dashboard')}
-                className={`
-                  w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
-                  ${activeView === 'cleaning-dashboard'
-                    ? 'bg-[#162035] text-[#4a90d9] border border-[#1e3a5a]'
-                    : 'text-[#b8d4f0] hover:bg-[#1e2d45] hover:text-white border border-transparent'}
-                `}
-              >
-                <Brush size={18} />
-                Cleaning
-              </button>
-            </div>
-          </div>
         </nav>
 
         {/* Bottom: Settings + user row */}
@@ -259,7 +285,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
                 <X size={14} />
               </button>
             </div>
-            {/* Grid of extra nav items */}
+            {/* Grid of extra nav items for the active mode */}
             <div className="px-4 pt-3 pb-1 grid grid-cols-3 gap-2">
               {moreItems.map(({ id, label, icon: Icon }) => (
                 <button
@@ -275,17 +301,6 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
                   <span className="text-center leading-tight">{label}</span>
                 </button>
               ))}
-              <button
-                onClick={() => handleNav('cleaning-dashboard')}
-                className={`flex flex-col items-center gap-1.5 px-2 py-3.5 rounded-xl text-xs font-medium transition-colors ${
-                  activeView === 'cleaning-dashboard'
-                    ? 'bg-[#162035] text-[#4a90d9]'
-                    : 'bg-[#1e2d45] text-[#b8d4f0] active:bg-[#1e2d45]'
-                }`}
-              >
-                <Brush size={22} />
-                <span>Cleaning</span>
-              </button>
               {isAdmin && (
                 <button
                   onClick={() => handleNav('settings')}
@@ -300,17 +315,14 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
                 </button>
               )}
             </div>
-            {/* Switch mode */}
+            {/* Back to app picker */}
             <div className="mx-4 mt-3">
               <button
-                onClick={() => { setMoreOpen(false); onSwitchMode(); }}
+                onClick={() => { setMoreOpen(false); onGoHome(); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#1e2d45] hover:bg-[#2a3d55] transition-colors"
               >
-                <ArrowLeftRight size={16} className="text-[#3a5070]" />
-                <span className="text-sm text-[#b8d4f0] font-medium">Switch Mode</span>
-                <span className="ml-auto text-xs text-[#3a5070]">
-                  {mode === 'property' ? 'Cleaning →' : 'Property →'}
-                </span>
+                <LayoutGrid size={16} className="text-[#3a5070]" />
+                <span className="text-sm text-[#b8d4f0] font-medium">Back to App Picker</span>
               </button>
             </div>
 
@@ -344,8 +356,8 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
 
         {/* Mobile top header */}
         <header className="lg:hidden bg-[#1a2335] border-b border-[#1e2d45] print:hidden mobile-header-safe">
-          <div className="flex items-center justify-between px-4 pb-3">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 px-4 pb-3">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <img
                 src="/logo.png"
                 alt="E&J Retreats"
@@ -360,21 +372,31 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
               <div className="w-7 h-7 rounded-lg bg-[#4a90d9] items-center justify-center flex-shrink-0 hidden">
                 <Building2 size={14} className="text-white" />
               </div>
-              <span className="font-bold text-white text-sm">{topLabel}</span>
+              <span className="font-bold text-white text-sm truncate">{topLabel}</span>
             </div>
-            {/* Avatar taps open More sheet */}
-            <button
-              onClick={() => setMoreOpen(true)}
-              className="flex-shrink-0"
-            >
-              {user?.imageUrl ? (
-                <img src={user.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-[#162035] flex items-center justify-center">
-                  <span className="text-xs font-semibold text-[#4a90d9]">{initials}</span>
-                </div>
-              )}
-            </button>
+            {/* Permanent mode toggle + app picker + avatar */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={onGoHome}
+                title="Back to app picker"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#3a5070] hover:text-[#b8d4f0] hover:bg-[#1e2d45] transition-colors flex-shrink-0"
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <ModeToggle mode={mode} onSelect={onSelectMode} compact />
+              <button
+                onClick={() => setMoreOpen(true)}
+                className="flex-shrink-0"
+              >
+                {user?.imageUrl ? (
+                  <img src={user.imageUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-[#162035] flex items-center justify-center">
+                    <span className="text-xs font-semibold text-[#4a90d9]">{initials}</span>
+                  </div>
+                )}
+              </button>
+            </div>
           </div>
         </header>
 
@@ -393,7 +415,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
                   key={id}
                   onClick={() => handleNav(id)}
                   className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                    active ? 'text-[#4a90d9]' : 'text-[#3a5070]'
+                    active ? (mode === 'cleaning' ? 'text-[#3dd68c]' : 'text-[#4a90d9]') : 'text-[#3a5070]'
                   }`}
                 >
                   <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
@@ -407,7 +429,7 @@ export default function Layout({ currentView, onNavigate, isAdmin, children, mod
             <button
               onClick={() => setMoreOpen(true)}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
-                isMoreActive ? 'text-[#4a90d9]' : 'text-[#3a5070]'
+                isMoreActive ? (mode === 'cleaning' ? 'text-[#3dd68c]' : 'text-[#4a90d9]') : 'text-[#3a5070]'
               }`}
             >
               <MoreHorizontal size={22} strokeWidth={isMoreActive ? 2.5 : 1.8} />
