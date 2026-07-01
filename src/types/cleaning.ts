@@ -33,6 +33,8 @@ export interface CleaningPropertyConfig {
   address?: string;
   checkoutTime?: string;
   checkinTime?: string;
+  photoUrl?: string;
+  stagingPhotoUrls?: string[];
 }
 
 export interface CleaningPortalData {

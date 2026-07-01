@@ -33,6 +33,8 @@ interface JobData {
   address?: string | null;
   checkoutTime?: string | null;
   checkinTime?: string | null;
+  photoUrl?: string | null;
+  stagingPhotoUrls?: string[];
 }
 
 interface CleanerData {
@@ -404,6 +406,32 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
             </button>
           </div>
         </div>
+
+        {/* Staging Reference Photos */}
+        {((job?.photoUrl) || (job?.stagingPhotoUrls && job.stagingPhotoUrls.length > 0)) && (
+          <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+            <div className="px-4 py-3 border-b">
+              <h2 className="font-semibold text-gray-800">Staging Reference</h2>
+              <p className="text-gray-400 text-xs mt-0.5">How the property should look when you're done</p>
+            </div>
+            <div className="p-4 space-y-2">
+              {job.photoUrl && (
+                <div className="rounded-xl overflow-hidden border border-gray-100">
+                  <img src={job.photoUrl} alt="Property listing" className="w-full object-cover max-h-56" />
+                </div>
+              )}
+              {job.stagingPhotoUrls && job.stagingPhotoUrls.length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {job.stagingPhotoUrls.map((url, i) => (
+                    <div key={i} className="rounded-xl overflow-hidden border border-gray-100 aspect-square">
+                      <img src={url} alt={`Staging ${i + 1}`} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Damage Notes */}
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">

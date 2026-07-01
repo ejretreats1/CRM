@@ -66,6 +66,8 @@ function rowToConfig(r: any): CleaningPropertyConfig {
     address: r.address ?? undefined,
     checkoutTime: r.checkout_time ?? undefined,
     checkinTime: r.checkin_time ?? undefined,
+    photoUrl: r.photo_url ?? undefined,
+    stagingPhotoUrls: r.staging_photo_urls ?? [],
   };
 }
 
@@ -81,6 +83,8 @@ function configToRow(c: CleaningPropertyConfig) {
     address: c.address ?? null,
     checkout_time: c.checkoutTime ?? null,
     checkin_time: c.checkinTime ?? null,
+    photo_url: c.photoUrl ?? null,
+    staging_photo_urls: c.stagingPhotoUrls ?? [],
   };
 }
 

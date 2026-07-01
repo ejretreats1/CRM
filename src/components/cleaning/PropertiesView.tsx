@@ -22,11 +22,15 @@ interface FormState {
   address: string;
   checkoutTime: string;
   checkinTime: string;
+  photoUrl: string;
+  stagingPhotoUrls: string[];
+  stagingUrlInput: string;
 }
 
 const EMPTY: FormState = {
   propertyId: '', propertyName: '', cleaningFee: '', feeAutoFilled: false, assignedCleaners: [],
   doorCode: '', address: '', checkoutTime: '', checkinTime: '',
+  photoUrl: '', stagingPhotoUrls: [], stagingUrlInput: '',
 };
 
 function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
@@ -142,6 +146,9 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       address: config.address ?? '',
       checkoutTime: config.checkoutTime ?? '',
       checkinTime: config.checkinTime ?? '',
+      photoUrl: config.photoUrl ?? '',
+      stagingPhotoUrls: [...(config.stagingPhotoUrls ?? [])],
+      stagingUrlInput: '',
     });
     setEditing(config);
   }
@@ -157,6 +164,8 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       propertyName: prop?.name ?? prop?.nickname ?? pid,
       cleaningFee: autoFee ? String(autoFee) : f.cleaningFee,
       feeAutoFilled: !!autoFee,
+      photoUrl: prop?.photo_url ?? f.photoUrl,
+      address: f.address || prop?.address || '',
     }));
   }
 
@@ -204,6 +213,8 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         address: form.address.trim() || undefined,
         checkoutTime: form.checkoutTime.trim() || undefined,
         checkinTime: form.checkinTime.trim() || undefined,
+        photoUrl: form.photoUrl.trim() || undefined,
+        stagingPhotoUrls: form.stagingPhotoUrls.filter(Boolean),
       };
       await onSave(config);
       setEditing(null);
@@ -292,6 +303,16 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                       </button>
                     ) : (
                       <div className="w-5 flex-shrink-0" />
+                    )}
+                    {/* Property thumbnail */}
+                    {c.photoUrl ? (
+                      <div className="w-14 h-14 rounded-xl overflow-hidden border border-[#1e2d45] flex-shrink-0">
+                        <img src={c.photoUrl} alt={c.propertyName} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl border border-[#1e2d45] bg-[#0f1923] flex items-center justify-center flex-shrink-0">
+                        <Home size={20} className="text-[#2a4060]" />
+                      </div>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -562,6 +583,62 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                     onChange={e => setForm(f => ({ ...f, checkinTime: e.target.value }))}
                     placeholder="3:00 PM"
                   />
+                </div>
+              </div>
+
+              {/* Staging / listing photos */}
+              <div>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Staging Reference Photos</label>
+                <p className="text-xs text-[#2a4060] mb-2">Cleaners see these to know how the property should look. Airbnb listing photo auto-fills when you select a property above.</p>
+                {/* Main listing photo preview */}
+                {form.photoUrl && (
+                  <div className="relative mb-2 rounded-xl overflow-hidden border border-[#1e2d45] bg-[#0f1923]">
+                    <img src={form.photoUrl} alt="Listing photo" className="w-full h-36 object-cover" />
+                    <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">Airbnb Cover Photo</div>
+                    <button
+                      onClick={() => setForm(f => ({ ...f, photoUrl: '' }))}
+                      className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold hover:bg-red-500 transition-colors"
+                    >×</button>
+                  </div>
+                )}
+                {/* Additional staging photos */}
+                {form.stagingPhotoUrls.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    {form.stagingPhotoUrls.map((url, i) => (
+                      <div key={i} className="relative rounded-xl overflow-hidden border border-[#1e2d45] bg-[#0f1923] aspect-square">
+                        <img src={url} alt={`Staging ${i + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => setForm(f => ({ ...f, stagingPhotoUrls: f.stagingPhotoUrls.filter((_, idx) => idx !== i) }))}
+                          className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-red-500 transition-colors"
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Add URL */}
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 text-xs text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                    value={form.stagingUrlInput}
+                    onChange={e => setForm(f => ({ ...f, stagingUrlInput: e.target.value }))}
+                    placeholder="Paste photo URL (Airbnb, Google Drive, Dropbox…)"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && form.stagingUrlInput.trim()) {
+                        e.preventDefault();
+                        setForm(f => ({ ...f, stagingPhotoUrls: [...f.stagingPhotoUrls, f.stagingUrlInput.trim()], stagingUrlInput: '' }));
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!form.stagingUrlInput.trim()) return;
+                      setForm(f => ({ ...f, stagingPhotoUrls: [...f.stagingPhotoUrls, f.stagingUrlInput.trim()], stagingUrlInput: '' }));
+                    }}
+                    className="px-3 py-2 bg-[#1e2d45] border border-[#2a4060] text-[#4a90d9] text-xs font-semibold rounded-lg hover:bg-[#2a3d55] transition-colors whitespace-nowrap"
+                  >
+                    Add
+                  </button>
                 </div>
               </div>
 
