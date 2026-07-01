@@ -1584,6 +1584,112 @@ async function metaPostCarousel(body: any, res: VercelResponse) {
   return res.status(200).json({ fbPostId, igPostId });
 }
 
+// ── CLEANER DASHBOARD ─────────────────────────────────────────────────────────
+
+async function cleanerDashboardGet(cleanerId: string, res: VercelResponse) {
+  const supabase = getSupabase();
+
+  const [{ data: cleanerRow }, { data: myJobRows }, { data: dispatchedRows }, { data: configs }] = await Promise.all([
+    supabase.from('cleaners').select('*').eq('id', cleanerId).single(),
+    supabase.from('cleaning_jobs')
+      .select('*')
+      .eq('assigned_cleaner_id', cleanerId)
+      .not('status', 'in', '("cancelled")')
+      .order('checkout_date', { ascending: true }),
+    supabase.from('cleaning_jobs')
+      .select('*')
+      .eq('status', 'dispatched')
+      .is('assigned_cleaner_id', null)
+      .order('checkout_date', { ascending: true }),
+    supabase.from('cleaning_property_configs')
+      .select('property_id,door_code,address,checkout_time,checkin_time,photo_url'),
+  ]);
+
+  if (!cleanerRow) return res.status(404).json({ error: 'Cleaner not found.' });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function enrichJob(row: any, myPayout?: number) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cfg = (configs ?? []).find((c: any) => c.property_id === row.property_id);
+    return {
+      id: row.id,
+      propertyId: row.property_id,
+      propertyName: row.property_name,
+      checkoutDate: row.checkout_date,
+      checkinDate: row.checkin_date ?? null,
+      guestName: row.guest_name ?? null,
+      notes: row.notes ?? null,
+      status: row.status,
+      payout: myPayout ?? row.cleaner_payout ?? 0,
+      doorCode: cfg?.door_code ?? null,
+      address: cfg?.address ?? null,
+      checkoutTime: cfg?.checkout_time ?? null,
+      checkinTime: cfg?.checkin_time ?? null,
+      photoUrl: cfg?.photo_url ?? null,
+    };
+  }
+
+  // Available = dispatched jobs where this cleaner has a token
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const availableJobs = (dispatchedRows ?? []).flatMap((row: any) => {
+    const tokens = (row.dispatch_tokens ?? {}) as Record<string, { cleanerId: string; payout?: number }>;
+    const entry = Object.values(tokens).find(t => t.cleanerId === cleanerId);
+    return entry ? [enrichJob(row, entry.payout)] : [];
+  });
+
+  return res.status(200).json({
+    cleaner: {
+      id: cleanerRow.id,
+      name: cleanerRow.name,
+      email: cleanerRow.email,
+      phone: cleanerRow.phone ?? null,
+    },
+    myJobs: (myJobRows ?? []).map((r: any) => enrichJob(r)), // eslint-disable-line @typescript-eslint/no-explicit-any
+    availableJobs,
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleanerDashboardAccept(body: any, res: VercelResponse) {
+  const { jobId, cleanerId } = body;
+  if (!jobId || !cleanerId) return res.status(400).json({ error: 'Missing jobId or cleanerId.' });
+
+  const supabase = getSupabase();
+  const { data: row } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
+  if (!row) return res.status(404).json({ error: 'Job not found.' });
+
+  const tokens = (row.dispatch_tokens ?? {}) as Record<string, { cleanerId: string; cleanerName: string; payout?: number }>;
+  const cleanerInfo = Object.values(tokens).find(t => t.cleanerId === cleanerId);
+  if (!cleanerInfo) return res.status(403).json({ error: 'You are not eligible for this job.' });
+
+  if (['accepted', 'in_progress', 'completed'].includes(row.status)) {
+    if (row.assigned_cleaner_id === cleanerId) return res.status(200).json({ alreadyAccepted: true });
+    return res.status(409).json({ error: 'Sorry — this job was already claimed by another cleaner.' });
+  }
+  if (row.status === 'cancelled') return res.status(410).json({ error: 'This job has been cancelled.' });
+
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('cleaning_jobs').update({
+    status: 'accepted',
+    assigned_cleaner_id: cleanerInfo.cleanerId,
+    assigned_cleaner_name: cleanerInfo.cleanerName,
+    cleaner_payout: cleanerInfo.payout ?? 0,
+    accepted_at: now,
+    updated_at: now,
+  }).eq('id', jobId).in('status', ['dispatched', 'pending']);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  await resend.emails.send({
+    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+    to: 'ejretreats1@gmail.com',
+    subject: `✅ ${cleanerInfo.cleanerName} accepted: ${row.property_name}`,
+    html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${cleanerInfo.cleanerName}</strong> accepted the cleaning job for <strong>${row.property_name}</strong> on ${new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}.</p></div>`,
+  }).catch(() => {});
+
+  return res.status(200).json({ success: true });
+}
+
 // ── ROUTER ────────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -1594,6 +1700,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.query.flow === 'cleaning' && token) return cleaningGet(token, res);
     if (req.query.flow === 'cleaning-client' && token) return cleaningClientGet(token, res);
     if (req.query.flow === 'cleaner-connect' && req.query.combined) return cleanerConnectVerify(req.query.combined as string, res);
+    if (req.query.flow === 'cleaner-dashboard' && req.query.cleanerId) return cleanerDashboardGet(req.query.cleanerId as string, res);
     return res.status(405).end();
   }
 
@@ -1607,8 +1714,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { action, flow } = body;
   if (flow === 'cleaner') {
-    if (action === 'send-connect') return cleanerConnectSend(body, res);
-    if (action === 'connect-url')  return cleanerConnectUrl(body, res);
+    if (action === 'send-connect')    return cleanerConnectSend(body, res);
+    if (action === 'connect-url')     return cleanerConnectUrl(body, res);
+    if (action === 'dashboard-accept') return cleanerDashboardAccept(body, res);
   } else if (flow === 'cleaning') {
     if (action === 'dispatch')          return cleaningDispatch(body, res);
     if (action === 'accept')            return cleaningAccept(body, res);

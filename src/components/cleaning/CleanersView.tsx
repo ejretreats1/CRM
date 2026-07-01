@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard } from 'lucide-react';
+import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard } from 'lucide-react';
 import type { Cleaner } from '../../types/cleaning';
 
 interface Props {
@@ -207,6 +207,17 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => {
+                          const url = `${window.location.origin}?cleaner-dashboard=${c.id}`;
+                          navigator.clipboard.writeText(url).catch(() => {});
+                          alert(`Dashboard link copied!\n\n${url}`);
+                        }}
+                        title="Copy cleaner dashboard link"
+                        className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#5ce0a0] hover:bg-[#1e2d45] transition-colors"
+                      >
+                        <LayoutDashboard size={14} />
+                      </button>
                       {c.stripeConnectStatus !== 'active' && (
                         <button
                           onClick={() => openStripeModal(c)}
