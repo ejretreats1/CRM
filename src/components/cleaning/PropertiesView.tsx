@@ -18,10 +18,15 @@ interface FormState {
   cleaningFee: string;
   feeAutoFilled: boolean;
   assignedCleaners: AssignedCleaner[];
+  doorCode: string;
+  address: string;
+  checkoutTime: string;
+  checkinTime: string;
 }
 
 const EMPTY: FormState = {
   propertyId: '', propertyName: '', cleaningFee: '', feeAutoFilled: false, assignedCleaners: [],
+  doorCode: '', address: '', checkoutTime: '', checkinTime: '',
 };
 
 function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
@@ -133,6 +138,10 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       cleaningFee: String(config.cleaningFee),
       feeAutoFilled: false,
       assignedCleaners: [...config.assignedCleaners],
+      doorCode: config.doorCode ?? '',
+      address: config.address ?? '',
+      checkoutTime: config.checkoutTime ?? '',
+      checkinTime: config.checkinTime ?? '',
     });
     setEditing(config);
   }
@@ -191,6 +200,10 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         cleaningFee: parseFloat(form.cleaningFee) || 0,
         assignedCleaners: form.assignedCleaners,
         enrolledAt: existing?.enrolledAt ?? now,
+        doorCode: form.doorCode.trim() || undefined,
+        address: form.address.trim() || undefined,
+        checkoutTime: form.checkoutTime.trim() || undefined,
+        checkinTime: form.checkinTime.trim() || undefined,
       };
       await onSave(config);
       setEditing(null);
@@ -504,6 +517,52 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                   placeholder="150"
                 />
                 <p className="text-xs text-[#3a5070] mt-1">What you charge the property owner per clean</p>
+              </div>
+
+              {/* Address */}
+              <div>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Property Address</label>
+                <input
+                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                  value={form.address}
+                  onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                  placeholder="123 Ocean Drive, Miami FL 33101"
+                />
+                <p className="text-xs text-[#3a5070] mt-1">Shown to cleaners on their portal link</p>
+              </div>
+
+              {/* Door code */}
+              <div>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Door Code</label>
+                <input
+                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9] font-mono tracking-widest"
+                  value={form.doorCode}
+                  onChange={e => setForm(f => ({ ...f, doorCode: e.target.value }))}
+                  placeholder="1234"
+                />
+                <p className="text-xs text-[#3a5070] mt-1">Displayed prominently on the cleaner portal</p>
+              </div>
+
+              {/* Check-out / check-in times */}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Guest Check-out Time</label>
+                  <input
+                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                    value={form.checkoutTime}
+                    onChange={e => setForm(f => ({ ...f, checkoutTime: e.target.value }))}
+                    placeholder="11:00 AM"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Next Check-in Time</label>
+                  <input
+                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                    value={form.checkinTime}
+                    onChange={e => setForm(f => ({ ...f, checkinTime: e.target.value }))}
+                    placeholder="3:00 PM"
+                  />
+                </div>
               </div>
 
               {/* Per-cleaner payout */}

@@ -62,6 +62,10 @@ function rowToConfig(r: any): CleaningPropertyConfig {
     clientEmail: r.client_email ?? undefined,
     clientName: r.client_name ?? undefined,
     onboardedAt: r.onboarded_at ?? undefined,
+    doorCode: r.door_code ?? undefined,
+    address: r.address ?? undefined,
+    checkoutTime: r.checkout_time ?? undefined,
+    checkinTime: r.checkin_time ?? undefined,
   };
 }
 
@@ -73,6 +77,10 @@ function configToRow(c: CleaningPropertyConfig) {
     cleaning_fee: c.cleaningFee,
     assigned_cleaners: c.assignedCleaners,
     enrolled_at: c.enrolledAt,
+    door_code: c.doorCode ?? null,
+    address: c.address ?? null,
+    checkout_time: c.checkoutTime ?? null,
+    checkin_time: c.checkinTime ?? null,
   };
 }
 

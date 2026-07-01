@@ -618,7 +618,10 @@ async function cleaningGet(combined: string, res: VercelResponse) {
   if (!jobId || !token) return res.status(400).json({ error: 'Invalid link.' });
 
   const supabase = getSupabase();
-  const { data: row } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
+  const [{ data: row }, { data: configs }] = await Promise.all([
+    supabase.from('cleaning_jobs').select('*').eq('id', jobId).single(),
+    supabase.from('cleaning_property_configs').select('property_id,door_code,address,checkout_time,checkin_time'),
+  ]);
   if (!row) return res.status(404).json({ error: 'Job not found.' });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -626,12 +629,19 @@ async function cleaningGet(combined: string, res: VercelResponse) {
   const cleanerInfo = tokens[token];
   if (!cleanerInfo) return res.status(401).json({ error: 'Invalid or expired link.' });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cfg = (configs ?? []).find((c: any) => c.property_id === row.property_id);
+
   return res.status(200).json({
     job: {
       id: row.id, propertyName: row.property_name, checkoutDate: row.checkout_date,
       checkinDate: row.checkin_date, guestName: row.guest_name, notes: row.notes,
       status: row.status, assignedCleanerId: row.assigned_cleaner_id,
       portalData: row.portal_data,
+      doorCode: cfg?.door_code ?? null,
+      address: cfg?.address ?? null,
+      checkoutTime: cfg?.checkout_time ?? null,
+      checkinTime: cfg?.checkin_time ?? null,
     },
     cleaner: cleanerInfo,
   });
