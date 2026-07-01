@@ -58,6 +58,94 @@ function fmt(dateStr: string) {
 
 type CalView = 'week' | 'month';
 
+// ── Day Jobs Modal ────────────────────────────────────────────────────────────
+function DayJobsModal({
+  date, jobs, cleaners, configs, uplistingProperties, onSelectJob, onClose,
+}: {
+  date: string;
+  jobs: CleaningJob[];
+  cleaners: Cleaner[];
+  configs: CleaningPropertyConfig[];
+  uplistingProperties: UplistingProperty[];
+  onSelectJob: (job: CleaningJob) => void;
+  onClose: () => void;
+}) {
+  const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  });
+  const active = jobs.filter(j => j.status !== 'cancelled');
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/60" onClick={onClose}>
+      <div
+        className="bg-[#0f1923] border border-[#1e2d45] rounded-2xl shadow-2xl w-full max-w-sm max-h-[80vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45] flex-shrink-0">
+          <div>
+            <p className="text-sm font-bold text-white">{dateLabel}</p>
+            <p className="text-xs text-[#3a5070] mt-0.5">
+              {active.length} cleaning{active.length !== 1 ? 's' : ''} — tap to view details
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-[#3a5070] hover:text-white hover:bg-[#1e2d45] transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Job list */}
+        <div className="overflow-y-auto divide-y divide-[#1e2d45]">
+          {jobs.length === 0 ? (
+            <p className="px-5 py-6 text-sm text-[#3a5070] text-center">No cleanings scheduled.</p>
+          ) : (
+            jobs.map(job => {
+              const cleaner = job.assignedCleanerId ? cleaners.find(c => c.id === job.assignedCleanerId) : null;
+              const config = configs.find(c => c.propertyId === job.propertyId);
+              const isSameDay = job.checkinDate && job.checkinDate === job.checkoutDate;
+              return (
+                <button
+                  key={job.id}
+                  onClick={() => { onClose(); onSelectJob(job); }}
+                  className="w-full px-5 py-4 flex items-center gap-3 hover:bg-[#1a2335] transition-colors text-left"
+                >
+                  <div className={`w-1 h-12 rounded-full flex-shrink-0 ${STATUS_BAR[job.status] ?? 'bg-[#3a5070]'}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      {isSameDay && <span className="text-xs">⚡</span>}
+                      <p className="text-sm font-semibold text-white truncate">
+                        {displayName(job.propertyId, job.propertyName, uplistingProperties)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {cleaner && (
+                        <span className="text-xs text-[#3a5070] flex items-center gap-1">
+                          <User size={10} />
+                          {cleaner.name}
+                        </span>
+                      )}
+                      {config?.doorCode && (
+                        <span className="text-xs text-[#3a5070] flex items-center gap-1">
+                          <KeyRound size={10} />
+                          {config.doorCode}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${STATUS_COLORS[job.status]}`}>
+                    {STATUS_LABELS[job.status]}
+                  </span>
+                  <ChevronRight size={14} className="text-[#3a5070] flex-shrink-0" />
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Job Detail Modal ─────────────────────────────────────────────────────────
 function JobDetailModal({
   job, cleaners, configs, uplistingProperties, onClose,
@@ -231,7 +319,6 @@ export default function ScheduleView({ jobs, cleaners, configs, uplistingPropert
   }
   while (calendarCells.length % 7 !== 0) calendarCells.push(null);
 
-  const selectedDateJobs = selectedDate ? (jobsByDate.get(selectedDate) ?? []) : [];
   const monthCleanCount = jobs.filter(j => {
     const d = new Date(j.checkoutDate + 'T12:00:00');
     return d.getFullYear() === monthDate.getFullYear() && d.getMonth() === monthDate.getMonth() && j.status !== 'cancelled';
@@ -311,15 +398,13 @@ export default function ScheduleView({ jobs, cleaners, configs, uplistingPropert
               return (
                 <button
                   key={dateStr}
-                  onClick={() => setSelectedDate(prev => prev === dateStr ? null : dateStr)}
+                  onClick={() => cellJobs.length > 0 && setSelectedDate(dateStr)}
                   className={`aspect-square rounded-xl flex flex-col items-center justify-center gap-1 transition-colors ${
-                    isSelected
-                      ? 'bg-[#1e3a5a] border border-[#4a90d9]'
-                      : isToday
+                    isToday
                       ? 'bg-[#1a2d4a] border border-[#2a4060]'
                       : cellJobs.length > 0
-                      ? 'bg-[#1a2335] border border-[#1e2d45] hover:border-[#2a4060]'
-                      : 'bg-transparent hover:bg-[#1a2335] border border-transparent'
+                      ? 'bg-[#1a2335] border border-[#1e2d45] hover:border-[#4a90d9] cursor-pointer'
+                      : 'bg-transparent border border-transparent cursor-default'
                   }`}
                 >
                   <span className={`text-xs font-bold leading-none ${isToday ? 'text-[#4a90d9]' : 'text-[#b8d4f0]'}`}>
@@ -337,68 +422,6 @@ export default function ScheduleView({ jobs, cleaners, configs, uplistingPropert
             })}
           </div>
 
-          {/* Selected day — job list */}
-          {selectedDate && (
-            <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-[#1e2d45] flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-white">
-                    {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                  </p>
-                  {selectedDateJobs.length > 0 && (
-                    <p className="text-xs text-[#3a5070] mt-0.5">{selectedDateJobs.filter(j => j.status !== 'cancelled').length} cleaning{selectedDateJobs.filter(j => j.status !== 'cancelled').length !== 1 ? 's' : ''} — tap to view details</p>
-                  )}
-                </div>
-                <button onClick={() => setSelectedDate(null)} className="text-[#3a5070] hover:text-white transition-colors">
-                  <X size={16} />
-                </button>
-              </div>
-              {selectedDateJobs.length === 0 ? (
-                <p className="px-4 py-4 text-sm text-[#3a5070]">No cleanings scheduled.</p>
-              ) : (
-                <div className="divide-y divide-[#1e2d45]">
-                  {selectedDateJobs.map(job => {
-                    const cleaner = job.assignedCleanerId ? cleaners.find(c => c.id === job.assignedCleanerId) : null;
-                    const config = configs.find(c => c.propertyId === job.propertyId);
-                    return (
-                      <button
-                        key={job.id}
-                        onClick={() => setSelectedJob(job)}
-                        className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-[#1e2d45] transition-colors text-left"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${STATUS_BAR[job.status] ?? 'bg-[#3a5070]'}`} />
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-white truncate">{displayName(job.propertyId, job.propertyName, uplistingProperties)}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {cleaner && (
-                                <p className="text-xs text-[#3a5070] flex items-center gap-1">
-                                  <User size={10} />
-                                  {cleaner.name}
-                                </p>
-                              )}
-                              {config?.doorCode && (
-                                <p className="text-xs text-[#3a5070] flex items-center gap-1">
-                                  <KeyRound size={10} />
-                                  {config.doorCode}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[job.status]}`}>
-                            {STATUS_LABELS[job.status]}
-                          </span>
-                          <ChevronRight size={14} className="text-[#3a5070]" />
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
         </>
       )}
 
@@ -585,6 +608,19 @@ export default function ScheduleView({ jobs, cleaners, configs, uplistingPropert
           );
         })()}
       </div>
+
+      {/* Day jobs modal */}
+      {selectedDate && !selectedJob && (
+        <DayJobsModal
+          date={selectedDate}
+          jobs={jobsByDate.get(selectedDate) ?? []}
+          cleaners={cleaners}
+          configs={configs}
+          uplistingProperties={uplistingProperties}
+          onSelectJob={setSelectedJob}
+          onClose={() => setSelectedDate(null)}
+        />
+      )}
 
       {/* Job detail modal */}
       {selectedJob && (
