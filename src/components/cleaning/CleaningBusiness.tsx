@@ -577,7 +577,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
           <CleaningDashboard jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} />
         )}
         {active === 'cleaning-schedule' && (
-          <ScheduleView jobs={jobs} cleaners={cleaners} uplistingProperties={uplistingProperties} />
+          <ScheduleView jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} />
         )}
         {active === 'cleaning-jobs' && (
           <JobsView
