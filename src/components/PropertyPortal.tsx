@@ -17,6 +17,7 @@ interface PropertyPortalProps {
   onBack: () => void;
   onViewOwner: (ownerId: string) => void;
   onUpdateProperty?: (property: Property) => Promise<void>;
+  onUpdateOwner?: (owner: Owner) => Promise<void>;
 }
 
 const MONTHS = ['January','February','March','April','May','June',
@@ -102,7 +103,7 @@ type DetailForm = {
   monthlyRevenue: string; occupancyRate: string; status: PropertyStatus; photoUrl: string;
 };
 
-export default function PropertyPortal({ owner, property, reservations, uplistingProperties, onBack, onViewOwner, onUpdateProperty }: PropertyPortalProps) {
+export default function PropertyPortal({ owner, property, reservations, uplistingProperties, onBack, onViewOwner, onUpdateProperty, onUpdateOwner }: PropertyPortalProps) {
   const now = new Date();
   const [calMonth, setCalMonth] = useState(now.getMonth());
   const [calYear, setCalYear] = useState(now.getFullYear());
@@ -122,6 +123,9 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
   const [checklistSaving, setChecklistSaving] = useState(false);
   const [newItemText, setNewItemText] = useState('');
   const [showAgreements, setShowAgreements] = useState(false);
+  const [vendorForm, setVendorForm] = useState<{ name: string; role: string; phone: string; email: string; notes: string } | null>(null);
+  const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
+  const [savingVendor, setSavingVendor] = useState(false);
 
   const checklist: Record<string, boolean> = property.propertyInfo?.onboardingChecklist ?? {};
   const customItems: { id: string; label: string }[] = property.propertyInfo?.onboardingCustomItems ?? [];
@@ -269,6 +273,35 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
 
   const fullAddress = [property.address, property.city, property.state].filter(Boolean).join(', ');
   const vendors = owner.vendors ?? [];
+
+  async function saveVendor() {
+    if (!vendorForm || !vendorForm.name.trim() || !onUpdateOwner) return;
+    setSavingVendor(true);
+    try {
+      const updated = [...vendors];
+      if (editingVendorId) {
+        const idx = updated.findIndex(v => v.id === editingVendorId);
+        if (idx !== -1) updated[idx] = { id: editingVendorId, ...vendorForm };
+      } else {
+        updated.push({ id: `vendor_${Date.now()}`, ...vendorForm });
+      }
+      await onUpdateOwner({ ...owner, vendors: updated });
+      setVendorForm(null);
+      setEditingVendorId(null);
+    } finally {
+      setSavingVendor(false);
+    }
+  }
+
+  async function deleteVendor(id: string) {
+    if (!onUpdateOwner) return;
+    await onUpdateOwner({ ...owner, vendors: vendors.filter(v => v.id !== id) });
+  }
+
+  function startEditVendor(v: import('../types').Vendor) {
+    setEditingVendorId(v.id);
+    setVendorForm({ name: v.name, role: v.role, phone: v.phone ?? '', email: v.email ?? '', notes: v.notes ?? '' });
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -801,13 +834,98 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
       </div>
 
       {/* Vendors */}
-      {vendors.length > 0 && (
-        <div className="mt-5 bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-4">
+      <div className="mt-5 bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
             <Wrench size={14} className="text-[#3a5070]" />
             <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Vendors</p>
           </div>
-          <div className="divide-y divide-slate-100">
+          {onUpdateOwner && !vendorForm && (
+            <button
+              onClick={() => { setVendorForm({ name: '', role: 'Cleaner', phone: '', email: '', notes: '' }); setEditingVendorId(null); }}
+              className="flex items-center gap-1.5 text-xs text-[#4ab57a] border border-[#1e4030] hover:bg-[#0a2518] px-2.5 py-1.5 rounded-lg transition-colors font-medium"
+            >
+              <Plus size={12} /> Add Vendor
+            </button>
+          )}
+        </div>
+
+        {/* Add / Edit form */}
+        {vendorForm !== null && (
+          <div className="bg-[#0f1923] border border-[#1e2d45] rounded-xl p-4 mb-4 space-y-3">
+            <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">{editingVendorId ? 'Edit Vendor' : 'New Vendor'}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-[#3a5070] mb-1">Name *</label>
+                <input
+                  value={vendorForm.name}
+                  onChange={e => setVendorForm(f => f && ({ ...f, name: e.target.value }))}
+                  className="w-full bg-[#1a2335] border border-[#243550] rounded-lg px-3 py-1.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                  placeholder="Jane's Cleaning Co."
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-[#3a5070] mb-1">Role</label>
+                <select
+                  value={vendorForm.role}
+                  onChange={e => setVendorForm(f => f && ({ ...f, role: e.target.value }))}
+                  className="w-full bg-[#1a2335] border border-[#243550] rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
+                >
+                  {['Cleaner','Handyman','Plumber','Electrician','Landscaper','HVAC','Pool Service','Pest Control','Other'].map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-[#3a5070] mb-1">Phone</label>
+                <input
+                  value={vendorForm.phone}
+                  onChange={e => setVendorForm(f => f && ({ ...f, phone: e.target.value }))}
+                  className="w-full bg-[#1a2335] border border-[#243550] rounded-lg px-3 py-1.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                  placeholder="(555) 000-0000"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-[#3a5070] mb-1">Email</label>
+                <input
+                  value={vendorForm.email}
+                  onChange={e => setVendorForm(f => f && ({ ...f, email: e.target.value }))}
+                  className="w-full bg-[#1a2335] border border-[#243550] rounded-lg px-3 py-1.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                  placeholder="vendor@example.com"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-[#3a5070] mb-1">Notes</label>
+              <input
+                value={vendorForm.notes}
+                onChange={e => setVendorForm(f => f && ({ ...f, notes: e.target.value }))}
+                className="w-full bg-[#1a2335] border border-[#243550] rounded-lg px-3 py-1.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                placeholder="Preferred contact, schedule, rates..."
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={saveVendor}
+                disabled={savingVendor || !vendorForm.name.trim()}
+                className="bg-[#4ab57a] hover:bg-[#3da068] disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
+              >
+                {savingVendor ? 'Saving…' : editingVendorId ? 'Save Changes' : 'Add Vendor'}
+              </button>
+              <button
+                onClick={() => { setVendorForm(null); setEditingVendorId(null); }}
+                className="border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-[#1e2d45] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {vendors.length === 0 && vendorForm === null ? (
+          <p className="text-sm text-[#3a5070] py-4">No vendors yet. Add cleaners, handymen, and other service providers for this property.</p>
+        ) : (
+          <div className="divide-y divide-[#1e2d45]">
             {vendors.map(v => (
               <div key={v.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                 <div className="w-9 h-9 rounded-lg bg-[#2a1a0a] flex items-center justify-center flex-shrink-0 text-base">
@@ -822,13 +940,29 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
                     {v.phone && <a href={`tel:${v.phone}`} className="text-xs text-[#4a90d9] hover:underline">{v.phone}</a>}
                     {v.email && <a href={`mailto:${v.email}`} className="text-xs text-[#4a90d9] hover:underline">{v.email}</a>}
                   </div>
-                  {v.notes && <p className="text-xs text-[#b8d4f0] mt-1">{v.notes}</p>}
+                  {v.notes && <p className="text-xs text-[#3a5070] mt-1">{v.notes}</p>}
                 </div>
+                {onUpdateOwner && (
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => startEditVendor(v)}
+                      className="p-1.5 text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#1e2d45] rounded-lg transition-colors"
+                    >
+                      <Edit2 size={13} />
+                    </button>
+                    <button
+                      onClick={() => { if (confirm(`Remove ${v.name}?`)) deleteVendor(v.id); }}
+                      className="p-1.5 text-[#3a5070] hover:text-red-400 hover:bg-[#2a1515] rounded-lg transition-colors"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Property Info */}
       {onUpdateProperty && (

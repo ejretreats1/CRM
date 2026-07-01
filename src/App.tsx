@@ -729,6 +729,7 @@ export default function App() {
             onBack={() => navigate('properties')}
             onViewOwner={(ownerId) => navigate('owner-detail', ownerId)}
             onUpdateProperty={(p) => savePropertyHandler(portalOwner.id, p)}
+            onUpdateOwner={updateOwnerHandler}
           />
         );
       })()}
