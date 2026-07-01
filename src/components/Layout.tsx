@@ -62,7 +62,7 @@ const PROPERTY_NAV_ITEMS = [
 
 const CLEANING_NAV_ITEMS = [
   { id: 'cleaning-dashboard' as View,  label: 'Dashboard',  icon: LayoutDashboard },
-  { id: 'cleaning-schedule' as View,   label: 'Schedule',   icon: CalendarDays },
+  { id: 'cleaning-schedule' as View,   label: 'Calendar',   icon: CalendarDays },
   { id: 'cleaning-jobs' as View,       label: 'Jobs',       icon: Briefcase },
   { id: 'cleaning-properties' as View, label: 'Properties', icon: Home },
   { id: 'cleaning-cleaners' as View,   label: 'Cleaners',   icon: Users },
@@ -80,7 +80,7 @@ const TAB_LABELS: Partial<Record<View, string>> = {
   owners: 'Clients',
   properties: 'Properties',
   'cleaning-dashboard': 'Home',
-  'cleaning-schedule': 'Schedule',
+  'cleaning-schedule': 'Calendar',
   'cleaning-jobs': 'Jobs',
   'cleaning-payments': 'Payments',
 };

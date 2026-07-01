@@ -29,6 +29,12 @@ export interface CleaningPropertyConfig {
   clientEmail?: string;
   clientName?: string;
   onboardedAt?: string;
+  doorCode?: string;
+  address?: string;
+  checkoutTime?: string;
+  checkinTime?: string;
+  photoUrl?: string;
+  stagingPhotoUrls?: string[];
 }
 
 export interface CleaningPortalData {

@@ -29,6 +29,12 @@ interface JobData {
   status: string;
   assignedCleanerId?: string;
   portalData?: { submittedAt: string };
+  doorCode?: string | null;
+  address?: string | null;
+  checkoutTime?: string | null;
+  checkinTime?: string | null;
+  photoUrl?: string | null;
+  stagingPhotoUrls?: string[];
 }
 
 interface CleanerData {
@@ -197,6 +203,10 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
   }
 
   if (pageState === 'accept') {
+    const isSameDay = job?.checkinDate && job.checkinDate === job.checkoutDate;
+    const checkinLabel = job?.checkinDate
+      ? new Date(job.checkinDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+      : '';
     return (
       <div className="min-h-screen bg-blue-950 flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full overflow-hidden">
@@ -206,13 +216,24 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
             <p className="text-blue-200 text-sm mt-1">Hi {cleaner?.cleanerName}!</p>
           </div>
           <div className="p-6 space-y-4">
+            {isSameDay && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
+                <span className="text-lg leading-none">⚡</span>
+                <div>
+                  <p className="text-red-700 font-bold text-sm">Same-Day Check-In</p>
+                  <p className="text-red-600 text-xs mt-0.5">New guests arrive today — please prioritize this clean.</p>
+                </div>
+              </div>
+            )}
             <div className="bg-gray-50 rounded-xl p-4 space-y-2.5">
               <Row label="Property" value={job?.propertyName} />
+              {job?.address && <Row label="Address" value={job.address} />}
               <Row label="Cleaning Date" value={dateLabel} />
+              {job?.checkoutTime && <Row label="Guest Check-out" value={job.checkoutTime} />}
               {job?.checkinDate && (
                 <Row
-                  label="Next Check-in"
-                  value={new Date(job.checkinDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                  label={isSameDay ? '⚡ Next Check-in' : 'Next Check-in'}
+                  value={isSameDay ? `Today · ${job.checkinTime ?? checkinLabel}` : `${checkinLabel}${job.checkinTime ? ` · ${job.checkinTime}` : ''}`}
                 />
               )}
               {job?.guestName && <Row label="Departing Guest" value={job.guestName} />}
@@ -223,6 +244,12 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
                 </div>
               ) : null}
             </div>
+            {job?.doorCode && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                <p className="text-blue-500 text-xs font-semibold uppercase tracking-wide mb-1">Door Code</p>
+                <p className="text-blue-900 font-bold text-2xl tracking-widest">{job.doorCode}</p>
+              </div>
+            )}
             {job?.notes && (
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-sm text-amber-800">
                 <strong>Notes:</strong> {job.notes}
@@ -244,6 +271,7 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
 
   // portal state
   const checklistDone = Object.values(checklist).filter(Boolean).length;
+  const isSameDayPortal = job?.checkinDate && job.checkinDate === job.checkoutDate;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -264,6 +292,55 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
       </div>
 
       <div className="max-w-lg mx-auto p-4 space-y-5 pb-36">
+        {/* Job details card */}
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+          {isSameDayPortal && (
+            <div className="bg-red-50 border-b border-red-100 px-4 py-2.5 flex items-center gap-2">
+              <span>⚡</span>
+              <p className="text-red-700 font-bold text-sm">Same-Day Check-In — guests arrive today</p>
+            </div>
+          )}
+          <div className="p-4 space-y-2.5">
+            {job?.address && (
+              <div>
+                <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-0.5">Address</p>
+                <p className="text-gray-800 font-semibold text-sm">{job.address}</p>
+              </div>
+            )}
+            <div className="flex gap-4 flex-wrap">
+              {job?.checkoutTime && (
+                <div>
+                  <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-0.5">Guest Check-out</p>
+                  <p className="text-gray-800 font-semibold text-sm">{job.checkoutTime}</p>
+                </div>
+              )}
+              {job?.checkinDate && (
+                <div>
+                  <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-0.5">
+                    {isSameDayPortal ? '⚡ Check-in (Today)' : 'Next Check-in'}
+                  </p>
+                  <p className={`font-semibold text-sm ${isSameDayPortal ? 'text-red-600' : 'text-gray-800'}`}>
+                    {isSameDayPortal
+                      ? job.checkinTime ?? new Date(job.checkinDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : `${new Date(job.checkinDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${job.checkinTime ? ` · ${job.checkinTime}` : ''}`
+                    }
+                  </p>
+                </div>
+              )}
+            </div>
+            {job?.doorCode && (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mt-1">
+                <p className="text-blue-400 text-xs font-semibold uppercase tracking-wide mb-1">Door Code</p>
+                <p className="text-blue-900 font-bold text-3xl tracking-widest">{job.doorCode}</p>
+              </div>
+            )}
+            {job?.notes && (
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-sm text-amber-800 mt-1">
+                <strong>Notes:</strong> {job.notes}
+              </div>
+            )}
+          </div>
+        </div>
         {/* Checklist */}
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
           <div className="px-4 py-3 border-b flex items-center justify-between">
@@ -329,6 +406,32 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
             </button>
           </div>
         </div>
+
+        {/* Staging Reference Photos */}
+        {((job?.photoUrl) || (job?.stagingPhotoUrls && job.stagingPhotoUrls.length > 0)) && (
+          <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+            <div className="px-4 py-3 border-b">
+              <h2 className="font-semibold text-gray-800">Staging Reference</h2>
+              <p className="text-gray-400 text-xs mt-0.5">How the property should look when you're done</p>
+            </div>
+            <div className="p-4 space-y-2">
+              {job.photoUrl && (
+                <div className="rounded-xl overflow-hidden border border-gray-100">
+                  <img src={job.photoUrl} alt="Property listing" className="w-full object-cover max-h-56" />
+                </div>
+              )}
+              {job.stagingPhotoUrls && job.stagingPhotoUrls.length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {job.stagingPhotoUrls.map((url, i) => (
+                    <div key={i} className="rounded-xl overflow-hidden border border-gray-100 aspect-square">
+                      <img src={url} alt={`Staging ${i + 1}`} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Damage Notes */}
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">

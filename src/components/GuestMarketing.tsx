@@ -137,11 +137,15 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
 
   useEffect(() => {
     supabase.from('gm_drafts').select('data').order('created_at', { ascending: false })
-      .then(({ data }) => setDrafts((data ?? []).map((r: { data: EmailDraft }) => r.data)));
+      .then(({ data, error }) => {
+        if (error) { console.error('Failed to load drafts:', error.message); return; }
+        setDrafts((data ?? []).map((r: { data: EmailDraft }) => r.data));
+      });
     supabase.from('gm_campaigns').select('data').order('created_at', { ascending: false })
-      .then(({ data }) => setCampaigns(
-        (data ?? []).map((r: { data: Campaign }) => r.data).filter(c => c.status !== 'cancelled')
-      ));
+      .then(({ data, error }) => {
+        if (error) { console.error('Failed to load campaigns:', error.message); return; }
+        setCampaigns((data ?? []).map((r: { data: Campaign }) => r.data).filter(c => c.status !== 'cancelled'));
+      });
   }, []);
 
   // History
@@ -224,20 +228,22 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
 
   // ── Drafts ────────────────────────────────────────────────────────────────
 
-  function saveDraft() {
+  async function saveDraft() {
     if (!subject.trim() && !body.trim()) { alert('Add a subject or body before saving.'); return; }
     const name = campName.trim() || subject.trim().slice(0, 40) || 'Untitled Draft';
     const d: EmailDraft = { id: `d_${Date.now()}`, name, subject, body, fromName, createdAt: new Date().toISOString() };
+    const { error } = await supabase.from('gm_drafts').upsert({ id: d.id, data: d, created_at: d.createdAt });
+    if (error) { alert(`Failed to save draft: ${error.message}`); return; }
     setDrafts(prev => [d, ...prev]);
-    supabase.from('gm_drafts').upsert({ id: d.id, data: d, created_at: d.createdAt });
     alert(`Draft "${name}" saved!`);
   }
 
   function useDraft(d: EmailDraft) { setSubject(d.subject); setBody(d.body); setFromName(d.fromName); }
 
-  function deleteDraft(id: string) {
+  async function deleteDraft(id: string) {
+    const { error } = await supabase.from('gm_drafts').delete().eq('id', id);
+    if (error) { alert(`Failed to delete draft: ${error.message}`); return; }
     setDrafts(prev => prev.filter(d => d.id !== id));
-    supabase.from('gm_drafts').delete().eq('id', id);
   }
 
   // ── Send now ──────────────────────────────────────────────────────────────
@@ -256,7 +262,7 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
 
   // ── Schedule ──────────────────────────────────────────────────────────────
 
-  function handleSchedule() {
+  async function handleSchedule() {
     if (!subject.trim() || !body.trim()) { alert('Subject and body are required.'); return; }
     if (!schedDate) { alert('Please pick a send date.'); return; }
     const recipients = filtered.filter(g => g.email && selected.has(g.email)).map(g => ({ email: g.email, name: g.name }));
@@ -268,8 +274,9 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
       batchesSent: 0, warmupCopies, status: 'scheduled',
       createdAt: new Date().toISOString(), sentLog: [],
     };
+    const { error } = await supabase.from('gm_campaigns').upsert({ id: c.id, data: c, created_at: c.createdAt });
+    if (error) { alert(`Failed to schedule campaign: ${error.message}`); return; }
     setCampaigns(prev => [c, ...prev]);
-    supabase.from('gm_campaigns').upsert({ id: c.id, data: c, created_at: c.createdAt });
     setComposing(false); setSubject(''); setBody(''); setSelected(new Set());
     setTab('campaigns');
   }
@@ -290,26 +297,29 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
         status: done ? 'completed' : 'in_progress',
         sentLog: [...c.sentLog, { sentAt: new Date().toISOString(), count: r.sent, failed: r.failed }],
       };
+      const { error } = await supabase.from('gm_campaigns').upsert({ id: updated.id, data: updated, created_at: updated.createdAt });
+      if (error) throw new Error(`Emails sent but failed to save campaign progress: ${error.message}`);
       setCampaigns(prev => prev.map(x => x.id === c.id ? updated : x));
-      supabase.from('gm_campaigns').upsert({ id: updated.id, data: updated, created_at: updated.createdAt });
       setBatchResult({ id: c.id, sent: r.sent });
     } catch (err) { setBatchError(err instanceof Error ? err.message : 'Send failed'); }
     finally { setSendingBatch(null); }
   }
 
-  function cancelCampaign(id: string) {
+  async function cancelCampaign(id: string) {
     if (!confirm('Cancel this campaign?')) return;
     const target = campaigns.find(c => c.id === id);
     if (!target) return;
     const updated = { ...target, status: 'cancelled' as const };
+    const { error } = await supabase.from('gm_campaigns').upsert({ id, data: updated, created_at: updated.createdAt });
+    if (error) { alert(`Failed to cancel campaign: ${error.message}`); return; }
     setCampaigns(prev => prev.filter(c => c.id !== id));
-    supabase.from('gm_campaigns').upsert({ id, data: updated, created_at: updated.createdAt });
   }
 
-  function deleteCampaign(id: string) {
+  async function deleteCampaign(id: string) {
     if (!confirm('Delete this campaign permanently?')) return;
+    const { error } = await supabase.from('gm_campaigns').delete().eq('id', id);
+    if (error) { alert(`Failed to delete campaign: ${error.message}`); return; }
     setCampaigns(prev => prev.filter(c => c.id !== id));
-    supabase.from('gm_campaigns').delete().eq('id', id);
   }
 
   // ── Derived counts ────────────────────────────────────────────────────────

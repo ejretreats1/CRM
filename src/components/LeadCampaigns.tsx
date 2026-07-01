@@ -202,6 +202,8 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
         return exists ? prev.map(c => c.id === updated.id ? updated : c) : [updated, ...prev];
       });
       setScreen('list');
+    } catch (err) {
+      alert(`Failed to save campaign: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally { setSaving(false); }
   }
 
@@ -223,8 +225,12 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
     if (!detailCampaign) return;
     const newStatus: Campaign['status'] = detailCampaign.status === 'active' ? 'paused' : 'active';
     const updated: Campaign = { ...detailCampaign, status: newStatus, updatedAt: new Date().toISOString() };
-    await upsertCampaign(updated);
-    setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
+    try {
+      await upsertCampaign(updated);
+      setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
+    } catch (err) {
+      alert(`Failed to update campaign: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   }
 
   async function sendBatch() {
@@ -315,9 +321,13 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
     if (!detailCampaign) return;
     if (!confirm('Reset sent list? All recipients will appear as pending again.')) return;
     const updated: Campaign = { ...detailCampaign, sentLeadIds: [], sentContactIds: [], status: 'draft', updatedAt: new Date().toISOString() };
-    await upsertCampaign(updated);
-    setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
-    setSendMsg(null);
+    try {
+      await upsertCampaign(updated);
+      setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
+      setSendMsg(null);
+    } catch (err) {
+      alert(`Failed to reset campaign: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   }
 
   const previewRecipient = useMemo(() => {

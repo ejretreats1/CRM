@@ -168,14 +168,13 @@ export default function App() {
       oneYearAgo.setFullYear(today.getFullYear() - 1);
       const ninetyDaysAhead = new Date(today);
       ninetyDaysAhead.setDate(today.getDate() + 90);
-      const [props, res] = await Promise.all([
-        fetchProperties(uplistingApiKey),
-        fetchReservations(
-          uplistingApiKey,
-          oneYearAgo.toISOString().slice(0, 10),
-          ninetyDaysAhead.toISOString().slice(0, 10),
-        ),
-      ]);
+      const props = await fetchProperties(uplistingApiKey);
+      const res = await fetchReservations(
+        uplistingApiKey,
+        oneYearAgo.toISOString().slice(0, 10),
+        ninetyDaysAhead.toISOString().slice(0, 10),
+        props,
+      );
       setUplistingProperties(props);
       setUplistingReservations(res);
       setLastSync(new Date().toISOString());
