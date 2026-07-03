@@ -14,18 +14,21 @@ function displayName(propertyId: string | undefined, propertyName: string, props
 }
 import {
   type CleaningLead,
+  type CleaningSop,
   fetchCleaners, upsertCleaner, deleteCleaner,
   fetchPropertyConfigs, upsertPropertyConfig, deletePropertyConfig,
   fetchCleaningJobs, upsertCleaningJob, bulkUpsertCleaningJobs, deleteCleaningJob,
   fetchCleaningLeads, upsertCleaningLead, deleteCleaningLead,
+  fetchCleaningSops, upsertCleaningSop, deleteCleaningSop,
 } from '../../services/cleaningDb';
 import JobsView from './JobsView';
 import CleanersView from './CleanersView';
 import PropertiesView from './PropertiesView';
 import ScheduleView from './ScheduleView';
 import CleaningLeadsView from './CleaningLeadsView';
+import SopsView from './SopsView';
 
-type CleaningView = 'cleaning-dashboard' | 'cleaning-schedule' | 'cleaning-jobs' | 'cleaning-properties' | 'cleaning-cleaners' | 'cleaning-payments' | 'cleaning-leads';
+type CleaningView = 'cleaning-dashboard' | 'cleaning-schedule' | 'cleaning-jobs' | 'cleaning-properties' | 'cleaning-cleaners' | 'cleaning-payments' | 'cleaning-leads' | 'cleaning-sops';
 
 interface Props {
   currentView: View;
@@ -317,6 +320,7 @@ export default function CleaningBusiness({ currentView, reservations, uplistingP
   const [configs, setConfigs] = useState<CleaningPropertyConfig[]>([]);
   const [jobs, setJobs] = useState<CleaningJob[]>([]);
   const [leads, setLeads] = useState<CleaningLead[]>([]);
+  const [sops, setSops] = useState<CleaningSop[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
 
@@ -333,6 +337,7 @@ export default function CleaningBusiness({ currentView, reservations, uplistingP
       setConfigs(pc);
       setJobs(j);
       fetchCleaningLeads().then(setLeads).catch(() => {});
+      fetchCleaningSops().then(setSops).catch(() => {});
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('relation') || msg.includes('does not exist')) {
@@ -415,6 +420,18 @@ export default function CleaningBusiness({ currentView, reservations, uplistingP
   async function handleDeleteLead(id: string) {
     await deleteCleaningLead(id);
     setLeads(prev => prev.filter(l => l.id !== id));
+  }
+
+  async function handleSaveSop(sop: CleaningSop) {
+    await upsertCleaningSop(sop);
+    setSops(prev => {
+      const exists = prev.find(x => x.id === sop.id);
+      return exists ? prev.map(x => x.id === sop.id ? sop : x) : [...prev, sop];
+    });
+  }
+  async function handleDeleteSop(id: string) {
+    await deleteCleaningSop(id);
+    setSops(prev => prev.filter(s => s.id !== id));
   }
 
   async function handleRetryCharge(job: CleaningJob) {
@@ -605,52 +622,61 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
         </div>
       )}
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-        {active === 'cleaning-dashboard' && (
-          <CleaningDashboard jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} />
-        )}
-        {active === 'cleaning-schedule' && (
-          <ScheduleView jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} />
-        )}
-        {active === 'cleaning-jobs' && (
-          <JobsView
-            jobs={jobs}
-            configs={configs}
-            cleaners={cleaners}
-            reservations={reservations}
-            uplistingProperties={uplistingProperties}
-            onSyncJobs={handleSyncJobs}
-            onUpdateJob={handleUpdateJob}
-            onDeleteJob={handleDeleteJob}
-            autoSyncing={autoSyncing}
-          />
-        )}
-        {active === 'cleaning-properties' && (
-          <PropertiesView
-            configs={configs}
-            cleaners={cleaners}
-            uplistingProperties={uplistingProperties}
-            reservations={reservations}
-            onSave={handleSaveConfig}
-            onDelete={handleDeleteConfig}
-            onSyncIcal={handleSyncIcal}
-          />
-        )}
-        {active === 'cleaning-cleaners' && (
-          <CleanersView
-            cleaners={cleaners}
-            onSave={handleSaveCleaner}
-            onDelete={handleDeleteCleaner}
-          />
-        )}
-        {active === 'cleaning-payments' && (
-          <CleaningPayments jobs={jobs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} />
-        )}
-        {active === 'cleaning-leads' && (
-          <CleaningLeadsView leads={leads} onSave={handleSaveLead} onDelete={handleDeleteLead} />
-        )}
-      </div>
+      {/* Full-height views (manage their own layout) */}
+      {active === 'cleaning-sops' && (
+        <div className="flex-1 overflow-hidden">
+          <SopsView sops={sops} onSave={handleSaveSop} onDelete={handleDeleteSop} />
+        </div>
+      )}
+
+      {/* Padded scrollable views */}
+      {active !== 'cleaning-sops' && (
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+          {active === 'cleaning-dashboard' && (
+            <CleaningDashboard jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} />
+          )}
+          {active === 'cleaning-schedule' && (
+            <ScheduleView jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} />
+          )}
+          {active === 'cleaning-jobs' && (
+            <JobsView
+              jobs={jobs}
+              configs={configs}
+              cleaners={cleaners}
+              reservations={reservations}
+              uplistingProperties={uplistingProperties}
+              onSyncJobs={handleSyncJobs}
+              onUpdateJob={handleUpdateJob}
+              onDeleteJob={handleDeleteJob}
+              autoSyncing={autoSyncing}
+            />
+          )}
+          {active === 'cleaning-properties' && (
+            <PropertiesView
+              configs={configs}
+              cleaners={cleaners}
+              uplistingProperties={uplistingProperties}
+              reservations={reservations}
+              onSave={handleSaveConfig}
+              onDelete={handleDeleteConfig}
+              onSyncIcal={handleSyncIcal}
+            />
+          )}
+          {active === 'cleaning-cleaners' && (
+            <CleanersView
+              cleaners={cleaners}
+              onSave={handleSaveCleaner}
+              onDelete={handleDeleteCleaner}
+            />
+          )}
+          {active === 'cleaning-payments' && (
+            <CleaningPayments jobs={jobs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} />
+          )}
+          {active === 'cleaning-leads' && (
+            <CleaningLeadsView leads={leads} onSave={handleSaveLead} onDelete={handleDeleteLead} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

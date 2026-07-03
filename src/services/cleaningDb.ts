@@ -289,3 +289,47 @@ export async function deleteCleaningLead(id: string): Promise<void> {
   const { error } = await supabase.from('cleaning_leads').delete().eq('id', id);
   if (error) throw error;
 }
+
+// ─── SOPs ─────────────────────────────────────────────────────────────────────
+
+export interface CleaningSop {
+  id: string;
+  title: string;
+  content: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchCleaningSops(): Promise<CleaningSop[]> {
+  const { data, error } = await supabase
+    .from('cleaning_sops')
+    .select('*')
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(r => ({
+    id: r.id,
+    title: r.title,
+    content: r.content,
+    sortOrder: r.sort_order,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }));
+}
+
+export async function upsertCleaningSop(sop: CleaningSop): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('cleaning_sops').upsert({
+    id: sop.id,
+    title: sop.title,
+    content: sop.content,
+    sort_order: sop.sortOrder,
+    updated_at: now,
+  }, { onConflict: 'id' });
+  if (error) throw error;
+}
+
+export async function deleteCleaningSop(id: string): Promise<void> {
+  const { error } = await supabase.from('cleaning_sops').delete().eq('id', id);
+  if (error) throw error;
+}
