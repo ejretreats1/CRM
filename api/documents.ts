@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
+import { syncPropertyIcal } from './_ical';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { randomUUID } from 'crypto';
 import { generateText, Output } from 'ai';
@@ -636,7 +637,7 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
           max_guests:  parseInt(formData.maxGuests) || undefined,
           platforms:   formData.platforms?.length ? formData.platforms : undefined,
           property_info: propInfo,
-        }).eq('id', match.id).catch(() => {});
+        }).eq('id', match.id);
       } else {
         await supabase.from('properties').insert({
           id: `prop_${Date.now()}`, owner_id: request.owner_id,
@@ -648,7 +649,7 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
           monthly_revenue: 0, occupancy_rate: 0,
           platforms: formData.platforms ?? [], status: 'onboarding', joined_at: now,
           property_info: propInfo,
-        }).catch(() => {});
+        });
       }
     }
 
@@ -680,7 +681,7 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
       monthly_revenue: 0, occupancy_rate: 0,
       platforms: formData.platforms ?? [], status: 'onboarding', joined_at: now,
       property_info: propInfo,
-    }).catch(() => {});
+    });
   }
 
   await supabase.from('onboarding_requests').update({
@@ -1849,7 +1850,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { propertyId } = body;
       if (!propertyId) return res.status(400).json({ error: 'propertyId required' });
       try {
-        const { syncPropertyIcal } = await import('./_ical');
         const supabase = getSupabase();
         const { data: config, error } = await supabase
           .from('cleaning_property_configs')

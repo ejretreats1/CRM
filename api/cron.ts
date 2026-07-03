@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import Stripe from 'stripe';
+import { syncPropertyIcal } from './_ical';
 
 export const config = { maxDuration: 60 };
 
@@ -92,7 +93,7 @@ async function runWarmup(res: VercelResponse) {
     }
 
     try {
-      const { data: sent } = await resend.batch.send(batch);
+      const { data: sent } = await getResend().batch.send(batch);
       const sentIds = (sent ?? []).map((s: { id: string }) => s.id).filter(Boolean);
       if (sentIds.length) {
         await sb.from('email_logs').insert(
@@ -258,7 +259,6 @@ async function runIcalSync(res: VercelResponse) {
   const toSync = (configs ?? []).filter((c: { ical_urls: unknown[] }) => Array.isArray(c.ical_urls) && c.ical_urls.length > 0);
   if (!toSync.length) return res.status(200).json({ synced: 0, message: 'No iCal URLs configured.' });
 
-  const { syncPropertyIcal } = await import('./_ical');
   const results = [];
   for (const config of toSync) {
     const r = await syncPropertyIcal(supabase, config);

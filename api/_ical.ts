@@ -82,7 +82,12 @@ export async function syncPropertyIcal(supabase: any, config: {
     .from('cleaning_jobs')
     .select('id, reservation_id, status')
     .eq('property_id', config.property_id);
-  const byUid = new Map((existing ?? []).filter((j: { reservation_id: string }) => j.reservation_id).map((j: { reservation_id: string; id: string; status: string }) => [j.reservation_id, j]));
+  type JobRow = { reservation_id: string; id: string; status: string };
+  const byUid = new Map<string, JobRow>(
+    (existing ?? [])
+      .filter((j: JobRow) => j.reservation_id)
+      .map((j: JobRow) => [j.reservation_id, j])
+  );
 
   let created = 0, cancelled = 0;
   const errors: string[] = [];
