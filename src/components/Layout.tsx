@@ -27,6 +27,7 @@ import {
   Briefcase,
   CreditCard,
   LayoutGrid,
+  UserPlus,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -64,6 +65,7 @@ const CLEANING_NAV_ITEMS = [
   { id: 'cleaning-dashboard' as View,  label: 'Dashboard',  icon: LayoutDashboard },
   { id: 'cleaning-schedule' as View,   label: 'Calendar',   icon: CalendarDays },
   { id: 'cleaning-jobs' as View,       label: 'Jobs',       icon: Briefcase },
+  { id: 'cleaning-leads' as View,      label: 'Leads',      icon: UserPlus },
   { id: 'cleaning-properties' as View, label: 'Properties', icon: Home },
   { id: 'cleaning-cleaners' as View,   label: 'Cleaners',   icon: Users },
   { id: 'cleaning-payments' as View,   label: 'Payments',   icon: CreditCard },
