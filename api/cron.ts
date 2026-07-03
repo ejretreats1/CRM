@@ -2,7 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import Stripe from 'stripe';
-import { syncPropertyIcal } from './_ical';
 
 export const config = { maxDuration: 60 };
 
@@ -259,6 +258,7 @@ async function runIcalSync(res: VercelResponse) {
   const toSync = (configs ?? []).filter((c: { ical_urls: unknown[] }) => Array.isArray(c.ical_urls) && c.ical_urls.length > 0);
   if (!toSync.length) return res.status(200).json({ synced: 0, message: 'No iCal URLs configured.' });
 
+  const { syncPropertyIcal } = await import('./_ical');
   const results = [];
   for (const config of toSync) {
     const r = await syncPropertyIcal(supabase, config);

@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
-import { syncPropertyIcal } from './_ical';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { randomUUID } from 'crypto';
 import { generateText, Output } from 'ai';
@@ -1850,6 +1849,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { propertyId } = body;
       if (!propertyId) return res.status(400).json({ error: 'propertyId required' });
       try {
+        const { syncPropertyIcal } = await import('./_ical');
         const supabase = getSupabase();
         const { data: config, error } = await supabase
           .from('cleaning_property_configs')
