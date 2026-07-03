@@ -13,16 +13,19 @@ function displayName(propertyId: string | undefined, propertyName: string, props
   return p?.nickname || p?.name || propertyName;
 }
 import {
+  type CleaningLead,
   fetchCleaners, upsertCleaner, deleteCleaner,
   fetchPropertyConfigs, upsertPropertyConfig, deletePropertyConfig,
   fetchCleaningJobs, upsertCleaningJob, bulkUpsertCleaningJobs, deleteCleaningJob,
+  fetchCleaningLeads, upsertCleaningLead, deleteCleaningLead,
 } from '../../services/cleaningDb';
 import JobsView from './JobsView';
 import CleanersView from './CleanersView';
 import PropertiesView from './PropertiesView';
 import ScheduleView from './ScheduleView';
+import CleaningLeadsView from './CleaningLeadsView';
 
-type CleaningView = 'cleaning-dashboard' | 'cleaning-schedule' | 'cleaning-jobs' | 'cleaning-properties' | 'cleaning-cleaners' | 'cleaning-payments';
+type CleaningView = 'cleaning-dashboard' | 'cleaning-schedule' | 'cleaning-jobs' | 'cleaning-properties' | 'cleaning-cleaners' | 'cleaning-payments' | 'cleaning-leads';
 
 interface Props {
   currentView: View;
@@ -313,6 +316,7 @@ export default function CleaningBusiness({ currentView, reservations, uplistingP
   const [cleaners, setCleaners] = useState<Cleaner[]>([]);
   const [configs, setConfigs] = useState<CleaningPropertyConfig[]>([]);
   const [jobs, setJobs] = useState<CleaningJob[]>([]);
+  const [leads, setLeads] = useState<CleaningLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
 
@@ -328,6 +332,7 @@ export default function CleaningBusiness({ currentView, reservations, uplistingP
       setCleaners(c);
       setConfigs(pc);
       setJobs(j);
+      fetchCleaningLeads().then(setLeads).catch(() => {});
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('relation') || msg.includes('does not exist')) {
@@ -383,6 +388,19 @@ export default function CleaningBusiness({ currentView, reservations, uplistingP
     await deleteCleaningJob(id);
     setJobs(prev => prev.filter(j => j.id !== id));
   }
+  // Leads
+  async function handleSaveLead(lead: CleaningLead) {
+    await upsertCleaningLead(lead);
+    setLeads(prev => {
+      const exists = prev.find(x => x.id === lead.id);
+      return exists ? prev.map(x => x.id === lead.id ? lead : x) : [lead, ...prev];
+    });
+  }
+  async function handleDeleteLead(id: string) {
+    await deleteCleaningLead(id);
+    setLeads(prev => prev.filter(l => l.id !== id));
+  }
+
   async function handleRetryCharge(job: CleaningJob) {
     const r = await fetch('/api/documents', {
       method: 'POST',
@@ -611,6 +629,9 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
         )}
         {active === 'cleaning-payments' && (
           <CleaningPayments jobs={jobs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} />
+        )}
+        {active === 'cleaning-leads' && (
+          <CleaningLeadsView leads={leads} onSave={handleSaveLead} onDelete={handleDeleteLead} />
         )}
       </div>
     </div>

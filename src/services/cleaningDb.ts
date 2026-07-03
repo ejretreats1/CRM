@@ -187,3 +187,103 @@ export async function deleteCleaningJob(id: string): Promise<void> {
   const { error } = await supabase.from('cleaning_jobs').delete().eq('id', id);
   if (error) throw error;
 }
+
+// ─── Cleaning Leads ──────────────────────────────────────────────────────────
+
+export const CLEANING_LEAD_CATEGORIES = [
+  'Property Management',
+  'Realtor / Real Estate Team',
+  'Short-Term Rental',
+  'Real Estate Investor',
+  'Strategic Partner',
+  'Residential',
+] as const;
+export type CleaningLeadCategory = typeof CLEANING_LEAD_CATEGORIES[number];
+
+export const CLEANING_LEAD_SOURCES = [
+  'Scraped List',
+  'Google',
+  'LinkedIn',
+  'Facebook Group',
+  'Facebook Marketplace',
+  'Website',
+  'Referral',
+  'Other',
+] as const;
+export type CleaningLeadSource = typeof CLEANING_LEAD_SOURCES[number];
+
+export type CleaningLeadPriority = 'High' | 'Medium' | 'Low';
+export type CleaningLeadMultiProp = 'Yes' | 'No' | 'Unknown';
+export type CleaningLeadOutreachStatus = 'Not Contacted' | 'Contacted' | 'Follow-Up Required' | 'Responded' | 'Interested' | 'Not Interested';
+export type CleaningLeadOpportunityStatus = 'New' | 'Qualified' | 'Quote Requested' | 'Booked' | 'Lost' | 'Future Opportunity';
+
+export interface CleaningLead {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  category: CleaningLeadCategory;
+  source: CleaningLeadSource;
+  multiProp?: CleaningLeadMultiProp;
+  priority?: CleaningLeadPriority;
+  outreachStatus: CleaningLeadOutreachStatus;
+  opportunityStatus: CleaningLeadOpportunityStatus;
+  handoffNeeded?: boolean;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToCleaningLead(r: any): CleaningLead {
+  return {
+    id:                r.id,
+    name:              r.name ?? '',
+    email:             r.email ?? '',
+    phone:             r.phone ?? '',
+    company:           r.company ?? '',
+    category:          r.category ?? 'Property Management',
+    source:            r.source ?? 'Other',
+    multiProp:         r.multi_prop ?? undefined,
+    priority:          r.priority ?? undefined,
+    outreachStatus:    r.outreach_status ?? 'Not Contacted',
+    opportunityStatus: r.opportunity_status ?? 'New',
+    handoffNeeded:     r.handoff_needed ?? undefined,
+    notes:             r.notes ?? '',
+    createdAt:         r.created_at,
+    updatedAt:         r.updated_at,
+  };
+}
+
+export async function fetchCleaningLeads(): Promise<CleaningLead[]> {
+  const { data, error } = await supabase.from('cleaning_leads').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToCleaningLead);
+}
+
+export async function upsertCleaningLead(lead: CleaningLead): Promise<void> {
+  const { error } = await supabase.from('cleaning_leads').upsert({
+    id:                lead.id,
+    name:              lead.name,
+    email:             lead.email,
+    phone:             lead.phone,
+    company:           lead.company,
+    category:          lead.category,
+    source:            lead.source,
+    multi_prop:        lead.multiProp ?? null,
+    priority:          lead.priority ?? null,
+    outreach_status:   lead.outreachStatus,
+    opportunity_status:lead.opportunityStatus,
+    handoff_needed:    lead.handoffNeeded ?? null,
+    notes:             lead.notes,
+    created_at:        lead.createdAt,
+    updated_at:        lead.updatedAt,
+  });
+  if (error) throw error;
+}
+
+export async function deleteCleaningLead(id: string): Promise<void> {
+  const { error } = await supabase.from('cleaning_leads').delete().eq('id', id);
+  if (error) throw error;
+}
