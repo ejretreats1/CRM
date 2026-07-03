@@ -80,12 +80,6 @@ function RichContent({ content }: { content: string }) {
   return <div className="space-y-0.5">{elements}</div>;
 }
 
-const BLANK: Omit<CleaningSop, 'id' | 'createdAt' | 'updatedAt'> = {
-  title: '',
-  content: '',
-  sortOrder: 0,
-};
-
 export default function SopsView({ sops, onSave, onDelete }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(sops[0]?.id ?? null);
   const [showList, setShowList] = useState(true); // mobile: list vs detail

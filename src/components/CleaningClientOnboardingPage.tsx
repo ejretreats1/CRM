@@ -100,7 +100,7 @@ function CardForm({ token, onSuccess }: { token: string; onSuccess: () => void }
       {/* Card */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h3 className="font-semibold text-gray-800 text-sm mb-3">Payment Method</h3>
-        <PaymentElement options={{ layout: { type: 'accordion', defaultCollapsed: false, radios: false, spacedAccordionItems: true } }} />
+        <PaymentElement options={{ layout: { type: 'accordion', defaultCollapsed: false, spacedAccordionItems: true } }} />
         <p className="text-xs text-gray-400 mt-2">Your card will not be charged today. You are only charged after each completed cleaning.</p>
       </div>
 
