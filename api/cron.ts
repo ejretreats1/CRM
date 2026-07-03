@@ -14,7 +14,7 @@ function getSupabaseAdmin() {
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
 }
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend() { return new Resend(process.env.RESEND_API_KEY); }
 
 // ── WARMUP ────────────────────────────────────────────────────────────────────
 
@@ -345,7 +345,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ...results.payoutFailed.map(e => `<tr><td style="padding:4px 8px;color:#ef4444">Payout failed</td><td style="padding:4px 8px">${e.property}</td><td style="padding:4px 8px;color:#94a3b8">${e.error}</td></tr>`),
     ].join('');
 
-    await resend.emails.send({
+    await getResend().emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
       to: 'ejretreats1@gmail.com',
       subject,

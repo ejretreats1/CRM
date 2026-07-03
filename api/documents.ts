@@ -8,7 +8,7 @@ import { gateway } from '@ai-sdk/gateway';
 import { z } from 'zod';
 import Stripe from 'stripe';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend() { return new Resend(process.env.RESEND_API_KEY); }
 
 function getSupabase() {
   return createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);
@@ -67,7 +67,7 @@ async function sigSend(body: any, res: VercelResponse) {
   const signingUrl = `${appUrl}/sign/${token}`;
 
   const sigSubject = `Please sign: ${documentName}`;
-  const { data: emailData, error: emailError } = await resend.emails.send({
+  const { data: emailData, error: emailError } = await getResend().emails.send({
     from: 'E&J Retreats <signatures@ejretreats.com>',
     to: sentToEmail,
     subject: sigSubject,
@@ -168,7 +168,7 @@ async function sigComplete(body: any, res: VercelResponse) {
   const { data: owner } = await supabase.from('owners').select('name').eq('id', sigReq.owner_id).single();
   const signedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: 'E&J Retreats <signatures@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
     subject: `✅ Signed: ${sigReq.document_name}`,
@@ -234,7 +234,7 @@ async function agreementSend(body: any, res: VercelResponse) {
   if (skipEmail) return res.status(200).json({ id, token });
 
   const agSubject = `Please review and sign: ${tmpl.name}`;
-  const { data: agEmailData } = await resend.emails.send({
+  const { data: agEmailData } = await getResend().emails.send({
     from: 'E&J Retreats <signatures@ejretreats.com>',
     to: guestEmail,
     subject: agSubject,
@@ -345,7 +345,7 @@ async function agreementComplete(body: any, res: VercelResponse) {
   }).eq('id', sub.id);
 
   const completedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  await resend.emails.send({
+  await getResend().emails.send({
     from: 'E&J Retreats <signatures@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
     subject: `✅ Agreement signed: ${tmpl.name}`,
@@ -453,7 +453,7 @@ async function agreementSelfSign(body: any, res: VercelResponse) {
   });
 
   const completedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  await resend.emails.send({
+  await getResend().emails.send({
     from: 'E&J Retreats <signatures@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
     subject: `✅ ${signerName.trim()} signed: ${tmpl.name}`,
@@ -790,7 +790,7 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
   const results = await Promise.allSettled(
     cleanerTokens.map(({ cleaner: c, token }) => {
       const portalLink = `${base}?cleaner=${jobId}:${token}`;
-      return resend.emails.send({
+      return getResend().emails.send({
         from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
         to: c.email,
         subject: `🧹 Cleaning Job Available: ${propertyName} – ${dateLabel}`,
@@ -868,7 +868,7 @@ async function cleaningAccept(body: any, res: VercelResponse) {
   if (error) return res.status(500).json({ error: error.message });
 
   // Notify admin
-  await resend.emails.send({
+  await getResend().emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
     subject: `✅ ${cleanerInfo.cleanerName} accepted: ${row.property_name}`,
@@ -920,7 +920,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
     ? `💳 <strong>$${paymentResult.cleaningFee} charged</strong> to client automatically${paymentResult.payoutSent ? ` · $${paymentResult.cleanerPayout} payout sent to cleaner via Stripe Connect ✓` : paymentResult.cleanerStripeId ? ` · Payout transfer failed — pay manually` : ` · Cleaner has no Stripe Connect account — pay manually`}`
     : `⚠️ <strong>Auto-charge failed:</strong> ${paymentResult.error ?? 'No payment method on file'} — use the CRM to retry`;
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
     subject: `${paymentResult.charged ? '✅' : '⚠️'} Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`,
@@ -977,7 +977,7 @@ async function cleanerConnectSend(body: any, res: VercelResponse) {
   const link = `${base}?cleaner-setup=${cleanerId}:${connectToken}`;
 
   if (sendEmail) {
-    await resend.emails.send({
+    await getResend().emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
       to: cleaner.email,
       subject: 'Set up your Stripe account to receive cleaning payouts',
@@ -1050,7 +1050,7 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
   if (account.details_submitted && cleaner.stripe_connect_status !== 'active') {
     await supabase.from('cleaners').update({ stripe_connect_status: 'active' }).eq('id', cleanerId);
     // Notify admin
-    await resend.emails.send({
+    await getResend().emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
       to: 'ejretreats1@gmail.com',
       subject: `✅ Stripe connected: ${cleaner.name}`,
@@ -1140,7 +1140,7 @@ async function cleaningClientSend(body: any, res: VercelResponse) {
       : `<p style="color:#334155">Your property <strong>${propertyNamesStr}</strong> is enrolled in E&amp;J Retreats' professional cleaning service.</p>`;
 
     try {
-      await resend.emails.send({
+      await getResend().emails.send({
         from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
         to: clientEmail,
         subject: `Action required: Set up cleaning service for ${subjectLabel}`,
@@ -1255,7 +1255,7 @@ async function cleaningClientConfirm(body: any, res: VercelResponse) {
     completed_at: now,
   }).eq('token', token);
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
     subject: `✅ Client onboarded: ${record.property_name}`,
@@ -1802,7 +1802,7 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
   if (error) return res.status(500).json({ error: error.message });
   if (!updated?.length) return res.status(409).json({ error: 'Sorry — this job was already claimed by another cleaner.' });
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
     subject: `✅ ${cleanerInfo.cleanerName} accepted: ${row.property_name}`,
