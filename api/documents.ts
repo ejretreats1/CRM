@@ -1816,6 +1816,7 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
 // ── ROUTER ────────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
   // GET — token status checks
   if (req.method === 'GET') {
     const token = req.query.token as string;
@@ -1848,15 +1849,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'ical-sync') {
       const { propertyId } = body;
       if (!propertyId) return res.status(400).json({ error: 'propertyId required' });
-      const supabase = getSupabase();
-      const { data: config, error } = await supabase
-        .from('cleaning_property_configs')
-        .select('id, property_id, property_name, cleaning_fee, ical_urls')
-        .eq('property_id', propertyId)
-        .maybeSingle();
-      if (error || !config) return res.status(404).json({ error: 'Property config not found.' });
-      const result = await syncPropertyIcal(supabase, config);
-      return res.status(200).json({ ok: true, ...result });
+      try {
+        const supabase = getSupabase();
+        const { data: config, error } = await supabase
+          .from('cleaning_property_configs')
+          .select('id, property_id, property_name, cleaning_fee, ical_urls')
+          .eq('property_id', propertyId)
+          .maybeSingle();
+        if (error || !config) return res.status(404).json({ error: 'Property config not found.' });
+        const result = await syncPropertyIcal(supabase, config);
+        return res.status(200).json({ ok: true, ...result });
+      } catch (e) {
+        return res.status(500).json({ error: e instanceof Error ? e.message : 'iCal sync failed.' });
+      }
     }
   } else if (flow === 'cleaning-client') {
     if (action === 'send-onboarding') return cleaningClientSend(body, res);
@@ -1887,4 +1892,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   return res.status(400).json({ error: 'Unknown action.' });
+  } catch (err) {
+    console.error('documents handler error:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'An unexpected server error occurred.' });
+  }
 }
