@@ -4,7 +4,7 @@
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "crons": [
-    { "path": "/api/warmup-cron", "schedule": "0 14 * * *" },
-    { "path": "/api/cron",        "schedule": "0 17 * * *" }
+    { "path": "/api/cron?job=warmup", "schedule": "0 14 * * *" },
+    { "path": "/api/cron",           "schedule": "0 17 * * *" }
   ]
 }
