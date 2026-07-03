@@ -155,7 +155,7 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
 
   if (pageState === 'loading') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="h-screen overflow-y-auto bg-gray-50 flex items-center justify-center">
         <p className="text-gray-400 text-sm">Loading...</p>
       </div>
     );
@@ -163,7 +163,7 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
 
   if (pageState === 'error') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <div className="h-screen overflow-y-auto bg-gray-50 flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl shadow-sm border p-8 max-w-sm w-full text-center">
           <div className="text-4xl mb-4">❌</div>
           <h2 className="text-lg font-semibold text-gray-800 mb-2">Something went wrong</h2>
@@ -175,7 +175,7 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
 
   if (pageState === 'done') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <div className="h-screen overflow-y-auto bg-gray-50 flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl shadow-sm border p-8 max-w-sm w-full text-center">
           <div className="text-5xl mb-4">✅</div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">You're all set!</h2>
@@ -192,7 +192,7 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen overflow-y-auto bg-gray-50">
       <div className="bg-blue-700 text-white px-4 py-5 shadow">
         <div className="max-w-lg mx-auto">
           <div className="text-2xl mb-1">🏠</div>
