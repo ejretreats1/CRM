@@ -10,9 +10,9 @@ By adding a payment method, you agree to the following terms:
 
 1. SERVICES — E&J Retreats will arrange professional cleaning of your property after each guest checkout as scheduled through our system.
 
-2. FEES — You will be charged the agreed cleaning fee after each completed cleaning. The fee was communicated at enrollment and may be updated with 7 days written notice.
+2. FEES — You will be charged the agreed cleaning fee on each guest checkout date. The fee was communicated at enrollment and may be updated with 7 days written notice.
 
-3. PAYMENT — Your card on file will be charged automatically within 24 hours of a completed cleaning. A photo report from the cleaner is sent to E&J Retreats before any charge is processed.
+3. PAYMENT — Your card on file is charged automatically at approximately 12:00 PM ET on the day of each guest checkout. A photo report is submitted by the cleaner after each job and reviewed by E&J Retreats.
 
 4. QUALITY — If you are unsatisfied with a cleaning, contact us within 24 hours and we will arrange a free re-clean or credit.
 
@@ -100,7 +100,7 @@ function CardForm({ token, onSuccess }: { token: string; onSuccess: () => void }
       {/* Card */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <h3 className="font-semibold text-gray-800 text-sm mb-3">Payment Method</h3>
-        <PaymentElement options={{ layout: 'tabs' }} />
+        <PaymentElement options={{ layout: { type: 'accordion', defaultCollapsed: false, radios: false, spacedAccordionItems: true } }} />
         <p className="text-xs text-gray-400 mt-2">Your card will not be charged today. You are only charged after each completed cleaning.</p>
       </div>
 
