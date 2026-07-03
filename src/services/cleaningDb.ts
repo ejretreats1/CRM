@@ -68,6 +68,7 @@ function rowToConfig(r: any): CleaningPropertyConfig {
     checkinTime: r.checkin_time ?? undefined,
     photoUrl: r.photo_url ?? undefined,
     stagingPhotoUrls: r.staging_photo_urls ?? [],
+    icalUrls: r.ical_urls ?? [],
   };
 }
 
@@ -85,6 +86,7 @@ function configToRow(c: CleaningPropertyConfig) {
     checkin_time: c.checkinTime ?? null,
     photo_url: c.photoUrl ?? null,
     staging_photo_urls: c.stagingPhotoUrls ?? [],
+    ical_urls: c.icalUrls ?? [],
   };
 }
 

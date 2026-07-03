@@ -388,6 +388,22 @@ export default function CleaningBusiness({ currentView, reservations, uplistingP
     await deleteCleaningJob(id);
     setJobs(prev => prev.filter(j => j.id !== id));
   }
+  // iCal sync
+  async function handleSyncIcal(propertyId: string) {
+    const r = await fetch('/api/documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flow: 'cleaning', action: 'ical-sync', propertyId }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error ?? 'Sync failed.');
+    // Reload jobs and configs to pick up new/cancelled jobs and updated lastSyncedAt
+    const [j, pc] = await Promise.all([fetchCleaningJobs(), fetchPropertyConfigs()]);
+    setJobs(j);
+    setConfigs(pc);
+    return d as { created: number; cancelled: number; errors: string[] };
+  }
+
   // Leads
   async function handleSaveLead(lead: CleaningLead) {
     await upsertCleaningLead(lead);
@@ -618,6 +634,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
             reservations={reservations}
             onSave={handleSaveConfig}
             onDelete={handleDeleteConfig}
+            onSyncIcal={handleSyncIcal}
           />
         )}
         {active === 'cleaning-cleaners' && (

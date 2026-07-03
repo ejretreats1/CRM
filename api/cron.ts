@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import Stripe from 'stripe';
+import { syncPropertyIcal } from './_ical';
 
 export const config = { maxDuration: 60 };
 
@@ -244,6 +245,29 @@ async function autoPayout(job: Record<string, any>): Promise<{ ok: boolean; erro
 
 // ── HANDLER ───────────────────────────────────────────────────────────────────
 
+// ── ICAL SYNC ─────────────────────────────────────────────────────────────────
+
+async function runIcalSync(res: VercelResponse) {
+  const supabase = getSupabase();
+  const { data: configs, error } = await supabase
+    .from('cleaning_property_configs')
+    .select('id, property_id, property_name, cleaning_fee, ical_urls')
+    .not('ical_urls', 'is', null);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  const toSync = (configs ?? []).filter((c: { ical_urls: unknown[] }) => Array.isArray(c.ical_urls) && c.ical_urls.length > 0);
+  if (!toSync.length) return res.status(200).json({ synced: 0, message: 'No iCal URLs configured.' });
+
+  const results = [];
+  for (const config of toSync) {
+    const r = await syncPropertyIcal(supabase, config);
+    results.push({ property: config.property_name, ...r });
+  }
+
+  return res.status(200).json({ synced: toSync.length, results });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Vercel sends Authorization: Bearer {CRON_SECRET} for cron jobs
   const auth = req.headers['authorization'];
@@ -251,8 +275,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // ?job=warmup → email warmup sequences; default → charge/payout
+  // ?job=warmup → email warmup sequences; ?job=ical-sync → iCal calendar sync; default → charge/payout
   if (req.query.job === 'warmup') return runWarmup(res);
+  if (req.query.job === 'ical-sync') return runIcalSync(res);
 
   const supabase = getSupabase();
   const today = new Date().toISOString().slice(0, 10);

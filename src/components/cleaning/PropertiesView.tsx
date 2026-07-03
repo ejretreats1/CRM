@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail } from 'lucide-react';
-import type { CleaningPropertyConfig, AssignedCleaner, Cleaner } from '../../types/cleaning';
+import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw } from 'lucide-react';
+import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl } from '../../types/cleaning';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
   reservations: UplistingReservation[];
   onSave: (c: CleaningPropertyConfig) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onSyncIcal: (propertyId: string) => Promise<{ created: number; cancelled: number; errors: string[] }>;
 }
 
 interface FormState {
@@ -25,12 +26,16 @@ interface FormState {
   photoUrl: string;
   stagingPhotoUrls: string[];
   stagingUrlInput: string;
+  icalUrls: IcalUrl[];
+  icalUrlInput: string;
+  icalPlatform: string;
 }
 
 const EMPTY: FormState = {
   propertyId: '', propertyName: '', cleaningFee: '', feeAutoFilled: false, assignedCleaners: [],
   doorCode: '', address: '', checkoutTime: '', checkinTime: '',
   photoUrl: '', stagingPhotoUrls: [], stagingUrlInput: '',
+  icalUrls: [], icalUrlInput: '', icalPlatform: 'Airbnb',
 };
 
 function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
@@ -38,12 +43,18 @@ function displayName(propertyId: string | undefined, propertyName: string, props
   return p?.nickname || p?.name || propertyName;
 }
 
-export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete }: Props) {
+const ICAL_PLATFORMS = ['Airbnb', 'VRBO', 'Booking.com', 'Guesty', 'Hostaway', 'Direct', 'Other'];
+
+export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete, onSyncIcal }: Props) {
   // --- Edit modal state ---
   const [editing, setEditing] = useState<CleaningPropertyConfig | null | 'new'>(null);
   const [form, setForm] = useState<FormState>({ ...EMPTY });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // --- iCal sync state ---
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [syncResult, setSyncResult] = useState<Record<string, { created: number; cancelled: number; errors: string[] }>>({});
 
   // --- Batch onboarding state ---
   const [selectedForOnboard, setSelectedForOnboard] = useState<Set<string>>(new Set());
@@ -149,8 +160,31 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       photoUrl: config.photoUrl ?? '',
       stagingPhotoUrls: [...(config.stagingPhotoUrls ?? [])],
       stagingUrlInput: '',
+      icalUrls: [...(config.icalUrls ?? [])],
+      icalUrlInput: '',
+      icalPlatform: 'Airbnb',
     });
     setEditing(config);
+  }
+
+  async function handleSyncIcal(propertyId: string) {
+    setSyncingId(propertyId);
+    setSyncResult(prev => { const n = { ...prev }; delete n[propertyId]; return n; });
+    try {
+      const r = await onSyncIcal(propertyId);
+      setSyncResult(prev => ({ ...prev, [propertyId]: r }));
+    } catch (e) {
+      setSyncResult(prev => ({ ...prev, [propertyId]: { created: 0, cancelled: 0, errors: [e instanceof Error ? e.message : 'Sync failed'] } }));
+    } finally {
+      setSyncingId(null);
+    }
+  }
+
+  function addIcalUrl() {
+    const raw = form.icalUrlInput.trim();
+    if (!raw) return;
+    const url = raw.replace(/^webcal:\/\//i, 'https://');
+    setForm(f => ({ ...f, icalUrls: [...f.icalUrls, { platform: f.icalPlatform, url }], icalUrlInput: '' }));
   }
 
   function onPropertySelect(pid: string) {
@@ -215,6 +249,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         checkinTime: form.checkinTime.trim() || undefined,
         photoUrl: form.photoUrl.trim() || undefined,
         stagingPhotoUrls: form.stagingPhotoUrls.filter(Boolean),
+        icalUrls: form.icalUrls,
       };
       await onSave(config);
       setEditing(null);
@@ -350,6 +385,22 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                           ))}
                         </div>
                       )}
+                      {(c.icalUrls?.length ?? 0) > 0 && (
+                        <div className="mt-2 flex items-center gap-1.5">
+                          <CalendarDays size={12} className="text-[#4a90d9] flex-shrink-0" />
+                          <span className="text-xs text-[#3a5070]">{c.icalUrls!.length} iCal feed{c.icalUrls!.length > 1 ? 's' : ''}</span>
+                          {c.icalUrls![0]?.lastSyncedAt && (
+                            <span className="text-[10px] text-[#2a4060]">· synced {new Date(c.icalUrls![0].lastSyncedAt).toLocaleDateString()}</span>
+                          )}
+                        </div>
+                      )}
+                      {syncResult[c.propertyId] && (
+                        <div className={`mt-1.5 text-[10px] px-2 py-1 rounded-lg border ${syncResult[c.propertyId].errors.length ? 'bg-[#1a0e0e] border-[#3a1a1a] text-[#e05c5c]' : 'bg-[#0a2518] border-[#1e4030] text-[#5ce0a0]'}`}>
+                          {syncResult[c.propertyId].errors.length
+                            ? syncResult[c.propertyId].errors.join(', ')
+                            : `+${syncResult[c.propertyId].created} jobs${syncResult[c.propertyId].cancelled ? `, ${syncResult[c.propertyId].cancelled} cancelled` : ''}`}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -358,6 +409,17 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                         <CheckCircle2 size={10} />
                         Onboarded
                       </span>
+                    )}
+                    {(c.icalUrls?.length ?? 0) > 0 && (
+                      <button
+                        onClick={() => handleSyncIcal(c.propertyId)}
+                        disabled={syncingId === c.propertyId}
+                        title="Sync iCal calendars now"
+                        className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-[#4a90d9] hover:bg-[#1e2d45] disabled:opacity-50 transition-colors"
+                      >
+                        <RefreshCw size={11} className={syncingId === c.propertyId ? 'animate-spin' : ''} />
+                        {syncingId === c.propertyId ? 'Syncing…' : 'Sync iCal'}
+                      </button>
                     )}
                     <button
                       onClick={() => openEdit(c)}
@@ -639,6 +701,58 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                   >
                     Add
                   </button>
+                </div>
+              </div>
+
+              {/* iCal Calendar Sync */}
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <CalendarDays size={13} className="text-[#4a90d9]" />
+                  <label className="text-xs font-semibold text-[#3a5070]">Calendar Sync (iCal)</label>
+                </div>
+                <p className="text-xs text-[#2a4060] mb-2">
+                  Paste Airbnb / VRBO iCal export URLs to auto-create cleaning jobs from guest checkouts. Jobs sync daily at 11am and on-demand via "Sync Now."
+                </p>
+                {form.icalUrls.length > 0 && (
+                  <div className="space-y-1.5 mb-2">
+                    {form.icalUrls.map((u, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2">
+                        <span className="text-[10px] font-bold text-[#4a90d9] w-20 flex-shrink-0">{u.platform}</span>
+                        <span className="text-[10px] text-[#3a5070] truncate flex-1 font-mono">{u.url}</span>
+                        {u.lastSyncedAt && (
+                          <span className="text-[10px] text-[#2a4060] flex-shrink-0 whitespace-nowrap">
+                            {new Date(u.lastSyncedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, icalUrls: f.icalUrls.filter((_, idx) => idx !== i) }))}
+                          className="text-[#3a5070] hover:text-[#e05c5c] text-lg leading-none flex-shrink-0 transition-colors"
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <select
+                    className="bg-[#0f1923] border border-[#1e2d45] rounded-lg px-2 py-2 text-xs text-white focus:outline-none focus:border-[#4a90d9] flex-shrink-0"
+                    value={form.icalPlatform}
+                    onChange={e => setForm(f => ({ ...f, icalPlatform: e.target.value }))}
+                  >
+                    {ICAL_PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <input
+                    className="flex-1 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 text-xs text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                    value={form.icalUrlInput}
+                    onChange={e => setForm(f => ({ ...f, icalUrlInput: e.target.value }))}
+                    placeholder="webcal:// or https:// export URL"
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addIcalUrl(); } }}
+                  />
+                  <button
+                    type="button"
+                    onClick={addIcalUrl}
+                    className="px-3 py-2 bg-[#1e2d45] border border-[#2a4060] text-[#4a90d9] text-xs font-semibold rounded-lg hover:bg-[#2a3d55] transition-colors whitespace-nowrap"
+                  >Add</button>
                 </div>
               </div>
 

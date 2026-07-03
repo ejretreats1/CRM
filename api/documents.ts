@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
+import { syncPropertyIcal } from './_ical';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { randomUUID } from 'crypto';
 import { generateText, Output } from 'ai';
@@ -1833,6 +1834,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'accept')            return cleaningAccept(body, res);
     if (action === 'submit')            return cleaningSubmit(body, res);
     if (action === 'charge-and-payout') return cleaningChargeAndPayout(body, res);
+    if (action === 'ical-sync') {
+      const { propertyId } = body;
+      if (!propertyId) return res.status(400).json({ error: 'propertyId required' });
+      const supabase = getSupabase();
+      const { data: config, error } = await supabase
+        .from('cleaning_property_configs')
+        .select('id, property_id, property_name, cleaning_fee, ical_urls')
+        .eq('property_id', propertyId)
+        .maybeSingle();
+      if (error || !config) return res.status(404).json({ error: 'Property config not found.' });
+      const result = await syncPropertyIcal(supabase, config);
+      return res.status(200).json({ ok: true, ...result });
+    }
   } else if (flow === 'cleaning-client') {
     if (action === 'send-onboarding') return cleaningClientSend(body, res);
     if (action === 'setup-intent')    return cleaningClientSetupIntent(body, res);

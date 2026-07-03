@@ -1,5 +1,5 @@
 export type CleaningJobStatus = 'pending' | 'dispatched' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
-export type CleaningJobSource = 'uplisting' | 'hostaway' | 'manual';
+export type CleaningJobSource = 'uplisting' | 'hostaway' | 'manual' | 'ical';
 
 export interface Cleaner {
   id: string;
@@ -15,6 +15,12 @@ export interface Cleaner {
 export interface AssignedCleaner {
   id: string;
   payout: number;
+}
+
+export interface IcalUrl {
+  platform: string;
+  url: string;
+  lastSyncedAt?: string;
 }
 
 export interface CleaningPropertyConfig {
@@ -35,6 +41,7 @@ export interface CleaningPropertyConfig {
   checkinTime?: string;
   photoUrl?: string;
   stagingPhotoUrls?: string[];
+  icalUrls?: IcalUrl[];
 }
 
 export interface CleaningPortalData {
