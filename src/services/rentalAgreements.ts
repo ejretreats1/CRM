@@ -30,6 +30,7 @@ export interface AgreementTemplate {
   documentUrl: string;
   fields: AgreementField[];
   createdAt: string;
+  shareToken?: string;
 }
 
 export interface AgreementSubmission {
@@ -58,6 +59,7 @@ function rowToTemplate(r: Record<string, unknown>): AgreementTemplate {
     documentUrl: String(r.document_url),
     fields:      (r.fields as AgreementField[]) ?? [],
     createdAt:   String(r.created_at),
+    shareToken:  r.share_token ? String(r.share_token) : undefined,
   };
 }
 
@@ -90,7 +92,7 @@ export async function fetchTemplates(propertyId: string): Promise<AgreementTempl
 }
 
 export async function saveTemplate(t: Omit<AgreementTemplate, 'createdAt'>): Promise<AgreementTemplate> {
-  const row = {
+  const row: Record<string, unknown> = {
     id:           t.id,
     property_id:  t.propertyId,
     owner_id:     t.ownerId,
@@ -99,12 +101,23 @@ export async function saveTemplate(t: Omit<AgreementTemplate, 'createdAt'>): Pro
     document_url: t.documentUrl,
     fields:       t.fields,
   };
+  if (t.shareToken) row.share_token = t.shareToken;
   const { data, error } = await sb()
     .from('rental_agreement_templates')
     .upsert(row)
     .select()
     .single();
   if (error) throw new Error(error.message);
+  return rowToTemplate(data as Record<string, unknown>);
+}
+
+export async function fetchTemplateByShareToken(shareToken: string): Promise<AgreementTemplate | null> {
+  const { data, error } = await sb()
+    .from('rental_agreement_templates')
+    .select('*')
+    .eq('share_token', shareToken)
+    .single();
+  if (error || !data) return null;
   return rowToTemplate(data as Record<string, unknown>);
 }
 

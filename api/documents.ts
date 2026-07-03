@@ -365,6 +365,114 @@ async function agreementComplete(body: any, res: VercelResponse) {
   return res.status(200).json({ filledDocumentUrl: publicUrl });
 }
 
+// Self-sign: anyone with the share link enters their name and signs directly
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function agreementSelfSign(body: any, res: VercelResponse) {
+  const { shareToken, signerName, fieldValues } = body as {
+    shareToken: string;
+    signerName: string;
+    fieldValues: Record<string, string>;
+  };
+  if (!shareToken || !signerName?.trim() || !fieldValues) {
+    return res.status(400).json({ error: 'shareToken, signerName, and fieldValues are required.' });
+  }
+
+  const supabase = getSupabase();
+  const { data: tmpl, error: te } = await supabase
+    .from('rental_agreement_templates')
+    .select('*')
+    .eq('share_token', shareToken)
+    .single();
+  if (te || !tmpl) return res.status(404).json({ error: 'Template not found.' });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fields: AgreementField[] = (tmpl.fields as AgreementField[]) ?? [];
+
+  const pdfRes = await fetch(tmpl.document_url as string);
+  if (!pdfRes.ok) return res.status(500).json({ error: 'Could not load template PDF.' });
+  const pdfBytes = await pdfRes.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const pages = pdfDoc.getPages();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  for (const field of fields) {
+    const value = fieldValues[field.id];
+    if (!value) continue;
+    const page = pages[field.page] ?? pages[pages.length - 1];
+    const { width: pw, height: ph } = page.getSize();
+    const absX = field.x * pw;
+    const absY = (1 - field.y - field.h) * ph;
+    const absW = field.w * pw;
+    const absH = field.h * ph;
+    if (field.type === 'signature' || field.type === 'initials') {
+      try {
+        const base64 = value.replace(/^data:image\/png;base64,/, '');
+        const imgBytes = Buffer.from(base64, 'base64');
+        const img = await pdfDoc.embedPng(imgBytes);
+        page.drawImage(img, { x: absX, y: absY, width: absW, height: absH });
+      } catch {}
+    } else {
+      const fontSize = Math.min(12, absH * 0.6);
+      const textY = absY + (absH - fontSize) / 2;
+      const displayValue = field.type === 'credit_card'
+        ? value.replace(/\d(?=\d{4})/g, '•')
+        : value;
+      page.drawText(displayValue, { x: absX + 2, y: textY, size: fontSize, font, color: rgb(0.1, 0.1, 0.1), maxWidth: absW - 4 });
+      page.drawLine({ start: { x: absX, y: absY }, end: { x: absX + absW, y: absY }, thickness: 0.5, color: rgb(0.6, 0.6, 0.6) });
+    }
+  }
+
+  const filledBytes = await pdfDoc.save();
+  const safeName     = signerName.trim().replace(/[^a-zA-Z0-9 \-_]/g, '').trim();
+  const safeTmplName = String(tmpl.name).replace(/[^a-zA-Z0-9 \-_]/g, '').trim();
+  const subId        = `ra_${Date.now()}`;
+  const filledPath   = `agreements/filled/${tmpl.owner_id}/${safeName} - ${safeTmplName} - ${subId}.pdf`;
+
+  const { error: uploadErr } = await supabase.storage
+    .from('documents')
+    .upload(filledPath, filledBytes, { contentType: 'application/pdf', upsert: false });
+  if (uploadErr) return res.status(500).json({ error: uploadErr.message });
+
+  const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(filledPath);
+
+  const now = new Date().toISOString();
+  await supabase.from('rental_agreement_submissions').insert({
+    id:                  subId,
+    template_id:         tmpl.id,
+    property_id:         tmpl.property_id,
+    owner_id:            tmpl.owner_id,
+    guest_name:          signerName.trim(),
+    guest_email:         '',
+    status:              'completed',
+    token:               randomUUID(),
+    sent_at:             now,
+    expires_at:          now,
+    field_values:        fieldValues,
+    filled_document_url: publicUrl,
+    completed_at:        now,
+  });
+
+  const completedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  await resend.emails.send({
+    from: 'E&J Retreats <signatures@ejretreats.com>',
+    to: 'ejretreats1@gmail.com',
+    subject: `✅ ${signerName.trim()} signed: ${tmpl.name}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+        <h2 style="color:#0f766e">Document Signed</h2>
+        <p><strong>${signerName.trim()}</strong> signed <strong>${tmpl.name}</strong> on ${completedDate}.</p>
+        <p style="margin:24px 0">
+          <a href="${publicUrl}" style="background:#0d9488;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+            Download: ${safeName} - ${safeTmplName}.pdf
+          </a>
+        </p>
+      </div>
+    `,
+  }).catch(() => {});
+
+  return res.status(200).json({ filledDocumentUrl: publicUrl });
+}
+
 // ── RESEND WEBHOOK ────────────────────────────────────────────────────────────
 
 async function handleResendWebhook(body: any, res: VercelResponse) {
@@ -1745,8 +1853,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'create') return onboardingCreate(req, res);
     if (action === 'submit') return onboardingSubmit(body, res);
   } else if (flow === 'agreement') {
-    if (action === 'send')     return agreementSend(body, res);
-    if (action === 'complete') return agreementComplete(body, res);
+    if (action === 'send')      return agreementSend(body, res);
+    if (action === 'complete')  return agreementComplete(body, res);
+    if (action === 'self-sign') return agreementSelfSign(body, res);
   } else {
     if (action === 'send')     return sigSend(body, res);
     if (action === 'complete') return sigComplete(body, res);

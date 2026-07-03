@@ -3,7 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import {
   Plus, Trash2, Send, FileText, ChevronLeft, ChevronRight,
   Type, PenLine, CreditCard, Calendar, Pen, ZoomIn, ZoomOut,
-  Copy, Check, Upload, X, FileSignature, Clock, Filter,
+  Copy, Check, Upload, X, FileSignature, Clock, Filter, Link,
 } from 'lucide-react';
 import type { AgreementField, AgreementTemplate, AgreementSubmission, FieldType } from '../services/rentalAgreements';
 import {
@@ -104,6 +104,7 @@ export default function ESign({ userId }: Props) {
   const [sentToken, setSentToken] = useState('');
   const [sentViaEmail, setSentViaEmail] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([fetchAllTemplates(), fetchAllSubmissions()])
@@ -248,6 +249,13 @@ export default function ESign({ userId }: Props) {
     setShowBuilder(true);
   }
 
+  function copyShareLink(t: AgreementTemplate) {
+    if (!t.shareToken) return;
+    navigator.clipboard.writeText(`${window.location.origin}/sign-template/${t.shareToken}`);
+    setCopiedShareId(t.id);
+    setTimeout(() => setCopiedShareId(null), 2000);
+  }
+
   async function handleSaveTemplate() {
     if (!templateName.trim() || (!pdfUrl && !pdfFile)) return;
     setSaving(true);
@@ -260,6 +268,8 @@ export default function ESign({ userId }: Props) {
         setUploading(false);
       }
       const id = editingTemplate?.id ?? `doc_${Date.now()}`;
+      // Generate a share token for new templates; preserve existing one
+      const shareToken = editingTemplate?.shareToken ?? crypto.randomUUID();
       const saved = await saveTemplate({
         id,
         propertyId: 'global',
@@ -268,6 +278,7 @@ export default function ESign({ userId }: Props) {
         category:   templateCategory,
         documentUrl: docUrl,
         fields,
+        shareToken,
       });
       setTemplates(prev => {
         const exists = prev.find(t => t.id === saved.id);
@@ -815,6 +826,20 @@ export default function ESign({ userId }: Props) {
                         )}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        {t.shareToken && (
+                          <button
+                            onClick={() => copyShareLink(t)}
+                            title="Copy group share link — anyone with this link can sign"
+                            className={`flex items-center gap-1 text-xs font-medium border px-2.5 py-1.5 rounded-lg transition-colors ${
+                              copiedShareId === t.id
+                                ? 'text-[#5ce0a0] border-[#0a2518] bg-[#0a2518]'
+                                : 'text-[#9b7ae8] border-[#2a1a5a] hover:bg-[#1a0e3a]'
+                            }`}
+                          >
+                            {copiedShareId === t.id ? <Check size={11} /> : <Link size={11} />}
+                            {copiedShareId === t.id ? 'Copied!' : 'Share Link'}
+                          </button>
+                        )}
                         <button
                           onClick={() => openSend(t)}
                           className="flex items-center gap-1 text-xs font-medium text-[#4a90d9] border border-[#1e3a5a] hover:bg-[#162035] px-2.5 py-1.5 rounded-lg transition-colors"
