@@ -1096,76 +1096,87 @@ async function cleaningClientGet(token: string, res: VercelResponse) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleaningClientSend(body: any, res: VercelResponse) {
-  // Support batch (propertyConfigIds[]) and legacy single (propertyConfigId)
-  const propertyConfigIds: string[] = body.propertyConfigIds ??
-    (body.propertyConfigId ? [body.propertyConfigId] : []);
-  const propertyNames: string[] = body.propertyNames ??
-    (body.propertyName ? [body.propertyName] : []);
-  const { clientName, clientEmail, appUrl, copyOnly } = body;
+  try {
+    // Support batch (propertyConfigIds[]) and legacy single (propertyConfigId)
+    const propertyConfigIds: string[] = body.propertyConfigIds ??
+      (body.propertyConfigId ? [body.propertyConfigId] : []);
+    const propertyNames: string[] = body.propertyNames ??
+      (body.propertyName ? [body.propertyName] : []);
+    const { clientName, clientEmail, appUrl, copyOnly } = body;
 
-  if (!clientEmail || !propertyConfigIds.length) {
-    return res.status(400).json({ error: 'clientEmail and propertyConfigIds are required.' });
-  }
+    if (!clientEmail || !propertyConfigIds.length) {
+      return res.status(400).json({ error: 'clientEmail and propertyConfigIds are required.' });
+    }
 
-  const supabase = getSupabase();
-  const token = randomUUID();
-  const id = `cco_${Date.now()}`;
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  const propertyNamesStr = propertyNames.join(', ');
+    const supabase = getSupabase();
+    const token = randomUUID();
+    const id = `cco_${Date.now()}`;
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const propertyNamesStr = propertyNames.join(', ');
 
-  const { error } = await supabase.from('cleaning_client_onboarding').insert({
-    id, token,
-    property_config_id: propertyConfigIds[0],
-    property_config_ids: propertyConfigIds,
-    property_name: propertyNamesStr,
-    client_name: clientName ?? null,
-    client_email: clientEmail,
-    status: 'pending',
-    created_at: new Date().toISOString(),
-    expires_at: expiresAt,
-  });
-  if (error) return res.status(500).json({ error: error.message });
+    const { error } = await supabase.from('cleaning_client_onboarding').insert({
+      id, token,
+      property_config_id: propertyConfigIds[0],
+      property_config_ids: propertyConfigIds,
+      property_name: propertyNamesStr,
+      client_name: clientName ?? null,
+      client_email: clientEmail,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      expires_at: expiresAt,
+    });
+    if (error) return res.status(500).json({ error: error.message });
 
-  const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
-  const link = `${base}?cleaning-onboard=${token}`;
+    const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+    const link = `${base}?cleaning-onboard=${token}`;
 
-  if (copyOnly) {
+    if (copyOnly) {
+      return res.status(200).json({ id, token, link });
+    }
+
+    const isMulti = propertyNames.length > 1;
+    const subjectLabel = isMulti ? `${propertyNames.length} properties` : propertyNamesStr;
+    const propListHtml = isMulti
+      ? `<ul style="color:#334155;font-size:14px;margin:8px 0 16px;padding-left:20px">${propertyNames.map(n => `<li>${n}</li>`).join('')}</ul>`
+      : `<p style="color:#334155">Your property <strong>${propertyNamesStr}</strong> is enrolled in E&amp;J Retreats' professional cleaning service.</p>`;
+
+    try {
+      await resend.emails.send({
+        from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+        to: clientEmail,
+        subject: `Action required: Set up cleaning service for ${subjectLabel}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+            <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+              <h2 style="color:#1e40af;margin:0 0 16px">🏠 Cleaning Service Setup</h2>
+              <p style="color:#334155">Hi ${clientName ?? 'there'},</p>
+              ${isMulti ? `<p style="color:#334155">The following ${propertyNames.length} properties are enrolled in E&amp;J Retreats' professional cleaning service. To activate, please review our service agreement and add a payment method on file.</p>${propListHtml}` : propListHtml}
+              <ul style="color:#334155;font-size:14px;line-height:1.8">
+                <li>Professional cleaning after every guest checkout</li>
+                <li>Charged automatically — only after each completed cleaning</li>
+                <li>Photo report submitted by cleaner after every job</li>
+              </ul>
+              <p style="margin:28px 0;text-align:center">
+                <a href="${link}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
+                  Complete Setup
+                </a>
+              </p>
+              <p style="color:#94a3b8;font-size:12px;text-align:center">Link expires in 30 days. You will not be charged until a cleaning is completed.&nbsp;&mdash;&nbsp;E&amp;J Retreats</p>
+            </div>
+          </div>
+        `,
+      });
+    } catch (emailErr) {
+      console.error('Resend email failed:', emailErr);
+      // Still return the link even if email fails
+      return res.status(200).json({ id, token, link, emailError: 'Email could not be sent, but link was created.' });
+    }
+
     return res.status(200).json({ id, token, link });
+  } catch (err) {
+    console.error('cleaningClientSend error:', err);
+    return res.status(500).json({ error: 'An unexpected error occurred.' });
   }
-
-  const isMulti = propertyNames.length > 1;
-  const subjectLabel = isMulti ? `${propertyNames.length} properties` : propertyNamesStr;
-  const propListHtml = isMulti
-    ? `<ul style="color:#334155;font-size:14px;margin:8px 0 16px;padding-left:20px">${propertyNames.map(n => `<li>${n}</li>`).join('')}</ul>`
-    : `<p style="color:#334155">Your property <strong>${propertyNamesStr}</strong> is enrolled in E&amp;J Retreats' professional cleaning service.</p>`;
-
-  await resend.emails.send({
-    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-    to: clientEmail,
-    subject: `Action required: Set up cleaning service for ${subjectLabel}`,
-    html: `
-      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
-        <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
-          <h2 style="color:#1e40af;margin:0 0 16px">🏠 Cleaning Service Setup</h2>
-          <p style="color:#334155">Hi ${clientName ?? 'there'},</p>
-          ${isMulti ? `<p style="color:#334155">The following ${propertyNames.length} properties are enrolled in E&amp;J Retreats' professional cleaning service. To activate, please review our service agreement and add a payment method on file.</p>${propListHtml}` : propListHtml}
-          <ul style="color:#334155;font-size:14px;line-height:1.8">
-            <li>Professional cleaning after every guest checkout</li>
-            <li>Charged automatically — only after each completed cleaning</li>
-            <li>Photo report submitted by cleaner after every job</li>
-          </ul>
-          <p style="margin:28px 0;text-align:center">
-            <a href="${link}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
-              Complete Setup
-            </a>
-          </p>
-          <p style="color:#94a3b8;font-size:12px;text-align:center">Link expires in 30 days. You will not be charged until a cleaning is completed.&nbsp;&mdash;&nbsp;E&amp;J Retreats</p>
-        </div>
-      </div>
-    `,
-  });
-
-  return res.status(200).json({ id, token, link });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
