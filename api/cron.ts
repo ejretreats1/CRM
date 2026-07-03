@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import Stripe from 'stripe';
 
+export const config = { maxDuration: 60 };
+
 function getSupabase() {
   return createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);
 }
@@ -45,6 +47,19 @@ async function autoCharge(job: Record<string, any>): Promise<{ ok: boolean; erro
   const stripe = getStripe();
   const amountCents = Math.round(Number(config.cleaning_fee) * 100);
 
+  if (amountCents === 0) {
+    return { ok: false, error: 'Cleaning fee is $0 — skipping charge.' };
+  }
+
+  // Re-fetch job to guard against cancellation between query and charge
+  const { data: freshJob } = await supabase.from('cleaning_jobs').select('status,charged_at').eq('id', job.id).single();
+  if (!freshJob || freshJob.status === 'cancelled') {
+    return { ok: false, error: 'Job cancelled before charge could be processed.' };
+  }
+  if (freshJob.charged_at) {
+    return { ok: false, error: 'Already charged (race condition avoided).' };
+  }
+
   let paymentIntent;
   try {
     paymentIntent = await stripe.paymentIntents.create({
@@ -57,18 +72,21 @@ async function autoCharge(job: Record<string, any>): Promise<{ ok: boolean; erro
       description: `Cleaning: ${job.property_name} — ${job.checkout_date}`,
       metadata: { job_id: job.id, property_id: job.property_id },
       // No transfer_data — we keep funds in platform balance until payout day
-    });
+    }, { idempotencyKey: `charge_${job.id}` });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Stripe charge failed.';
     return { ok: false, error: msg };
   }
 
   const now = new Date().toISOString();
-  await supabase.from('cleaning_jobs').update({
+  const { error: dbErr } = await supabase.from('cleaning_jobs').update({
     charged_at: now,
     stripe_charge_id: paymentIntent.id,
     updated_at: now,
   }).eq('id', job.id);
+  if (dbErr) {
+    return { ok: false, error: `Charged but DB update failed: ${dbErr.message}` };
+  }
 
   return { ok: true, fee: Number(config.cleaning_fee) };
 }
@@ -106,18 +124,21 @@ async function autoPayout(job: Record<string, any>): Promise<{ ok: boolean; erro
       destination: cleaner.stripe_account_id,
       description: `Payout: ${job.property_name} — ${job.checkout_date}`,
       metadata: { job_id: job.id, cleaner_id: job.assigned_cleaner_id },
-    });
+    }, { idempotencyKey: `payout_${job.id}` });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Stripe transfer failed.';
     return { ok: false, error: msg };
   }
 
   const now = new Date().toISOString();
-  await supabase.from('cleaning_jobs').update({
+  const { error: dbErr } = await supabase.from('cleaning_jobs').update({
     payout_sent_at: now,
     stripe_transfer_id: transfer.id,
     updated_at: now,
   }).eq('id', job.id);
+  if (dbErr) {
+    return { ok: false, error: `Transfer sent but DB update failed: ${dbErr.message}` };
+  }
 
   return { ok: true, payout: Number(job.cleaner_payout) };
 }
@@ -170,7 +191,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .lte('charged_at', payoutCutoff + 'T23:59:59Z')
     .is('payout_sent_at', null)
     .not('charged_at', 'is', null)
-    .not('assigned_cleaner_id', 'is', null);
+    .not('assigned_cleaner_id', 'is', null)
+    .not('status', 'in', '("cancelled")')
+    .gt('cleaner_payout', 0);
 
   for (const job of toPay ?? []) {
     results.payoutsAttempted++;

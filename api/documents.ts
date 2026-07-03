@@ -752,7 +752,7 @@ async function cleaningAccept(body: any, res: VercelResponse) {
     status: 'accepted',
     assigned_cleaner_id: cleanerInfo.cleanerId,
     assigned_cleaner_name: cleanerInfo.cleanerName,
-    cleaner_payout: cleanerInfo.payout,
+    cleaner_payout: cleanerInfo.payout ?? 0,
     accepted_at: now,
     updated_at: now,
   }).eq('id', jobId).in('status', ['dispatched', 'pending']);
@@ -797,9 +797,11 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
     portal_data: portalData,
   }).eq('id', jobId);
 
-  // Auto-charge client and initiate payout — don't fail the submit if payment errors
-  const paymentResult = await doChargeAndPayout({ ...row, assigned_cleaner_id: row.assigned_cleaner_id ?? cleanerInfo.cleanerId, cleaner_payout: cleanerInfo.payout })
-    .catch(e => ({ charged: false, payoutSent: false, error: (e as Error).message ?? 'Unexpected error' }));
+  // Auto-charge client only if cron hasn't already done so — prevents double-charge
+  const paymentResult = row.charged_at
+    ? { charged: true as const, payoutSent: !!row.payout_sent_at }
+    : await doChargeAndPayout({ ...row, assigned_cleaner_id: row.assigned_cleaner_id ?? cleanerInfo.cleanerId, cleaner_payout: cleanerInfo.payout ?? 0 })
+        .catch(e => ({ charged: false as const, payoutSent: false, error: (e as Error).message ?? 'Unexpected error' }));
 
   const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const photoCount = (photos ?? []).length;
@@ -1202,7 +1204,7 @@ async function doChargeAndPayout(job: Record<string, any>): Promise<ChargeResult
       description: `Cleaning: ${job.property_name} — ${job.checkout_date}`,
       metadata: { job_id: job.id, property_id: job.property_id },
       ...(transferData ? { transfer_data: transferData } : {}),
-    });
+    }, { idempotencyKey: `charge_${job.id}` });
   } catch (err: unknown) {
     const msg = (err instanceof Error ? err.message : (err as { message?: string })?.message) ?? 'Payment failed.';
     return { charged: false, payoutSent: false, error: msg, cleanerStripeId };
@@ -1669,16 +1671,17 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
   if (row.status === 'cancelled') return res.status(410).json({ error: 'This job has been cancelled.' });
 
   const now = new Date().toISOString();
-  const { error } = await supabase.from('cleaning_jobs').update({
+  const { data: updated, error } = await supabase.from('cleaning_jobs').update({
     status: 'accepted',
     assigned_cleaner_id: cleanerInfo.cleanerId,
     assigned_cleaner_name: cleanerInfo.cleanerName,
     cleaner_payout: cleanerInfo.payout ?? 0,
     accepted_at: now,
     updated_at: now,
-  }).eq('id', jobId).in('status', ['dispatched', 'pending']);
+  }).eq('id', jobId).in('status', ['dispatched', 'pending']).select('id');
 
   if (error) return res.status(500).json({ error: error.message });
+  if (!updated?.length) return res.status(409).json({ error: 'Sorry — this job was already claimed by another cleaner.' });
 
   await resend.emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
