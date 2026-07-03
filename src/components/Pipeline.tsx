@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
-import { Plus, Phone, Mail, MapPin, DollarSign, MoreVertical, Trash2, Edit2, Clock, Video, Upload } from 'lucide-react';
+import { Plus, Phone, Mail, MapPin, DollarSign, MoreVertical, Trash2, Edit2, Clock, Video, Upload, List, Kanban, CheckCircle2, Circle, ChevronRight, Search } from 'lucide-react';
 import type { Lead, LeadStage } from '../types';
 import LeadImportModal from './modals/LeadImportModal';
 
@@ -200,10 +200,260 @@ function LeadCard({ lead, onView, onEdit, onDelete, onDragStart }: LeadCardProps
   );
 }
 
+// ── Call List View ────────────────────────────────────────────────────────────
+
+const STAGE_LABELS: Record<string, string> = {
+  new: 'New', contacted: 'Contacted', cold: 'Cold', won: 'Won',
+};
+const STAGE_BADGE: Record<string, string> = {
+  new: 'bg-[#162035] border-[#1e3a5a] text-[#6ab0f5]',
+  contacted: 'bg-[#1a1535] border-[#3a2070] text-[#c4b5fd]',
+  cold: 'bg-[#1a2535] border-[#2a3545] text-[#94a3b8]',
+  won: 'bg-[#0a2518] border-[#0a4a2a] text-[#4ab57a]',
+};
+
+function fmtCalledAt(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  if (diffDays === 0) return `Today ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+interface CallListProps {
+  leads: Lead[];
+  onUpdateLeads: (leads: Lead[]) => void;
+  onOpenLeadDetail: (lead: Lead) => void;
+  onOpenLeadModal: (lead?: Lead) => void;
+}
+
+function CallListView({ leads, onUpdateLeads, onOpenLeadDetail, onOpenLeadModal }: CallListProps) {
+  const [stageFilter, setStageFilter] = useState<LeadStage | 'all'>('all');
+  const [search, setSearch] = useState('');
+  const [showCalled, setShowCalled] = useState(true);
+
+  function toggleCalled(lead: Lead) {
+    const now = new Date().toISOString();
+    onUpdateLeads(leads.map(l =>
+      l.id === lead.id
+        ? { ...l, calledAt: l.calledAt ? undefined : now, updatedAt: now }
+        : l
+    ));
+  }
+
+  const filtered = leads
+    .filter(l => l.stage !== 'won' || stageFilter === 'won')
+    .filter(l => stageFilter === 'all' || l.stage === stageFilter)
+    .filter(l => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return l.name.toLowerCase().includes(q) ||
+        l.phone.includes(q) ||
+        l.propertyAddress.toLowerCase().includes(q);
+    });
+
+  const uncalled = filtered.filter(l => !l.calledAt);
+  const called = filtered.filter(l => !!l.calledAt)
+    .sort((a, b) => new Date(b.calledAt!).getTime() - new Date(a.calledAt!).getTime());
+
+  const totalFilteredNonWon = filtered.filter(l => l.stage !== 'won');
+  const calledCount = totalFilteredNonWon.filter(l => !!l.calledAt).length;
+
+  const filterTabs: { id: LeadStage | 'all'; label: string; count: number }[] = [
+    { id: 'all', label: 'All', count: leads.filter(l => l.stage !== 'won').length },
+    { id: 'new', label: 'New', count: leads.filter(l => l.stage === 'new').length },
+    { id: 'contacted', label: 'Contacted', count: leads.filter(l => l.stage === 'contacted').length },
+    { id: 'cold', label: 'Cold', count: leads.filter(l => l.stage === 'cold').length },
+  ];
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-[#0f1623]">
+      {/* Progress bar + controls */}
+      <div className="px-5 py-3 bg-[#1a2335] border-b border-[#1e2d45] space-y-3">
+        {/* Progress */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold text-[#4a90d9]">
+              {calledCount} of {totalFilteredNonWon.length} called
+            </span>
+            {calledCount > 0 && (
+              <button
+                onClick={() => {
+                  if (!confirm('Clear all call checkmarks for visible leads?')) return;
+                  const now = new Date().toISOString();
+                  const ids = new Set(totalFilteredNonWon.map(l => l.id));
+                  onUpdateLeads(leads.map(l => ids.has(l.id) ? { ...l, calledAt: undefined, updatedAt: now } : l));
+                }}
+                className="text-xs text-[#3a5070] hover:text-[#e05c5c] transition-colors"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <div className="h-1.5 bg-[#1e2d45] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#4a90d9] rounded-full transition-all duration-500"
+              style={{ width: totalFilteredNonWon.length ? `${(calledCount / totalFilteredNonWon.length) * 100}%` : '0%' }}
+            />
+          </div>
+        </div>
+
+        {/* Search + filter row */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3a5070]" />
+            <input
+              type="text"
+              placeholder="Search name, phone, address…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full bg-[#0f1623] border border-[#1e2d45] rounded-lg pl-8 pr-3 py-1.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+            />
+          </div>
+          <div className="flex bg-[#0f1623] border border-[#1e2d45] rounded-lg overflow-hidden">
+            {filterTabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setStageFilter(t.id)}
+                className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                  stageFilter === t.id ? 'bg-[#4a90d9] text-white' : 'text-[#3a5070] hover:text-white'
+                }`}
+              >
+                {t.label} <span className="opacity-70">{t.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* List */}
+      <div className="flex-1 overflow-y-auto divide-y divide-[#1e2d45]">
+        {/* Uncalled */}
+        {uncalled.length === 0 && called.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 gap-2">
+            <Phone size={32} className="text-[#1e2d45]" />
+            <p className="text-sm text-[#3a5070]">No leads match this filter.</p>
+          </div>
+        )}
+
+        {uncalled.map((lead, idx) => (
+          <CallRow
+            key={lead.id}
+            lead={lead}
+            index={idx + 1}
+            onToggle={() => toggleCalled(lead)}
+            onView={() => onOpenLeadDetail(lead)}
+            onEdit={() => onOpenLeadModal(lead)}
+          />
+        ))}
+
+        {/* Called section */}
+        {called.length > 0 && (
+          <>
+            <button
+              onClick={() => setShowCalled(v => !v)}
+              className="w-full flex items-center gap-2 px-5 py-2.5 bg-[#0f1623] text-xs font-semibold text-[#3a5070] hover:text-white transition-colors"
+            >
+              <CheckCircle2 size={13} className="text-[#5ce0a0]" />
+              Called ({called.length})
+              <ChevronRight size={12} className={`ml-auto transition-transform ${showCalled ? 'rotate-90' : ''}`} />
+            </button>
+            {showCalled && called.map(lead => (
+              <CallRow
+                key={lead.id}
+                lead={lead}
+                index={null}
+                called
+                onToggle={() => toggleCalled(lead)}
+                onView={() => onOpenLeadDetail(lead)}
+                onEdit={() => onOpenLeadModal(lead)}
+              />
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CallRow({ lead, index, called, onToggle, onView, onEdit }: {
+  lead: Lead;
+  index: number | null;
+  called?: boolean;
+  onToggle: () => void;
+  onView: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <div className={`flex items-center gap-3 px-4 py-3.5 group hover:bg-[#1a2335] transition-colors ${called ? 'opacity-50' : ''}`}>
+      {/* Checkbox */}
+      <button
+        onClick={onToggle}
+        className="flex-shrink-0 p-0.5 rounded-full hover:scale-110 transition-transform"
+        title={called ? 'Mark as not called' : 'Mark as called'}
+      >
+        {called
+          ? <CheckCircle2 size={22} className="text-[#5ce0a0]" />
+          : <Circle size={22} className="text-[#1e2d45] group-hover:text-[#3a5070]" />
+        }
+      </button>
+
+      {/* Index */}
+      {index !== null && (
+        <span className="text-xs text-[#3a5070] w-5 text-right flex-shrink-0 font-mono">{index}</span>
+      )}
+
+      {/* Main content */}
+      <div className="flex-1 min-w-0 cursor-pointer" onClick={onView}>
+        <div className="flex items-center gap-2">
+          <p className={`text-sm font-semibold text-white truncate ${called ? 'line-through' : ''}`}>{lead.name}</p>
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border flex-shrink-0 ${STAGE_BADGE[lead.stage]}`}>
+            {STAGE_LABELS[lead.stage]}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="text-xs text-[#3a5070] truncate">{lead.propertyAddress}</span>
+          {called && lead.calledAt && (
+            <span className="text-xs text-[#5ce0a0] flex-shrink-0">{fmtCalledAt(lead.calledAt)}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Right side: phone + revenue */}
+      <div className="flex items-center gap-3 flex-shrink-0">
+        {lead.phone && (
+          <a
+            href={`tel:${lead.phone}`}
+            onClick={e => e.stopPropagation()}
+            className="flex items-center gap-1.5 bg-[#0a1e35] hover:bg-[#1e3a5a] border border-[#1e3a5a] hover:border-[#4a90d9] text-[#4a90d9] font-semibold text-sm px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <Phone size={13} />
+            {lead.phone}
+          </a>
+        )}
+        <span className="text-xs font-semibold text-[#4a90d9] hidden sm:block">
+          ${lead.estimatedRevenue.toLocaleString()}/mo
+        </span>
+        <button
+          onClick={onEdit}
+          className="p-1.5 rounded-lg text-[#3a5070] hover:text-white hover:bg-[#1e2d45] transition-colors opacity-0 group-hover:opacity-100"
+        >
+          <Edit2 size={13} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Pipeline ─────────────────────────────────────────────────────────────
+
 export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpenLeadDetail, onImportLeads }: PipelineProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<LeadStage | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [pipelineView, setPipelineView] = useState<'kanban' | 'list'>('kanban');
 
   const existingEmails = useMemo(
     () => new Set(leads.map(l => l.email.toLowerCase()).filter(Boolean)),
@@ -242,14 +492,31 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
     <>
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="px-6 py-5 bg-[#1a2335] border-b border-[#1e2d45] flex items-center justify-between flex-shrink-0">
-        <div>
+      <div className="px-6 py-5 bg-[#1a2335] border-b border-[#1e2d45] flex items-center justify-between flex-shrink-0 gap-4">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold text-white">Lead Pipeline</h1>
           <p className="text-sm text-[#b8d4f0] mt-0.5">
             {activeLeads.length} active leads · <span className="text-[#4a90d9] font-semibold">{formatCurrency(totalPipelineValue)}/mo</span> pipeline value
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* View toggle */}
+          <div className="flex bg-[#0f1623] border border-[#1e2d45] rounded-lg p-0.5">
+            <button
+              onClick={() => setPipelineView('kanban')}
+              title="Kanban view"
+              className={`p-1.5 rounded-md transition-colors ${pipelineView === 'kanban' ? 'bg-[#4a90d9] text-white' : 'text-[#3a5070] hover:text-white'}`}
+            >
+              <Kanban size={15} />
+            </button>
+            <button
+              onClick={() => setPipelineView('list')}
+              title="Call list view"
+              className={`p-1.5 rounded-md transition-colors ${pipelineView === 'list' ? 'bg-[#4a90d9] text-white' : 'text-[#3a5070] hover:text-white'}`}
+            >
+              <List size={15} />
+            </button>
+          </div>
           <button
             onClick={() => setImportOpen(true)}
             className="flex items-center gap-2 bg-[#1e2d45] hover:bg-[#243550] text-[#b8d4f0] text-sm font-semibold px-4 py-2 rounded-lg transition-colors border border-[#243550]"
@@ -265,8 +532,18 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
         </div>
       </div>
 
+      {/* Call list view */}
+      {pipelineView === 'list' && (
+        <CallListView
+          leads={leads}
+          onUpdateLeads={onUpdateLeads}
+          onOpenLeadDetail={onOpenLeadDetail}
+          onOpenLeadModal={onOpenLeadModal}
+        />
+      )}
+
       {/* Kanban board */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden bg-[#0f1623]">
+      {pipelineView === 'kanban' && <div className="flex-1 overflow-x-auto overflow-y-hidden bg-[#0f1623]">
         <div className="flex gap-4 p-5 h-full min-w-max">
           {STAGES.map(stage => {
             const stageLeads = leads.filter(l => l.stage === stage.id);
@@ -329,7 +606,7 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
             );
           })}
         </div>
-      </div>
+      </div>}
     </div>
 
     {importOpen && (

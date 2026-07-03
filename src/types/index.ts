@@ -31,6 +31,7 @@ export interface Lead {
   source: LeadSource;
   scheduledCallAt?: string;
   scheduledCallLink?: string;
+  calledAt?: string;
   createdAt: string;
   updatedAt: string;
 }
