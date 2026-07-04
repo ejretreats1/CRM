@@ -1110,7 +1110,7 @@ async function cleaningClientSend(body: any, res: VercelResponse) {
 
     const supabase = getSupabase();
     const token = randomUUID();
-    const id = `cco_${Date.now()}`;
+    const id = randomUUID();
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const propertyNamesStr = propertyNames.join(', ');
 
