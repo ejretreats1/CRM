@@ -2,9 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
 import { syncPropertyIcal } from './_ical';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { randomUUID } from 'crypto';
-import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import Stripe from 'stripe';
 
@@ -94,6 +92,7 @@ async function sigSend(body: any, res: VercelResponse) {
 }
 
 async function sigComplete(body: any, res: VercelResponse) {
+  const { PDFDocument, rgb } = await import('pdf-lib');
   const { token, signatureDataUrl } = body;
   const supabase = getSupabase();
 
@@ -260,6 +259,7 @@ async function agreementSend(body: any, res: VercelResponse) {
 }
 
 async function agreementComplete(body: any, res: VercelResponse) {
+  const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
   const { token, fieldValues } = body as { token: string; fieldValues: Record<string, string> };
   const supabase = getSupabase();
 
@@ -368,6 +368,7 @@ async function agreementComplete(body: any, res: VercelResponse) {
 // Self-sign: anyone with the share link enters their name and signs directly
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function agreementSelfSign(body: any, res: VercelResponse) {
+  const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
   const { shareToken, signerName, fieldValues } = body as {
     shareToken: string;
     signerName: string;
@@ -1452,6 +1453,7 @@ Rules:
 - For script: fill the script array (5 scenes) only.`;
 
   const { gateway } = await import('@ai-sdk/gateway');
+  const { generateText, Output } = await import('ai');
   const { output } = await generateText({
     model: gateway('anthropic/claude-sonnet-4-6'),
     output: Output.object({ schema: ContentResultSchema }),
