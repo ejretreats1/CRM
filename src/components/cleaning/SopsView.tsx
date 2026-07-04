@@ -153,7 +153,7 @@ export default function SopsView({ sops, onSave, onDelete }: Props) {
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2d45]">
             <div className="flex items-center gap-2">
               <BookOpen size={15} className="text-[#4a90d9]" />
-              <span className="text-sm font-semibold text-white">Playbooks</span>
+              <span className="text-sm font-semibold text-white">SOP's</span>
             </div>
             <button
               onClick={openNew}
