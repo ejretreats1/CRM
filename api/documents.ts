@@ -5,7 +5,6 @@ import { syncPropertyIcal } from './_ical';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { randomUUID } from 'crypto';
 import { generateText, Output } from 'ai';
-import { gateway } from '@ai-sdk/gateway';
 import { z } from 'zod';
 import Stripe from 'stripe';
 
@@ -1452,6 +1451,7 @@ Rules:
 - For caption: fill the caption field only.
 - For script: fill the script array (5 scenes) only.`;
 
+  const { gateway } = await import('@ai-sdk/gateway');
   const { output } = await generateText({
     model: gateway('anthropic/claude-sonnet-4-6'),
     output: Output.object({ schema: ContentResultSchema }),
@@ -1820,7 +1820,7 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
   // Health check — no DB or email needed
-  if (req.query.flow === 'health') return res.status(200).json({ ok: true, v: 3 });
+  if (req.query.flow === 'health') return res.status(200).json({ ok: true, v: 4 });
 
   // GET — token status checks
   if (req.method === 'GET') {
