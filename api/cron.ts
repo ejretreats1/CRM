@@ -281,7 +281,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const supabase = getSupabase();
   const today = new Date().toISOString().slice(0, 10);
-  const payoutCutoff = addBusinessDays(today, -2); // jobs charged on or before this date are ready
+  // Pay cleaners for jobs charged 2.5+ calendar days (60 hours) ago
+  const payoutCutoffTs = new Date(Date.now() - 2.5 * 24 * 60 * 60 * 1000).toISOString();
 
   const results = {
     chargesAttempted: 0,
@@ -310,12 +311,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // ── Step 2: pay cleaners for jobs charged 2+ business days ago ────────────
-  // Find jobs where charged_at date portion <= payoutCutoff and payout not yet sent
+  // ── Step 2: pay cleaners for jobs charged 2.5+ calendar days ago ─────────
   const { data: toPay } = await supabase
     .from('cleaning_jobs')
     .select('*')
-    .lte('charged_at', payoutCutoff + 'T23:59:59Z')
+    .lte('charged_at', payoutCutoffTs)
     .is('payout_sent_at', null)
     .not('charged_at', 'is', null)
     .not('assigned_cleaner_id', 'is', null)
