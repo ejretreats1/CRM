@@ -1175,7 +1175,9 @@ async function cleaningClientSend(body: any, res: VercelResponse) {
     return res.status(200).json({ id, token, link });
   } catch (err) {
     console.error('cleaningClientSend error:', err);
-    return res.status(500).json({ error: 'An unexpected error occurred.' });
+    try {
+      if (!res.headersSent) return res.status(500).json({ error: 'An unexpected error occurred.' });
+    } catch {}
   }
 }
 
@@ -1820,11 +1822,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // GET — token status checks
   if (req.method === 'GET') {
     const token = req.query.token as string;
-    if (req.query.flow === 'onboarding' && token) return onboardingGet(token, res);
-    if (req.query.flow === 'cleaning' && token) return cleaningGet(token, res);
-    if (req.query.flow === 'cleaning-client' && token) return cleaningClientGet(token, res);
-    if (req.query.flow === 'cleaner-connect' && req.query.combined) return cleanerConnectVerify(req.query.combined as string, res);
-    if (req.query.flow === 'cleaner-dashboard' && req.query.cleanerId) return cleanerDashboardGet(req.query.cleanerId as string, res);
+    if (req.query.flow === 'onboarding' && token) return await onboardingGet(token, res);
+    if (req.query.flow === 'cleaning' && token) return await cleaningGet(token, res);
+    if (req.query.flow === 'cleaning-client' && token) return await cleaningClientGet(token, res);
+    if (req.query.flow === 'cleaner-connect' && req.query.combined) return await cleanerConnectVerify(req.query.combined as string, res);
+    if (req.query.flow === 'cleaner-dashboard' && req.query.cleanerId) return await cleanerDashboardGet(req.query.cleanerId as string, res);
     return res.status(405).end();
   }
 
@@ -1833,19 +1835,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Resend webhook: body has { type: 'email.opened', data: { email_id: '...' } }
   if (typeof body.type === 'string' && body.type.startsWith('email.') && body.data?.email_id) {
-    return handleResendWebhook(body, res);
+    return await handleResendWebhook(body, res);
   }
 
   const { action, flow } = body;
   if (flow === 'cleaner') {
-    if (action === 'send-connect')    return cleanerConnectSend(body, res);
-    if (action === 'connect-url')     return cleanerConnectUrl(body, res);
-    if (action === 'dashboard-accept') return cleanerDashboardAccept(body, res);
+    if (action === 'send-connect')    return await cleanerConnectSend(body, res);
+    if (action === 'connect-url')     return await cleanerConnectUrl(body, res);
+    if (action === 'dashboard-accept') return await cleanerDashboardAccept(body, res);
   } else if (flow === 'cleaning') {
-    if (action === 'dispatch')          return cleaningDispatch(body, res);
-    if (action === 'accept')            return cleaningAccept(body, res);
-    if (action === 'submit')            return cleaningSubmit(body, res);
-    if (action === 'charge-and-payout') return cleaningChargeAndPayout(body, res);
+    if (action === 'dispatch')          return await cleaningDispatch(body, res);
+    if (action === 'accept')            return await cleaningAccept(body, res);
+    if (action === 'submit')            return await cleaningSubmit(body, res);
+    if (action === 'charge-and-payout') return await cleaningChargeAndPayout(body, res);
     if (action === 'ical-sync') {
       const { propertyId } = body;
       if (!propertyId) return res.status(400).json({ error: 'propertyId required' });
@@ -1864,31 +1866,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
   } else if (flow === 'cleaning-client') {
-    if (action === 'send-onboarding') return cleaningClientSend(body, res);
-    if (action === 'setup-intent')    return cleaningClientSetupIntent(body, res);
-    if (action === 'confirm')         return cleaningClientConfirm(body, res);
+    if (action === 'send-onboarding') return await cleaningClientSend(body, res);
+    if (action === 'setup-intent')    return await cleaningClientSetupIntent(body, res);
+    if (action === 'confirm')         return await cleaningClientConfirm(body, res);
   } else if (flow === 'content') {
-    if (action === 'generate') return contentGenerate(body, res);
+    if (action === 'generate') return await contentGenerate(body, res);
   } else if (flow === 'meta') {
-    if (action === 'connect')        return metaConnect(body, res);
-    if (action === 'post-facebook')  return metaPostFacebook(body, res);
-    if (action === 'post-instagram') return metaPostInstagram(body, res);
-    if (action === 'add-page')       return metaAddPage(body, res);
-    if (action === 'post-carousel')  return metaPostCarousel(body, res);
+    if (action === 'connect')        return await metaConnect(body, res);
+    if (action === 'post-facebook')  return await metaPostFacebook(body, res);
+    if (action === 'post-instagram') return await metaPostInstagram(body, res);
+    if (action === 'add-page')       return await metaAddPage(body, res);
+    if (action === 'post-carousel')  return await metaPostCarousel(body, res);
     if (action === 'disconnect') {
       await getSupabase().from('app_cache').delete().eq('key', 'meta_connection');
       return res.status(200).json({ success: true });
     }
   } else if (flow === 'onboarding') {
-    if (action === 'create') return onboardingCreate(req, res);
-    if (action === 'submit') return onboardingSubmit(body, res);
+    if (action === 'create') return await onboardingCreate(req, res);
+    if (action === 'submit') return await onboardingSubmit(body, res);
   } else if (flow === 'agreement') {
-    if (action === 'send')      return agreementSend(body, res);
-    if (action === 'complete')  return agreementComplete(body, res);
-    if (action === 'self-sign') return agreementSelfSign(body, res);
+    if (action === 'send')      return await agreementSend(body, res);
+    if (action === 'complete')  return await agreementComplete(body, res);
+    if (action === 'self-sign') return await agreementSelfSign(body, res);
   } else {
-    if (action === 'send')     return sigSend(body, res);
-    if (action === 'complete') return sigComplete(body, res);
+    if (action === 'send')     return await sigSend(body, res);
+    if (action === 'complete') return await sigComplete(body, res);
   }
 
   return res.status(400).json({ error: 'Unknown action.' });
