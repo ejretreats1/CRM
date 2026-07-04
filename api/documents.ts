@@ -1031,7 +1031,7 @@ async function cleanerConnectUrl(body: any, res: VercelResponse) {
     refresh_url: `${base}?cleaner-setup=${cleanerId}:${token}`,
   });
 
-  return res.status(200).json({ url: accountLink.url });
+  return res.status(200).json({ url: accountLink.url, cleanerName: cleaner.name ?? '' });
 }
 
 async function cleanerConnectVerify(combined: string, res: VercelResponse) {
