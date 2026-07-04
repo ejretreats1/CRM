@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import Stripe from 'stripe';
+import { randomUUID } from 'crypto';
 import { syncPropertyIcal } from './_ical';
 
 export const config = { maxDuration: 60 };
@@ -249,23 +250,115 @@ async function autoPayout(job: Record<string, any>): Promise<{ ok: boolean; erro
 
 async function runIcalSync(res: VercelResponse) {
   const supabase = getSupabase();
+
+  // Fetch configs + assigned_cleaners so we can auto-dispatch new jobs
   const { data: configs, error } = await supabase
     .from('cleaning_property_configs')
-    .select('id, property_id, property_name, cleaning_fee, ical_urls')
+    .select('id, property_id, property_name, cleaning_fee, ical_urls, assigned_cleaners')
     .not('ical_urls', 'is', null);
 
   if (error) return res.status(500).json({ error: error.message });
 
-  const toSync = (configs ?? []).filter((c: { ical_urls: unknown[] }) => Array.isArray(c.ical_urls) && c.ical_urls.length > 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const toSync = (configs ?? []).filter((c: any) => Array.isArray(c.ical_urls) && c.ical_urls.length > 0);
   if (!toSync.length) return res.status(200).json({ synced: 0, message: 'No iCal URLs configured.' });
 
+  // Load active cleaners once for name/email lookup
+  const { data: cleanerRows } = await supabase.from('cleaners').select('id, name, email').eq('status', 'active');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cleanerMap = new Map<string, { id: string; name: string; email: string }>((cleanerRows ?? []).map((c: any) => [c.id, c]));
+
   const results = [];
+  let totalDispatched = 0;
+
   for (const config of toSync) {
-    const r = await syncPropertyIcal(supabase, config);
-    results.push({ property: config.property_name, ...r });
+    const syncResult = await syncPropertyIcal(supabase, config);
+    results.push({ property: config.property_name, ...syncResult });
+
+    if (syncResult.created === 0) continue;
+
+    // Resolve active assigned cleaners for this property
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const roster = ((config.assigned_cleaners ?? []) as Array<{ id: string; payout: number }>)
+      .map(ac => {
+        const profile = cleanerMap.get(ac.id);
+        return profile ? { id: profile.id, name: profile.name, email: profile.email, payout: ac.payout ?? 0 } : null;
+      })
+      .filter((c): c is { id: string; name: string; email: string; payout: number } => !!c);
+
+    if (roster.length === 0) continue; // no roster yet — jobs stay pending for manual dispatch
+
+    // Dispatch every pending ical job for this property that hasn't been dispatched yet
+    const { data: pendingJobs } = await supabase
+      .from('cleaning_jobs')
+      .select('id, property_name, checkout_date, checkin_date, guest_name, notes')
+      .eq('property_id', config.property_id)
+      .eq('status', 'pending')
+      .eq('source', 'ical')
+      .is('dispatch_tokens', null);
+
+    const base = 'https://crm-nine-delta-37.vercel.app';
+
+    for (const job of pendingJobs ?? []) {
+      // Build one unique token per cleaner
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const dispatchTokens: Record<string, any> = {};
+      const cleanerTokens = roster.map(c => {
+        const token = randomUUID();
+        dispatchTokens[token] = { cleanerId: c.id, cleanerName: c.name, cleanerEmail: c.email, payout: c.payout };
+        return { cleaner: c, token };
+      });
+
+      // Mark as dispatched in DB
+      await supabase.from('cleaning_jobs').update({
+        status: 'dispatched',
+        dispatched_at: new Date().toISOString(),
+        dispatch_tokens: dispatchTokens,
+      }).eq('id', job.id);
+
+      // Email every cleaner — first to accept locks the job
+      const dateLabel = new Date(job.checkout_date + 'T12:00:00').toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric',
+      });
+      await Promise.allSettled(cleanerTokens.map(({ cleaner: c, token }) => {
+        const portalLink = `${base}?cleaner=${job.id}:${token}`;
+        return getResend().emails.send({
+          from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+          to: c.email,
+          subject: `🧹 Cleaning Job Available: ${job.property_name} – ${dateLabel}`,
+          html: `
+            <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+              <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+                <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">🧹 Cleaning Job Available</h2>
+                <p style="color:#334155;margin:0 0 20px">Hi ${c.name},</p>
+                <p style="color:#334155;margin:0 0 16px">A cleaning job is available for one of your assigned properties. This is <strong>first-come, first-served</strong> — tap the button below to claim it.</p>
+                <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
+                  <table style="width:100%;border-collapse:collapse">
+                    <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${job.property_name}</td></tr>
+                    <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
+                    ${job.checkin_date ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Next Check-in</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${new Date(job.checkin_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</td></tr>` : ''}
+                    ${job.guest_name ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Departing Guest</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${job.guest_name}</td></tr>` : ''}
+                    ${c.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:18px">$${c.payout}</td></tr>` : ''}
+                    ${job.notes ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px;vertical-align:top">Notes</td><td style="padding:4px 0;color:#0f172a;font-size:14px">${job.notes}</td></tr>` : ''}
+                  </table>
+                </div>
+                <div style="text-align:center;margin:24px 0">
+                  <a href="${portalLink}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
+                    Accept This Job
+                  </a>
+                </div>
+                <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">First cleaner to accept gets the job. Link expires when the job is claimed.<br>— E&amp;J Retreats</p>
+              </div>
+            </div>
+          `,
+        });
+      }));
+
+      totalDispatched++;
+    }
   }
 
-  return res.status(200).json({ synced: toSync.length, results });
+  return res.status(200).json({ synced: toSync.length, dispatched: totalDispatched, results });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
