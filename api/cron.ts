@@ -281,8 +281,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const supabase = getSupabase();
   const today = new Date().toISOString().slice(0, 10);
-  // Pay cleaners for jobs charged 2.5+ calendar days (60 hours) ago
-  const payoutCutoffTs = new Date(Date.now() - 2.5 * 24 * 60 * 60 * 1000).toISOString();
+  // Pay cleaners for jobs charged 2 business days + 2 hours ago.
+  // Uses the date 2 business days ago at (current UTC time - 2h) as the cutoff timestamp.
+  const twoBizDaysAgo = addBusinessDays(today, -2);
+  const twoHoursAgoTime = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().slice(11);
+  const payoutCutoffTs = twoBizDaysAgo + 'T' + twoHoursAgoTime;
 
   const results = {
     chargesAttempted: 0,
