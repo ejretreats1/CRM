@@ -1819,6 +1819,9 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+  // Health check — no DB or email needed
+  if (req.query.flow === 'health') return res.status(200).json({ ok: true, v: 3 });
+
   // GET — token status checks
   if (req.method === 'GET') {
     const token = req.query.token as string;
