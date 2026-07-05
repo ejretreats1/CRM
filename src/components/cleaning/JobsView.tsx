@@ -71,6 +71,8 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
     propertyId: '', propertyName: '', checkoutDate: '', guestName: '', notes: '',
   });
   const [savingManual, setSavingManual] = useState(false);
+  const [syncingFees, setSyncingFees] = useState(false);
+  const [feesSyncMsg, setFeesSyncMsg] = useState('');
 
   const FILTERS: { id: StatusFilter; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -87,6 +89,28 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
 
   const configMap = new Map(configs.map(c => [c.propertyId, c]));
   const existingReservationIds = new Set(jobs.map(j => j.reservationId).filter(Boolean));
+
+  async function handleSyncFees() {
+    const toUpdate = jobs.filter(j => {
+      if (j.chargedAt) return false; // never touch already-charged jobs
+      const cfg = configMap.get(j.propertyId ?? '');
+      return cfg && (cfg.cleaningFee !== j.cleaningFee);
+    });
+    if (!toUpdate.length) { setFeesSyncMsg('All uncharged jobs already match.'); return; }
+    setSyncingFees(true);
+    setFeesSyncMsg('');
+    try {
+      await Promise.all(toUpdate.map(j => {
+        const cfg = configMap.get(j.propertyId ?? '')!;
+        return onUpdateJob({ ...j, cleaningFee: cfg.cleaningFee, updatedAt: new Date().toISOString() });
+      }));
+      setFeesSyncMsg(`Updated ${toUpdate.length} job${toUpdate.length !== 1 ? 's' : ''}.`);
+    } catch {
+      setFeesSyncMsg('Update failed — please try again.');
+    } finally {
+      setSyncingFees(false);
+    }
+  }
 
   async function handleSync() {
     setSyncing(true);
@@ -247,6 +271,15 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
         </div>
         <div className="flex gap-2">
           <button
+            onClick={handleSyncFees}
+            disabled={syncingFees}
+            title="Update all uncharged jobs to use the current cleaning fee from Properties"
+            className="flex items-center gap-2 px-3 py-2 bg-[#162035] border border-[#1e3a5a] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors disabled:opacity-50"
+          >
+            <DollarSign size={14} className={syncingFees ? 'animate-pulse' : ''} />
+            {syncingFees ? 'Syncing…' : 'Sync Fees'}
+          </button>
+          <button
             onClick={handleSync}
             disabled={syncing || autoSyncing}
             className="flex items-center gap-2 px-3 py-2 bg-[#162035] border border-[#1e3a5a] text-[#4a90d9] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors disabled:opacity-50"
@@ -267,6 +300,11 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
       {syncMsg && (
         <div className="bg-[#0a2518] border border-[#1e4030] text-[#5ce0a0] text-sm px-4 py-2.5 rounded-xl">
           {syncMsg}
+        </div>
+      )}
+      {feesSyncMsg && (
+        <div className="bg-[#0a1f30] border border-[#1e3a5a] text-[#4a90d9] text-sm px-4 py-2.5 rounded-xl">
+          {feesSyncMsg}
         </div>
       )}
 
