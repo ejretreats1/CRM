@@ -153,21 +153,48 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
     load();
   }, [token]);
 
+  const BrandHeader = ({ subtitle }: { subtitle?: string }) => (
+    <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white px-4 py-6 shadow-lg">
+      <div className="max-w-lg mx-auto">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-xl font-black text-white shrink-0">
+            E&amp;J
+          </div>
+          <div>
+            <div className="text-xs font-semibold tracking-widest text-blue-200 uppercase">E&amp;J Retreats</div>
+            <div className="text-base font-bold leading-tight">Cleaning Services</div>
+          </div>
+        </div>
+        {subtitle && (
+          <div className="border-t border-white/20 pt-3 mt-1">
+            <p className="text-blue-100 text-sm">{subtitle}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   if (pageState === 'loading') {
     return (
-      <div className="h-screen overflow-y-auto bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-400 text-sm">Loading...</p>
+      <div className="h-screen overflow-y-auto bg-gray-50">
+        <BrandHeader />
+        <div className="flex items-center justify-center p-12">
+          <p className="text-gray-400 text-sm">Loading...</p>
+        </div>
       </div>
     );
   }
 
   if (pageState === 'error') {
     return (
-      <div className="h-screen overflow-y-auto bg-gray-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-sm border p-8 max-w-sm w-full text-center">
-          <div className="text-4xl mb-4">❌</div>
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">Something went wrong</h2>
-          <p className="text-gray-500 text-sm">{errorMsg}</p>
+      <div className="h-screen overflow-y-auto bg-gray-50">
+        <BrandHeader />
+        <div className="flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl shadow-sm border p-8 max-w-sm w-full text-center mt-6">
+            <div className="text-4xl mb-4">❌</div>
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">Something went wrong</h2>
+            <p className="text-gray-500 text-sm">{errorMsg}</p>
+          </div>
         </div>
       </div>
     );
@@ -175,35 +202,32 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
 
   if (pageState === 'done') {
     return (
-      <div className="h-screen overflow-y-auto bg-gray-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-sm border p-8 max-w-sm w-full text-center">
-          <div className="text-5xl mb-4">✅</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">You're all set!</h2>
-          <p className="text-gray-500 text-sm">
-            {data && (data.propertyConfigIds?.length ?? 1) > 1
-              ? <>Your cleaning service for <strong>{data.propertyConfigIds.length} properties</strong> is active.</>
-              : <>Your cleaning service for <strong>{data?.propertyName ?? 'your property'}</strong> is active.</>
-            }{' '}
-            Your card is on file and will only be charged after each completed cleaning.
-          </p>
+      <div className="h-screen overflow-y-auto bg-gray-50">
+        <BrandHeader />
+        <div className="flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl shadow-sm border p-8 max-w-sm w-full text-center mt-6">
+            <div className="text-5xl mb-4">✅</div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">You're all set!</h2>
+            <p className="text-gray-500 text-sm">
+              {data && (data.propertyConfigIds?.length ?? 1) > 1
+                ? <>Your cleaning service for <strong>{data.propertyConfigIds.length} properties</strong> is active.</>
+                : <>Your cleaning service for <strong>{data?.propertyName ?? 'your property'}</strong> is active.</>
+              }{' '}
+              Your card is on file and will only be charged after each completed cleaning.
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
+  const propertySubtitle = data && (data.propertyConfigIds?.length ?? 1) > 1
+    ? `${data.propertyConfigIds.length} Properties — ${data.clientName ?? ''}`
+    : `${data?.propertyName ?? ''}${data?.clientName ? ' — ' + data.clientName : ''}`;
+
   return (
     <div className="h-screen overflow-y-auto bg-gray-50">
-      <div className="bg-blue-700 text-white px-4 py-5 shadow">
-        <div className="max-w-lg mx-auto">
-          <div className="text-2xl mb-1">🏠</div>
-          <h1 className="text-xl font-bold">Cleaning Service Setup</h1>
-          <p className="text-blue-200 text-sm mt-0.5">
-            {data && (data.propertyConfigIds?.length ?? 1) > 1
-              ? `${data.propertyConfigIds.length} Properties`
-              : data?.propertyName}
-          </p>
-        </div>
-      </div>
+      <BrandHeader subtitle={propertySubtitle || undefined} />
 
       <div className="max-w-lg mx-auto p-4 pt-6 pb-16">
         {/* Properties (batch) */}
