@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { syncPropertyIcal } from './_ical';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 
@@ -1383,36 +1382,25 @@ async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
 
 export const config = { maxDuration: 60 };
 
-const SlideSchema = z.object({
-  slideNumber: z.number(),
-  headline: z.string(),
-  body: z.string(),
-  emoji: z.string().optional(),
-});
-
-const ThreadTweetSchema = z.object({
-  tweetNumber: z.number(),
-  text: z.string(),
-});
-
-const ScriptSceneSchema = z.object({
-  scene: z.string(),
-  text: z.string(),
-  duration: z.string(),
-});
-
-const ContentResultSchema = z.object({
-  hook: z.string(),
-  slides: z.array(SlideSchema).optional(),
-  thread: z.array(ThreadTweetSchema).optional(),
-  caption: z.string().optional(),
-  script: z.array(ScriptSceneSchema).optional(),
-  tweetCards: z.array(z.object({ text: z.string(), angle: z.string() })).optional(),
-  hashtags: z.array(z.string()),
-  cta: z.string(),
-});
-
 async function contentGenerate(body: any, res: VercelResponse) {
+  const SlideSchema = z.object({
+    slideNumber: z.number(),
+    headline: z.string(),
+    body: z.string(),
+    emoji: z.string().optional(),
+  });
+  const ThreadTweetSchema = z.object({ tweetNumber: z.number(), text: z.string() });
+  const ScriptSceneSchema = z.object({ scene: z.string(), text: z.string(), duration: z.string() });
+  const ContentResultSchema = z.object({
+    hook: z.string(),
+    slides: z.array(SlideSchema).optional(),
+    thread: z.array(ThreadTweetSchema).optional(),
+    caption: z.string().optional(),
+    script: z.array(ScriptSceneSchema).optional(),
+    tweetCards: z.array(z.object({ text: z.string(), angle: z.string() })).optional(),
+    hashtags: z.array(z.string()),
+    cta: z.string(),
+  });
   const { topic, platform, contentType, context: brandContext } = body as {
     topic: string;
     platform: string;
@@ -1874,6 +1862,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .eq('property_id', propertyId)
           .maybeSingle();
         if (error || !config) return res.status(404).json({ error: 'Property config not found.' });
+        const { syncPropertyIcal } = await import('./_ical');
         const result = await syncPropertyIcal(supabase, config);
         return res.status(200).json({ ok: true, ...result });
       } catch (e) {
