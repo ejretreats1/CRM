@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import { syncPropertyIcal } from './_ical';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
-import Stripe from 'stripe';
 
 function getResend() { return new Resend(process.env.RESEND_API_KEY); }
 
@@ -953,7 +952,7 @@ async function cleanerConnectSend(body: any, res: VercelResponse) {
   const { data: cleaner } = await supabase.from('cleaners').select('*').eq('id', cleanerId).single();
   if (!cleaner) return res.status(404).json({ error: 'Cleaner not found.' });
 
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const connectToken = randomUUID();
 
   // Create Express account if not yet created
@@ -1021,7 +1020,7 @@ async function cleanerConnectUrl(body: any, res: VercelResponse) {
   if (cleaner.connect_token !== token) return res.status(401).json({ error: 'Invalid or expired link.' });
   if (!cleaner.stripe_account_id) return res.status(400).json({ error: 'No Stripe account found. Contact E&J Retreats.' });
 
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
 
   const accountLink = await stripe.accountLinks.create({
@@ -1045,7 +1044,7 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
   if (cleaner.connect_token !== token) return res.status(401).json({ error: 'Invalid or expired link.' });
   if (!cleaner.stripe_account_id) return res.status(400).json({ error: 'No Stripe account associated.' });
 
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const account = await stripe.accounts.retrieve(cleaner.stripe_account_id);
 
   if (account.details_submitted && cleaner.stripe_connect_status !== 'active') {
@@ -1068,8 +1067,13 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
 
 // ── CLEANING CLIENT ONBOARDING ────────────────────────────────────────────────
 
-function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+let _stripeInstance: any = null;
+async function getStripe() {
+  if (!_stripeInstance) {
+    const { default: Stripe } = await import('stripe');
+    _stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  }
+  return _stripeInstance as any;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1193,7 +1197,7 @@ async function cleaningClientSetupIntent(body: any, res: VercelResponse) {
   const allConfigIds: string[] = record.property_config_ids ?? (record.property_config_id ? [record.property_config_id] : []);
   const primaryConfigId: string = allConfigIds[0] ?? record.property_config_id;
 
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const { data: config } = await supabase
     .from('cleaning_property_configs')
     .select('stripe_customer_id')
@@ -1234,7 +1238,7 @@ async function cleaningClientConfirm(body: any, res: VercelResponse) {
   const { data: record } = await supabase.from('cleaning_client_onboarding').select('*').eq('token', token).single();
   if (!record) return res.status(404).json({ error: 'Invalid link.' });
 
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
   if (setupIntent.status !== 'succeeded') return res.status(400).json({ error: 'Payment setup not completed.' });
 
@@ -1295,7 +1299,7 @@ async function doChargeAndPayout(job: Record<string, any>): Promise<ChargeResult
     return { charged: false, payoutSent: false, error: 'No payment method on file — client onboarding not complete.' };
   }
 
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const amountCents = Math.round(Number(config.cleaning_fee) * 100);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1822,7 +1826,7 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
   // Health check — no DB or email needed
-  if (req.query.flow === 'health') return res.status(200).json({ ok: true, v: 4 });
+  if (req.query.flow === 'health') return res.status(200).json({ ok: true, v: 5 });
 
   // GET — token status checks
   if (req.method === 'GET') {
