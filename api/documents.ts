@@ -745,6 +745,10 @@ async function cleaningGet(combined: string, res: VercelResponse) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cfg = (configs ?? []).find((c: any) => c.property_id === row.property_id);
 
+  const dispatchOrder = (row.dispatch_order ?? []) as string[];
+  const dispatchIndex = row.dispatch_index ?? 0;
+  const canAccept = row.status === 'dispatched' && dispatchOrder[dispatchIndex] === token;
+
   return res.status(200).json({
     job: {
       id: row.id, propertyName: row.property_name, checkoutDate: row.checkout_date,
@@ -759,6 +763,7 @@ async function cleaningGet(combined: string, res: VercelResponse) {
       stagingPhotoUrls: cfg?.staging_photo_urls ?? [],
     },
     cleaner: cleanerInfo,
+    canAccept,
   });
 }
 
@@ -773,63 +778,177 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
     weekday: 'long', month: 'long', day: 'numeric',
   });
 
-  // Generate a unique token per cleaner and build dispatch_tokens map
+  // Generate a unique token per cleaner in priority order, build dispatch map + order array
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dispatchTokens: Record<string, any> = {};
+  const dispatchOrder: string[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cleanerTokens: { cleaner: any; token: string }[] = (cleaners as any[]).map(c => {
     const token = randomUUID();
     dispatchTokens[token] = { cleanerId: c.id, cleanerName: c.name, cleanerEmail: c.email, payout: c.payout ?? 0 };
+    dispatchOrder.push(token);
     return { cleaner: c, token };
   });
 
-  // Store tokens + mark job as dispatched
+  // Store tokens + mark job as dispatched (sequential: index 0 = first to receive email)
   await supabase.from('cleaning_jobs').update({
     status: 'dispatched',
     dispatched_at: new Date().toISOString(),
     dispatch_tokens: dispatchTokens,
+    dispatch_order: dispatchOrder,
+    dispatch_index: 0,
   }).eq('id', jobId);
 
   const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
 
-  const results = await Promise.allSettled(
-    cleanerTokens.map(async ({ cleaner: c, token }) => {
-      const portalLink = `${base}?cleaner=${jobId}:${token}`;
-      return (await getResend()).emails.send({
+  // Only email the #1 priority cleaner — if they pass, next cleaner is contacted
+  const { cleaner: first, token: firstToken } = cleanerTokens[0];
+  const portalLink = `${base}?cleaner=${jobId}:${firstToken}`;
+  try {
+    await (await getResend()).emails.send({
+      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+      to: first.email,
+      subject: `🧹 Cleaning Job Available: ${propertyName} – ${dateLabel}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+          <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+            <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">🧹 Cleaning Job Available</h2>
+            <p style="color:#334155;margin:0 0 20px">Hi ${first.name},</p>
+            <p style="color:#334155;margin:0 0 16px">A cleaning job is available for one of your assigned properties. Tap the button below to accept or pass.</p>
+            <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
+              <table style="width:100%;border-collapse:collapse">
+                <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${propertyName}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
+                ${checkinDate ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Next Check-in</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${new Date(checkinDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'})}</td></tr>` : ''}
+                ${guestName ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Departing Guest</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${guestName}</td></tr>` : ''}
+                ${first.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:18px">$${first.payout}</td></tr>` : ''}
+                ${notes ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px;vertical-align:top">Notes</td><td style="padding:4px 0;color:#0f172a;font-size:14px">${notes}</td></tr>` : ''}
+              </table>
+            </div>
+            <div style="text-align:center;margin:24px 0">
+              <a href="${portalLink}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
+                View &amp; Accept Job
+              </a>
+            </div>
+            <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">— E&amp;J Retreats</p>
+          </div>
+        </div>
+      `,
+    });
+  } catch {}
+
+  return res.status(200).json({ sent: 1 });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningDecline(body: any, res: VercelResponse) {
+  const { combined } = body;
+  const colonIdx = (combined as string).indexOf(':');
+  const jobId = combined.slice(0, colonIdx);
+  const token = combined.slice(colonIdx + 1);
+
+  const supabase = getSupabase();
+  const { data: row } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
+  if (!row) return res.status(404).json({ error: 'Job not found.' });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tokens = (row.dispatch_tokens ?? {}) as Record<string, any>;
+  const cleanerInfo = tokens[token];
+  if (!cleanerInfo) return res.status(401).json({ error: 'Invalid or expired link.' });
+
+  if (row.status !== 'dispatched') {
+    return res.status(409).json({ error: 'This job has already been claimed or is no longer available.' });
+  }
+
+  const dispatchOrder = (row.dispatch_order ?? []) as string[];
+  const currentIndex = row.dispatch_index ?? 0;
+
+  if (dispatchOrder[currentIndex] !== token) {
+    return res.status(400).json({ error: 'You have already passed on this job.' });
+  }
+
+  const nextIndex = currentIndex + 1;
+  const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  });
+  const base = 'https://crm-nine-delta-37.vercel.app';
+
+  if (nextIndex >= dispatchOrder.length) {
+    // All cleaners passed — revert to pending and alert admin
+    await supabase.from('cleaning_jobs').update({
+      status: 'pending',
+      dispatch_index: nextIndex,
+      updated_at: new Date().toISOString(),
+    }).eq('id', jobId);
+
+    try {
+      await (await getResend()).emails.send({
         from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-        to: c.email,
-        subject: `🧹 Cleaning Job Available: ${propertyName} – ${dateLabel}`,
+        to: 'ejretreats1@gmail.com',
+        subject: `⚠️ No cleaners available: ${row.property_name} – ${dateLabel}`,
         html: `
           <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
             <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
-              <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">🧹 Cleaning Job Available</h2>
-              <p style="color:#334155;margin:0 0 20px">Hi ${c.name},</p>
-              <p style="color:#334155;margin:0 0 16px">A cleaning job is available for one of your assigned properties. This is <strong>first-come, first-served</strong> — tap the button below to claim it.</p>
+              <h2 style="color:#dc2626;margin:0 0 8px;font-size:20px">⚠️ All Cleaners Passed</h2>
+              <p style="color:#334155;margin:0 0 16px">All assigned cleaners passed on this job. It has been moved back to <strong>Pending</strong> — please dispatch manually.</p>
               <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
                 <table style="width:100%;border-collapse:collapse">
-                  <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${propertyName}</td></tr>
+                  <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${row.property_name}</td></tr>
                   <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
-                  ${checkinDate ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Next Check-in</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${new Date(checkinDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'})}</td></tr>` : ''}
-                  ${guestName ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Departing Guest</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${guestName}</td></tr>` : ''}
-                  ${c.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:18px">$${c.payout}</td></tr>` : ''}
-                  ${notes ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px;vertical-align:top">Notes</td><td style="padding:4px 0;color:#0f172a;font-size:14px">${notes}</td></tr>` : ''}
                 </table>
               </div>
-              <div style="text-align:center;margin:24px 0">
-                <a href="${portalLink}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
-                  Accept This Job
-                </a>
-              </div>
-              <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">First cleaner to accept gets the job. Link expires when the job is claimed.<br>— E&amp;J Retreats</p>
+              <p style="color:#94a3b8;font-size:12px;margin:0">— E&amp;J Retreats CRM</p>
             </div>
           </div>
         `,
       });
-    })
-  );
+    } catch {}
 
-  const sent = results.filter(r => r.status === 'fulfilled').length;
-  return res.status(200).json({ sent });
+    return res.status(200).json({ passed: true, allPassed: true });
+  }
+
+  // Advance to next cleaner
+  const nextToken = dispatchOrder[nextIndex];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const nextCleaner = tokens[nextToken] as { cleanerName: string; cleanerEmail: string; payout: number };
+
+  await supabase.from('cleaning_jobs').update({
+    dispatch_index: nextIndex,
+    updated_at: new Date().toISOString(),
+  }).eq('id', jobId);
+
+  const portalLink = `${base}?cleaner=${jobId}:${nextToken}`;
+  try {
+    await (await getResend()).emails.send({
+      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+      to: nextCleaner.cleanerEmail,
+      subject: `🧹 Cleaning Job Available: ${row.property_name} – ${dateLabel}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+          <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+            <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">🧹 Cleaning Job Available</h2>
+            <p style="color:#334155;margin:0 0 20px">Hi ${nextCleaner.cleanerName},</p>
+            <p style="color:#334155;margin:0 0 16px">A cleaning job is available for one of your assigned properties. Tap the button below to accept or pass.</p>
+            <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
+              <table style="width:100%;border-collapse:collapse">
+                <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${row.property_name}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
+                ${nextCleaner.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:18px">$${nextCleaner.payout}</td></tr>` : ''}
+              </table>
+            </div>
+            <div style="text-align:center;margin:24px 0">
+              <a href="${portalLink}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
+                View &amp; Accept Job
+              </a>
+            </div>
+            <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">— E&amp;J Retreats</p>
+          </div>
+        </div>
+      `,
+    });
+  } catch {}
+
+  return res.status(200).json({ passed: true });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1849,6 +1968,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } else if (flow === 'cleaning') {
     if (action === 'dispatch')          return await cleaningDispatch(body, res);
     if (action === 'accept')            return await cleaningAccept(body, res);
+    if (action === 'decline')           return await cleaningDecline(body, res);
     if (action === 'submit')            return await cleaningSubmit(body, res);
     if (action === 'charge-and-payout') return await cleaningChargeAndPayout(body, res);
     if (action === 'ical-sync') {

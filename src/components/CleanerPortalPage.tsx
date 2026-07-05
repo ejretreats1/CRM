@@ -44,7 +44,7 @@ interface CleanerData {
   payout: number;
 }
 
-type PageState = 'loading' | 'error' | 'claimed' | 'accept' | 'portal' | 'submitted';
+type PageState = 'loading' | 'error' | 'claimed' | 'accept' | 'passed' | 'portal' | 'submitted';
 
 export default function CleanerPortalPage({ combined }: { combined: string }) {
   const [pageState, setPageState] = useState<PageState>('loading');
@@ -52,7 +52,9 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
   const [cleaner, setCleaner] = useState<CleanerData | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [accepting, setAccepting] = useState(false);
+  const [passing, setPassing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [canAccept, setCanAccept] = useState(true);
 
   const [checklist, setChecklist] = useState<Record<string, boolean>>(
     () => Object.fromEntries(CHECKLIST_ITEMS.map(item => [item, false]))
@@ -76,9 +78,10 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
           setPageState('error');
           return;
         }
-        const { job: j, cleaner: c } = d as { job: JobData; cleaner: CleanerData };
+        const { job: j, cleaner: c, canAccept: ca } = d as { job: JobData; cleaner: CleanerData; canAccept: boolean };
         setJob(j);
         setCleaner(c);
+        setCanAccept(ca ?? true);
 
         if (j.status === 'completed' || j.portalData) {
           setPageState(j.assignedCleanerId === c.cleanerId ? 'submitted' : 'claimed');
@@ -114,6 +117,25 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
       }
     } finally {
       setAccepting(false);
+    }
+  };
+
+  const handlePass = async () => {
+    if (!confirm('Pass on this job? The next cleaner will be contacted.')) return;
+    setPassing(true);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'decline', combined }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Failed to pass.');
+      setPageState('passed');
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to pass. Please try again.');
+    } finally {
+      setPassing(false);
     }
   };
 
@@ -202,6 +224,20 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
     );
   }
 
+  if (pageState === 'passed') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-sm border p-8 max-w-sm w-full text-center">
+          <div className="text-4xl mb-4">👋</div>
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Job Passed</h2>
+          <p className="text-gray-500 text-sm">
+            No problem — we'll reach out to the next cleaner on the list for <strong>{job?.propertyName}</strong>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (pageState === 'accept') {
     const isSameDay = job?.checkinDate && job.checkinDate === job.checkoutDate;
     const checkinLabel = job?.checkinDate
@@ -255,14 +291,29 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
                 <strong>Notes:</strong> {job.notes}
               </div>
             )}
-            <p className="text-gray-400 text-xs text-center">First cleaner to accept gets the job</p>
-            <button
-              onClick={handleAccept}
-              disabled={accepting}
-              className="w-full bg-blue-700 active:bg-blue-800 text-white font-bold py-4 rounded-xl text-base disabled:opacity-60 transition-colors"
-            >
-              {accepting ? 'Accepting...' : 'Accept This Job'}
-            </button>
+            {!canAccept ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+                <p className="text-gray-500 text-sm font-medium">You've already passed on this job.</p>
+                <p className="text-gray-400 text-xs mt-1">Another cleaner has been contacted.</p>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={handleAccept}
+                  disabled={accepting || passing}
+                  className="w-full bg-blue-700 active:bg-blue-800 text-white font-bold py-4 rounded-xl text-base disabled:opacity-60 transition-colors"
+                >
+                  {accepting ? 'Accepting...' : 'Accept This Job'}
+                </button>
+                <button
+                  onClick={handlePass}
+                  disabled={accepting || passing}
+                  className="w-full bg-white border border-gray-300 text-gray-500 font-semibold py-3 rounded-xl text-sm disabled:opacity-60 transition-colors active:bg-gray-50"
+                >
+                  {passing ? 'Passing...' : 'Pass'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

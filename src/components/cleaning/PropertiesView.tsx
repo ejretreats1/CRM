@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
 import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl } from '../../types/cleaning';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 
@@ -227,6 +227,26 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         c.id === cleanerId ? { ...c, payout: parseFloat(val) || 0 } : c
       ),
     }));
+  }
+
+  function moveCleanerUp(cleanerId: string) {
+    setForm(f => {
+      const idx = f.assignedCleaners.findIndex(c => c.id === cleanerId);
+      if (idx <= 0) return f;
+      const arr = [...f.assignedCleaners];
+      [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+      return { ...f, assignedCleaners: arr };
+    });
+  }
+
+  function moveCleanerDown(cleanerId: string) {
+    setForm(f => {
+      const idx = f.assignedCleaners.findIndex(c => c.id === cleanerId);
+      if (idx < 0 || idx >= f.assignedCleaners.length - 1) return f;
+      const arr = [...f.assignedCleaners];
+      [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+      return { ...f, assignedCleaners: arr };
+    });
   }
 
   async function handleSave() {
@@ -761,12 +781,16 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                 <label className="block text-xs font-semibold text-[#3a5070] mb-1">
                   Assign Cleaners &amp; Set Their Payout
                 </label>
-                <p className="text-xs text-[#2a4060] mb-2">Check to assign · each cleaner has their own negotiated rate · order = dispatch priority</p>
+                <p className="text-xs text-[#2a4060] mb-2">Check to assign · drag priority with arrows · order = dispatch priority (1 = contacted first)</p>
                 {activeCleaners.length === 0 ? (
                   <p className="text-xs text-[#3a5070]">No active cleaners yet. Add cleaners in the Cleaners tab first.</p>
                 ) : (
                   <div className="space-y-2">
-                    {activeCleaners.map(cl => {
+                    {/* Assigned cleaners in priority order, then unassigned */}
+                    {[
+                      ...form.assignedCleaners.map(ac => activeCleaners.find(cl => cl.id === ac.id)).filter((cl): cl is typeof activeCleaners[number] => !!cl),
+                      ...activeCleaners.filter(cl => !form.assignedCleaners.some(ac => ac.id === cl.id)),
+                    ].map(cl => {
                       const selected = isAssigned(cl.id);
                       const payoutVal = getPayout(cl.id);
                       const priority = form.assignedCleaners.findIndex(c => c.id === cl.id);
@@ -791,6 +815,26 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                           >
                             <span className={`text-sm font-medium ${selected ? 'text-white' : 'text-[#3a5070]'}`}>{cl.name}</span>
                           </button>
+                          {selected && (
+                            <div className="flex flex-col gap-0.5 flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => moveCleanerUp(cl.id)}
+                                disabled={priority === 0}
+                                className="p-0.5 rounded text-[#3a5070] hover:text-[#4a90d9] disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <ChevronUp size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveCleanerDown(cl.id)}
+                                disabled={priority === form.assignedCleaners.length - 1}
+                                className="p-0.5 rounded text-[#3a5070] hover:text-[#4a90d9] disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <ChevronDown size={13} />
+                              </button>
+                            </div>
+                          )}
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <span className={`text-xs ${selected ? 'text-[#3a5070]' : 'text-[#2a4060]'}`}>$</span>
                             <input

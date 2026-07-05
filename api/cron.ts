@@ -300,59 +300,62 @@ async function runIcalSync(res: VercelResponse) {
     const base = 'https://crm-nine-delta-37.vercel.app';
 
     for (const job of pendingJobs ?? []) {
-      // Build one unique token per cleaner
+      // Build one unique token per cleaner in priority order
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dispatchTokens: Record<string, any> = {};
+      const dispatchOrder: string[] = [];
       const cleanerTokens = roster.map(c => {
         const token = randomUUID();
         dispatchTokens[token] = { cleanerId: c.id, cleanerName: c.name, cleanerEmail: c.email, payout: c.payout };
+        dispatchOrder.push(token);
         return { cleaner: c, token };
       });
 
-      // Mark as dispatched in DB
+      // Mark as dispatched — sequential: only email #1 priority cleaner
       await supabase.from('cleaning_jobs').update({
         status: 'dispatched',
         dispatched_at: new Date().toISOString(),
         dispatch_tokens: dispatchTokens,
+        dispatch_order: dispatchOrder,
+        dispatch_index: 0,
       }).eq('id', job.id);
 
-      // Email every cleaner — first to accept locks the job
       const dateLabel = new Date(job.checkout_date + 'T12:00:00').toLocaleDateString('en-US', {
         weekday: 'long', month: 'long', day: 'numeric',
       });
-      await Promise.allSettled(cleanerTokens.map(({ cleaner: c, token }) => {
-        const portalLink = `${base}?cleaner=${job.id}:${token}`;
-        return getResend().emails.send({
-          from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-          to: c.email,
-          subject: `🧹 Cleaning Job Available: ${job.property_name} – ${dateLabel}`,
-          html: `
-            <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
-              <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
-                <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">🧹 Cleaning Job Available</h2>
-                <p style="color:#334155;margin:0 0 20px">Hi ${c.name},</p>
-                <p style="color:#334155;margin:0 0 16px">A cleaning job is available for one of your assigned properties. This is <strong>first-come, first-served</strong> — tap the button below to claim it.</p>
-                <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
-                  <table style="width:100%;border-collapse:collapse">
-                    <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${job.property_name}</td></tr>
-                    <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
-                    ${job.checkin_date ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Next Check-in</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${new Date(job.checkin_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</td></tr>` : ''}
-                    ${job.guest_name ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Departing Guest</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${job.guest_name}</td></tr>` : ''}
-                    ${c.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:18px">$${c.payout}</td></tr>` : ''}
-                    ${job.notes ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px;vertical-align:top">Notes</td><td style="padding:4px 0;color:#0f172a;font-size:14px">${job.notes}</td></tr>` : ''}
-                  </table>
-                </div>
-                <div style="text-align:center;margin:24px 0">
-                  <a href="${portalLink}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
-                    Accept This Job
-                  </a>
-                </div>
-                <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">First cleaner to accept gets the job. Link expires when the job is claimed.<br>— E&amp;J Retreats</p>
+
+      const { cleaner: first, token: firstToken } = cleanerTokens[0];
+      const portalLink = `${base}?cleaner=${job.id}:${firstToken}`;
+      await getResend().emails.send({
+        from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+        to: first.email,
+        subject: `🧹 Cleaning Job Available: ${job.property_name} – ${dateLabel}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+            <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+              <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">🧹 Cleaning Job Available</h2>
+              <p style="color:#334155;margin:0 0 20px">Hi ${first.name},</p>
+              <p style="color:#334155;margin:0 0 16px">A cleaning job is available for one of your assigned properties. Tap the button below to accept or pass.</p>
+              <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
+                <table style="width:100%;border-collapse:collapse">
+                  <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${job.property_name}</td></tr>
+                  <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
+                  ${job.checkin_date ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Next Check-in</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${new Date(job.checkin_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</td></tr>` : ''}
+                  ${job.guest_name ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Departing Guest</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${job.guest_name}</td></tr>` : ''}
+                  ${first.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:18px">$${first.payout}</td></tr>` : ''}
+                  ${job.notes ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px;vertical-align:top">Notes</td><td style="padding:4px 0;color:#0f172a;font-size:14px">${job.notes}</td></tr>` : ''}
+                </table>
               </div>
+              <div style="text-align:center;margin:24px 0">
+                <a href="${portalLink}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
+                  View &amp; Accept Job
+                </a>
+              </div>
+              <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">— E&amp;J Retreats</p>
             </div>
-          `,
-        });
-      }));
+          </div>
+        `,
+      }).catch(() => {});
 
       totalDispatched++;
     }
