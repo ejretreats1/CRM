@@ -51,6 +51,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   // --- Edit modal state ---
   const [editing, setEditing] = useState<CleaningPropertyConfig | null | 'new'>(null);
   const [form, setForm] = useState<FormState>({ ...EMPTY });
+  const [manualEntry, setManualEntry] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -144,6 +145,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   // --- Edit modal helpers ---
   function openAdd() {
     setForm({ ...EMPTY });
+    setManualEntry(false);
     setSaveError(null);
     setEditing('new');
   }
@@ -583,26 +585,47 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
               <div>
                 <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Property *</label>
                 {editing === 'new' ? (
-                  unenrolled.length > 0 ? (
-                    <select
-                      className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
-                      value={form.propertyId}
-                      onChange={e => onPropertySelect(e.target.value)}
-                    >
-                      <option value="">Select a property…</option>
-                      {unenrolled.map(p => (
-                        <option key={p.id} value={p.id}>{p.name || p.nickname || p.address}</option>
-                      ))}
-                    </select>
+                  unenrolled.length > 0 && !manualEntry ? (
+                    <>
+                      <select
+                        className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
+                        value={form.propertyId}
+                        onChange={e => onPropertySelect(e.target.value)}
+                      >
+                        <option value="">Select a property…</option>
+                        {unenrolled.map(p => (
+                          <option key={p.id} value={p.id}>{p.name || p.nickname || p.address}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => { setManualEntry(true); setForm(f => ({ ...f, propertyId: '', propertyName: '' })); }}
+                        className="mt-1.5 text-xs text-[#4a90d9] hover:text-[#6ab0f9] transition-colors"
+                      >
+                        + Enter property manually instead
+                      </button>
+                    </>
                   ) : (
                     <>
-                      <p className="text-xs text-[#d0954a] mb-2">No Uplisting properties found — enter manually.</p>
+                      {unenrolled.length === 0 && (
+                        <p className="text-xs text-[#d0954a] mb-2">No Uplisting properties found — enter manually.</p>
+                      )}
                       <input
                         className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
                         value={form.propertyName}
                         onChange={e => setForm(f => ({ ...f, propertyName: e.target.value, propertyId: e.target.value }))}
                         placeholder="Property name or address"
+                        autoFocus
                       />
+                      {unenrolled.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => { setManualEntry(false); setForm(f => ({ ...f, propertyId: '', propertyName: '' })); }}
+                          className="mt-1.5 text-xs text-[#3a5070] hover:text-[#b8d4f0] transition-colors"
+                        >
+                          ← Pick from Uplisting / Hostaway
+                        </button>
+                      )}
                     </>
                   )
                 ) : (
