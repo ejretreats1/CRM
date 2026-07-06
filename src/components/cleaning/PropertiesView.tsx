@@ -664,15 +664,15 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                   type="button"
                   onClick={() => setForm(f => ({ ...f, laundromatAddress: f.laundromatAddress ? '' : ' ' }))}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                    form.laundromatAddress.trim()
+                    form.laundromatAddress
                       ? 'bg-[#1e2035] border-[#3a4080] text-[#8090f0]'
                       : 'bg-[#0f1923] border-[#1e2d45] text-[#3a5070]'
                   }`}
                 >
                   <span className="text-base">🧺</span>
-                  {form.laundromatAddress.trim() ? 'Off-site laundromat' : 'Laundry done at property'}
+                  {form.laundromatAddress ? 'Off-site laundromat' : 'Laundry done at property'}
                 </button>
-                {form.laundromatAddress.trim() !== undefined && form.laundromatAddress !== '' && (
+                {form.laundromatAddress !== '' && (
                   <input
                     className="w-full mt-2 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
                     value={form.laundromatAddress}
