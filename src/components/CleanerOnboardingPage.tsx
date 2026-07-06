@@ -182,7 +182,7 @@ export default function CleanerOnboardingPage({ token }: { token: string }) {
                 onChange={e => setName(e.target.value)}
                 required
                 placeholder="Jane Smith"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                className="w-full bg-white text-gray-800 placeholder-gray-400 border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               />
             </div>
             <div>
@@ -193,7 +193,7 @@ export default function CleanerOnboardingPage({ token }: { token: string }) {
                 onChange={e => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                className="w-full bg-white text-gray-800 placeholder-gray-400 border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               />
             </div>
             <div>
@@ -203,7 +203,7 @@ export default function CleanerOnboardingPage({ token }: { token: string }) {
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 placeholder="(555) 555-5555"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                className="w-full bg-white text-gray-800 placeholder-gray-400 border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               />
             </div>
             <div>
@@ -212,7 +212,7 @@ export default function CleanerOnboardingPage({ token }: { token: string }) {
                 value={address}
                 onChange={e => setAddress(e.target.value)}
                 placeholder="123 Main St, Miami FL 33101"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                className="w-full bg-white text-gray-800 placeholder-gray-400 border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               />
             </div>
           </div>
