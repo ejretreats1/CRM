@@ -29,6 +29,7 @@ interface FormState {
   icalUrls: IcalUrl[];
   icalUrlInput: string;
   icalPlatform: string;
+  laundromatAddress: string;
 }
 
 const EMPTY: FormState = {
@@ -36,6 +37,7 @@ const EMPTY: FormState = {
   doorCode: '', address: '', checkoutTime: '', checkinTime: '',
   photoUrl: '', stagingPhotoUrls: [], stagingUrlInput: '',
   icalUrls: [], icalUrlInput: '', icalPlatform: 'Airbnb',
+  laundromatAddress: '',
 };
 
 function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
@@ -163,6 +165,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       icalUrls: [...(config.icalUrls ?? [])],
       icalUrlInput: '',
       icalPlatform: 'Airbnb',
+      laundromatAddress: config.laundromatAddress ?? '',
     });
     setEditing(config);
   }
@@ -270,6 +273,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         photoUrl: form.photoUrl.trim() || undefined,
         stagingPhotoUrls: form.stagingPhotoUrls.filter(Boolean),
         icalUrls: form.icalUrls,
+        laundromatAddress: form.laundromatAddress.trim() || undefined,
       };
       await onSave(config);
       setEditing(null);
@@ -403,6 +407,13 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                               )}
                             </div>
                           ))}
+                        </div>
+                      )}
+                      {c.laundromatAddress && (
+                        <div className="mt-2 flex items-center gap-1.5">
+                          <span className="text-xs">🧺</span>
+                          <span className="text-xs text-[#8090f0] font-medium">Off-site laundromat</span>
+                          <span className="text-[10px] text-[#2a4060]">· {c.laundromatAddress}</span>
                         </div>
                       )}
                       {(c.icalUrls?.length ?? 0) > 0 && (
@@ -644,6 +655,32 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                   placeholder="1234"
                 />
                 <p className="text-xs text-[#3a5070] mt-1">Displayed prominently on the cleaner portal</p>
+              </div>
+
+              {/* Laundry location */}
+              <div>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Laundry</label>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, laundromatAddress: f.laundromatAddress ? '' : ' ' }))}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    form.laundromatAddress.trim()
+                      ? 'bg-[#1e2035] border-[#3a4080] text-[#8090f0]'
+                      : 'bg-[#0f1923] border-[#1e2d45] text-[#3a5070]'
+                  }`}
+                >
+                  <span className="text-base">🧺</span>
+                  {form.laundromatAddress.trim() ? 'Off-site laundromat' : 'Laundry done at property'}
+                </button>
+                {form.laundromatAddress.trim() !== undefined && form.laundromatAddress !== '' && (
+                  <input
+                    className="w-full mt-2 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                    value={form.laundromatAddress}
+                    onChange={e => setForm(f => ({ ...f, laundromatAddress: e.target.value }))}
+                    placeholder="123 Wash Ave, Miami FL 33101"
+                  />
+                )}
+                <p className="text-xs text-[#2a4060] mt-1">Shown to cleaners on their portal with a clear call-out</p>
               </div>
 
               {/* Check-out / check-in times */}

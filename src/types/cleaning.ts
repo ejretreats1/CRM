@@ -43,6 +43,7 @@ export interface CleaningPropertyConfig {
   photoUrl?: string;
   stagingPhotoUrls?: string[];
   icalUrls?: IcalUrl[];
+  laundromatAddress?: string;
 }
 
 export interface CleaningPortalData {

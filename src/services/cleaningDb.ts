@@ -70,6 +70,7 @@ function rowToConfig(r: any): CleaningPropertyConfig {
     photoUrl: r.photo_url ?? undefined,
     stagingPhotoUrls: r.staging_photo_urls ?? [],
     icalUrls: r.ical_urls ?? [],
+    laundromatAddress: r.laundromat_address ?? undefined,
   };
 }
 
@@ -88,6 +89,7 @@ function configToRow(c: CleaningPropertyConfig) {
     photo_url: c.photoUrl ?? null,
     staging_photo_urls: c.stagingPhotoUrls ?? [],
     ical_urls: c.icalUrls ?? [],
+    laundromat_address: c.laundromatAddress ?? null,
   };
 }
 

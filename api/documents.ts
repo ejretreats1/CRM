@@ -733,7 +733,7 @@ async function cleaningGet(combined: string, res: VercelResponse) {
   const supabase = getSupabase();
   const [{ data: row }, { data: configs }] = await Promise.all([
     supabase.from('cleaning_jobs').select('*').eq('id', jobId).single(),
-    supabase.from('cleaning_property_configs').select('property_id,door_code,address,checkout_time,checkin_time,photo_url,staging_photo_urls'),
+    supabase.from('cleaning_property_configs').select('property_id,door_code,address,checkout_time,checkin_time,photo_url,staging_photo_urls,laundromat_address'),
   ]);
   if (!row) return res.status(404).json({ error: 'Job not found.' });
 
@@ -761,6 +761,7 @@ async function cleaningGet(combined: string, res: VercelResponse) {
       checkinTime: cfg?.checkin_time ?? null,
       photoUrl: cfg?.photo_url ?? null,
       stagingPhotoUrls: cfg?.staging_photo_urls ?? [],
+      laundromatAddress: cfg?.laundromat_address ?? null,
     },
     cleaner: cleanerInfo,
     canAccept,

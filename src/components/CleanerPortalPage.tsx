@@ -35,6 +35,7 @@ interface JobData {
   checkinTime?: string | null;
   photoUrl?: string | null;
   stagingPhotoUrls?: string[];
+  laundromatAddress?: string | null;
 }
 
 interface CleanerData {
@@ -286,6 +287,21 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
                 <p className="text-blue-900 font-bold text-2xl tracking-widest">{job.doorCode}</p>
               </div>
             )}
+            {job?.laundromatAddress ? (
+              <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">🧺</span>
+                  <p className="text-indigo-800 font-bold text-sm">Off-site Laundry Required</p>
+                </div>
+                <p className="text-indigo-700 text-xs ml-6">Take all linens to the laundromat after cleaning.</p>
+                <p className="text-indigo-900 font-semibold text-xs ml-6 mt-1">{job.laundromatAddress}</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-sm">🧺</span>
+                <p className="text-gray-400 text-xs">Laundry done at the property</p>
+              </div>
+            )}
             {job?.notes && (
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-sm text-amber-800">
                 <strong>Notes:</strong> {job.notes}
@@ -388,6 +404,21 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
             {job?.notes && (
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-sm text-amber-800 mt-1">
                 <strong>Notes:</strong> {job.notes}
+              </div>
+            )}
+            {job?.laundromatAddress ? (
+              <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 mt-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span>🧺</span>
+                  <p className="text-indigo-800 font-bold text-sm">Off-site Laundry Required</p>
+                </div>
+                <p className="text-indigo-700 text-xs ml-6">Take all linens to the laundromat after cleaning.</p>
+                <p className="text-indigo-900 font-semibold text-sm ml-6 mt-1">{job.laundromatAddress}</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-1 mt-1">
+                <span className="text-sm">🧺</span>
+                <p className="text-gray-400 text-xs">Laundry done at the property</p>
               </div>
             )}
           </div>
