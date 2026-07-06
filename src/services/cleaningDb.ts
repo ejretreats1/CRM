@@ -12,6 +12,7 @@ function rowToCleaner(r: any): Cleaner {
     phone: r.phone ?? undefined,
     stripeAccountId: r.stripe_account_id ?? undefined,
     stripeConnectStatus: r.stripe_connect_status ?? undefined,
+    agreementSignedAt: r.agreement_signed_at ?? undefined,
     status: r.status,
     createdAt: r.created_at,
   };

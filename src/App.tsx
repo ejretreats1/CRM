@@ -28,6 +28,7 @@ import OnboardingPage from './components/OnboardingPage';
 import CleanerPortalPage from './components/CleanerPortalPage';
 import CleanerDashboard from './components/CleanerDashboard';
 import CleaningClientOnboardingPage from './components/CleaningClientOnboardingPage';
+import CleanerOnboardingPage from './components/CleanerOnboardingPage';
 import CleanerSetupPage from './components/CleanerSetupPage';
 import CleanerConnectPage from './components/CleanerConnectPage';
 import ModeSelector from './components/ModeSelector';
@@ -528,6 +529,8 @@ export default function App() {
   if (cleanerDashboardParam) return <CleanerDashboard cleanerId={cleanerDashboardParam} />;
   const cleaningOnboardToken = searchParams.get('cleaning-onboard');
   if (cleaningOnboardToken) return <CleaningClientOnboardingPage token={cleaningOnboardToken} />;
+  const cleanerOnboardToken = searchParams.get('cleaner-onboard');
+  if (cleanerOnboardToken) return <CleanerOnboardingPage token={cleanerOnboardToken} />;
   const cleanerSetupParam = searchParams.get('cleaner-setup');
   if (cleanerSetupParam) return <CleanerSetupPage combined={cleanerSetupParam} />;
   const cleanerConnectedParam = searchParams.get('cleaner-connected');

@@ -8,6 +8,7 @@ export interface Cleaner {
   phone?: string;
   stripeAccountId?: string;
   stripeConnectStatus?: 'pending' | 'active';
+  agreementSignedAt?: string;
   status: 'active' | 'inactive';
   createdAt: string;
 }

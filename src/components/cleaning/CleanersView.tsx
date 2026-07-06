@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard } from 'lucide-react';
+import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard, FileText, Copy, Check } from 'lucide-react';
 import type { Cleaner } from '../../types/cleaning';
 
 interface Props {
@@ -16,6 +16,14 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
   const [editing, setEditing] = useState<Cleaner | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
+
+  // Agreement modal state
+  const [agreementModal, setAgreementModal] = useState<Cleaner | null>(null);
+  const [agreementSending, setAgreementSending] = useState(false);
+  const [agreementLink, setAgreementLink] = useState('');
+  const [agreementCopied, setAgreementCopied] = useState(false);
+  const [agreementEmailSent, setAgreementEmailSent] = useState(false);
+  const [agreementError, setAgreementError] = useState('');
 
   // Stripe Connect modal state
   const [stripeModal, setStripeModal] = useState<Cleaner | null>(null);
@@ -58,6 +66,49 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
   async function handleDelete(id: string) {
     if (!confirm('Remove this cleaner?')) return;
     await onDelete(id);
+  }
+
+  function openAgreementModal(c: Cleaner) {
+    setAgreementModal(c);
+    setAgreementLink('');
+    setAgreementCopied(false);
+    setAgreementEmailSent(false);
+    setAgreementError('');
+  }
+  function closeAgreementModal() { setAgreementModal(null); }
+
+  async function handleAgreementAction(copyOnly: boolean) {
+    if (!agreementModal) return;
+    setAgreementSending(true);
+    setAgreementError('');
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flow: 'cleaner-onboard',
+          action: 'send',
+          cleanerId: agreementModal.id,
+          cleanerName: agreementModal.name,
+          cleanerEmail: agreementModal.email,
+          appUrl: window.location.origin,
+          sendEmail: !copyOnly,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setAgreementError(d.error ?? 'Failed to generate link.'); return; }
+      setAgreementLink(d.link);
+      if (copyOnly) {
+        await navigator.clipboard.writeText(d.link).catch(() => {});
+        setAgreementCopied(true);
+      } else {
+        setAgreementEmailSent(true);
+      }
+    } catch {
+      setAgreementError('Network error. Please try again.');
+    } finally {
+      setAgreementSending(false);
+    }
   }
 
   function openStripeModal(c: Cleaner) {
@@ -161,6 +212,7 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                 <th className="text-left px-4 py-3 hidden md:table-cell">Phone</th>
                 <th className="text-left px-4 py-3">Status</th>
                 <th className="text-left px-4 py-3 hidden lg:table-cell">Stripe</th>
+                <th className="text-left px-4 py-3 hidden xl:table-cell">Agreement</th>
                 <th className="text-right px-4 py-3">Actions</th>
               </tr>
             </thead>
@@ -205,6 +257,15 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                   <td className="px-4 py-3 hidden lg:table-cell">
                     {stripeStatusBadge(c)}
                   </td>
+                  <td className="px-4 py-3 hidden xl:table-cell">
+                    {c.agreementSignedAt ? (
+                      <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
+                        <CheckCircle size={11} /> Signed
+                      </span>
+                    ) : (
+                      <span className="text-xs text-[#3a5070]">Not signed</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <button
@@ -217,6 +278,13 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                         className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#5ce0a0] hover:bg-[#1e2d45] transition-colors"
                       >
                         <LayoutDashboard size={14} />
+                      </button>
+                      <button
+                        onClick={() => openAgreementModal(c)}
+                        title={c.agreementSignedAt ? 'Agreement signed — resend?' : 'Send contractor agreement'}
+                        className={`p-1.5 rounded-lg hover:bg-[#1e2d45] transition-colors ${c.agreementSignedAt ? 'text-[#5ce0a0]' : 'text-[#3a5070] hover:text-[#d0954a]'}`}
+                      >
+                        <FileText size={14} />
                       </button>
                       {c.stripeConnectStatus !== 'active' && (
                         <button
@@ -311,6 +379,73 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                 className="flex-1 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save Cleaner'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Agreement Modal */}
+      {agreementModal !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
+              <div>
+                <h2 className="font-bold text-white">Send Contractor Agreement</h2>
+                <p className="text-xs text-[#3a5070] mt-0.5">{agreementModal.name}</p>
+              </div>
+              <button onClick={closeAgreementModal} className="text-[#3a5070] hover:text-white transition-colors text-xl leading-none">&times;</button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-[#b8d4f0]">
+                Send {agreementModal.name} a link to review and e-sign their Independent Contractor Agreement (includes NDA and non-compete). Their signed copy is emailed to them automatically and stored in your system.
+              </p>
+              {agreementModal.agreementSignedAt && (
+                <div className="bg-[#0a2518] border border-[#1e4030] text-[#5ce0a0] text-xs rounded-lg px-3 py-2 flex items-center gap-2">
+                  <CheckCircle size={12} />
+                  Already signed on {new Date(agreementModal.agreementSignedAt).toLocaleDateString()}. You can resend if needed.
+                </div>
+              )}
+              {agreementError && (
+                <div className="bg-[#2a0e0e] border border-[#5a1a1a] text-[#e05c5c] text-xs rounded-lg px-3 py-2">
+                  {agreementError}
+                </div>
+              )}
+              {agreementEmailSent && (
+                <div className="bg-[#0a1f14] border border-[#1a4a2e] text-[#5ce0a0] text-xs rounded-lg px-3 py-2 flex items-center gap-2">
+                  <CheckCircle size={12} />
+                  Email sent to {agreementModal.email}
+                </div>
+              )}
+              {agreementLink && (
+                <div className="bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 space-y-2">
+                  <p className="text-xs text-[#3a5070] font-medium">Agreement link (share this):</p>
+                  <p className="text-xs text-[#b8d4f0] break-all font-mono">{agreementLink}</p>
+                  <button
+                    onClick={async () => { await navigator.clipboard.writeText(agreementLink).catch(() => {}); setAgreementCopied(true); }}
+                    className="flex items-center gap-1.5 text-xs text-[#4a90d9] hover:text-[#5aa0e9] font-medium"
+                  >
+                    {agreementCopied ? <><Check size={11} /> Copied!</> : <><Copy size={11} /> Copy link</>}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 px-5 pb-5">
+              <button
+                onClick={() => handleAgreementAction(true)}
+                disabled={agreementSending}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors disabled:opacity-50"
+              >
+                <Link2 size={14} />
+                {agreementSending && !agreementEmailSent ? 'Generating…' : 'Copy Link'}
+              </button>
+              <button
+                onClick={() => handleAgreementAction(false)}
+                disabled={agreementSending}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
+              >
+                <Send size={14} />
+                {agreementSending && !agreementCopied ? 'Sending…' : 'Send Email'}
               </button>
             </div>
           </div>

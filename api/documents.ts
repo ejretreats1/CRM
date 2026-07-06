@@ -1827,6 +1827,159 @@ async function metaPostCarousel(body: any, res: VercelResponse) {
   return res.status(200).json({ fbPostId, igPostId });
 }
 
+// ── CLEANER ONBOARDING (AGREEMENT) ───────────────────────────────────────────
+
+async function cleanerOnboardGet(token: string, res: VercelResponse) {
+  const supabase = getSupabase();
+  const { data: row } = await supabase
+    .from('cleaner_onboarding_tokens')
+    .select('cleaner_name, cleaner_email, status')
+    .eq('token', token)
+    .single();
+  if (!row) return res.status(404).json({ error: 'Invalid or expired link.' });
+  return res.status(200).json({ cleanerName: row.cleaner_name, cleanerEmail: row.cleaner_email, status: row.status });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleanerOnboardSend(body: any, res: VercelResponse) {
+  const { cleanerId, cleanerName, cleanerEmail, appUrl, sendEmail } = body;
+  if (!cleanerEmail?.trim()) return res.status(400).json({ error: 'cleanerEmail required.' });
+
+  const supabase = getSupabase();
+  const id = `cot_${Date.now()}`;
+  const token = randomUUID();
+
+  const { error: insertErr } = await supabase.from('cleaner_onboarding_tokens').insert({
+    id, token,
+    cleaner_id: cleanerId ?? null,
+    cleaner_name: cleanerName?.trim() ?? null,
+    cleaner_email: cleanerEmail.trim(),
+    status: 'pending',
+  });
+  if (insertErr) return res.status(500).json({ error: insertErr.message });
+
+  const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+  const link = `${base}?cleaner-onboard=${token}`;
+
+  if (sendEmail) {
+    try {
+      await (await getResend()).emails.send({
+        from: 'E&J Retreats <cleaning@ejretreats.com>',
+        to: cleanerEmail.trim(),
+        subject: 'Action required: Sign your E&J Retreats Contractor Agreement',
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+            <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+              <h2 style="color:#1e40af;margin:0 0 16px;font-size:20px">📋 Contractor Agreement</h2>
+              <p style="color:#334155;margin:0 0 12px">Hi ${cleanerName?.trim() ? cleanerName.trim().split(' ')[0] : 'there'},</p>
+              <p style="color:#334155;margin:0 0 16px">Please review and sign your E&J Retreats Independent Contractor Agreement. This includes your NDA and non-compete agreement. It only takes a few minutes.</p>
+              <div style="text-align:center;margin:28px 0">
+                <a href="${link}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">Review &amp; Sign Agreement</a>
+              </div>
+              <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">— E&amp;J Retreats</p>
+            </div>
+          </div>
+        `,
+      });
+    } catch {}
+  }
+
+  return res.status(200).json({ link });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleanerOnboardComplete(body: any, res: VercelResponse) {
+  const { token, name, address, phone, email, signatureDataUrl, signedAt } = body;
+  if (!token || !name?.trim() || !email?.trim() || !signatureDataUrl) {
+    return res.status(400).json({ error: 'Missing required fields.' });
+  }
+
+  const supabase = getSupabase();
+  const { data: row } = await supabase
+    .from('cleaner_onboarding_tokens')
+    .select('*')
+    .eq('token', token)
+    .single();
+  if (!row) return res.status(404).json({ error: 'Invalid or expired link.' });
+  if (row.status === 'completed') return res.status(200).json({ ok: true, alreadyComplete: true });
+
+  const now = signedAt || new Date().toISOString();
+  const agreementData = { name: name.trim(), address: address?.trim() ?? '', phone: phone?.trim() ?? '', email: email.trim(), signatureDataUrl, signedAt: now };
+
+  await supabase.from('cleaner_onboarding_tokens').update({
+    status: 'completed',
+    completed_at: now,
+    cleaner_name: name.trim(),
+    cleaner_email: email.trim(),
+    agreement_data: agreementData,
+  }).eq('token', token);
+
+  if (row.cleaner_id) {
+    await supabase.from('cleaners').update({ agreement_signed_at: now }).eq('id', row.cleaner_id);
+  }
+
+  const dateLabel = new Date(now).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  // Email copy to cleaner
+  try {
+    await (await getResend()).emails.send({
+      from: 'E&J Retreats <cleaning@ejretreats.com>',
+      to: email.trim(),
+      subject: 'Your signed E&J Retreats Contractor Agreement',
+      html: `
+        <div style="font-family:sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f8fafc">
+          <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+            <h2 style="color:#1e40af;margin:0 0 4px;font-size:20px">✅ Agreement Signed</h2>
+            <p style="color:#64748b;font-size:13px;margin:0 0 20px">Signed on ${dateLabel}</p>
+            <p style="color:#334155;margin:0 0 16px">Hi ${name.trim().split(' ')[0]},</p>
+            <p style="color:#334155;margin:0 0 20px">This confirms you have signed the E&J Retreats Independent Contractor Agreement. Your signature is on file.</p>
+            <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
+              <p style="margin:0 0 6px;font-size:13px;color:#64748b;font-weight:600">Your Details</p>
+              <p style="margin:0;font-size:14px;color:#0f172a"><strong>Name:</strong> ${name.trim()}</p>
+              ${address?.trim() ? `<p style="margin:4px 0 0;font-size:14px;color:#0f172a"><strong>Address:</strong> ${address.trim()}</p>` : ''}
+              ${phone?.trim() ? `<p style="margin:4px 0 0;font-size:14px;color:#0f172a"><strong>Phone:</strong> ${phone.trim()}</p>` : ''}
+              <p style="margin:4px 0 0;font-size:14px;color:#0f172a"><strong>Email:</strong> ${email.trim()}</p>
+              <p style="margin:4px 0 0;font-size:14px;color:#0f172a"><strong>Date:</strong> ${dateLabel}</p>
+            </div>
+            <div style="margin:0 0 20px">
+              <p style="margin:0 0 8px;font-size:13px;color:#64748b;font-weight:600">Your Signature on File</p>
+              <img src="${signatureDataUrl}" alt="Signature" style="max-width:240px;border:1px solid #e2e8f0;border-radius:8px;background:white;padding:8px" />
+            </div>
+            <p style="color:#94a3b8;font-size:12px;margin:0">Please keep this email for your records. Contact E&amp;J Retreats if you have any questions.<br>— E&amp;J Retreats</p>
+          </div>
+        </div>
+      `,
+    });
+  } catch {}
+
+  // Notify admin
+  try {
+    await (await getResend()).emails.send({
+      from: 'E&J Retreats <cleaning@ejretreats.com>',
+      to: 'ejretreats1@gmail.com',
+      subject: `✅ Contractor agreement signed: ${name.trim()}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f8fafc">
+          <div style="background:white;border-radius:12px;padding:24px;border:1px solid #e2e8f0">
+            <h2 style="margin:0 0 16px;color:#1e293b">📋 Contractor Agreement Signed</h2>
+            <p style="color:#334155;margin:0 0 4px"><strong>Name:</strong> ${name.trim()}</p>
+            <p style="color:#334155;margin:0 0 4px"><strong>Email:</strong> ${email.trim()}</p>
+            ${phone?.trim() ? `<p style="color:#334155;margin:0 0 4px"><strong>Phone:</strong> ${phone.trim()}</p>` : ''}
+            ${address?.trim() ? `<p style="color:#334155;margin:0 0 4px"><strong>Address:</strong> ${address.trim()}</p>` : ''}
+            <p style="color:#334155;margin:0 0 16px"><strong>Signed:</strong> ${dateLabel}</p>
+            <div>
+              <p style="margin:0 0 8px;font-size:13px;color:#64748b;font-weight:600">Signature</p>
+              <img src="${signatureDataUrl}" alt="Signature" style="max-width:240px;border:1px solid #e2e8f0;border-radius:8px;background:white;padding:8px" />
+            </div>
+          </div>
+        </div>
+      `,
+    });
+  } catch {}
+
+  return res.status(200).json({ ok: true });
+}
+
 // ── CLEANER DASHBOARD ─────────────────────────────────────────────────────────
 
 async function cleanerDashboardGet(cleanerId: string, res: VercelResponse) {
@@ -1947,6 +2100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.query.flow === 'onboarding' && token) return await onboardingGet(token, res);
     if (req.query.flow === 'cleaning' && token) return await cleaningGet(token, res);
     if (req.query.flow === 'cleaning-client' && token) return await cleaningClientGet(token, res);
+    if (req.query.flow === 'cleaner-onboard' && token) return await cleanerOnboardGet(token, res);
     if (req.query.flow === 'cleaner-connect' && req.query.combined) return await cleanerConnectVerify(req.query.combined as string, res);
     if (req.query.flow === 'cleaner-dashboard' && req.query.cleanerId) return await cleanerDashboardGet(req.query.cleanerId as string, res);
     return res.status(405).end();
@@ -1961,7 +2115,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { action, flow } = body;
-  if (flow === 'cleaner') {
+  if (flow === 'cleaner-onboard') {
+    if (action === 'send')     return await cleanerOnboardSend(body, res);
+    if (action === 'complete') return await cleanerOnboardComplete(body, res);
+  } else if (flow === 'cleaner') {
     if (action === 'send-connect')    return await cleanerConnectSend(body, res);
     if (action === 'connect-url')     return await cleanerConnectUrl(body, res);
     if (action === 'dashboard-accept') return await cleanerDashboardAccept(body, res);
