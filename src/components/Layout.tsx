@@ -29,6 +29,7 @@ import {
   LayoutGrid,
   UserPlus,
   BookOpen,
+  MessageSquare,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -71,6 +72,7 @@ const CLEANING_NAV_ITEMS = [
   { id: 'cleaning-cleaners' as View,   label: 'Cleaners',   icon: Users },
   { id: 'cleaning-payments' as View,   label: 'Payments',   icon: CreditCard },
   { id: 'cleaning-sops' as View,       label: "SOP's",      icon: BookOpen },
+  { id: 'cleaning-sms' as View,        label: 'SMS Outreach', icon: MessageSquare },
 ];
 
 // Bottom tab bar shows the 4 most-used views per mode; the rest live in "More"

@@ -27,8 +27,9 @@ import PropertiesView from './PropertiesView';
 import ScheduleView from './ScheduleView';
 import CleaningLeadsView from './CleaningLeadsView';
 import SopsView from './SopsView';
+import SmsView from './SmsView';
 
-type CleaningView = 'cleaning-dashboard' | 'cleaning-schedule' | 'cleaning-jobs' | 'cleaning-properties' | 'cleaning-cleaners' | 'cleaning-payments' | 'cleaning-leads' | 'cleaning-sops';
+type CleaningView = 'cleaning-dashboard' | 'cleaning-schedule' | 'cleaning-jobs' | 'cleaning-properties' | 'cleaning-cleaners' | 'cleaning-payments' | 'cleaning-leads' | 'cleaning-sops' | 'cleaning-sms';
 
 interface Props {
   currentView: View;
@@ -674,6 +675,9 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
           )}
           {active === 'cleaning-leads' && (
             <CleaningLeadsView leads={leads} onSave={handleSaveLead} onDelete={handleDeleteLead} />
+          )}
+          {active === 'cleaning-sms' && (
+            <SmsView leads={leads} />
           )}
         </div>
       )}
