@@ -27,8 +27,9 @@ import PropertiesView from './PropertiesView';
 import ScheduleView from './ScheduleView';
 import CleaningLeadsView from './CleaningLeadsView';
 import SopsView from './SopsView';
+import EmailMarketingView from './EmailMarketingView';
 
-type CleaningView = 'cleaning-dashboard' | 'cleaning-schedule' | 'cleaning-jobs' | 'cleaning-properties' | 'cleaning-cleaners' | 'cleaning-payments' | 'cleaning-leads' | 'cleaning-sops';
+type CleaningView = 'cleaning-dashboard' | 'cleaning-schedule' | 'cleaning-jobs' | 'cleaning-properties' | 'cleaning-cleaners' | 'cleaning-payments' | 'cleaning-leads' | 'cleaning-sops' | 'cleaning-email';
 
 interface Props {
   currentView: View;
@@ -630,7 +631,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
       )}
 
       {/* Padded scrollable views */}
-      {active !== 'cleaning-sops' && (
+      {active !== 'cleaning-sops' && active !== 'cleaning-email' && (
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           {active === 'cleaning-dashboard' && (
             <CleaningDashboard jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} />
@@ -675,6 +676,12 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
           {active === 'cleaning-leads' && (
             <CleaningLeadsView leads={leads} onSave={handleSaveLead} onDelete={handleDeleteLead} />
           )}
+        </div>
+      )}
+
+      {active === 'cleaning-email' && (
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <EmailMarketingView />
         </div>
       )}
     </div>

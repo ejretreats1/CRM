@@ -2088,6 +2088,154 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
   return res.status(200).json({ success: true });
 }
 
+// ── EMAIL MARKETING ──────────────────────────────────────────────────────────
+
+async function emailMktGetTemplates(res: VercelResponse) {
+  const { data, error } = await getSupabase().from('email_mkt_templates').select('*').order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ templates: data ?? [] });
+}
+
+async function emailMktGetCampaigns(res: VercelResponse) {
+  const { data, error } = await getSupabase().from('email_mkt_campaigns').select('*').order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ campaigns: data ?? [] });
+}
+
+async function emailMktUpsertTemplate(body: any, res: VercelResponse) {
+  const now = new Date().toISOString();
+  const id = body.id ?? `emtpl_${Date.now()}`;
+  const { error } = await getSupabase().from('email_mkt_templates').upsert(
+    { id, name: body.name, subject: body.subject, body_html: body.body_html, updated_at: now },
+    { onConflict: 'id' }
+  );
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ id });
+}
+
+async function emailMktDeleteTemplate(body: any, res: VercelResponse) {
+  const { error } = await getSupabase().from('email_mkt_templates').delete().eq('id', body.id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true });
+}
+
+async function emailMktSendCampaign(body: any, res: VercelResponse) {
+  const { campaignName, templateId, subject, bodyHtml, leads, leadCategory, batchSize = 50 } = body;
+  if (!subject || !bodyHtml || !Array.isArray(leads) || leads.length === 0)
+    return res.status(400).json({ error: 'subject, bodyHtml, and leads[] required.' });
+
+  const sb = getSupabase();
+  const resend = await getResend();
+  const campaignId = `emkc_${Date.now()}`;
+  const now = new Date().toISOString();
+  const appUrl = process.env.VITE_APP_URL ?? 'https://ej-retreat.vercel.app';
+
+  // Check unsubscribes
+  const { data: unsubs } = await sb.from('email_mkt_unsubscribes').select('email');
+  const unsubSet = new Set((unsubs ?? []).map((u: any) => u.email.toLowerCase()));
+
+  const { error: cErr } = await sb.from('email_mkt_campaigns').insert({
+    id: campaignId, name: campaignName || `Campaign ${new Date().toLocaleDateString()}`,
+    template_id: templateId ?? null, subject, body_html: bodyHtml,
+    lead_category: leadCategory ?? 'Property Management',
+    status: 'sending', sent_count: 0, open_count: 0, click_count: 0, calls_set: 0, closes: 0,
+    created_at: now, sent_at: now,
+  });
+  if (cErr) return res.status(500).json({ error: cErr.message });
+
+  let sentCount = 0;
+  const recipients: any[] = [];
+  const batch = Math.min(batchSize, 250);
+
+  for (let i = 0; i < leads.length; i += batch) {
+    const chunk = leads.slice(i, i + batch);
+    for (const lead of chunk) {
+      const email: string = lead.email?.trim();
+      if (!email) continue;
+      if (unsubSet.has(email.toLowerCase())) {
+        recipients.push({ id: randomUUID(), campaign_id: campaignId, lead_id: lead.id, lead_name: lead.name, email, status: 'unsubscribed', sent_at: now });
+        continue;
+      }
+      const unsubLink = `${appUrl}/api/documents?flow=email-mkt&action=unsubscribe&email=${encodeURIComponent(email)}&cid=${campaignId}`;
+      const personalBody = bodyHtml
+        .replace(/\{name\}/gi, lead.name || 'there')
+        .replace(/\{company\}/gi, lead.company || '')
+        .replace(/\{city\}/gi, lead.city || '')
+        .replace(/\{unsubscribe_link\}/gi, unsubLink);
+      const htmlBody = personalBody.includes('<') ? personalBody
+        : `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:600px">${personalBody.replace(/\n/g, '<br/>')}<br/><br/><hr style="border:none;border-top:1px solid #eee;margin:24px 0"/><p style="font-size:12px;color:#999">To unsubscribe, <a href="${unsubLink}">click here</a>.</p></div>`;
+      try {
+        const r = await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL ?? 'team@ejretreats.com',
+          to: email,
+          subject: subject.replace(/\{name\}/gi, lead.name || '').replace(/\{company\}/gi, lead.company || ''),
+          html: htmlBody,
+        });
+        sentCount++;
+        recipients.push({ id: randomUUID(), campaign_id: campaignId, lead_id: lead.id, lead_name: lead.name, email, status: 'sent', sent_at: now, resend_email_id: r?.data?.id });
+      } catch (e: any) {
+        recipients.push({ id: randomUUID(), campaign_id: campaignId, lead_id: lead.id, lead_name: lead.name, email, status: 'failed', sent_at: now, error_msg: e.message ?? 'Send failed' });
+      }
+    }
+    // Small pause between batches to be friendly to Resend rate limits
+    if (i + batch < leads.length) await new Promise(r => setTimeout(r, 500));
+  }
+
+  if (recipients.length > 0) await sb.from('email_mkt_recipients').insert(recipients);
+  await sb.from('email_mkt_campaigns').update({ sent_count: sentCount, status: 'sent' }).eq('id', campaignId);
+  return res.json({ campaignId, sentCount, totalLeads: leads.length });
+}
+
+async function emailMktUpdateStats(body: any, res: VercelResponse) {
+  const update: any = {};
+  if (typeof body.callsSet === 'number') update.calls_set = body.callsSet;
+  if (typeof body.closes === 'number') update.closes = body.closes;
+  const { error } = await getSupabase().from('email_mkt_campaigns').update(update).eq('id', body.campaignId);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true });
+}
+
+async function emailMktDeleteCampaign(body: any, res: VercelResponse) {
+  const sb = getSupabase();
+  await sb.from('email_mkt_recipients').delete().eq('campaign_id', body.id);
+  const { error } = await sb.from('email_mkt_campaigns').delete().eq('id', body.id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true });
+}
+
+async function emailMktUnsubscribe(req: VercelRequest, res: VercelResponse) {
+  const email = (req.query.email ?? req.body?.email ?? '') as string;
+  if (!email) return res.status(400).send('Missing email');
+  await getSupabase().from('email_mkt_unsubscribes').upsert({ email: email.toLowerCase(), unsubscribed_at: new Date().toISOString() }, { onConflict: 'email' });
+  res.setHeader('Content-Type', 'text/html');
+  return res.status(200).send(`<!doctype html><html><body style="font-family:sans-serif;text-align:center;padding:60px 20px"><h2 style="color:#222">You've been unsubscribed</h2><p style="color:#666">You will no longer receive emails from E&J Retreats Cleaning.<br/>If this was a mistake, reply to any previous email.</p></body></html>`);
+}
+
+// Handle Resend open/click webhooks for email marketing campaigns
+async function emailMktHandleWebhook(body: any, res: VercelResponse) {
+  const sb = getSupabase();
+  const emailId: string = body.data?.email_id ?? body.data?.id;
+  const type: string = body.type; // email.opened, email.clicked
+  if (!emailId) return res.json({ ok: true });
+  const now = new Date().toISOString();
+  if (type === 'email.opened') {
+    const { data: rec } = await sb.from('email_mkt_recipients').select('id, campaign_id').eq('resend_email_id', emailId).single();
+    if (rec) {
+      await sb.from('email_mkt_recipients').update({ status: 'opened', opened_at: now }).eq('id', rec.id);
+      const { data: camp } = await sb.from('email_mkt_campaigns').select('open_count').eq('id', rec.campaign_id).single();
+      if (camp) await sb.from('email_mkt_campaigns').update({ open_count: (camp.open_count ?? 0) + 1 }).eq('id', rec.campaign_id);
+    }
+  } else if (type === 'email.clicked') {
+    const { data: rec } = await sb.from('email_mkt_recipients').select('id, campaign_id').eq('resend_email_id', emailId).single();
+    if (rec) {
+      await sb.from('email_mkt_recipients').update({ clicked_at: now }).eq('id', rec.id);
+      const { data: camp } = await sb.from('email_mkt_campaigns').select('click_count').eq('id', rec.campaign_id).single();
+      if (camp) await sb.from('email_mkt_campaigns').update({ click_count: (camp.click_count ?? 0) + 1 }).eq('id', rec.campaign_id);
+    }
+  }
+  return res.json({ ok: true });
+}
+
 // ── SMS ───────────────────────────────────────────────────────────────────────
 
 let _twilio: any = null;
@@ -2238,6 +2386,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (req.query.action === 'templates') return await smsGetTemplates(res);
       if (req.query.action === 'campaigns') return await smsGetCampaigns(res);
     }
+    if (req.query.flow === 'email-mkt') {
+      if (req.query.action === 'templates') return await emailMktGetTemplates(res);
+      if (req.query.action === 'campaigns') return await emailMktGetCampaigns(res);
+      if (req.query.action === 'unsubscribe') return await emailMktUnsubscribe(req, res);
+    }
     return res.status(405).end();
   }
 
@@ -2288,6 +2441,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'confirm')         return await cleaningClientConfirm(body, res);
   } else if (flow === 'content') {
     if (action === 'generate') return await contentGenerate(body, res);
+  } else if (flow === 'email-mkt') {
+    if (action === 'upsert-template') return await emailMktUpsertTemplate(body, res);
+    if (action === 'delete-template') return await emailMktDeleteTemplate(body, res);
+    if (action === 'send-campaign') return await emailMktSendCampaign(body, res);
+    if (action === 'update-campaign-stats') return await emailMktUpdateStats(body, res);
+    if (action === 'delete-campaign') return await emailMktDeleteCampaign(body, res);
+    if (action === 'webhook') return await emailMktHandleWebhook(body, res);
   } else if (flow === 'sms') {
     if (action === 'inbound') return await smsInbound(req, res);
     if (action === 'upsert-template') return await smsUpsertTemplate(body, res);
