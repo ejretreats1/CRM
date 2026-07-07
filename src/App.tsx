@@ -21,6 +21,7 @@ import CalendarIntelligence from './components/CalendarIntelligence';
 import EmailTracking from './components/EmailTracking';
 import DealScanner from './components/DealScanner';
 import LeadCampaigns from './components/LeadCampaigns';
+import SmsView from './components/cleaning/SmsView';
 import ShareView from './components/ShareView';
 import PortalView from './components/PortalView';
 import OwnerPortalPage from './components/OwnerPortalPage';
@@ -764,6 +765,8 @@ export default function App() {
           warmupAddresses={warmupAddresses}
         />
       )}
+
+      {view === 'sms-outreach' && <SmsView />}
 
       {view === 'esign' && (
         <ESign userId={user?.id ?? 'crm'} />

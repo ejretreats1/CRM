@@ -59,6 +59,7 @@ const PROPERTY_NAV_ITEMS = [
   { id: 'email-tracking' as View,   label: 'Email Tracking',       icon: MailOpen },
   { id: 'deal-scanner' as View,     label: 'Deal Scanner',         icon: ScanSearch },
   { id: 'campaigns' as View,        label: 'Lead Campaigns',        icon: Send },
+  { id: 'sms-outreach' as View,     label: 'SMS Outreach',          icon: MessageSquare },
   { id: 'esign' as View,            label: 'E-Sign Documents',      icon: FileSignature },
   { id: 'content-studio' as View,   label: 'Content Studio',        icon: Wand2 },
 ];
@@ -72,7 +73,6 @@ const CLEANING_NAV_ITEMS = [
   { id: 'cleaning-cleaners' as View,   label: 'Cleaners',   icon: Users },
   { id: 'cleaning-payments' as View,   label: 'Payments',   icon: CreditCard },
   { id: 'cleaning-sops' as View,       label: "SOP's",      icon: BookOpen },
-  { id: 'cleaning-sms' as View,        label: 'SMS Outreach', icon: MessageSquare },
 ];
 
 // Bottom tab bar shows the 4 most-used views per mode; the rest live in "More"

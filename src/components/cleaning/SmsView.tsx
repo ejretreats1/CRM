@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Send, MessageSquare, TrendingUp, Phone, Target, ChevronDown, ChevronUp, AlertCircle, Users, X } from 'lucide-react';
 import type { CleaningLead } from '../../services/cleaningDb';
+import { fetchCleaningLeads } from '../../services/cleaningDb';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,9 +28,6 @@ interface SmsCampaign {
   sent_at: string | null;
 }
 
-interface Props {
-  leads: CleaningLead[];
-}
 
 // ─── Stat tile ────────────────────────────────────────────────────────────────
 
@@ -461,7 +459,8 @@ function CampaignCard({ campaign, onUpdateStats, onDelete }: {
 
 // ─── Main SmsView ─────────────────────────────────────────────────────────────
 
-export default function SmsView({ leads }: Props) {
+export default function SmsView() {
+  const [leads, setLeads] = useState<CleaningLead[]>([]);
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [campaigns, setCampaigns] = useState<SmsCampaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -477,14 +476,16 @@ export default function SmsView({ leads }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [tRes, cRes] = await Promise.all([
+      const [tRes, cRes, cleaningLeads] = await Promise.all([
         fetch('/api/documents?flow=sms&action=templates'),
         fetch('/api/documents?flow=sms&action=campaigns'),
+        fetchCleaningLeads(),
       ]);
       if (!tRes.ok || !cRes.ok) throw new Error('Failed to load SMS data');
       const [tData, cData] = await Promise.all([tRes.json(), cRes.json()]);
       setTemplates(tData.templates ?? []);
       setCampaigns(cData.campaigns ?? []);
+      setLeads(cleaningLeads);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Load failed.');
     } finally {
