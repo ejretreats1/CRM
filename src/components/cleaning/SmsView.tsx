@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Send, MessageSquare, TrendingUp, Phone, Target, Copy, Check, ChevronDown, ChevronUp, AlertCircle, Users, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Send, MessageSquare, TrendingUp, Phone, Target, ChevronDown, ChevronUp, AlertCircle, Users, X } from 'lucide-react';
 import type { CleaningLead } from '../../services/cleaningDb';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
