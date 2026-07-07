@@ -2088,6 +2088,136 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
   return res.status(200).json({ success: true });
 }
 
+// ── SMS ───────────────────────────────────────────────────────────────────────
+
+let _twilio: any = null;
+async function getTwilio() {
+  if (!_twilio) {
+    const { default: Twilio } = await import('twilio');
+    _twilio = new Twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
+  }
+  return _twilio;
+}
+const TWILIO_FROM = () => process.env.TWILIO_PHONE_NUMBER!;
+
+function normalizePhone(raw: string): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  if (digits.length > 11) return `+${digits}`;
+  return null;
+}
+
+async function smsGetTemplates(res: VercelResponse) {
+  const { data, error } = await getSupabase().from('sms_templates').select('*').order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ templates: data ?? [] });
+}
+
+async function smsGetCampaigns(res: VercelResponse) {
+  const { data, error } = await getSupabase().from('sms_campaigns').select('*').order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ campaigns: data ?? [] });
+}
+
+async function smsUpsertTemplate(body: any, res: VercelResponse) {
+  const now = new Date().toISOString();
+  const id = body.id ?? `smstpl_${Date.now()}`;
+  const { error } = await getSupabase().from('sms_templates').upsert({ id, name: body.name, body: body.body, updated_at: now }, { onConflict: 'id' });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ id });
+}
+
+async function smsDeleteTemplate(body: any, res: VercelResponse) {
+  const { error } = await getSupabase().from('sms_templates').delete().eq('id', body.id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true });
+}
+
+async function smsSendCampaign(body: any, res: VercelResponse) {
+  const { campaignName, templateId, templateBody, leads } = body;
+  if (!templateBody || !Array.isArray(leads) || leads.length === 0)
+    return res.status(400).json({ error: 'templateBody and leads[] required.' });
+
+  const sb = getSupabase();
+  const twilio = await getTwilio();
+  const campaignId = `smsc_${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const { error: cErr } = await sb.from('sms_campaigns').insert({
+    id: campaignId,
+    name: campaignName || `Campaign ${new Date().toLocaleDateString()}`,
+    template_id: templateId ?? null,
+    template_body: templateBody,
+    status: 'sending',
+    lead_category: body.leadCategory ?? 'Property Management',
+    sent_count: 0, response_count: 0, calls_set: 0, closes: 0,
+    created_at: now, sent_at: now,
+  });
+  if (cErr) return res.status(500).json({ error: cErr.message });
+
+  let sentCount = 0;
+  const recipients: any[] = [];
+  for (const lead of leads) {
+    const phone = normalizePhone(lead.phone);
+    if (!phone) {
+      recipients.push({ id: randomUUID(), campaign_id: campaignId, lead_id: lead.id, lead_name: lead.name, phone: lead.phone, status: 'failed', sent_at: now, error_msg: 'Invalid phone number' });
+      continue;
+    }
+    const msg_body = templateBody.replace(/\{name\}/gi, lead.name || 'there').replace(/\{company\}/gi, lead.company || '');
+    try {
+      const msg = await twilio.messages.create({ body: msg_body, from: TWILIO_FROM(), to: phone });
+      sentCount++;
+      recipients.push({ id: randomUUID(), campaign_id: campaignId, lead_id: lead.id, lead_name: lead.name, phone, status: 'sent', sent_at: now, twilio_message_sid: msg.sid });
+    } catch (e: any) {
+      recipients.push({ id: randomUUID(), campaign_id: campaignId, lead_id: lead.id, lead_name: lead.name, phone, status: 'failed', sent_at: now, error_msg: e.message ?? 'Send failed' });
+    }
+  }
+  if (recipients.length > 0) await sb.from('sms_campaign_recipients').insert(recipients);
+  await sb.from('sms_campaigns').update({ sent_count: sentCount, status: 'sent' }).eq('id', campaignId);
+  return res.json({ campaignId, sentCount, totalLeads: leads.length });
+}
+
+async function smsUpdateStats(body: any, res: VercelResponse) {
+  const update: any = {};
+  if (typeof body.callsSet === 'number') update.calls_set = body.callsSet;
+  if (typeof body.closes === 'number') update.closes = body.closes;
+  const { error } = await getSupabase().from('sms_campaigns').update(update).eq('id', body.campaignId);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true });
+}
+
+async function smsDeleteCampaign(body: any, res: VercelResponse) {
+  const sb = getSupabase();
+  await sb.from('sms_campaign_recipients').delete().eq('campaign_id', body.id);
+  const { error } = await sb.from('sms_campaigns').delete().eq('id', body.id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true });
+}
+
+async function smsInbound(req: VercelRequest, res: VercelResponse) {
+  const fromRaw: string = (req.body?.From ?? req.query?.From ?? '') as string;
+  const msgBody: string = (req.body?.Body ?? req.query?.Body ?? '') as string;
+  const sid: string = (req.body?.MessageSid ?? '') as string;
+  if (!fromRaw) return res.status(400).send('Missing From');
+  const from = normalizePhone(fromRaw) ?? fromRaw;
+  const sb = getSupabase();
+  const now = new Date().toISOString();
+  await sb.from('sms_inbound_messages').insert({ id: randomUUID(), from_phone: from, body: msgBody, twilio_sid: sid, received_at: now });
+  const { data: recipient } = await sb.from('sms_campaign_recipients').select('id, campaign_id, status').eq('phone', from).eq('status', 'sent').order('sent_at', { ascending: false }).limit(1).single();
+  if (recipient) {
+    await sb.from('sms_campaign_recipients').update({ status: 'responded', responded_at: now }).eq('id', recipient.id);
+    const { data: camp } = await sb.from('sms_campaigns').select('response_count').eq('id', recipient.campaign_id).single();
+    if (camp) await sb.from('sms_campaigns').update({ response_count: (camp.response_count ?? 0) + 1 }).eq('id', recipient.campaign_id);
+  }
+  if (/^\s*stop\s*$/i.test(msgBody)) {
+    await sb.from('sms_campaign_recipients').update({ status: 'opted_out' }).eq('phone', from).eq('status', 'sent');
+  }
+  res.setHeader('Content-Type', 'text/xml');
+  return res.status(200).send('<Response></Response>');
+}
+
 // ── ROUTER ────────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -2104,6 +2234,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.query.flow === 'cleaner-onboard' && token) return await cleanerOnboardGet(token, res);
     if (req.query.flow === 'cleaner-connect' && req.query.combined) return await cleanerConnectVerify(req.query.combined as string, res);
     if (req.query.flow === 'cleaner-dashboard' && req.query.cleanerId) return await cleanerDashboardGet(req.query.cleanerId as string, res);
+    if (req.query.flow === 'sms') {
+      if (req.query.action === 'templates') return await smsGetTemplates(res);
+      if (req.query.action === 'campaigns') return await smsGetCampaigns(res);
+    }
     return res.status(405).end();
   }
 
@@ -2115,7 +2249,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return await handleResendWebhook(body, res);
   }
 
-  const { action, flow } = body;
+  const action: string = body.action ?? req.query.action as string;
+  const flow: string = body.flow ?? req.query.flow as string;
   if (flow === 'cleaner-onboard') {
     if (action === 'send')     return await cleanerOnboardSend(body, res);
     if (action === 'complete') return await cleanerOnboardComplete(body, res);
@@ -2153,6 +2288,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'confirm')         return await cleaningClientConfirm(body, res);
   } else if (flow === 'content') {
     if (action === 'generate') return await contentGenerate(body, res);
+  } else if (flow === 'sms') {
+    if (action === 'inbound') return await smsInbound(req, res);
+    if (action === 'upsert-template') return await smsUpsertTemplate(body, res);
+    if (action === 'delete-template') return await smsDeleteTemplate(body, res);
+    if (action === 'send-campaign') return await smsSendCampaign(body, res);
+    if (action === 'update-campaign-stats') return await smsUpdateStats(body, res);
+    if (action === 'delete-campaign') return await smsDeleteCampaign(body, res);
   } else if (flow === 'meta') {
     if (action === 'connect')        return await metaConnect(body, res);
     if (action === 'post-facebook')  return await metaPostFacebook(body, res);

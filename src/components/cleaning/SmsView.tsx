@@ -478,8 +478,8 @@ export default function SmsView({ leads }: Props) {
     setError(null);
     try {
       const [tRes, cRes] = await Promise.all([
-        fetch('/api/sms?action=templates'),
-        fetch('/api/sms?action=campaigns'),
+        fetch('/api/documents?flow=sms&action=templates'),
+        fetch('/api/documents?flow=sms&action=campaigns'),
       ]);
       if (!tRes.ok || !cRes.ok) throw new Error('Failed to load SMS data');
       const [tData, cData] = await Promise.all([tRes.json(), cRes.json()]);
@@ -495,7 +495,7 @@ export default function SmsView({ leads }: Props) {
   useEffect(() => { load(); }, [load]);
 
   async function handleSaveTemplate(t: { id?: string; name: string; body: string }) {
-    const r = await fetch('/api/sms?action=upsert-template', {
+    const r = await fetch('/api/documents?flow=sms&action=upsert-template', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'upsert-template', ...t }),
@@ -507,7 +507,7 @@ export default function SmsView({ leads }: Props) {
 
   async function handleDeleteTemplate(id: string) {
     if (!confirm('Delete this template?')) return;
-    const r = await fetch('/api/sms?action=delete-template', {
+    const r = await fetch('/api/documents?flow=sms&action=delete-template', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete-template', id }),
@@ -517,7 +517,7 @@ export default function SmsView({ leads }: Props) {
   }
 
   async function handleSendCampaign(payload: { campaignName: string; templateId?: string; templateBody: string; leads: CleaningLead[]; leadCategory: string }) {
-    const r = await fetch('/api/sms?action=send-campaign', {
+    const r = await fetch('/api/documents?flow=sms&action=send-campaign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'send-campaign', ...payload }),
@@ -533,7 +533,7 @@ export default function SmsView({ leads }: Props) {
   }
 
   async function handleUpdateStats(id: string, callsSet: number, closes: number) {
-    const r = await fetch('/api/sms?action=update-campaign-stats', {
+    const r = await fetch('/api/documents?flow=sms&action=update-campaign-stats', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'update-campaign-stats', campaignId: id, callsSet, closes }),
@@ -543,7 +543,7 @@ export default function SmsView({ leads }: Props) {
   }
 
   async function handleDeleteCampaign(id: string) {
-    const r = await fetch('/api/sms?action=delete-campaign', {
+    const r = await fetch('/api/documents?flow=sms&action=delete-campaign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete-campaign', id }),
@@ -684,7 +684,7 @@ CREATE POLICY "anon_all" ON sms_inbound_messages FOR ALL USING (true) WITH CHECK
           <p>• Register your brand for <strong>10DLC</strong> in the Twilio console (Messaging → Regulatory Compliance) — required for all US business SMS since 2023</p>
           <p>• Only text business prospects during business hours (8am–9pm recipient's time)</p>
           <p>• Honor STOP replies immediately — our system handles this automatically via the Twilio webhook</p>
-          <p>• Set your Twilio inbound webhook to: <code className="bg-[#0f1923] px-1 rounded text-[#5ce0a0]">{window?.location?.origin}/api/sms?action=inbound</code></p>
+          <p>• Set your Twilio inbound webhook to: <code className="bg-[#0f1923] px-1 rounded text-[#5ce0a0]">{window?.location?.origin}/api/documents?flow=sms&action=inbound</code></p>
         </div>
       </div>
 
