@@ -2485,6 +2485,148 @@ async function smsInbound(req: VercelRequest, res: VercelResponse) {
 
 // ── ROUTER ────────────────────────────────────────────────────────────────────
 
+// ─── Lead Scraper ─────────────────────────────────────────────────────────────
+
+const SCRAPER_SKIP_DOMAINS = [
+  'facebook.com','linkedin.com','instagram.com','twitter.com','x.com','reddit.com',
+  'wikipedia.org','bbb.org','angi.com','thumbtack.com','apartments.com','realtor.com',
+  'zillow.com','trulia.com','redfin.com','indeed.com','glassdoor.com','google.com',
+  'bing.com','duckduckgo.com','yahoo.com','mapquest.com','homeadvisor.com',
+  'angieslist.com','houzz.com','alignable.com','manta.com','chamberofcommerce.com',
+  'yelp.com','yellowpages.com','whitepages.com','superpages.com','foursquare.com',
+];
+
+function isNoiseEmail(email: string): boolean {
+  const lower = email.toLowerCase();
+  if (/^(noreply|no-reply|donotreply|bounce|mailer-daemon|postmaster|webmaster|admin|info@wix|support@wix|privacy|legal|security)@/.test(lower)) return true;
+  if (/(wixpress|squarespace|wordpress|godaddy|hostgator|siteground|elementor|mailchimp|sendgrid|amazonaws|cloudfront|akamai|fastly|sentry\.io|hubspot|salesforce|zendesk)/.test(lower)) return true;
+  if (/\.(png|jpg|jpeg|gif|svg|webp|css|js|pdf|doc|xml|json|ico|woff|ttf)$/.test(lower)) return true;
+  const parts = lower.split('@');
+  if (parts.length !== 2) return true;
+  const tld = parts[1].split('.').pop() || '';
+  if (tld.length < 2 || tld.length > 6) return true;
+  return false;
+}
+
+async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
+  const { businessType = 'property management', city = '', state = '', count = '20' } = req.query as Record<string, string>;
+  const cityState = `${city} ${state}`.trim();
+  if (!cityState) return res.status(400).json({ error: 'city and state required' });
+
+  const typeQueries: Record<string, string[]> = {
+    'property management': [`property management companies ${cityState}`, `property managers ${cityState}`, `residential property management ${cityState}`],
+    'realtor':             [`realtors ${cityState}`, `real estate agents ${cityState}`, `real estate team ${cityState}`],
+    'short term rental':   [`vacation rental management ${cityState}`, `short term rental management ${cityState}`, `airbnb property manager ${cityState}`],
+    'investor':            [`real estate investors ${cityState}`, `property investors ${cityState}`, `real estate investment company ${cityState}`],
+  };
+  const queries = typeQueries[businessType] ?? [`${businessType} ${cityState}`];
+  const maxCount = Math.min(parseInt(count) || 20, 60);
+  const seen = new Set<string>();
+  const results: { name: string; url: string; description: string }[] = [];
+
+  for (const q of queries) {
+    if (results.length >= maxCount) break;
+    try {
+      const r = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!r.ok) continue;
+      const html = await r.text();
+
+      const linkRe = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+      const snipRe = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
+      const linkMatches = [...html.matchAll(linkRe)];
+      const snipMatches = [...html.matchAll(snipRe)];
+
+      for (let i = 0; i < linkMatches.length && results.length < maxCount; i++) {
+        let rawUrl = linkMatches[i][1];
+        // Decode DDG redirect URLs
+        if (rawUrl.includes('duckduckgo.com/l/?')) {
+          try { rawUrl = new URL('https:' + rawUrl.replace(/^\/\//, '')).searchParams.get('uddg') ?? rawUrl; } catch {}
+        }
+        rawUrl = decodeURIComponent(rawUrl);
+        if (!rawUrl.startsWith('http')) continue;
+        let hostname = '';
+        try { hostname = new URL(rawUrl).hostname.replace(/^www\./, ''); } catch { continue; }
+        if (SCRAPER_SKIP_DOMAINS.some(d => hostname.includes(d))) continue;
+        if (seen.has(hostname)) continue;
+        seen.add(hostname);
+        const title = linkMatches[i][2].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#\d+;/g, '').trim();
+        const snippet = (snipMatches[i]?.[1] ?? '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim();
+        results.push({ name: title || hostname, url: rawUrl, description: snippet });
+      }
+
+      if (queries.indexOf(q) < queries.length - 1) await new Promise(r => setTimeout(r, 800));
+    } catch { continue; }
+  }
+
+  return res.status(200).json({ results, count: results.length });
+}
+
+async function scraperScrapeEmails(body: any, res: VercelResponse) {
+  const { urls } = body;
+  if (!Array.isArray(urls) || !urls.length) return res.status(400).json({ error: 'urls[] required' });
+
+  const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,6}/g;
+  const PHONE_RE = /(?:\+?1[-.\s]?)?\(?([2-9][0-9]{2})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g;
+
+  const results = await Promise.all(urls.slice(0, 25).map(async (url: string) => {
+    try {
+      const base = new URL(url);
+      const pagesToFetch = [
+        url,
+        `${base.origin}/contact`,
+        `${base.origin}/contact-us`,
+        `${base.origin}/about`,
+        `${base.origin}/team`,
+      ];
+
+      const htmlPages = await Promise.all(pagesToFetch.map(async p => {
+        try {
+          const r = await fetch(p, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+            signal: AbortSignal.timeout(8000),
+            redirect: 'follow',
+          });
+          return r.ok ? await r.text() : '';
+        } catch { return ''; }
+      }));
+
+      const allHtml = htmlPages.join('\n');
+
+      // Business name from <title>
+      const titleMatch = allHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const rawTitle = titleMatch?.[1]?.replace(/<[^>]+>/g, '').trim() ?? '';
+      const businessName = rawTitle
+        .replace(/\s*[-–|·•]\s*.+$/, '')   // strip "Company | Tagline" suffix
+        .replace(/\s+/g, ' ')
+        .trim() || new URL(url).hostname.replace(/^www\./, '');
+
+      // Extract emails
+      const rawEmails = allHtml.match(EMAIL_RE) ?? [];
+      const emails = [...new Set(rawEmails.filter(e => !isNoiseEmail(e)).map(e => e.toLowerCase()))].slice(0, 5);
+
+      // Extract phones
+      const rawPhones = allHtml.match(PHONE_RE) ?? [];
+      const phones = [...new Set(rawPhones.map(p => {
+        const digits = p.replace(/\D/g, '').replace(/^1/, '');
+        return digits.length === 10 ? `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}` : null;
+      }).filter(Boolean) as string[])].slice(0, 3);
+
+      return { url, businessName, emails, phones, found: emails.length > 0 };
+    } catch (e) {
+      return { url, businessName: new URL(url).hostname.replace(/^www\./, ''), emails: [], phones: [], found: false, error: String(e) };
+    }
+  }));
+
+  return res.status(200).json({ results });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
   // Health check — no DB or email needed
@@ -2508,6 +2650,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (req.query.action === 'campaigns') return await emailMktGetCampaigns(res);
       if (req.query.action === 'unsubscribe') return await emailMktUnsubscribe(req, res);
     }
+    if (req.query.flow === 'scraper' && req.query.action === 'find-urls') return await scraperFindUrls(req, res);
     return res.status(405).end();
   }
 
@@ -2613,6 +2756,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } else {
     if (action === 'send')     return await sigSend(body, res);
     if (action === 'complete') return await sigComplete(body, res);
+  }
+
+  } else if (flow === 'scraper') {
+    if (action === 'scrape-emails') return await scraperScrapeEmails(body, res);
   }
 
   return res.status(400).json({ error: 'Unknown action.' });
