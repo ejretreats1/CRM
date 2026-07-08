@@ -2795,6 +2795,221 @@ async function scraperScrapeEmails(body: any, res: VercelResponse) {
   return res.status(200).json({ results });
 }
 
+// ── SIGNED DOCUMENT PDF DOWNLOADS ────────────────────────────────────────────
+
+async function cleanerAgreementPdf(req: VercelRequest, res: VercelResponse) {
+  const cleanerId = req.query.cleanerId as string;
+  if (!cleanerId) return res.status(400).json({ error: 'cleanerId required' });
+
+  const supabase = getSupabase();
+  const { data: row } = await supabase
+    .from('cleaner_onboarding_tokens')
+    .select('agreement_data, cleaner_name, completed_at')
+    .eq('cleaner_id', cleanerId)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!row?.agreement_data) return res.status(404).json({ error: 'No signed agreement found for this cleaner.' });
+
+  const d = row.agreement_data as { name: string; address: string; phone: string; email: string; signatureDataUrl: string; signedAt: string };
+
+  const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([612, 792]);
+  const { width, height } = page.getSize();
+
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  let y = height - 48;
+  const left = 60;
+  const lineH = 18;
+
+  // Header
+  page.drawText('E&J RETREATS', { x: left, y, size: 20, font: fontBold, color: rgb(0.07, 0.25, 0.62) });
+  y -= 22;
+  page.drawText('Independent Contractor Agreement — Signed Copy', { x: left, y, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+  y -= 10;
+  page.drawLine({ start: { x: left, y }, end: { x: width - left, y }, thickness: 1, color: rgb(0.07, 0.25, 0.62) });
+  y -= 26;
+
+  // Contractor Details
+  page.drawText('CONTRACTOR DETAILS', { x: left, y, size: 10, font: fontBold, color: rgb(0.2, 0.2, 0.2) });
+  y -= lineH;
+
+  const fields: [string, string][] = [
+    ['Name', d.name],
+    ['Email', d.email],
+    ['Phone', d.phone || '—'],
+    ['Address', d.address || '—'],
+    ['Date Signed', new Date(d.signedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })],
+  ];
+  for (const [label, value] of fields) {
+    page.drawText(`${label}:`, { x: left, y, size: 9, font: fontBold, color: rgb(0.4, 0.4, 0.4) });
+    page.drawText(value, { x: left + 70, y, size: 9, font, color: rgb(0.1, 0.1, 0.1) });
+    y -= lineH;
+  }
+
+  y -= 10;
+  page.drawLine({ start: { x: left, y }, end: { x: width - left, y }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
+  y -= 20;
+
+  // Agreement Summary
+  page.drawText('AGREEMENT SUMMARY', { x: left, y, size: 10, font: fontBold, color: rgb(0.2, 0.2, 0.2) });
+  y -= lineH;
+
+  const summaryLines = [
+    'The undersigned agrees to provide cleaning and housekeeping services as an independent',
+    'contractor for E&J Retreats. The contractor acknowledges they are not an employee and',
+    'are responsible for their own taxes and insurance. Services will be performed according',
+    'to the standards and schedules agreed upon with E&J Retreats.',
+    '',
+    'This agreement covers: cleaning services, property preparation, quality standards,',
+    'payment terms, confidentiality, and independent contractor status.',
+  ];
+  for (const line of summaryLines) {
+    if (line === '') { y -= 8; continue; }
+    page.drawText(line, { x: left, y, size: 9, font, color: rgb(0.2, 0.2, 0.2) });
+    y -= lineH;
+  }
+
+  y -= 20;
+  page.drawLine({ start: { x: left, y }, end: { x: width - left, y }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
+  y -= 24;
+
+  // Signature section
+  page.drawText('CONTRACTOR SIGNATURE', { x: left, y, size: 10, font: fontBold, color: rgb(0.2, 0.2, 0.2) });
+  y -= 14;
+
+  if (d.signatureDataUrl?.startsWith('data:image/png;base64,')) {
+    try {
+      const base64 = d.signatureDataUrl.split(',')[1];
+      const sigBytes = Buffer.from(base64, 'base64');
+      const sigImage = await pdfDoc.embedPng(sigBytes);
+      const sigDims = sigImage.scaleToFit(240, 80);
+      page.drawRectangle({ x: left, y: y - sigDims.height - 4, width: sigDims.width + 8, height: sigDims.height + 8, color: rgb(0.98, 0.98, 0.98), borderColor: rgb(0.85, 0.85, 0.85), borderWidth: 0.5 });
+      page.drawImage(sigImage, { x: left + 4, y: y - sigDims.height, width: sigDims.width, height: sigDims.height });
+      y -= sigDims.height + 20;
+    } catch (_) {
+      page.drawText('[Signature on file]', { x: left, y, size: 9, font, color: rgb(0.5, 0.5, 0.5) });
+      y -= 20;
+    }
+  }
+
+  page.drawLine({ start: { x: left, y }, end: { x: left + 240, y }, thickness: 0.5, color: rgb(0.3, 0.3, 0.3) });
+  y -= lineH;
+  page.drawText(d.name, { x: left, y, size: 9, font, color: rgb(0.1, 0.1, 0.1) });
+  y -= lineH;
+  page.drawText(new Date(d.signedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), { x: left, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) });
+
+  // Footer
+  page.drawText('E&J Retreats  ·  ejretreats.com  ·  This document is a legally binding agreement.', {
+    x: left, y: 30, size: 8, font, color: rgb(0.6, 0.6, 0.6),
+  });
+
+  const pdfBytes = await pdfDoc.save();
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="contractor-agreement-${d.name.replace(/\s+/g, '-')}.pdf"`);
+  return res.status(200).send(Buffer.from(pdfBytes));
+}
+
+async function clientEnrollmentPdf(req: VercelRequest, res: VercelResponse) {
+  const propertyConfigId = req.query.propertyConfigId as string;
+  if (!propertyConfigId) return res.status(400).json({ error: 'propertyConfigId required' });
+
+  const supabase = getSupabase();
+  const { data: config } = await supabase
+    .from('cleaning_property_configs')
+    .select('property_name, client_name, client_email, onboarded_at')
+    .eq('id', propertyConfigId)
+    .maybeSingle();
+
+  if (!config?.onboarded_at) return res.status(404).json({ error: 'No enrollment record found for this property.' });
+
+  const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([612, 792]);
+  const { width, height } = page.getSize();
+
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  let y = height - 48;
+  const left = 60;
+  const lineH = 18;
+
+  // Header
+  page.drawText('E&J RETREATS', { x: left, y, size: 20, font: fontBold, color: rgb(0.07, 0.25, 0.62) });
+  y -= 22;
+  page.drawText('Cleaning Services — Client Enrollment Confirmation', { x: left, y, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+  y -= 10;
+  page.drawLine({ start: { x: left, y }, end: { x: width - left, y }, thickness: 1, color: rgb(0.07, 0.25, 0.62) });
+  y -= 26;
+
+  // Client details
+  page.drawText('ENROLLMENT DETAILS', { x: left, y, size: 10, font: fontBold, color: rgb(0.2, 0.2, 0.2) });
+  y -= lineH;
+
+  const enrollDate = new Date(config.onboarded_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const fields: [string, string][] = [
+    ['Property', config.property_name || '—'],
+    ['Client Name', config.client_name || '—'],
+    ['Client Email', config.client_email || '—'],
+    ['Enrollment Date', enrollDate],
+  ];
+  for (const [label, value] of fields) {
+    page.drawText(`${label}:`, { x: left, y, size: 9, font: fontBold, color: rgb(0.4, 0.4, 0.4) });
+    page.drawText(value, { x: left + 90, y, size: 9, font, color: rgb(0.1, 0.1, 0.1) });
+    y -= lineH;
+  }
+
+  y -= 10;
+  page.drawLine({ start: { x: left, y }, end: { x: width - left, y }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
+  y -= 20;
+
+  // Services summary
+  page.drawText('SERVICES ENROLLED', { x: left, y, size: 10, font: fontBold, color: rgb(0.2, 0.2, 0.2) });
+  y -= lineH;
+
+  const serviceLines = [
+    'The client has enrolled in E&J Retreats professional cleaning services for the above',
+    'property. A payment method has been securely authorized on file via Stripe.',
+    '',
+    'Services include: scheduled turnaround cleaning between guest stays, quality',
+    'inspection of the property, restocking of supplies as agreed, and reporting of',
+    'any property issues or damage found during cleaning.',
+    '',
+    'Cleaning fees will be charged per completed job as outlined in the service agreement.',
+  ];
+  for (const line of serviceLines) {
+    if (line === '') { y -= 8; continue; }
+    page.drawText(line, { x: left, y, size: 9, font, color: rgb(0.2, 0.2, 0.2) });
+    y -= lineH;
+  }
+
+  y -= 20;
+  page.drawLine({ start: { x: left, y }, end: { x: width - left, y }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
+  y -= 24;
+
+  // Confirmation box
+  page.drawRectangle({ x: left, y: y - 44, width: width - left * 2, height: 52, color: rgb(0.94, 0.98, 0.95), borderColor: rgb(0.36, 0.88, 0.63), borderWidth: 0.5 });
+  page.drawText('Payment Method on File', { x: left + 12, y: y - 18, size: 10, font: fontBold, color: rgb(0.05, 0.45, 0.25) });
+  page.drawText('A payment method has been securely saved via Stripe. No card details are stored by E&J Retreats.', { x: left + 12, y: y - 34, size: 8, font, color: rgb(0.1, 0.35, 0.2) });
+
+  // Footer
+  page.drawText('E&J Retreats  ·  ejretreats.com  ·  This is a service enrollment confirmation.', {
+    x: left, y: 30, size: 8, font, color: rgb(0.6, 0.6, 0.6),
+  });
+
+  const pdfBytes = await pdfDoc.save();
+  const safeName = (config.property_name || 'property').replace(/\s+/g, '-');
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="enrollment-${safeName}.pdf"`);
+  return res.status(200).send(Buffer.from(pdfBytes));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
   // Health check — no DB or email needed
@@ -2809,6 +3024,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.query.flow === 'cleaner-onboard' && token) return await cleanerOnboardGet(token, res);
     if (req.query.flow === 'cleaner-connect' && req.query.combined) return await cleanerConnectVerify(req.query.combined as string, res);
     if (req.query.flow === 'cleaner-dashboard' && req.query.cleanerId) return await cleanerDashboardGet(req.query.cleanerId as string, res);
+    if (req.query.flow === 'cleaner-agreement-pdf') return await cleanerAgreementPdf(req, res);
+    if (req.query.flow === 'client-enrollment-pdf') return await clientEnrollmentPdf(req, res);
     if (req.query.flow === 'sms') {
       if (req.query.action === 'templates') return await smsGetTemplates(res);
       if (req.query.action === 'campaigns') return await smsGetCampaigns(res);

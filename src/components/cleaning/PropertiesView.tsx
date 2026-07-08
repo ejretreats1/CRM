@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw, ChevronUp, ChevronDown, Download } from 'lucide-react';
 import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl } from '../../types/cleaning';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 
@@ -61,6 +61,15 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   const [syncResult, setSyncResult] = useState<Record<string, { created: number; cancelled: number; errors: string[] }>>({});
   const [syncingAll, setSyncingAll] = useState(false);
   const [syncAllResult, setSyncAllResult] = useState<{ created: number; cancelled: number; errors: string[]; properties: { property: string; created: number; cancelled: number; errors: string[] }[] } | null>(null);
+
+  // PDF download state
+  const [downloadingConfigId, setDownloadingConfigId] = useState<string | null>(null);
+
+  function downloadEnrollment(configId: string) {
+    setDownloadingConfigId(configId);
+    window.open(`/api/documents?flow=client-enrollment-pdf&propertyConfigId=${encodeURIComponent(configId)}`, '_blank');
+    setTimeout(() => setDownloadingConfigId(null), 1500);
+  }
 
   // --- Batch onboarding state ---
   const [selectedForOnboard, setSelectedForOnboard] = useState<Set<string>>(new Set());
@@ -487,6 +496,14 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                       <span className="flex items-center gap-1 text-[10px] font-semibold text-[#5ce0a0] bg-[#0a2518] border border-[#1e4030] px-2 py-0.5 rounded-full mr-1">
                         <CheckCircle2 size={10} />
                         Onboarded
+                        <button
+                          onClick={() => downloadEnrollment(c.id)}
+                          disabled={downloadingConfigId === c.id}
+                          title="Download enrollment confirmation PDF"
+                          className="ml-0.5 p-0.5 rounded text-[#5ce0a0] hover:text-white hover:bg-[#1e4030] transition-colors disabled:opacity-50"
+                        >
+                          <Download size={10} />
+                        </button>
                       </span>
                     )}
                     {(c.icalUrls?.length ?? 0) > 0 && (

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard, FileText, Copy, Check } from 'lucide-react';
+import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard, FileText, Copy, Check, Download } from 'lucide-react';
 import type { Cleaner } from '../../types/cleaning';
 
 interface Props {
@@ -24,6 +24,19 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
   const [agreementCopied, setAgreementCopied] = useState(false);
   const [agreementEmailSent, setAgreementEmailSent] = useState(false);
   const [agreementError, setAgreementError] = useState('');
+
+  // PDF download state
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  async function downloadAgreement(cleanerId: string) {
+    setDownloadingId(cleanerId);
+    try {
+      const url = `/api/documents?flow=cleaner-agreement-pdf&cleanerId=${encodeURIComponent(cleanerId)}`;
+      window.open(url, '_blank');
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   // Stripe Connect modal state
   const [stripeModal, setStripeModal] = useState<Cleaner | null>(null);
@@ -261,6 +274,14 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                     {c.agreementSignedAt ? (
                       <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
                         <CheckCircle size={11} /> Signed
+                        <button
+                          onClick={() => downloadAgreement(c.id)}
+                          disabled={downloadingId === c.id}
+                          title="Download signed agreement PDF"
+                          className="ml-1 p-0.5 rounded text-[#5ce0a0] hover:text-white hover:bg-[#1e2d45] transition-colors disabled:opacity-50"
+                        >
+                          <Download size={11} />
+                        </button>
                       </span>
                     ) : (
                       <span className="text-xs text-[#3a5070]">Not signed</span>
