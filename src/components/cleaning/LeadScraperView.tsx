@@ -70,10 +70,12 @@ export default function LeadScraperView() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? 'Search failed');
       if (!d.results?.length) {
+        const first = d.diagnostics?.[0];
+        const snippet = first?.bing?.htmlSnippet ?? first?.ddg?.htmlSnippet ?? '';
         const diag = (d.diagnostics ?? []).map((x: any) =>
-          `"${x.q}": DDG ${x.ddg?.status ?? '?'} (${x.ddg?.htmlLen ?? 0}b, ${x.ddg?.anchorCount ?? 0} results)` +
-          (x.bing ? ` | Bing ${x.bing.status} (${x.bing.htmlLen}b, ${x.bing.anchorCount} results)` : '')
-        ).join('\n');
+          `"${x.q}": DDG ${x.ddg?.status ?? '?'} (${x.ddg?.htmlLen ?? 0}b, ${x.ddg?.anchorCount ?? 0} h2s)` +
+          (x.bing ? ` | Bing ${x.bing.status} (${x.bing.htmlLen}b, ${x.bing.anchorCount} h2s)` : '')
+        ).join('\n') + (snippet ? `\n\nBing HTML preview:\n${snippet.slice(0, 400)}` : '');
         throw new Error(`No results found. Try a different city or business type.\n\n${diag}`);
       }
       setSites(d.results.map((s: { name: string; url: string; description: string }) => ({ ...s, selected: true })));

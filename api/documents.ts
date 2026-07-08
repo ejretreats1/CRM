@@ -2594,8 +2594,8 @@ async function scraperSearchBing(
   seen: Set<string>,
   results: { name: string; url: string; description: string }[],
   maxCount: number,
-): Promise<{ status: number; htmlLen: number; anchorCount: number }> {
-  const info = { status: 0, htmlLen: 0, anchorCount: 0 };
+): Promise<{ status: number; htmlLen: number; anchorCount: number; htmlSnippet?: string }> {
+  const info: { status: number; htmlLen: number; anchorCount: number; htmlSnippet?: string } = { status: 0, htmlLen: 0, anchorCount: 0 };
   try {
     const r = await fetch(`https://www.bing.com/search?q=${encodeURIComponent(q)}&count=20&form=QBLH`, {
       headers: {
@@ -2609,6 +2609,7 @@ async function scraperSearchBing(
     if (!r.ok) return info;
     const html = await r.text();
     info.htmlLen = html.length;
+    info.htmlSnippet = html.slice(0, 800);
 
     // Bing wraps result title links in <h2>; extract every anchor inside any <h2>
     const h2Blocks = [...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)];
