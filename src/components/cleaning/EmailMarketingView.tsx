@@ -52,7 +52,7 @@ function StatTile({ label, value, sub, icon: Icon, color, bg }: {
   );
 }
 
-const VARIABLES = ['{name}', '{company}', '{city}'];
+const VARIABLES = ['{First Name}', '{name}', '{company}', '{city}'];
 
 function insertVar(setter: (v: string) => void, current: string, v: string) {
   setter(current + v);
@@ -84,6 +84,7 @@ function TemplateModal({ template, onClose, onSave }: {
   }
 
   const preview = body
+    .replace(/\{First Name\}/g, 'Jane')
     .replace(/\{name\}/gi, 'Jane Smith')
     .replace(/\{company\}/gi, 'Sunrise Property Management')
     .replace(/\{city\}/gi, 'Miami');

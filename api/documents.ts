@@ -2418,7 +2418,9 @@ async function emailMktSendCampaign(body: any, res: VercelResponse) {
         continue;
       }
       const unsubLink = `${appUrl}/api/documents?flow=email-mkt&action=unsubscribe&email=${encodeURIComponent(email)}&cid=${campaignId}`;
+      const firstName = (lead.name || '').split(' ')[0] || 'there';
       const personalBody = bodyHtml
+        .replace(/\{First Name\}/g, firstName)
         .replace(/\{name\}/gi, lead.name || 'there')
         .replace(/\{company\}/gi, lead.company || '')
         .replace(/\{city\}/gi, lead.city || '')
@@ -2430,7 +2432,7 @@ async function emailMktSendCampaign(body: any, res: VercelResponse) {
           from: process.env.RESEND_FROM_EMAIL ?? 'team@ejretreats.com',
           reply_to: process.env.RESEND_REPLY_TO ?? 'ejretreats1@gmail.com',
           to: email,
-          subject: subject.replace(/\{name\}/gi, lead.name || '').replace(/\{company\}/gi, lead.company || ''),
+          subject: subject.replace(/\{First Name\}/g, firstName).replace(/\{name\}/gi, lead.name || '').replace(/\{company\}/gi, lead.company || ''),
           html: htmlBody,
         });
         sentCount++;
