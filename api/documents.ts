@@ -3,6 +3,111 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 
+// ─── iCal helpers (inlined from _ical.ts to avoid Vercel bundling issues) ─────
+
+interface IcalEvent {
+  uid: string;
+  start: string;
+  end: string;
+  summary: string;
+  status: string;
+}
+
+function parseIcalDate(val: string): string {
+  const d = val.replace(/T.*$/, '').trim();
+  return d.length === 8 ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : d;
+}
+
+function parseIcal(text: string): IcalEvent[] {
+  const events: IcalEvent[] = [];
+  const unfolded = text.replace(/\r?\n[ \t]/g, '');
+  const lines = unfolded.split(/\r?\n/);
+  let inEvent = false;
+  let cur: Partial<IcalEvent> = {};
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') { inEvent = true; cur = {}; continue; }
+    if (line === 'END:VEVENT') {
+      inEvent = false;
+      if (cur.uid && cur.start && cur.end) events.push(cur as IcalEvent);
+      continue;
+    }
+    if (!inEvent) continue;
+    const colonIdx = line.indexOf(':');
+    if (colonIdx === -1) continue;
+    const key = line.slice(0, colonIdx).split(';')[0].toUpperCase();
+    const val = line.slice(colonIdx + 1).trim();
+    if (key === 'UID')     cur.uid     = val;
+    if (key === 'DTSTART') cur.start   = parseIcalDate(val);
+    if (key === 'DTEND')   cur.end     = parseIcalDate(val);
+    if (key === 'SUMMARY') cur.summary = val.replace(/\\,/g, ',').replace(/\\n/g, ' ').replace(/\\;/g, ';');
+    if (key === 'STATUS')  cur.status  = val.toUpperCase();
+  }
+  return events;
+}
+
+const BLOCK_RE = /^(not available|airbnb \(not available\)|blocked|owner block|maintenance|hold|unavailable)$/i;
+function isBlock(summary: string): boolean { return BLOCK_RE.test(summary.trim()); }
+
+async function syncPropertyIcal(supabase: any, config: {
+  id: string; property_id: string; property_name: string;
+  cleaning_fee: number; ical_urls: { platform: string; url: string; lastSyncedAt?: string }[];
+}): Promise<{ created: number; cancelled: number; errors: string[] }> {
+  const ical_urls = config.ical_urls ?? [];
+  if (!ical_urls.length) return { created: 0, cancelled: 0, errors: [] };
+  const today = new Date().toISOString().slice(0, 10);
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + 120);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const { data: existing } = await supabase
+    .from('cleaning_jobs').select('id, reservation_id, status').eq('property_id', config.property_id);
+  type JobRow = { reservation_id: string; id: string; status: string };
+  const byUid = new Map<string, JobRow>(
+    (existing ?? []).filter((j: JobRow) => j.reservation_id).map((j: JobRow) => [j.reservation_id, j])
+  );
+  let created = 0, cancelled = 0;
+  const errors: string[] = [];
+  const now = new Date().toISOString();
+  for (const entry of ical_urls) {
+    try {
+      const r = await fetch(entry.url.replace(/^webcal:\/\//i, 'https://'),
+        { headers: { 'User-Agent': 'EJRetreats-Cleaning/1.0' }, signal: AbortSignal.timeout(12000) });
+      if (!r.ok) { errors.push(`${entry.platform}: HTTP ${r.status}`); continue; }
+      const text = await r.text();
+      const events = parseIcal(text);
+      for (const ev of events) {
+        if (!ev.uid || !ev.end) continue;
+        if (ev.status === 'CANCELLED') {
+          const ex = byUid.get(ev.uid);
+          if (ex && ex.status !== 'cancelled') {
+            await supabase.from('cleaning_jobs').update({ status: 'cancelled', updated_at: now }).eq('id', ex.id);
+            cancelled++;
+          }
+          continue;
+        }
+        if (isBlock(ev.summary)) continue;
+        if (!ev.end || ev.end < today) continue;
+        if (ev.end > cutoffStr) continue;
+        if (byUid.has(ev.uid)) continue;
+        const jobId = `ical_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const guestName = (ev.summary && ev.summary !== 'Reserved' && !isBlock(ev.summary)) ? ev.summary : null;
+        await supabase.from('cleaning_jobs').insert({
+          id: jobId, reservation_id: ev.uid, property_id: config.property_id,
+          property_name: config.property_name, guest_name: guestName,
+          checkout_date: ev.end, checkin_date: (ev.start && ev.start !== ev.end) ? ev.start : null,
+          status: 'pending', cleaning_fee: config.cleaning_fee, cleaner_payout: 0,
+          source: 'ical', created_at: now, updated_at: now,
+        });
+        byUid.set(ev.uid, { id: jobId, reservation_id: ev.uid, status: 'pending' });
+        created++;
+      }
+    } catch (e) {
+      errors.push(`${entry.platform}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  const updatedUrls = ical_urls.map(u => ({ ...u, lastSyncedAt: now }));
+  await supabase.from('cleaning_property_configs').update({ ical_urls: updatedUrls }).eq('id', config.id);
+  return { created, cancelled, errors };
+}
+
 let _resend: any = null;
 async function getResend() {
   if (!_resend) {
@@ -2439,7 +2544,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .eq('property_id', propertyId)
           .maybeSingle();
         if (error || !config) return res.status(404).json({ error: 'Property config not found.' });
-        const { syncPropertyIcal } = await import('./_ical');
         const result = await syncPropertyIcal(supabase, config);
         return res.status(200).json({ ok: true, ...result });
       } catch (e) {
