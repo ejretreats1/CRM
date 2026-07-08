@@ -2517,6 +2517,181 @@ async function getTwilio() {
   }
   return _twilio;
 }
+// ── EMAIL MARKETING SEQUENCES ─────────────────────────────────────────────────
+
+async function emailMktGetSequences(res: VercelResponse) {
+  const sb = getSupabase();
+  const now = new Date().toISOString();
+  const [{ data: seqs }, { data: enrollments }] = await Promise.all([
+    sb.from('email_mkt_sequences').select('*').order('created_at', { ascending: false }),
+    sb.from('email_mkt_sequence_enrollments').select('sequence_id, status, next_send_at'),
+  ]);
+  const result = (seqs ?? []).map((seq: any) => {
+    const enrs = (enrollments ?? []).filter((e: any) => e.sequence_id === seq.id);
+    return {
+      ...seq,
+      active_count:    enrs.filter((e: any) => e.status === 'active').length,
+      due_count:       enrs.filter((e: any) => e.status === 'active' && e.next_send_at && e.next_send_at <= now).length,
+      completed_count: enrs.filter((e: any) => e.status === 'completed').length,
+    };
+  });
+  return res.status(200).json({ sequences: result });
+}
+
+async function emailMktUpsertSequence(body: any, res: VercelResponse) {
+  const { id, name, steps } = body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name required.' });
+  const sb = getSupabase();
+  const seqId = id || `seq_${Date.now()}`;
+  await sb.from('email_mkt_sequences').upsert(
+    { id: seqId, name: name.trim(), steps: steps ?? [], updated_at: new Date().toISOString() },
+    { onConflict: 'id' }
+  );
+  return res.status(200).json({ ok: true, id: seqId });
+}
+
+async function emailMktDeleteSequence(body: any, res: VercelResponse) {
+  const sb = getSupabase();
+  await sb.from('email_mkt_sequence_enrollments').delete().eq('sequence_id', body.id);
+  await sb.from('email_mkt_sequences').delete().eq('id', body.id);
+  return res.status(200).json({ ok: true });
+}
+
+async function emailMktEnrollSequence(body: any, res: VercelResponse) {
+  const { sequenceId, campaignId } = body;
+  if (!sequenceId || !campaignId) return res.status(400).json({ error: 'sequenceId and campaignId required.' });
+  const sb = getSupabase();
+
+  const { data: seq } = await sb.from('email_mkt_sequences').select('*').eq('id', sequenceId).single();
+  if (!seq) return res.status(404).json({ error: 'Sequence not found.' });
+  const steps: Array<{ step_number: number; template_id: string; delay_days: number }> = seq.steps ?? [];
+  if (!steps.length) return res.status(400).json({ error: 'Sequence has no steps configured.' });
+
+  const { data: recipients } = await sb.from('email_mkt_recipients')
+    .select('email, lead_name, lead_id, sent_at').eq('campaign_id', campaignId).eq('status', 'sent');
+  if (!recipients?.length) return res.status(400).json({ error: 'No sent recipients found for that campaign.' });
+
+  // Enrich with company from cleaning_leads
+  const leadIds = [...new Set(recipients.filter((r: any) => r.lead_id).map((r: any) => r.lead_id))];
+  const { data: leadDetails } = leadIds.length
+    ? await sb.from('cleaning_leads').select('id, company').in('id', leadIds)
+    : { data: [] as any[] };
+  const leadMap = new Map((leadDetails ?? []).map((l: any) => [l.id, l]));
+
+  const [{ data: unsubs }, { data: existing }] = await Promise.all([
+    sb.from('email_mkt_unsubscribes').select('email'),
+    sb.from('email_mkt_sequence_enrollments').select('email').eq('sequence_id', sequenceId),
+  ]);
+  const unsubSet = new Set((unsubs ?? []).map((u: any) => u.email.toLowerCase()));
+  const existingSet = new Set((existing ?? []).map((e: any) => e.email.toLowerCase()));
+
+  const sorted = [...steps].sort((a, b) => a.delay_days - b.delay_days);
+  const firstStep = sorted[0];
+
+  const toInsert: any[] = [];
+  for (const r of recipients as any[]) {
+    if (!r.email || unsubSet.has(r.email.toLowerCase()) || existingSet.has(r.email.toLowerCase())) continue;
+    const enrolledAt = r.sent_at ? new Date(r.sent_at) : new Date();
+    const nextSendAt = new Date(enrolledAt.getTime() + firstStep.delay_days * 86400000);
+    const lead = r.lead_id ? leadMap.get(r.lead_id) : null;
+    toInsert.push({
+      id: `enr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      sequence_id: sequenceId,
+      source_campaign_id: campaignId,
+      email: r.email,
+      lead_name: r.lead_name ?? null,
+      company: (lead as any)?.company ?? null,
+      enrolled_at: enrolledAt.toISOString(),
+      next_step: firstStep.step_number,
+      next_send_at: nextSendAt.toISOString(),
+      status: 'active',
+    });
+  }
+  if (!toInsert.length) return res.status(200).json({ ok: true, enrolled: 0, skipped: recipients.length });
+  for (let i = 0; i < toInsert.length; i += 500) {
+    await sb.from('email_mkt_sequence_enrollments').insert(toInsert.slice(i, i + 500));
+  }
+  return res.status(200).json({ ok: true, enrolled: toInsert.length, skipped: recipients.length - toInsert.length });
+}
+
+async function emailMktSendDueSequences(body: any, res: VercelResponse) {
+  const { sequenceId, batchSize = 50 } = body;
+  const sb = getSupabase();
+  const resend = await getResend();
+  const now = new Date().toISOString();
+  const appUrl = process.env.APP_URL ?? 'https://crm-nine-delta-37.vercel.app';
+
+  let q = sb.from('email_mkt_sequence_enrollments')
+    .select('*').eq('status', 'active').lte('next_send_at', now).limit(batchSize);
+  if (sequenceId) q = (q as any).eq('sequence_id', sequenceId);
+  const { data: due } = await q;
+  if (!due?.length) return res.status(200).json({ sent: 0, due: 0 });
+
+  const seqIds = [...new Set((due as any[]).map((e: any) => e.sequence_id))];
+  const { data: seqs } = await sb.from('email_mkt_sequences').select('*').in('id', seqIds);
+  const allTplIds = [...new Set((seqs ?? []).flatMap((s: any) => (s.steps ?? []).map((st: any) => st.template_id)))];
+  const { data: tmpls } = await sb.from('email_mkt_templates').select('*').in('id', allTplIds);
+  const tmplMap = new Map((tmpls ?? []).map((t: any) => [t.id, t]));
+
+  const { data: unsubs } = await sb.from('email_mkt_unsubscribes').select('email')
+    .in('email', (due as any[]).map((e: any) => e.email));
+  const unsubSet = new Set((unsubs ?? []).map((u: any) => u.email.toLowerCase()));
+
+  let sent = 0;
+  for (const enr of due as any[]) {
+    if (unsubSet.has(enr.email.toLowerCase())) {
+      await sb.from('email_mkt_sequence_enrollments').update({ status: 'unsubscribed' }).eq('id', enr.id);
+      continue;
+    }
+    const seq = (seqs ?? []).find((s: any) => s.id === enr.sequence_id);
+    if (!seq) continue;
+    const steps: Array<{ step_number: number; template_id: string; delay_days: number }> = (seq as any).steps ?? [];
+    const step = steps.find(s => s.step_number === enr.next_step);
+    if (!step) {
+      await sb.from('email_mkt_sequence_enrollments').update({ status: 'completed', next_send_at: null }).eq('id', enr.id);
+      continue;
+    }
+    const tmpl = tmplMap.get(step.template_id) as any;
+    if (!tmpl) continue;
+
+    const unsubLink = `${appUrl}/api/documents?flow=email-mkt&action=unsubscribe&email=${encodeURIComponent(enr.email)}&cid=${enr.source_campaign_id ?? enr.sequence_id}`;
+    const firstName = (enr.lead_name || '').split(' ')[0] || 'there';
+    const personalBody = (tmpl.body_html as string)
+      .replace(/\{First Name\}/g, firstName)
+      .replace(/\{name\}/gi, enr.lead_name || 'there')
+      .replace(/\{company\}/gi, enr.company || '')
+      .replace(/\{unsubscribe_link\}/gi, unsubLink);
+    const unsubFooter = `<hr style="border:none;border-top:1px solid #eee;margin:24px 0"/><p style="font-size:12px;color:#999;margin:0">To unsubscribe, <a href="${unsubLink}" style="color:#999">click here</a>.</p>`;
+    const htmlBody = personalBody.includes('<')
+      ? (personalBody.includes('</body>') ? personalBody.replace('</body>', `${unsubFooter}</body>`) : personalBody + unsubFooter)
+      : `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:600px">${personalBody.replace(/\n/g, '<br/>')}<br/><br/>${unsubFooter}</div>`;
+    const subject = (tmpl.subject as string)
+      .replace(/\{First Name\}/g, firstName)
+      .replace(/\{name\}/gi, enr.lead_name || '')
+      .replace(/\{company\}/gi, enr.company || '');
+
+    try {
+      await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL ?? 'team@ejretreats.com',
+        reply_to: process.env.RESEND_REPLY_TO ?? 'ejretreats1@gmail.com',
+        to: enr.email, subject, html: htmlBody,
+      });
+      sent++;
+      const sorted = [...steps].sort((a, b) => a.delay_days - b.delay_days);
+      const nextStep = sorted.find(s => s.step_number > enr.next_step);
+      if (nextStep) {
+        const nextSendAt = new Date(new Date(enr.enrolled_at).getTime() + nextStep.delay_days * 86400000);
+        await sb.from('email_mkt_sequence_enrollments').update({ next_step: nextStep.step_number, next_send_at: nextSendAt.toISOString() }).eq('id', enr.id);
+      } else {
+        await sb.from('email_mkt_sequence_enrollments').update({ status: 'completed', next_send_at: null }).eq('id', enr.id);
+      }
+    } catch { /* continue */ }
+  }
+  return res.status(200).json({ sent, total: (due as any[]).length });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const TWILIO_FROM = () => process.env.TWILIO_PHONE_NUMBER!;
 
 function normalizePhone(raw: string): string | null {
@@ -3187,6 +3362,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.query.flow === 'email-mkt') {
       if (req.query.action === 'templates') return await emailMktGetTemplates(res);
       if (req.query.action === 'campaigns') return await emailMktGetCampaigns(res);
+      if (req.query.action === 'sequences') return await emailMktGetSequences(res);
       if (req.query.action === 'unsubscribe') return await emailMktUnsubscribe(req, res);
     }
     if (req.query.flow === 'scraper' && req.query.action === 'find-urls') return await scraperFindUrls(req, res);
@@ -3263,12 +3439,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } else if (flow === 'content') {
     if (action === 'generate') return await contentGenerate(body, res);
   } else if (flow === 'email-mkt') {
-    if (action === 'upsert-template') return await emailMktUpsertTemplate(body, res);
-    if (action === 'delete-template') return await emailMktDeleteTemplate(body, res);
-    if (action === 'send-campaign') return await emailMktSendCampaign(body, res);
+    if (action === 'upsert-template')     return await emailMktUpsertTemplate(body, res);
+    if (action === 'delete-template')     return await emailMktDeleteTemplate(body, res);
+    if (action === 'send-campaign')       return await emailMktSendCampaign(body, res);
     if (action === 'update-campaign-stats') return await emailMktUpdateStats(body, res);
-    if (action === 'delete-campaign') return await emailMktDeleteCampaign(body, res);
-    if (action === 'webhook') return await emailMktHandleWebhook(body, res);
+    if (action === 'delete-campaign')     return await emailMktDeleteCampaign(body, res);
+    if (action === 'webhook')             return await emailMktHandleWebhook(body, res);
+    if (action === 'upsert-sequence')     return await emailMktUpsertSequence(body, res);
+    if (action === 'delete-sequence')     return await emailMktDeleteSequence(body, res);
+    if (action === 'enroll-sequence')     return await emailMktEnrollSequence(body, res);
+    if (action === 'send-due-sequences')  return await emailMktSendDueSequences(body, res);
   } else if (flow === 'sms') {
     if (action === 'inbound') return await smsInbound(req, res);
     if (action === 'upsert-template') return await smsUpsertTemplate(body, res);
