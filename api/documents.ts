@@ -910,11 +910,12 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
   // Only email the #1 priority cleaner — if they pass, next cleaner is contacted
   const { cleaner: first, token: firstToken } = cleanerTokens[0];
   const portalLink = `${base}?cleaner=${jobId}:${firstToken}`;
+  const dispatchSubject = `🧹 Cleaning Job Available: ${propertyName} – ${dateLabel}`;
   try {
-    await (await getResend()).emails.send({
+    const _dr = await (await getResend()).emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
       to: first.email,
-      subject: `🧹 Cleaning Job Available: ${propertyName} – ${dateLabel}`,
+      subject: dispatchSubject,
       html: `
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
           <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
@@ -941,6 +942,7 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
         </div>
       `,
     });
+    if (_dr?.id) await logEmail(_dr.id, 'cleaning-dispatch', first.email, dispatchSubject, jobId, first.name);
   } catch {}
 
   return res.status(200).json({ sent: 1 });
@@ -988,10 +990,11 @@ async function cleaningDecline(body: any, res: VercelResponse) {
     }).eq('id', jobId);
 
     try {
-      await (await getResend()).emails.send({
+      const _allPassedSubj = `⚠️ No cleaners available: ${row.property_name} – ${dateLabel}`;
+      const _apr = await (await getResend()).emails.send({
         from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
         to: 'ejretreats1@gmail.com',
-        subject: `⚠️ No cleaners available: ${row.property_name} – ${dateLabel}`,
+        subject: _allPassedSubj,
         html: `
           <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
             <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
@@ -1008,6 +1011,7 @@ async function cleaningDecline(body: any, res: VercelResponse) {
           </div>
         `,
       });
+      if (_apr?.id) await logEmail(_apr.id, 'cleaning-dispatch', 'ejretreats1@gmail.com', _allPassedSubj, jobId, 'Admin');
     } catch {}
 
     return res.status(200).json({ passed: true, allPassed: true });
@@ -1024,11 +1028,12 @@ async function cleaningDecline(body: any, res: VercelResponse) {
   }).eq('id', jobId);
 
   const portalLink = `${base}?cleaner=${jobId}:${nextToken}`;
+  const cascadeSubject = `🧹 Cleaning Job Available: ${row.property_name} – ${dateLabel}`;
   try {
-    await (await getResend()).emails.send({
+    const _cr = await (await getResend()).emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
       to: nextCleaner.cleanerEmail,
-      subject: `🧹 Cleaning Job Available: ${row.property_name} – ${dateLabel}`,
+      subject: cascadeSubject,
       html: `
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
           <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
@@ -1052,6 +1057,7 @@ async function cleaningDecline(body: any, res: VercelResponse) {
         </div>
       `,
     });
+    if (_cr?.id) await logEmail(_cr.id, 'cleaning-dispatch', nextCleaner.cleanerEmail, cascadeSubject, jobId, nextCleaner.cleanerName);
   } catch {}
 
   return res.status(200).json({ passed: true });
@@ -1098,12 +1104,14 @@ async function cleaningAccept(body: any, res: VercelResponse) {
   if (error) return res.status(500).json({ error: error.message });
 
   // Notify admin
-  await (await getResend()).emails.send({
+  const _acceptSubj = `✅ ${cleanerInfo.cleanerName} accepted: ${row.property_name}`;
+  const _acr = await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
-    subject: `✅ ${cleanerInfo.cleanerName} accepted: ${row.property_name}`,
+    subject: _acceptSubj,
     html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${cleanerInfo.cleanerName}</strong> accepted the cleaning job for <strong>${row.property_name}</strong> on ${new Date(row.checkout_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}.</p></div>`,
-  }).catch(() => {});
+  }).catch(() => null);
+  if (_acr?.id) await logEmail(_acr.id, 'cleaning-accept', 'ejretreats1@gmail.com', _acceptSubj, jobId, 'Admin');
 
   return res.status(200).json({ success: true });
 }
@@ -1150,10 +1158,11 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
     ? `💳 <strong>$${paymentResult.cleaningFee} charged</strong> to client automatically${paymentResult.payoutSent ? ` · $${paymentResult.cleanerPayout} payout sent to cleaner via Stripe Connect ✓` : paymentResult.cleanerStripeId ? ` · Payout transfer failed — pay manually` : ` · Cleaner has no Stripe Connect account — pay manually`}`
     : `⚠️ <strong>Auto-charge failed:</strong> ${paymentResult.error ?? 'No payment method on file'} — use the CRM to retry`;
 
-  await (await getResend()).emails.send({
+  const _submitSubj = `${paymentResult.charged ? '✅' : '⚠️'} Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`;
+  const _sr = await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
-    subject: `${paymentResult.charged ? '✅' : '⚠️'} Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`,
+    subject: _submitSubj,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
         <h2 style="color:#0f766e">🧹 Cleaning Job Submitted</h2>
@@ -1166,7 +1175,8 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
         ${photoCount > 0 ? `<p>${(photos as string[]).map((url: string) => `<img src="${url}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;margin:4px" />`).join('')}</p>` : ''}
       </div>
     `,
-  }).catch(() => {});
+  }).catch(() => null);
+  if (_sr?.id) await logEmail(_sr.id, 'cleaning-submit', 'ejretreats1@gmail.com', _submitSubj, jobId, 'Admin');
 
   return res.status(200).json({ success: true });
 }
@@ -1185,10 +1195,11 @@ async function cleanerSendPortalLink(body: any, res: VercelResponse) {
   const firstName = cleaner.name.split(' ')[0];
   const portalAppName = `${cleaner.name} Cleaner Portal`;
 
-  await (await getResend()).emails.send({
+  const portalSubject = `Your ${portalAppName} — Save it to your phone!`;
+  const _plr = await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: cleaner.email,
-    subject: `Your ${portalAppName} — Save it to your phone!`,
+    subject: portalSubject,
     html: `
       <div style="font-family:sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f8fafc">
         <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
@@ -1232,6 +1243,7 @@ async function cleanerSendPortalLink(body: any, res: VercelResponse) {
       </div>
     `,
   });
+  if (_plr?.id) await logEmail(_plr.id, 'cleaning-portal', cleaner.email, portalSubject, cleanerId, cleaner.name);
 
   return res.status(200).json({ ok: true });
 }
@@ -1276,10 +1288,11 @@ async function cleanerConnectSend(body: any, res: VercelResponse) {
     const link = `${base}?cleaner-setup=${cleanerId}:${connectToken}`;
 
     if (sendEmail) {
-      await (await getResend()).emails.send({
+      const stripeEmailSubj = 'Set up your Stripe account to receive cleaning payouts';
+      const _ser = await (await getResend()).emails.send({
         from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
         to: cleaner.email,
-        subject: 'Set up your Stripe account to receive cleaning payouts',
+        subject: stripeEmailSubj,
         html: `
           <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
             <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
@@ -1300,7 +1313,8 @@ async function cleanerConnectSend(body: any, res: VercelResponse) {
             </div>
           </div>
         `,
-      }).catch(() => {});
+      }).catch(() => null);
+      if (_ser?.id) await logEmail(_ser.id, 'cleaning-stripe', cleaner.email, stripeEmailSubj, cleanerId, cleaner.name);
     }
 
     return res.status(200).json({ link });
@@ -1359,10 +1373,11 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
     const portalAppName = `${cleaner.name} Cleaner Portal`;
 
     // Send portal link + save-as-app instructions to cleaner
-    await (await getResend()).emails.send({
+    const allSetSubj = `🎉 You're all set, ${firstName}! Save your Cleaner Portal`;
+    const _asr = await (await getResend()).emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
       to: cleaner.email,
-      subject: `🎉 You're all set, ${firstName}! Save your Cleaner Portal`,
+      subject: allSetSubj,
       html: `
         <div style="font-family:sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f8fafc">
           <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
@@ -1407,15 +1422,18 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
           </div>
         </div>
       `,
-    }).catch(() => {});
+    }).catch(() => null);
+    if (_asr?.id) await logEmail(_asr.id, 'cleaning-portal', cleaner.email, allSetSubj, cleanerId, cleaner.name);
 
     // Notify admin
-    await (await getResend()).emails.send({
+    const _stripeAdminSubj = `✅ Stripe connected: ${cleaner.name}`;
+    const _sar = await (await getResend()).emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
       to: 'ejretreats1@gmail.com',
-      subject: `✅ Stripe connected: ${cleaner.name}`,
+      subject: _stripeAdminSubj,
       html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${cleaner.name}</strong> has connected their Stripe account (${cleaner.stripe_account_id}) and is ready to receive payouts.</p></div>`,
-    }).catch(() => {});
+    }).catch(() => null);
+    if (_sar?.id) await logEmail(_sar.id, 'cleaning-stripe', 'ejretreats1@gmail.com', _stripeAdminSubj, cleanerId, 'Admin');
   }
 
   return res.status(200).json({
@@ -1505,10 +1523,11 @@ async function cleaningClientSend(body: any, res: VercelResponse) {
       : `<p style="color:#334155">Your property <strong>${propertyNamesStr}</strong> is enrolled in E&amp;J Retreats' professional cleaning service.</p>`;
 
     try {
-      await (await getResend()).emails.send({
+      const clientOnboardSubj = `Action required: Set up cleaning service for ${subjectLabel}`;
+      const _cor = await (await getResend()).emails.send({
         from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
         to: clientEmail,
-        subject: `Action required: Set up cleaning service for ${subjectLabel}`,
+        subject: clientOnboardSubj,
         html: `
           <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
             <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
@@ -1530,6 +1549,7 @@ async function cleaningClientSend(body: any, res: VercelResponse) {
           </div>
         `,
       });
+      if (_cor?.id) await logEmail(_cor.id, 'cleaning-client', clientEmail, clientOnboardSubj, id, clientName ?? undefined);
     } catch (emailErr) {
       console.error('Resend email failed:', emailErr);
       // Still return the link even if email fails
@@ -2099,10 +2119,11 @@ async function cleanerOnboardSend(body: any, res: VercelResponse) {
 
   if (sendEmail) {
     try {
-      await (await getResend()).emails.send({
+      const agrmtSubj = 'Action required: Sign your E&J Retreats Contractor Agreement';
+      const _osr = await (await getResend()).emails.send({
         from: 'E&J Retreats <cleaning@ejretreats.com>',
         to: cleanerEmail.trim(),
-        subject: 'Action required: Sign your E&J Retreats Contractor Agreement',
+        subject: agrmtSubj,
         html: `
           <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
             <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
@@ -2117,6 +2138,7 @@ async function cleanerOnboardSend(body: any, res: VercelResponse) {
           </div>
         `,
       });
+      if (_osr?.id) await logEmail(_osr.id, 'cleaning-onboard', cleanerEmail.trim(), agrmtSubj, id, cleanerName?.trim() ?? undefined);
     } catch {}
   }
 
@@ -2158,10 +2180,11 @@ async function cleanerOnboardComplete(body: any, res: VercelResponse) {
 
   // Email copy to cleaner
   try {
-    await (await getResend()).emails.send({
+    const signedCopySubj = 'Your signed E&J Retreats Contractor Agreement';
+    const _scr = await (await getResend()).emails.send({
       from: 'E&J Retreats <cleaning@ejretreats.com>',
       to: email.trim(),
-      subject: 'Your signed E&J Retreats Contractor Agreement',
+      subject: signedCopySubj,
       html: `
         <div style="font-family:sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f8fafc">
           <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
@@ -2186,14 +2209,16 @@ async function cleanerOnboardComplete(body: any, res: VercelResponse) {
         </div>
       `,
     });
+    if (_scr?.id) await logEmail(_scr.id, 'cleaning-onboard', email.trim(), signedCopySubj, row.id, name.trim());
   } catch {}
 
   // Notify admin
   try {
-    await (await getResend()).emails.send({
+    const adminSignedSubj = `✅ Contractor agreement signed: ${name.trim()}`;
+    const _adr = await (await getResend()).emails.send({
       from: 'E&J Retreats <cleaning@ejretreats.com>',
       to: 'ejretreats1@gmail.com',
-      subject: `✅ Contractor agreement signed: ${name.trim()}`,
+      subject: adminSignedSubj,
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f8fafc">
           <div style="background:white;border-radius:12px;padding:24px;border:1px solid #e2e8f0">
@@ -2211,6 +2236,7 @@ async function cleanerOnboardComplete(body: any, res: VercelResponse) {
         </div>
       `,
     });
+    if (_adr?.id) await logEmail(_adr.id, 'cleaning-onboard', 'ejretreats1@gmail.com', adminSignedSubj, row.id, 'Admin');
   } catch {}
 
   return res.status(200).json({ ok: true });
