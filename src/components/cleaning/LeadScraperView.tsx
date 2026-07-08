@@ -69,7 +69,13 @@ export default function LeadScraperView() {
       const r = await fetch(`/api/documents?flow=scraper&action=find-urls&${params}`);
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? 'Search failed');
-      if (!d.results?.length) throw new Error('No results found. Try a different city or business type.');
+      if (!d.results?.length) {
+        const diag = (d.diagnostics ?? []).map((x: any) =>
+          `"${x.q}": DDG ${x.ddg?.status ?? '?'} (${x.ddg?.htmlLen ?? 0}b, ${x.ddg?.anchorCount ?? 0} results)` +
+          (x.bing ? ` | Bing ${x.bing.status} (${x.bing.htmlLen}b, ${x.bing.anchorCount} results)` : '')
+        ).join('\n');
+        throw new Error(`No results found. Try a different city or business type.\n\n${diag}`);
+      }
       setSites(d.results.map((s: { name: string; url: string; description: string }) => ({ ...s, selected: true })));
       setStep('sites');
     } catch (e) {
@@ -230,8 +236,11 @@ export default function LeadScraperView() {
           </div>
 
           {searchError && (
-            <div className="flex items-center gap-2 text-[#e05c5c] text-sm bg-[#2a0e0e] border border-[#5a1a1a] rounded-xl px-4 py-3 mb-3">
-              <AlertCircle size={15} /> {searchError}
+            <div className="text-[#e05c5c] text-sm bg-[#2a0e0e] border border-[#5a1a1a] rounded-xl px-4 py-3 mb-3">
+              <div className="flex items-center gap-2 font-medium"><AlertCircle size={15} /> {searchError.split('\n')[0]}</div>
+              {searchError.includes('\n') && (
+                <pre className="mt-2 text-xs text-[#c07070] whitespace-pre-wrap font-mono">{searchError.split('\n').slice(2).join('\n')}</pre>
+              )}
             </div>
           )}
 

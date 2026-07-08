@@ -2508,8 +2508,108 @@ function isNoiseEmail(email: string): boolean {
   return false;
 }
 
+function scraperCleanText(s: string) {
+  return s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#\d+;/g, '').trim();
+}
+
+function scraperAddResult(
+  rawUrl: string,
+  title: string,
+  snippet: string,
+  seen: Set<string>,
+  results: { name: string; url: string; description: string }[],
+  maxCount: number,
+): boolean {
+  if (!rawUrl.startsWith('http')) return false;
+  let hostname = '';
+  try { hostname = new URL(rawUrl).hostname.replace(/^www\./, ''); } catch { return false; }
+  if (SCRAPER_SKIP_DOMAINS.some(d => hostname.includes(d))) return false;
+  if (seen.has(hostname)) return false;
+  seen.add(hostname);
+  results.push({ name: title || hostname, url: rawUrl, description: snippet });
+  return results.length >= maxCount;
+}
+
+async function scraperSearchDDG(
+  q: string,
+  seen: Set<string>,
+  results: { name: string; url: string; description: string }[],
+  maxCount: number,
+): Promise<{ status: number; htmlLen: number; anchorCount: number }> {
+  const info = { status: 0, htmlLen: 0, anchorCount: 0 };
+  try {
+    const r = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://duckduckgo.com/',
+      },
+      signal: AbortSignal.timeout(12000),
+    });
+    info.status = r.status;
+    if (!r.ok) return info;
+    const html = await r.text();
+    info.htmlLen = html.length;
+
+    // Match entire <a> tag regardless of attribute order
+    const anchors = [...html.matchAll(/<a\b[^>]*class="result__a"[^>]*>[\s\S]*?<\/a>/g)];
+    const snips   = [...html.matchAll(/<a\b[^>]*class="result__snippet"[^>]*>[\s\S]*?<\/a>/g)];
+    info.anchorCount = anchors.length;
+
+    for (let i = 0; i < anchors.length && results.length < maxCount; i++) {
+      const aHtml = anchors[i][0];
+      const hrefM = aHtml.match(/href="([^"]+)"/);
+      if (!hrefM) continue;
+      let rawUrl = hrefM[1];
+      if (rawUrl.startsWith('//')) rawUrl = 'https:' + rawUrl;
+      if (rawUrl.includes('duckduckgo.com/l/')) {
+        try { const u = new URL(rawUrl).searchParams.get('uddg'); if (u) rawUrl = decodeURIComponent(u); } catch {}
+      }
+      scraperAddResult(rawUrl, scraperCleanText(aHtml), scraperCleanText(snips[i]?.[0] ?? ''), seen, results, maxCount);
+    }
+  } catch {}
+  return info;
+}
+
+async function scraperSearchBing(
+  q: string,
+  seen: Set<string>,
+  results: { name: string; url: string; description: string }[],
+  maxCount: number,
+): Promise<{ status: number; htmlLen: number; anchorCount: number }> {
+  const info = { status: 0, htmlLen: 0, anchorCount: 0 };
+  try {
+    const r = await fetch(`https://www.bing.com/search?q=${encodeURIComponent(q)}&count=20&form=QBLH`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(12000),
+    });
+    info.status = r.status;
+    if (!r.ok) return info;
+    const html = await r.text();
+    info.htmlLen = html.length;
+
+    // Bing result links are in <h2><a href="DIRECT_URL">
+    const anchors = [...html.matchAll(/<h2[^>]*>\s*<a\b[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)];
+    info.anchorCount = anchors.length;
+
+    for (const m of anchors) {
+      if (results.length >= maxCount) break;
+      const rawUrl = m[1];
+      if (rawUrl.includes('bing.com') || rawUrl.includes('microsoft.com')) continue;
+      const title = scraperCleanText(m[2]);
+      scraperAddResult(rawUrl, title, '', seen, results, maxCount);
+    }
+  } catch {}
+  return info;
+}
+
 async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
-  const { businessType = 'property management', city = '', state = '', count = '20', debug = '' } = req.query as Record<string, string>;
+  const { businessType = 'property management', city = '', state = '', count = '20' } = req.query as Record<string, string>;
   const cityState = `${city} ${state}`.trim();
   if (!cityState) return res.status(400).json({ error: 'city and state required' });
 
@@ -2523,93 +2623,26 @@ async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
   const maxCount = Math.min(parseInt(count) || 20, 60);
   const seen = new Set<string>();
   const results: { name: string; url: string; description: string }[] = [];
-
-  const debugInfo: any[] = [];
+  const diagnostics: { q: string; ddg: any; bing?: any }[] = [];
 
   for (const q of queries) {
     if (results.length >= maxCount) break;
-    let fetchStatus = 0;
-    let htmlLen = 0;
-    let anchorCount = 0;
-    try {
-      const r = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Cache-Control': 'no-cache',
-        },
-        signal: AbortSignal.timeout(15000),
-      });
-      fetchStatus = r.status;
-      if (!r.ok) {
-        if (debug) debugInfo.push({ q, status: fetchStatus, error: 'non-ok' });
-        continue;
-      }
-      const html = await r.text();
-      htmlLen = html.length;
+    const before = results.length;
 
-      // Match whole <a> tags regardless of attribute order, then extract href separately
-      const anchorRe = /<a\b[^>]*class="result__a"[^>]*>[\s\S]*?<\/a>/g;
-      const snipRe   = /<a\b[^>]*class="result__snippet"[^>]*>[\s\S]*?<\/a>/g;
-      const anchors  = [...html.matchAll(anchorRe)];
-      const snips    = [...html.matchAll(snipRe)];
-      anchorCount = anchors.length;
+    // Try DuckDuckGo first
+    const ddgInfo = await scraperSearchDDG(q, seen, results, maxCount);
 
-      // If no result__a matches, try fallback: extract all external hrefs from the page
-      if (!anchors.length) {
-        const allLinks = [...html.matchAll(/href="(https?:\/\/[^"]+)"/g)];
-        for (const m of allLinks) {
-          let rawUrl = m[1];
-          if (rawUrl.includes('duckduckgo.com')) continue;
-          let hostname = '';
-          try { hostname = new URL(rawUrl).hostname.replace(/^www\./, ''); } catch { continue; }
-          if (SCRAPER_SKIP_DOMAINS.some(d => hostname.includes(d))) continue;
-          if (seen.has(hostname)) continue;
-          seen.add(hostname);
-          results.push({ name: hostname, url: rawUrl, description: '' });
-          if (results.length >= maxCount) break;
-        }
-      }
-
-      for (let i = 0; i < anchors.length && results.length < maxCount; i++) {
-        const anchorHtml = anchors[i][0];
-        const hrefM = anchorHtml.match(/href="([^"]+)"/);
-        if (!hrefM) continue;
-        let rawUrl = hrefM[1];
-
-        // Decode DDG redirect URLs: //duckduckgo.com/l/?uddg=<encoded-url>
-        if (rawUrl.startsWith('//')) rawUrl = 'https:' + rawUrl;
-        if (rawUrl.includes('duckduckgo.com/l/')) {
-          try {
-            const uddg = new URL(rawUrl).searchParams.get('uddg');
-            if (uddg) rawUrl = decodeURIComponent(uddg);
-          } catch {}
-        }
-        if (!rawUrl.startsWith('http')) continue;
-
-        let hostname = '';
-        try { hostname = new URL(rawUrl).hostname.replace(/^www\./, ''); } catch { continue; }
-        if (SCRAPER_SKIP_DOMAINS.some(d => hostname.includes(d))) continue;
-        if (seen.has(hostname)) continue;
-        seen.add(hostname);
-
-        const clean = (s: string) => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#\d+;/g, '').trim();
-        const title   = clean(anchorHtml);
-        const snippet = clean(snips[i]?.[0] ?? '');
-        results.push({ name: title || hostname, url: rawUrl, description: snippet });
-      }
-
-      if (debug) debugInfo.push({ q, status: fetchStatus, htmlLen, anchorCount, resultsSoFar: results.length, htmlSnippet: html.slice(0, 500) });
-      if (queries.indexOf(q) < queries.length - 1) await new Promise(r => setTimeout(r, 800));
-    } catch (e: any) {
-      if (debug) debugInfo.push({ q, error: e?.message ?? String(e) });
-      continue;
+    // Fall back to Bing if DDG returned nothing for this query
+    let bingInfo: any;
+    if (results.length === before) {
+      bingInfo = await scraperSearchBing(q, seen, results, maxCount);
     }
+
+    diagnostics.push({ q, ddg: ddgInfo, ...(bingInfo ? { bing: bingInfo } : {}) });
+    if (queries.indexOf(q) < queries.length - 1) await new Promise(r => setTimeout(r, 600));
   }
 
-  if (debug) return res.status(200).json({ results, count: results.length, debug: debugInfo });
-  return res.status(200).json({ results, count: results.length });
+  return res.status(200).json({ results, count: results.length, diagnostics });
 }
 
 async function scraperScrapeEmails(body: any, res: VercelResponse) {
