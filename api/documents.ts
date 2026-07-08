@@ -1191,7 +1191,7 @@ async function cleanerSendPortalLink(body: any, res: VercelResponse) {
   const { data: cleaner } = await supabase.from('cleaners').select('id, name, email').eq('id', cleanerId).single();
   if (!cleaner?.email) return res.status(404).json({ error: 'Cleaner not found.' });
 
-  const portalUrl = `https://crm-nine-delta-37.vercel.app?cleaner-dashboard=${cleanerId}`;
+  const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${cleanerId}`;
   const firstName = cleaner.name.split(' ')[0];
   const portalAppName = `${cleaner.name} Cleaner Portal`;
 
@@ -1368,7 +1368,7 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
   if (account.details_submitted && cleaner.stripe_connect_status !== 'active') {
     await supabase.from('cleaners').update({ stripe_connect_status: 'active' }).eq('id', cleanerId);
 
-    const portalUrl = `https://crm-nine-delta-37.vercel.app?cleaner-dashboard=${cleanerId}`;
+    const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${cleanerId}`;
     const firstName = cleaner.name.split(' ')[0];
     const portalAppName = `${cleaner.name} Cleaner Portal`;
 

@@ -252,15 +252,16 @@ export default function CleanerDashboard({ cleanerId }: { cleanerId: string }) {
 
   function handleAccepted(jobId: string) {
     if (!data) return;
-    const job = data.availableJobs.find(j => j.id === jobId);
+    const curAvailable = Array.isArray(data.availableJobs) ? data.availableJobs : [];
+    const curMyJobs = Array.isArray(data.myJobs) ? data.myJobs : [];
+    const job = curAvailable.find(j => j.id === jobId);
     if (!job) return;
     const updated: DashJob = { ...job, status: 'accepted' };
     setData({
       ...data,
-      myJobs: [updated, ...data.myJobs].sort((a, b) => a.checkoutDate.localeCompare(b.checkoutDate)),
-      availableJobs: data.availableJobs.filter(j => j.id !== jobId),
+      myJobs: [updated, ...curMyJobs].sort((a, b) => a.checkoutDate.localeCompare(b.checkoutDate)),
+      availableJobs: curAvailable.filter(j => j.id !== jobId),
     });
-    // Update selected job so the modal reflects new status
     setSelectedJob(updated);
   }
 
@@ -284,8 +285,10 @@ export default function CleanerDashboard({ cleanerId }: { cleanerId: string }) {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const upcomingJobs = data.myJobs.filter(j => j.checkoutDate >= today);
-  const pastJobs = data.myJobs.filter(j => j.checkoutDate < today);
+  const myJobs = Array.isArray(data.myJobs) ? data.myJobs : [];
+  const availableJobs = Array.isArray(data.availableJobs) ? data.availableJobs : [];
+  const upcomingJobs = myJobs.filter(j => j.checkoutDate >= today);
+  const pastJobs = myJobs.filter(j => j.checkoutDate < today);
 
   return (
     <div className="min-h-screen bg-[#0a1628]">
@@ -321,11 +324,11 @@ export default function CleanerDashboard({ cleanerId }: { cleanerId: string }) {
           }`}
         >
           Available
-          {data.availableJobs.length > 0 && (
+          {availableJobs.length > 0 && (
             <span className={`ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${
               tab === 'available' ? 'bg-[#d0954a] text-white' : 'bg-[#1a1800] text-[#d0954a]'
             }`}>
-              {data.availableJobs.length}
+              {availableJobs.length}
             </span>
           )}
           {tab === 'available' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#d0954a]" />}
@@ -338,7 +341,7 @@ export default function CleanerDashboard({ cleanerId }: { cleanerId: string }) {
         {/* ── MY JOBS TAB ── */}
         {tab === 'my-jobs' && (
           <>
-            {data.myJobs.length === 0 ? (
+            {myJobs.length === 0 ? (
               <div className="text-center py-16">
                 <Home size={36} className="text-[#1e2d45] mx-auto mb-3" />
                 <p className="text-[#3a5070] text-sm">No jobs assigned yet.</p>
@@ -370,7 +373,7 @@ export default function CleanerDashboard({ cleanerId }: { cleanerId: string }) {
         {/* ── AVAILABLE TAB ── */}
         {tab === 'available' && (
           <>
-            {data.availableJobs.length === 0 ? (
+            {availableJobs.length === 0 ? (
               <div className="text-center py-16">
                 <CheckCircle size={36} className="text-[#1e2d45] mx-auto mb-3" />
                 <p className="text-[#3a5070] text-sm">No available jobs right now.</p>
@@ -381,7 +384,7 @@ export default function CleanerDashboard({ cleanerId }: { cleanerId: string }) {
                 <p className="text-xs font-semibold text-[#3a5070] uppercase tracking-wide px-1">
                   Tap a job to view details and accept
                 </p>
-                {data.availableJobs.map(job => (
+                {availableJobs.map(job => (
                   <AvailableJobCard key={job.id} job={job} onClick={() => setSelectedJob(job)} />
                 ))}
               </>

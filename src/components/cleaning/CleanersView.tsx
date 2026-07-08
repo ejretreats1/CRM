@@ -374,7 +374,7 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                 {/* Copy dashboard link */}
                 <button
                   onClick={() => {
-                    const url = `${window.location.origin}?cleaner-dashboard=${selected.id}`;
+                    const url = `${window.location.origin}/?cleaner-dashboard=${selected.id}`;
                     navigator.clipboard.writeText(url).catch(() => {});
                     alert(`Dashboard link copied!\n\n${url}`);
                   }}
