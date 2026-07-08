@@ -2572,6 +2572,23 @@ async function scraperSearchDDG(
   return info;
 }
 
+function decodeBingRedirect(href: string): string {
+  // Bing wraps result links as /ck/a?!&&p=HASH&u=a1BASE64URL&ntb=1
+  // The 'u' param is 'a1' prefix + base64url-encoded actual URL
+  try {
+    const full = href.startsWith('/') ? 'https://www.bing.com' + href : href;
+    // URL may have unescaped & in HTML — replace &amp; then parse
+    const clean = full.replace(/&amp;/g, '&');
+    const uParam = new URL(clean).searchParams.get('u');
+    if (uParam?.startsWith('a1')) {
+      const b64 = uParam.slice(2).replace(/-/g, '+').replace(/_/g, '/');
+      const decoded = Buffer.from(b64, 'base64').toString('utf8');
+      if (decoded.startsWith('http')) return decoded;
+    }
+  } catch {}
+  return href;
+}
+
 async function scraperSearchBing(
   q: string,
   seen: Set<string>,
@@ -2593,15 +2610,21 @@ async function scraperSearchBing(
     const html = await r.text();
     info.htmlLen = html.length;
 
-    // Bing result links are in <h2><a href="DIRECT_URL">
-    const anchors = [...html.matchAll(/<h2[^>]*>\s*<a\b[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g)];
-    info.anchorCount = anchors.length;
+    // Bing wraps result title links in <h2>; extract every anchor inside any <h2>
+    const h2Blocks = [...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)];
+    info.anchorCount = h2Blocks.length;
 
-    for (const m of anchors) {
+    for (const h2 of h2Blocks) {
       if (results.length >= maxCount) break;
-      const rawUrl = m[1];
+      const hrefM = h2[1].match(/href="([^"]+)"/);
+      if (!hrefM) continue;
+
+      // Decode Bing's click-tracking redirect to get the real URL
+      let rawUrl = decodeBingRedirect(hrefM[1]);
       if (rawUrl.includes('bing.com') || rawUrl.includes('microsoft.com')) continue;
-      const title = scraperCleanText(m[2]);
+      if (!rawUrl.startsWith('http')) continue;
+
+      const title = scraperCleanText(h2[1]);
       scraperAddResult(rawUrl, title, '', seen, results, maxCount);
     }
   } catch {}
