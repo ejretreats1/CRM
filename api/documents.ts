@@ -1290,6 +1290,62 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
 
   if (account.details_submitted && cleaner.stripe_connect_status !== 'active') {
     await supabase.from('cleaners').update({ stripe_connect_status: 'active' }).eq('id', cleanerId);
+
+    const portalUrl = `https://crm-nine-delta-37.vercel.app?cleaner-dashboard=${cleanerId}`;
+    const firstName = cleaner.name.split(' ')[0];
+    const portalAppName = `${cleaner.name} Cleaner Portal`;
+
+    // Send portal link + save-as-app instructions to cleaner
+    await (await getResend()).emails.send({
+      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+      to: cleaner.email,
+      subject: `🎉 You're all set, ${firstName}! Save your Cleaner Portal`,
+      html: `
+        <div style="font-family:sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f8fafc">
+          <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+            <h2 style="color:#1e40af;margin:0 0 4px;font-size:22px">🎉 You're Fully Onboarded!</h2>
+            <p style="color:#64748b;font-size:13px;margin:0 0 24px">Agreement signed ✅ &nbsp;·&nbsp; Stripe connected ✅</p>
+
+            <p style="color:#334155;margin:0 0 16px">Hi ${firstName},</p>
+            <p style="color:#334155;margin:0 0 24px">You're all set to start receiving cleaning jobs and payouts from E&amp;J Retreats. Your personal Cleaner Portal is where you'll see your upcoming jobs, accept new assignments, and track your pay.</p>
+
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:20px;margin:0 0 28px;text-align:center">
+              <p style="margin:0 0 6px;font-size:13px;color:#1e40af;font-weight:700;letter-spacing:0.05em">YOUR CLEANER PORTAL</p>
+              <a href="${portalUrl}" style="display:inline-block;background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;margin:8px 0">${portalAppName}</a>
+              <p style="margin:10px 0 0;font-size:11px;color:#64748b;word-break:break-all">${portalUrl}</p>
+            </div>
+
+            <p style="color:#1e293b;font-weight:700;font-size:15px;margin:0 0 12px">📱 Save this as an app on your phone</p>
+            <p style="color:#475569;font-size:13px;margin:0 0 16px">This link works like a mobile app — add it to your home screen so you can open it with one tap, just like any other app.</p>
+
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin:0 0 16px">
+              <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#0f172a">🍎 iPhone (Safari)</p>
+              <ol style="margin:0;padding-left:20px;color:#334155;font-size:13px;line-height:2">
+                <li>Open the link above in <strong>Safari</strong> (not Chrome)</li>
+                <li>Tap the <strong>Share button</strong> <span style="background:#e2e8f0;padding:1px 5px;border-radius:4px;font-size:12px">⬆</span> at the bottom of the screen</li>
+                <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
+                <li>Set the name to <strong>${portalAppName}</strong></li>
+                <li>Tap <strong>"Add"</strong> in the top right corner</li>
+              </ol>
+            </div>
+
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin:0 0 24px">
+              <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#0f172a">🤖 Android (Chrome)</p>
+              <ol style="margin:0;padding-left:20px;color:#334155;font-size:13px;line-height:2">
+                <li>Open the link above in <strong>Chrome</strong></li>
+                <li>Tap the <strong>three dots menu</strong> <span style="background:#e2e8f0;padding:1px 5px;border-radius:4px;font-size:12px">⋮</span> in the top right</li>
+                <li>Tap <strong>"Add to Home screen"</strong></li>
+                <li>Set the name to <strong>${portalAppName}</strong></li>
+                <li>Tap <strong>"Add"</strong></li>
+              </ol>
+            </div>
+
+            <p style="color:#94a3b8;font-size:12px;margin:0;text-align:center">Welcome to the team! Contact E&amp;J Retreats if you need anything.<br>— E&amp;J Retreats</p>
+          </div>
+        </div>
+      `,
+    }).catch(() => {});
+
     // Notify admin
     await (await getResend()).emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
