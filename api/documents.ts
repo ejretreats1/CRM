@@ -1073,63 +1073,74 @@ async function cleanerConnectSend(body: any, res: VercelResponse) {
   const { cleanerId, appUrl, sendEmail } = body;
   if (!cleanerId) return res.status(400).json({ error: 'cleanerId required.' });
 
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(500).json({ error: 'STRIPE_SECRET_KEY is not configured in environment variables.' });
+  }
+
   const supabase = getSupabase();
-  const { data: cleaner } = await supabase.from('cleaners').select('*').eq('id', cleanerId).single();
-  if (!cleaner) return res.status(404).json({ error: 'Cleaner not found.' });
+  const { data: cleaner, error: dbErr } = await supabase.from('cleaners').select('*').eq('id', cleanerId).single();
+  if (dbErr || !cleaner) return res.status(404).json({ error: `Cleaner not found: ${dbErr?.message ?? 'unknown'}` });
 
-  const stripe = await getStripe();
-  const connectToken = randomUUID();
+  try {
+    const stripe = await getStripe();
+    const connectToken = randomUUID();
 
-  // Create Express account if not yet created
-  let stripeAccountId: string = cleaner.stripe_account_id ?? '';
-  if (!stripeAccountId) {
-    const account = await stripe.accounts.create({
-      type: 'express',
-      email: cleaner.email,
-      capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
-      metadata: { cleaner_id: cleanerId, cleaner_name: cleaner.name },
-    });
-    stripeAccountId = account.id;
-  }
+    // Create Express account if not yet created
+    let stripeAccountId: string = cleaner.stripe_account_id ?? '';
+    if (!stripeAccountId) {
+      const account = await stripe.accounts.create({
+        type: 'express',
+        email: cleaner.email,
+        capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
+        metadata: { cleaner_id: cleanerId, cleaner_name: cleaner.name },
+      });
+      stripeAccountId = account.id;
+    }
 
-  await supabase.from('cleaners').update({
-    stripe_account_id: stripeAccountId,
-    connect_token: connectToken,
-    stripe_connect_status: 'pending',
-  }).eq('id', cleanerId);
+    const { error: updateErr } = await supabase.from('cleaners').update({
+      stripe_account_id: stripeAccountId,
+      connect_token: connectToken,
+      stripe_connect_status: 'pending',
+    }).eq('id', cleanerId);
+    if (updateErr) return res.status(500).json({ error: `DB update failed: ${updateErr.message}` });
 
-  const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
-  const link = `${base}?cleaner-setup=${cleanerId}:${connectToken}`;
+    const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+    const link = `${base}?cleaner-setup=${cleanerId}:${connectToken}`;
 
-  if (sendEmail) {
-    await (await getResend()).emails.send({
-      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-      to: cleaner.email,
-      subject: 'Set up your Stripe account to receive cleaning payouts',
-      html: `
-        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
-          <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
-            <h2 style="color:#1e40af;margin:0 0 16px">💳 Set Up Your Stripe Account</h2>
-            <p style="color:#334155">Hi ${cleaner.name.split(' ')[0]},</p>
-            <p style="color:#334155">E&amp;J Retreats uses Stripe to send your cleaning payouts directly to your bank account. Setup takes about 5 minutes.</p>
-            <ul style="color:#334155;font-size:14px;line-height:1.8">
-              <li>Connect your bank account for direct deposit</li>
-              <li>Payouts sent automatically after each completed cleaning</li>
-              <li>Secure &amp; encrypted — powered by Stripe</li>
-            </ul>
-            <p style="margin:28px 0;text-align:center">
-              <a href="${link}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
-                Set Up Stripe Payouts
-              </a>
-            </p>
-            <p style="color:#94a3b8;font-size:12px;text-align:center">This link is personal to you. — E&amp;J Retreats</p>
+    if (sendEmail) {
+      await (await getResend()).emails.send({
+        from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+        to: cleaner.email,
+        subject: 'Set up your Stripe account to receive cleaning payouts',
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+            <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+              <h2 style="color:#1e40af;margin:0 0 16px">💳 Set Up Your Stripe Account</h2>
+              <p style="color:#334155">Hi ${cleaner.name.split(' ')[0]},</p>
+              <p style="color:#334155">E&amp;J Retreats uses Stripe to send your cleaning payouts directly to your bank account. Setup takes about 5 minutes.</p>
+              <ul style="color:#334155;font-size:14px;line-height:1.8">
+                <li>Connect your bank account for direct deposit</li>
+                <li>Payouts sent automatically after each completed cleaning</li>
+                <li>Secure &amp; encrypted — powered by Stripe</li>
+              </ul>
+              <p style="margin:28px 0;text-align:center">
+                <a href="${link}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
+                  Set Up Stripe Payouts
+                </a>
+              </p>
+              <p style="color:#94a3b8;font-size:12px;text-align:center">This link is personal to you. — E&amp;J Retreats</p>
+            </div>
           </div>
-        </div>
-      `,
-    }).catch(() => {});
-  }
+        `,
+      }).catch(() => {});
+    }
 
-  return res.status(200).json({ link });
+    return res.status(200).json({ link });
+  } catch (err: any) {
+    const msg = err?.message ?? String(err);
+    console.error('cleanerConnectSend stripe error:', msg);
+    return res.status(500).json({ error: `Stripe error: ${msg}` });
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
