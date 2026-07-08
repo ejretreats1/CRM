@@ -118,13 +118,11 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
     try {
       const today = new Date();
       const windowStart = new Date(today); windowStart.setDate(today.getDate() - 14);
-      const windowEnd   = new Date(today); windowEnd.setDate(today.getDate() + 90);
       const startStr = windowStart.toISOString().slice(0, 10);
-      const endStr   = windowEnd.toISOString().slice(0, 10);
 
       const relevant = reservations.filter(r => {
         if (!r.check_out) return false;
-        if (r.check_out < startStr || r.check_out > endStr) return false;
+        if (r.check_out < startStr) return false; // skip checkouts older than 14 days
         if (!configMap.has(r.listing_id)) return false;
         if (existingReservationIds.has(r.id)) return false;
         return true;
