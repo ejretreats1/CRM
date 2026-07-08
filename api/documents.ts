@@ -2425,8 +2425,15 @@ async function emailMktSendCampaign(body: any, res: VercelResponse) {
         .replace(/\{company\}/gi, lead.company || '')
         .replace(/\{city\}/gi, lead.city || '')
         .replace(/\{unsubscribe_link\}/gi, unsubLink);
-      const htmlBody = personalBody.includes('<') ? personalBody
-        : `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:600px">${personalBody.replace(/\n/g, '<br/>')}<br/><br/><hr style="border:none;border-top:1px solid #eee;margin:24px 0"/><p style="font-size:12px;color:#999">To unsubscribe, <a href="${unsubLink}">click here</a>.</p></div>`;
+      const unsubFooter = `<hr style="border:none;border-top:1px solid #eee;margin:24px 0"/><p style="font-size:12px;color:#999;margin:0">To unsubscribe, <a href="${unsubLink}" style="color:#999">click here</a>.</p>`;
+      let htmlBody: string;
+      if (personalBody.includes('<')) {
+        htmlBody = personalBody.includes('</body>')
+          ? personalBody.replace('</body>', `${unsubFooter}</body>`)
+          : personalBody + unsubFooter;
+      } else {
+        htmlBody = `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:600px">${personalBody.replace(/\n/g, '<br/>')}<br/><br/>${unsubFooter}</div>`;
+      }
       try {
         const r = await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL ?? 'team@ejretreats.com',

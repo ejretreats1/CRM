@@ -89,7 +89,7 @@ function TemplateModal({ template, onClose, onSave }: {
     .replace(/\{company\}/gi, 'Sunrise Property Management')
     .replace(/\{city\}/gi, 'Miami');
 
-  const hasUnsubscribe = /unsubscribe|opt.?out/i.test(body);
+  const hasUnsubscribe = true; // auto-appended to every send
   const hasBusinessName = /e&j|retreats|cleaning/i.test(body);
   const hasAddress = /\d{1,5}\s\w+.*fl|florida|miami/i.test(body);
 
