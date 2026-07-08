@@ -1173,6 +1173,69 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
 
 // ── CLEANER STRIPE CONNECT ────────────────────────────────────────────────────
 
+async function cleanerSendPortalLink(body: any, res: VercelResponse) {
+  const { cleanerId } = body;
+  if (!cleanerId) return res.status(400).json({ error: 'cleanerId required.' });
+
+  const supabase = getSupabase();
+  const { data: cleaner } = await supabase.from('cleaners').select('id, name, email').eq('id', cleanerId).single();
+  if (!cleaner?.email) return res.status(404).json({ error: 'Cleaner not found.' });
+
+  const portalUrl = `https://crm-nine-delta-37.vercel.app?cleaner-dashboard=${cleanerId}`;
+  const firstName = cleaner.name.split(' ')[0];
+  const portalAppName = `${cleaner.name} Cleaner Portal`;
+
+  await (await getResend()).emails.send({
+    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+    to: cleaner.email,
+    subject: `Your ${portalAppName} — Save it to your phone!`,
+    html: `
+      <div style="font-family:sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f8fafc">
+        <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+          <h2 style="color:#1e40af;margin:0 0 20px;font-size:22px">📱 Your Cleaner Portal</h2>
+
+          <p style="color:#334155;margin:0 0 16px">Hi ${firstName},</p>
+          <p style="color:#334155;margin:0 0 24px">Here is your personal E&amp;J Retreats Cleaner Portal. This is where you'll see your upcoming jobs, accept new assignments, and track your pay. Save it to your phone's home screen so you can open it with one tap — just like any other app.</p>
+
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:20px;margin:0 0 28px;text-align:center">
+            <p style="margin:0 0 6px;font-size:13px;color:#1e40af;font-weight:700;letter-spacing:0.05em">YOUR CLEANER PORTAL</p>
+            <a href="${portalUrl}" style="display:inline-block;background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;margin:8px 0">${portalAppName}</a>
+            <p style="margin:10px 0 0;font-size:11px;color:#64748b;word-break:break-all">${portalUrl}</p>
+          </div>
+
+          <p style="color:#1e293b;font-weight:700;font-size:15px;margin:0 0 12px">How to save it as an app on your phone</p>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin:0 0 16px">
+            <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#0f172a">🍎 iPhone (Safari)</p>
+            <ol style="margin:0;padding-left:20px;color:#334155;font-size:13px;line-height:2">
+              <li>Open the link above in <strong>Safari</strong> (not Chrome)</li>
+              <li>Tap the <strong>Share button</strong> <span style="background:#e2e8f0;padding:1px 5px;border-radius:4px;font-size:12px">⬆</span> at the bottom of the screen</li>
+              <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
+              <li>Set the name to <strong>${portalAppName}</strong></li>
+              <li>Tap <strong>"Add"</strong> in the top right corner</li>
+            </ol>
+          </div>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin:0 0 24px">
+            <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#0f172a">🤖 Android (Chrome)</p>
+            <ol style="margin:0;padding-left:20px;color:#334155;font-size:13px;line-height:2">
+              <li>Open the link above in <strong>Chrome</strong></li>
+              <li>Tap the <strong>three dots menu</strong> <span style="background:#e2e8f0;padding:1px 5px;border-radius:4px;font-size:12px">⋮</span> in the top right</li>
+              <li>Tap <strong>"Add to Home screen"</strong></li>
+              <li>Set the name to <strong>${portalAppName}</strong></li>
+              <li>Tap <strong>"Add"</strong></li>
+            </ol>
+          </div>
+
+          <p style="color:#94a3b8;font-size:12px;margin:0;text-align:center">Questions? Contact E&amp;J Retreats anytime.<br>— E&amp;J Retreats</p>
+        </div>
+      </div>
+    `,
+  });
+
+  return res.status(200).json({ ok: true });
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleanerConnectSend(body: any, res: VercelResponse) {
   const { cleanerId, appUrl, sendEmail } = body;
@@ -3112,6 +3175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'send-connect')    return await cleanerConnectSend(body, res);
     if (action === 'connect-url')     return await cleanerConnectUrl(body, res);
     if (action === 'dashboard-accept') return await cleanerDashboardAccept(body, res);
+    if (action === 'send-portal-link') return await cleanerSendPortalLink(body, res);
   } else if (flow === 'cleaning') {
     if (action === 'dispatch')          return await cleaningDispatch(body, res);
     if (action === 'accept')            return await cleaningAccept(body, res);

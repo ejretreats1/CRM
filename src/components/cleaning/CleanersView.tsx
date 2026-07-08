@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard, FileText, Copy, Check, Download } from 'lucide-react';
+import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard, FileText, Copy, Check, Download, Smartphone } from 'lucide-react';
 import type { Cleaner } from '../../types/cleaning';
 
 interface Props {
@@ -27,6 +27,25 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
 
   // PDF download state
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  // Send portal link state
+  const [portalSentId, setPortalSentId] = useState<string | null>(null);
+  const [portalSendingId, setPortalSendingId] = useState<string | null>(null);
+
+  async function sendPortalLink(cleanerId: string) {
+    setPortalSendingId(cleanerId);
+    try {
+      await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaner', action: 'send-portal-link', cleanerId }),
+      });
+      setPortalSentId(cleanerId);
+      setTimeout(() => setPortalSentId(null), 3000);
+    } finally {
+      setPortalSendingId(null);
+    }
+  }
 
   async function downloadAgreement(cleanerId: string) {
     setDownloadingId(cleanerId);
@@ -299,6 +318,14 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                         className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#5ce0a0] hover:bg-[#1e2d45] transition-colors"
                       >
                         <LayoutDashboard size={14} />
+                      </button>
+                      <button
+                        onClick={() => sendPortalLink(c.id)}
+                        disabled={portalSendingId === c.id}
+                        title="Send portal link to cleaner's phone"
+                        className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${portalSentId === c.id ? 'text-[#5ce0a0] bg-[#0a2518]' : 'text-[#3a5070] hover:text-[#d0954a] hover:bg-[#1e2d45]'}`}
+                      >
+                        {portalSentId === c.id ? <Check size={14} /> : <Smartphone size={14} />}
                       </button>
                       <button
                         onClick={() => openAgreementModal(c)}
