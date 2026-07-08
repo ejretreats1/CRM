@@ -2632,10 +2632,47 @@ async function scraperSearchBing(
   return info;
 }
 
+async function scraperSearchBrave(
+  q: string,
+  apiKey: string,
+  seen: Set<string>,
+  results: { name: string; url: string; description: string }[],
+  maxCount: number,
+): Promise<number> {
+  try {
+    const r = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=20&search_lang=en&country=us`, {
+      headers: {
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip',
+        'X-Subscription-Token': apiKey,
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) return 0;
+    const data = await r.json();
+    const items: any[] = data?.web?.results ?? [];
+    for (const item of items) {
+      if (results.length >= maxCount) break;
+      const rawUrl = item.url ?? item.profile?.url;
+      if (!rawUrl) continue;
+      scraperAddResult(rawUrl, item.title ?? '', item.description ?? '', seen, results, maxCount);
+    }
+    return items.length;
+  } catch { return 0; }
+}
+
 async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
   const { businessType = 'property management', city = '', state = '', count = '20' } = req.query as Record<string, string>;
   const cityState = `${city} ${state}`.trim();
   if (!cityState) return res.status(400).json({ error: 'city and state required' });
+
+  const braveKey = process.env.BRAVE_SEARCH_API_KEY ?? '';
+  if (!braveKey) {
+    return res.status(503).json({
+      error: 'BRAVE_SEARCH_API_KEY not configured',
+      setup: 'Get a free API key at https://brave.com/search/api/ (2,000 searches/month free), then add BRAVE_SEARCH_API_KEY to your Vercel environment variables.',
+    });
+  }
 
   const typeQueries: Record<string, string[]> = {
     'property management': [`property management companies ${cityState}`, `property managers ${cityState}`, `residential property management ${cityState}`],
@@ -2647,26 +2684,14 @@ async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
   const maxCount = Math.min(parseInt(count) || 20, 60);
   const seen = new Set<string>();
   const results: { name: string; url: string; description: string }[] = [];
-  const diagnostics: { q: string; ddg: any; bing?: any }[] = [];
 
   for (const q of queries) {
     if (results.length >= maxCount) break;
-    const before = results.length;
-
-    // Try DuckDuckGo first
-    const ddgInfo = await scraperSearchDDG(q, seen, results, maxCount);
-
-    // Fall back to Bing if DDG returned nothing for this query
-    let bingInfo: any;
-    if (results.length === before) {
-      bingInfo = await scraperSearchBing(q, seen, results, maxCount);
-    }
-
-    diagnostics.push({ q, ddg: ddgInfo, ...(bingInfo ? { bing: bingInfo } : {}) });
-    if (queries.indexOf(q) < queries.length - 1) await new Promise(r => setTimeout(r, 600));
+    await scraperSearchBrave(q, braveKey, seen, results, maxCount);
+    if (queries.indexOf(q) < queries.length - 1) await new Promise(r => setTimeout(r, 300));
   }
 
-  return res.status(200).json({ results, count: results.length, diagnostics });
+  return res.status(200).json({ results, count: results.length });
 }
 
 async function scraperScrapeEmails(body: any, res: VercelResponse) {

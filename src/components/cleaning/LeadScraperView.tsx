@@ -68,16 +68,11 @@ export default function LeadScraperView() {
       const params = new URLSearchParams({ businessType, city: city.trim(), state: stateCode, count });
       const r = await fetch(`/api/documents?flow=scraper&action=find-urls&${params}`);
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? 'Search failed');
-      if (!d.results?.length) {
-        const first = d.diagnostics?.[0];
-        const snippet = first?.bing?.htmlSnippet ?? first?.ddg?.htmlSnippet ?? '';
-        const diag = (d.diagnostics ?? []).map((x: any) =>
-          `"${x.q}": DDG ${x.ddg?.status ?? '?'} (${x.ddg?.htmlLen ?? 0}b, ${x.ddg?.anchorCount ?? 0} h2s)` +
-          (x.bing ? ` | Bing ${x.bing.status} (${x.bing.htmlLen}b, ${x.bing.anchorCount} h2s)` : '')
-        ).join('\n') + (snippet ? `\n\nBing HTML preview:\n${snippet.slice(0, 400)}` : '');
-        throw new Error(`No results found. Try a different city or business type.\n\n${diag}`);
+      if (!r.ok) {
+        if (d.setup) throw new Error(`SETUP REQUIRED\n${d.error}\n\n${d.setup}`);
+        throw new Error(d.error ?? 'Search failed');
       }
+      if (!d.results?.length) throw new Error('No results found. Try a different city or business type.');
       setSites(d.results.map((s: { name: string; url: string; description: string }) => ({ ...s, selected: true })));
       setStep('sites');
     } catch (e) {
