@@ -288,6 +288,30 @@ export async function upsertCleaningLead(lead: CleaningLead): Promise<void> {
   if (error) throw error;
 }
 
+export async function bulkUpsertCleaningLeads(leads: CleaningLead[]): Promise<void> {
+  if (!leads.length) return;
+  const { error } = await supabase.from('cleaning_leads').upsert(
+    leads.map(lead => ({
+      id:                lead.id,
+      name:              lead.name,
+      email:             lead.email,
+      phone:             lead.phone,
+      company:           lead.company,
+      category:          lead.category,
+      source:            lead.source,
+      multi_prop:        lead.multiProp ?? null,
+      priority:          lead.priority ?? null,
+      outreach_status:   lead.outreachStatus,
+      opportunity_status:lead.opportunityStatus,
+      handoff_needed:    lead.handoffNeeded ?? null,
+      notes:             lead.notes,
+      created_at:        lead.createdAt,
+      updated_at:        lead.updatedAt,
+    }))
+  );
+  if (error) throw error;
+}
+
 export async function deleteCleaningLead(id: string): Promise<void> {
   const { error } = await supabase.from('cleaning_leads').delete().eq('id', id);
   if (error) throw error;

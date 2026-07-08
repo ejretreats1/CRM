@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Phone, Mail, Trash2, X, ChevronDown, Search, UserPlus } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Plus, Phone, Mail, Trash2, X, ChevronDown, Search, UserPlus, Upload, FileText, CheckCircle } from 'lucide-react';
 import type {
   CleaningLead, CleaningLeadCategory, CleaningLeadSource,
   CleaningLeadOpportunityStatus, CleaningLeadOutreachStatus, CleaningLeadPriority, CleaningLeadMultiProp,
@@ -81,6 +81,312 @@ function blankLead(): CleaningLead {
     createdAt: now,
     updatedAt: now,
   };
+}
+
+// ─── CSV utilities ────────────────────────────────────────────────────────────
+
+function parseCSV(text: string): string[][] {
+  const rows: string[][] = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const row: string[] = [];
+    let cur = '';
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+        else { inQ = !inQ; }
+      } else if (ch === ',' && !inQ) {
+        row.push(cur.trim());
+        cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    row.push(cur.trim());
+    rows.push(row);
+  }
+  return rows;
+}
+
+function coerceCategory(raw: string): CleaningLeadCategory {
+  const s = raw.toLowerCase().trim();
+  if (s.includes('property management') || s === 'pm') return 'Property Management';
+  if (s.includes('realtor') || s.includes('real estate team') || s.includes('real estate agent')) return 'Realtor / Real Estate Team';
+  if (s.includes('short-term') || s.includes('short term') || s === 'str') return 'Short-Term Rental';
+  if (s.includes('investor')) return 'Real Estate Investor';
+  if (s.includes('strategic') || s.includes('partner')) return 'Strategic Partner';
+  if (s.includes('residential')) return 'Residential';
+  return 'Property Management';
+}
+
+function coerceSource(raw: string): CleaningLeadSource {
+  const s = raw.toLowerCase().trim();
+  if (s.includes('scraped') || s === 'scrape') return 'Scraped List';
+  if (s.includes('google')) return 'Google';
+  if (s.includes('linkedin')) return 'LinkedIn';
+  if (s.includes('facebook group') || s === 'fb group') return 'Facebook Group';
+  if (s.includes('facebook marketplace') || s.includes('fb marketplace')) return 'Facebook Marketplace';
+  if (s.includes('website') || s === 'web') return 'Website';
+  if (s.includes('referral')) return 'Referral';
+  if (s.includes('other')) return 'Other';
+  return 'Scraped List';
+}
+
+type ImportField = 'skip' | 'name' | 'email' | 'phone' | 'company' | 'category' | 'source' | 'notes';
+
+const IMPORT_FIELDS: { id: ImportField; label: string }[] = [
+  { id: 'skip',     label: '— Skip column —' },
+  { id: 'name',     label: 'Name' },
+  { id: 'email',    label: 'Email' },
+  { id: 'phone',    label: 'Phone' },
+  { id: 'company',  label: 'Company' },
+  { id: 'category', label: 'Category' },
+  { id: 'source',   label: 'Source' },
+  { id: 'notes',    label: 'Notes' },
+];
+
+function autoDetect(headers: string[]): Record<string, ImportField> {
+  const map: Record<string, ImportField> = {};
+  for (const h of headers) {
+    const lower = h.toLowerCase().replace(/[\s_\-]/g, '');
+    if (['name', 'fullname', 'contactname', 'firstname'].some(k => lower.includes(k))) map[h] = 'name';
+    else if (['email', 'emailaddress', 'mail', 'emailid'].some(k => lower.includes(k))) map[h] = 'email';
+    else if (['phone', 'phonenumber', 'mobile', 'cell', 'tel'].some(k => lower.includes(k))) map[h] = 'phone';
+    else if (['company', 'companyname', 'organization', 'firm', 'business', 'brokerage'].some(k => lower.includes(k))) map[h] = 'company';
+    else if (['category', 'leadtype', 'type', 'leadcategory'].some(k => lower.includes(k))) map[h] = 'category';
+    else if (['source', 'leadsource', 'origin'].some(k => lower.includes(k))) map[h] = 'source';
+    else if (['notes', 'note', 'comments', 'comment', 'description'].some(k => lower.includes(k))) map[h] = 'notes';
+    else map[h] = 'skip';
+  }
+  return map;
+}
+
+// ─── CSV Import Modal ─────────────────────────────────────────────────────────
+
+interface CsvImportModalProps {
+  existingLeads: CleaningLead[];
+  onImport: (leads: CleaningLead[]) => Promise<void>;
+  onClose: () => void;
+}
+
+function CsvImportModal({ existingLeads, onImport, onClose }: CsvImportModalProps) {
+  const [stage, setStage] = useState<'upload' | 'map' | 'done'>('upload');
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [dataRows, setDataRows] = useState<string[][]>([]);
+  const [mapping, setMapping] = useState<Record<string, ImportField>>({});
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState({ imported: 0, skipped: 0 });
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const existingEmails = new Set(
+    existingLeads.map(l => l.email.toLowerCase().trim()).filter(Boolean)
+  );
+
+  function handleFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = e.target?.result as string;
+      const rows = parseCSV(text);
+      if (rows.length < 2) return;
+      const hdrs = rows[0];
+      const data = rows.slice(1).filter(r => r.some(c => c));
+      setHeaders(hdrs);
+      setDataRows(data);
+      setMapping(autoDetect(hdrs));
+      setStage('map');
+    };
+    reader.readAsText(file);
+  }
+
+  function getCol(field: ImportField, row: string[]): string {
+    const idx = headers.findIndex(h => mapping[h] === field);
+    return idx >= 0 ? (row[idx] ?? '').trim() : '';
+  }
+
+  const resolvedLeads: CleaningLead[] = dataRows.map(row => {
+    const now = new Date().toISOString();
+    const rawCat = getCol('category', row);
+    const rawSrc = getCol('source', row);
+    return {
+      id: `cl_${crypto.randomUUID()}`,
+      name:             getCol('name', row),
+      email:            getCol('email', row),
+      phone:            getCol('phone', row),
+      company:          getCol('company', row),
+      category:         rawCat ? coerceCategory(rawCat) : 'Property Management',
+      source:           rawSrc ? coerceSource(rawSrc) : 'Scraped List',
+      outreachStatus:   'Not Contacted',
+      opportunityStatus:'New',
+      notes:            getCol('notes', row),
+      createdAt:        now,
+      updatedAt:        now,
+    };
+  });
+
+  const noNameCount = resolvedLeads.filter(l => !l.name.trim()).length;
+  const valid = resolvedLeads.filter(l => l.name.trim());
+
+  // track dups within the CSV itself too
+  const seenInCsv = new Set<string>();
+  const toImport = valid.filter(l => {
+    const key = l.email.toLowerCase().trim();
+    if (key && (existingEmails.has(key) || seenInCsv.has(key))) return false;
+    if (key) seenInCsv.add(key);
+    return true;
+  });
+  const dupCount = valid.length - toImport.length;
+
+  async function runImport() {
+    setImporting(true);
+    try {
+      await onImport(toImport);
+      setResult({ imported: toImport.length, skipped: dupCount + noNameCount });
+      setStage('done');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const selectCls = 'appearance-none bg-[#162035] border border-[#1e2d45] rounded-lg px-2 py-1 pr-6 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#4a90d9]';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="bg-[#1a2335] rounded-2xl shadow-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <FileText size={18} className="text-[#4a90d9]" />
+            <h2 className="font-bold text-white text-lg">Import CSV</h2>
+          </div>
+          <button onClick={onClose} className="text-[#3a5070] hover:text-[#b8d4f0] transition-colors"><X size={20} /></button>
+        </div>
+
+        {/* Upload stage */}
+        {stage === 'upload' && (
+          <>
+            <div
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+              onClick={() => fileRef.current?.click()}
+              className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-colors ${dragOver ? 'border-[#4a90d9] bg-[#0e1e3a]' : 'border-[#1e2d45] hover:border-[#1e3a5a]'}`}
+            >
+              <Upload size={36} className="text-[#3a5070] mx-auto mb-3" />
+              <p className="text-[#b8d4f0] font-medium">Drag & drop a CSV file here</p>
+              <p className="text-xs text-[#3a5070] mt-1">or click to browse</p>
+              <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+            </div>
+            <div className="mt-4 bg-[#162035] rounded-xl p-4">
+              <p className="text-xs text-[#3a5070] font-semibold mb-1">Recognized column names (any order, extras ignored):</p>
+              <p className="text-xs text-[#b8d4f0] font-mono">name, email, phone, company, category, source, notes</p>
+              <p className="text-[10px] text-[#3a5070] mt-2">Rows with duplicate emails are skipped automatically. Category and source values are mapped automatically if unrecognized.</p>
+            </div>
+          </>
+        )}
+
+        {/* Map + Preview stage */}
+        {stage === 'map' && (
+          <>
+            <div className="mb-4">
+              <p className="text-xs text-[#b8d4f0] font-semibold mb-2">Map CSV columns → lead fields</p>
+              <div className="grid grid-cols-2 gap-2">
+                {headers.map(h => (
+                  <div key={h} className="flex items-center gap-2 bg-[#162035] rounded-lg px-3 py-2">
+                    <span className="text-xs text-[#3a5070] truncate flex-1 min-w-0" title={h}>{h}</span>
+                    <span className="text-[10px] text-[#1e2d45] font-bold">→</span>
+                    <div className="relative flex-shrink-0">
+                      <select value={mapping[h] ?? 'skip'}
+                        onChange={e => setMapping(prev => ({ ...prev, [h]: e.target.value as ImportField }))}
+                        className={selectCls}>
+                        {IMPORT_FIELDS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                      </select>
+                      <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#3a5070] pointer-events-none" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-xs text-[#b8d4f0] font-semibold mb-2">Preview (first 5 rows)</p>
+              <div className="overflow-x-auto rounded-xl border border-[#1e2d45]">
+                <table className="w-full text-xs min-w-[480px]">
+                  <thead>
+                    <tr className="bg-[#162035]">
+                      {(['name', 'email', 'phone', 'company', 'category', 'source'] as const).map(f => (
+                        <th key={f} className="text-left px-3 py-2 text-[#3a5070] font-medium capitalize whitespace-nowrap">{f}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {resolvedLeads.slice(0, 5).map((l, i) => (
+                      <tr key={i} className="border-t border-[#1e2d45]">
+                        <td className="px-3 py-2 text-white truncate max-w-[100px]">{l.name || <span className="text-[#e05c5c]">—</span>}</td>
+                        <td className="px-3 py-2 text-[#b8d4f0] truncate max-w-[140px]">{l.email || '—'}</td>
+                        <td className="px-3 py-2 text-[#b8d4f0] whitespace-nowrap">{l.phone || '—'}</td>
+                        <td className="px-3 py-2 text-[#b8d4f0] truncate max-w-[100px]">{l.company || '—'}</td>
+                        <td className="px-3 py-2 text-[#9b7ae8] truncate max-w-[120px] whitespace-nowrap">{l.category}</td>
+                        <td className="px-3 py-2 text-[#4a90d9] whitespace-nowrap">{l.source}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mb-5">
+              {[
+                { label: 'Total rows',    value: dataRows.length,   color: 'text-white' },
+                { label: 'Will import',   value: toImport.length,   color: 'text-[#3dd68c]' },
+                { label: 'Duplicates',    value: dupCount,           color: 'text-[#d0954a]' },
+                { label: 'Missing name',  value: noNameCount,        color: 'text-[#e05c5c]' },
+              ].map(s => (
+                <div key={s.label} className="flex-1 bg-[#162035] rounded-xl p-3 text-center">
+                  <div className={`font-bold text-lg ${s.color}`}>{s.value}</div>
+                  <div className="text-[10px] text-[#3a5070] mt-0.5">{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setStage('upload')}
+                className="flex-1 py-2.5 rounded-xl border border-[#1e2d45] text-[#b8d4f0] text-sm font-medium hover:bg-[#162035] transition-colors">
+                ← Back
+              </button>
+              <button onClick={runImport} disabled={importing || toImport.length === 0}
+                className="flex-1 py-2.5 rounded-xl bg-[#4a90d9] hover:bg-[#3a7bc0] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors">
+                {importing ? 'Importing…' : `Import ${toImport.length} lead${toImport.length !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Done stage */}
+        {stage === 'done' && (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-[#0a2518] rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle size={32} className="text-[#3dd68c]" />
+            </div>
+            <h3 className="text-white font-bold text-lg mb-1">Import complete!</h3>
+            <p className="text-[#b8d4f0] text-sm mb-5">
+              <span className="text-[#3dd68c] font-semibold">{result.imported} lead{result.imported !== 1 ? 's' : ''}</span> imported
+              {result.skipped > 0 && <>, <span className="text-[#d0954a]">{result.skipped}</span> skipped</>}
+            </p>
+            <button onClick={onClose}
+              className="px-8 py-2.5 rounded-xl bg-[#3dd68c] hover:bg-[#2dba7a] text-[#0f2018] font-semibold text-sm transition-colors">
+              Done
+            </button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
 }
 
 // ─── Lead modal ───────────────────────────────────────────────────────────────
@@ -258,11 +564,13 @@ function LeadModal({ lead: initial, onSave, onClose }: ModalProps) {
 interface Props {
   leads: CleaningLead[];
   onSave: (lead: CleaningLead) => Promise<void>;
+  onBulkSave?: (leads: CleaningLead[]) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
 
-export default function CleaningLeadsView({ leads, onSave, onDelete }: Props) {
+export default function CleaningLeadsView({ leads, onSave, onBulkSave, onDelete }: Props) {
   const [modal, setModal] = useState<CleaningLead | null>(null);
+  const [csvImport, setCsvImport] = useState(false);
   const [oppFilter, setOppFilter] = useState<CleaningLeadOpportunityStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<CleaningLeadCategory | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<CleaningLeadPriority | 'all'>('all');
@@ -307,10 +615,18 @@ export default function CleaningLeadsView({ leads, onSave, onDelete }: Props) {
             {leads.length} total · {leads.filter(l => l.opportunityStatus === 'Booked').length} booked
           </p>
         </div>
-        <button onClick={() => setModal(blankLead())}
-          className="flex items-center gap-2 bg-[#3dd68c] hover:bg-[#2dba7a] text-[#0f2018] font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors">
-          <Plus size={15} /> Add Lead
-        </button>
+        <div className="flex items-center gap-2">
+          {onBulkSave && (
+            <button onClick={() => setCsvImport(true)}
+              className="flex items-center gap-1.5 border border-[#1e2d45] hover:border-[#1e3a5a] text-[#b8d4f0] hover:text-white text-sm px-3 py-2.5 rounded-xl transition-colors">
+              <Upload size={14} /> Import CSV
+            </button>
+          )}
+          <button onClick={() => setModal(blankLead())}
+            className="flex items-center gap-2 bg-[#3dd68c] hover:bg-[#2dba7a] text-[#0f2018] font-semibold text-sm px-4 py-2.5 rounded-xl transition-colors">
+            <Plus size={15} /> Add Lead
+          </button>
+        </div>
       </div>
 
       {/* Opportunity Status pipeline tabs */}
@@ -362,13 +678,21 @@ export default function CleaningLeadsView({ leads, onSave, onDelete }: Props) {
             {leads.length === 0 ? 'No leads yet' : 'No leads match your filters'}
           </p>
           <p className="text-xs text-[#3a5070] mt-1 mb-4">
-            {leads.length === 0 ? 'Add your first cleaning service lead to get started' : 'Try adjusting your search or filters'}
+            {leads.length === 0 ? 'Add your first cleaning service lead or import a CSV' : 'Try adjusting your search or filters'}
           </p>
           {leads.length === 0 && (
-            <button onClick={() => setModal(blankLead())}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-[#3dd68c] border border-[#0a2518] hover:bg-[#0a2518] px-4 py-2 rounded-lg transition-colors">
-              <Plus size={14} /> Add Lead
-            </button>
+            <div className="flex items-center justify-center gap-2">
+              <button onClick={() => setModal(blankLead())}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-[#3dd68c] border border-[#0a2518] hover:bg-[#0a2518] px-4 py-2 rounded-lg transition-colors">
+                <Plus size={14} /> Add Lead
+              </button>
+              {onBulkSave && (
+                <button onClick={() => setCsvImport(true)}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-[#4a90d9] border border-[#0e1e3a] hover:bg-[#0e1e3a] px-4 py-2 rounded-lg transition-colors">
+                  <Upload size={14} /> Import CSV
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -483,6 +807,15 @@ export default function CleaningLeadsView({ leads, onSave, onDelete }: Props) {
             );
           })}
         </div>
+      )}
+
+      {/* CSV Import Modal */}
+      {csvImport && onBulkSave && (
+        <CsvImportModal
+          existingLeads={leads}
+          onImport={async imported => { await onBulkSave(imported); }}
+          onClose={() => setCsvImport(false)}
+        />
       )}
 
       {/* Lead modal */}

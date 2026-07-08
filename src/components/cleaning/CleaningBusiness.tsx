@@ -18,7 +18,7 @@ import {
   fetchCleaners, upsertCleaner, deleteCleaner,
   fetchPropertyConfigs, upsertPropertyConfig, deletePropertyConfig,
   fetchCleaningJobs, upsertCleaningJob, bulkUpsertCleaningJobs, deleteCleaningJob,
-  fetchCleaningLeads, upsertCleaningLead, deleteCleaningLead,
+  fetchCleaningLeads, upsertCleaningLead, bulkUpsertCleaningLeads, deleteCleaningLead,
   fetchCleaningSops, upsertCleaningSop, deleteCleaningSop,
 } from '../../services/cleaningDb';
 import JobsView from './JobsView';
@@ -418,6 +418,14 @@ export default function CleaningBusiness({ currentView, reservations, uplistingP
       return exists ? prev.map(x => x.id === lead.id ? lead : x) : [lead, ...prev];
     });
   }
+  async function handleBulkSaveLead(newLeads: CleaningLead[]) {
+    await bulkUpsertCleaningLeads(newLeads);
+    setLeads(prev => {
+      const map = new Map(prev.map(l => [l.id, l]));
+      for (const l of newLeads) map.set(l.id, l);
+      return Array.from(map.values());
+    });
+  }
   async function handleDeleteLead(id: string) {
     await deleteCleaningLead(id);
     setLeads(prev => prev.filter(l => l.id !== id));
@@ -674,7 +682,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
             <CleaningPayments jobs={jobs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} />
           )}
           {active === 'cleaning-leads' && (
-            <CleaningLeadsView leads={leads} onSave={handleSaveLead} onDelete={handleDeleteLead} />
+            <CleaningLeadsView leads={leads} onSave={handleSaveLead} onBulkSave={handleBulkSaveLead} onDelete={handleDeleteLead} />
           )}
         </div>
       )}
