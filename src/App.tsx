@@ -777,7 +777,7 @@ export default function App() {
       )}
 
       {(view === 'cleaning-dashboard' || view === 'cleaning-schedule' || view === 'cleaning-jobs' ||
-        view === 'cleaning-properties' || view === 'cleaning-cleaners' || view === 'cleaning-payments' || view === 'cleaning-leads' || view === 'cleaning-sops') && (
+        view === 'cleaning-properties' || view === 'cleaning-cleaners' || view === 'cleaning-payments' || view === 'cleaning-leads' || view === 'cleaning-sops' || view === 'cleaning-email') && (
         <CleaningBusiness
           currentView={view}
           onNavigate={navigate}
