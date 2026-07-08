@@ -170,9 +170,10 @@ interface CsvImportModalProps {
   existingLeads: CleaningLead[];
   onImport: (leads: CleaningLead[]) => Promise<void>;
   onClose: () => void;
+  defaultSource?: CleaningLeadSource;
 }
 
-function CsvImportModal({ existingLeads, onImport, onClose }: CsvImportModalProps) {
+function CsvImportModal({ existingLeads, onImport, onClose, defaultSource = 'Scraped List' }: CsvImportModalProps) {
   const [stage, setStage] = useState<'upload' | 'map' | 'done'>('upload');
   const [headers, setHeaders] = useState<string[]>([]);
   const [dataRows, setDataRows] = useState<string[][]>([]);
@@ -218,7 +219,7 @@ function CsvImportModal({ existingLeads, onImport, onClose }: CsvImportModalProp
       phone:            getCol('phone', row),
       company:          getCol('company', row),
       category:         rawCat ? coerceCategory(rawCat) : 'Property Management',
-      source:           rawSrc ? coerceSource(rawSrc) : 'Scraped List',
+      source:           rawSrc ? coerceSource(rawSrc) : defaultSource,
       outreachStatus:   'Not Contacted',
       opportunityStatus:'New',
       notes:            getCol('notes', row),
@@ -708,12 +709,14 @@ export default function CleaningLeadsView({ leads, onSave, onBulkSave, onDelete 
                 : 'Add leads manually or import a CSV'
               : 'Try adjusting your search or filters'}
           </p>
-          {sectionLeads.length === 0 && section === 'outreach' && (
+          {sectionLeads.length === 0 && (
             <div className="flex items-center justify-center gap-2">
-              <button onClick={() => setModal(blankLead())}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-[#3dd68c] border border-[#0a2518] hover:bg-[#0a2518] px-4 py-2 rounded-lg transition-colors">
-                <Plus size={14} /> Add Lead
-              </button>
+              {section === 'outreach' && (
+                <button onClick={() => setModal(blankLead())}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-[#3dd68c] border border-[#0a2518] hover:bg-[#0a2518] px-4 py-2 rounded-lg transition-colors">
+                  <Plus size={14} /> Add Lead
+                </button>
+              )}
               {onBulkSave && (
                 <button onClick={() => setCsvImport(true)}
                   className="inline-flex items-center gap-1.5 text-sm font-medium text-[#4a90d9] border border-[#0e1e3a] hover:bg-[#0e1e3a] px-4 py-2 rounded-lg transition-colors">
@@ -843,6 +846,7 @@ export default function CleaningLeadsView({ leads, onSave, onBulkSave, onDelete 
           existingLeads={leads}
           onImport={async imported => { await onBulkSave(imported); }}
           onClose={() => setCsvImport(false)}
+          defaultSource={section === 'scraped' ? 'Scraped List' : 'Other'}
         />
       )}
 

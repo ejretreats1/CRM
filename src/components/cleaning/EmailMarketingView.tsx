@@ -194,7 +194,8 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
   const [templateId, setTemplateId] = useState('');
   const [customSubject, setCustomSubject] = useState('');
   const [customBody, setCustomBody] = useState('');
-  const [category, setCategory] = useState('Property Management');
+  const [category, setCategory] = useState('All Categories');
+  const [audience, setAudience] = useState<'all' | 'outreach' | 'scraped'>('all');
   const [batchSize, setBatchSize] = useState(50);
   const [confirmed, setConfirmed] = useState(false);
   const [sending, setSending] = useState(false);
@@ -204,8 +205,16 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
   const subject = tpl?.subject ?? customSubject;
   const body = tpl?.body_html ?? customBody;
 
-  const targets = leads.filter(l => l.category === category && l.email?.trim());
-  const skipped = leads.filter(l => l.category === category && !l.email?.trim()).length;
+  const audienceFiltered = leads.filter(l => {
+    if (audience === 'scraped') return l.source === 'Scraped List';
+    if (audience === 'outreach') return l.source !== 'Scraped List';
+    return true;
+  });
+  const categoryFiltered = category === 'All Categories'
+    ? audienceFiltered
+    : audienceFiltered.filter(l => l.category === category);
+  const targets = categoryFiltered.filter(l => l.email?.trim());
+  const skipped = categoryFiltered.filter(l => !l.email?.trim()).length;
 
   async function handleSend() {
     if (!subject.trim() || !body.trim() || targets.length === 0) return;
@@ -233,10 +242,24 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
               value={campaignName} onChange={e => setCampaignName(e.target.value)} />
           </div>
 
+          {/* Audience: which section of leads to target */}
+          <div>
+            <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Audience</label>
+            <div className="flex bg-[#0f1923] border border-[#1e2d45] rounded-lg p-0.5 gap-0.5">
+              {([['all', 'All Leads'], ['outreach', 'Outreach'], ['scraped', 'Scraped']] as const).map(([val, label]) => (
+                <button key={val} type="button" onClick={() => setAudience(val)}
+                  className={`flex-1 py-2 text-xs font-semibold rounded-md transition-colors ${audience === val ? 'bg-[#1a2335] text-white shadow-sm' : 'text-[#3a5070] hover:text-[#b8d4f0]'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Lead Category</label>
             <select className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
               value={category} onChange={e => setCategory(e.target.value)}>
+              <option value="All Categories">All Categories</option>
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <p className="text-xs text-[#3a5070] mt-1">
