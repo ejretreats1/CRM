@@ -2538,26 +2538,37 @@ async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
       if (!r.ok) continue;
       const html = await r.text();
 
-      const linkRe = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
-      const snipRe = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
-      const linkMatches = [...html.matchAll(linkRe)];
-      const snipMatches = [...html.matchAll(snipRe)];
+      // Match whole <a> tags regardless of attribute order, then extract href separately
+      const anchorRe = /<a\b[^>]*class="result__a"[^>]*>[\s\S]*?<\/a>/g;
+      const snipRe   = /<a\b[^>]*class="result__snippet"[^>]*>[\s\S]*?<\/a>/g;
+      const anchors  = [...html.matchAll(anchorRe)];
+      const snips    = [...html.matchAll(snipRe)];
 
-      for (let i = 0; i < linkMatches.length && results.length < maxCount; i++) {
-        let rawUrl = linkMatches[i][1];
-        // Decode DDG redirect URLs
-        if (rawUrl.includes('duckduckgo.com/l/?')) {
-          try { rawUrl = new URL('https:' + rawUrl.replace(/^\/\//, '')).searchParams.get('uddg') ?? rawUrl; } catch {}
+      for (let i = 0; i < anchors.length && results.length < maxCount; i++) {
+        const anchorHtml = anchors[i][0];
+        const hrefM = anchorHtml.match(/href="([^"]+)"/);
+        if (!hrefM) continue;
+        let rawUrl = hrefM[1];
+
+        // Decode DDG redirect URLs: //duckduckgo.com/l/?uddg=<encoded-url>
+        if (rawUrl.startsWith('//')) rawUrl = 'https:' + rawUrl;
+        if (rawUrl.includes('duckduckgo.com/l/')) {
+          try {
+            const uddg = new URL(rawUrl).searchParams.get('uddg');
+            if (uddg) rawUrl = decodeURIComponent(uddg);
+          } catch {}
         }
-        rawUrl = decodeURIComponent(rawUrl);
         if (!rawUrl.startsWith('http')) continue;
+
         let hostname = '';
         try { hostname = new URL(rawUrl).hostname.replace(/^www\./, ''); } catch { continue; }
         if (SCRAPER_SKIP_DOMAINS.some(d => hostname.includes(d))) continue;
         if (seen.has(hostname)) continue;
         seen.add(hostname);
-        const title = linkMatches[i][2].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#\d+;/g, '').trim();
-        const snippet = (snipMatches[i]?.[1] ?? '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim();
+
+        const clean = (s: string) => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#\d+;/g, '').trim();
+        const title   = clean(anchorHtml);
+        const snippet = clean(snips[i]?.[0] ?? '');
         results.push({ name: title || hostname, url: rawUrl, description: snippet });
       }
 
