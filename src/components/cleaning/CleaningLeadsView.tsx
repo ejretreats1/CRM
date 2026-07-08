@@ -171,9 +171,10 @@ interface CsvImportModalProps {
   onImport: (leads: CleaningLead[]) => Promise<void>;
   onClose: () => void;
   defaultSource?: CleaningLeadSource;
+  defaultCategory?: CleaningLeadCategory;
 }
 
-function CsvImportModal({ existingLeads, onImport, onClose, defaultSource = 'Scraped List' }: CsvImportModalProps) {
+function CsvImportModal({ existingLeads, onImport, onClose, defaultSource = 'Scraped List', defaultCategory }: CsvImportModalProps) {
   const [stage, setStage] = useState<'upload' | 'map' | 'done'>('upload');
   const [headers, setHeaders] = useState<string[]>([]);
   const [dataRows, setDataRows] = useState<string[][]>([]);
@@ -182,6 +183,7 @@ function CsvImportModal({ existingLeads, onImport, onClose, defaultSource = 'Scr
   const [result, setResult] = useState({ imported: 0, skipped: 0 });
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [categoryOverride, setCategoryOverride] = useState<CleaningLeadCategory | 'per-row'>(defaultCategory ?? 'per-row');
 
   const existingEmails = new Set(
     existingLeads.map(l => l.email.toLowerCase().trim()).filter(Boolean)
@@ -212,13 +214,17 @@ function CsvImportModal({ existingLeads, onImport, onClose, defaultSource = 'Scr
     const now = new Date().toISOString();
     const rawCat = getCol('category', row);
     const rawSrc = getCol('source', row);
+    const resolvedCategory: CleaningLeadCategory =
+      categoryOverride !== 'per-row'
+        ? categoryOverride
+        : rawCat ? coerceCategory(rawCat) : 'Property Management';
     return {
       id: `cl_${crypto.randomUUID()}`,
       name:             getCol('name', row),
       email:            getCol('email', row),
       phone:            getCol('phone', row),
       company:          getCol('company', row),
-      category:         rawCat ? coerceCategory(rawCat) : 'Property Management',
+      category:         resolvedCategory,
       source:           rawSrc ? coerceSource(rawSrc) : defaultSource,
       outreachStatus:   'Not Contacted',
       opportunityStatus:'New',
@@ -293,6 +299,25 @@ function CsvImportModal({ existingLeads, onImport, onClose, defaultSource = 'Scr
         {/* Map + Preview stage */}
         {stage === 'map' && (
           <>
+            {/* Category override */}
+            <div className="mb-4 bg-[#162035] rounded-xl p-3 flex items-center gap-3">
+              <div className="flex-1">
+                <p className="text-xs text-[#b8d4f0] font-semibold">Category for all imports</p>
+                <p className="text-[10px] text-[#3a5070] mt-0.5">Override the category for every row in this file</p>
+              </div>
+              <div className="relative flex-shrink-0">
+                <select
+                  value={categoryOverride}
+                  onChange={e => setCategoryOverride(e.target.value as CleaningLeadCategory | 'per-row')}
+                  className={selectCls + ' min-w-[180px]'}
+                >
+                  <option value="per-row">Use per-row values</option>
+                  {CLEANING_LEAD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#3a5070] pointer-events-none" />
+              </div>
+            </div>
+
             <div className="mb-4">
               <p className="text-xs text-[#b8d4f0] font-semibold mb-2">Map CSV columns → lead fields</p>
               <div className="grid grid-cols-2 gap-2">
