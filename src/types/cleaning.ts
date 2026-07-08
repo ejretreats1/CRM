@@ -6,6 +6,7 @@ export interface Cleaner {
   name: string;
   email: string;
   phone?: string;
+  photoUrl?: string;
   stripeAccountId?: string;
   stripeConnectStatus?: 'pending' | 'active';
   agreementSignedAt?: string;

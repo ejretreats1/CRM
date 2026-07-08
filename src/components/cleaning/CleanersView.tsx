@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard, FileText, Copy, Check, Download, Smartphone } from 'lucide-react';
+import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard, FileText, Copy, Check, Download, Smartphone, X, Calendar } from 'lucide-react';
 import type { Cleaner } from '../../types/cleaning';
 
 interface Props {
@@ -16,6 +16,9 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
   const [editing, setEditing] = useState<Cleaner | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
+
+  // Cleaner detail panel
+  const [selected, setSelected] = useState<Cleaner | null>(null);
 
   // Agreement modal state
   const [agreementModal, setAgreementModal] = useState<Cleaner | null>(null);
@@ -50,8 +53,7 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
   async function downloadAgreement(cleanerId: string) {
     setDownloadingId(cleanerId);
     try {
-      const url = `/api/documents?flow=cleaner-agreement-pdf&cleanerId=${encodeURIComponent(cleanerId)}`;
-      window.open(url, '_blank');
+      window.open(`/api/documents?flow=cleaner-agreement-pdf&cleanerId=${encodeURIComponent(cleanerId)}`, '_blank');
     } finally {
       setDownloadingId(null);
     }
@@ -98,6 +100,7 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
   async function handleDelete(id: string) {
     if (!confirm('Remove this cleaner?')) return;
     await onDelete(id);
+    if (selected?.id === id) setSelected(null);
   }
 
   function openAgreementModal(c: Cleaner) {
@@ -194,21 +197,23 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
 
   function stripeStatusBadge(c: Cleaner) {
     if (c.stripeConnectStatus === 'active') {
-      return (
-        <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
-          <CreditCard size={11} /> Stripe Active
-        </span>
-      );
+      return <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium"><CreditCard size={11} /> Stripe Active</span>;
     }
     if (c.stripeConnectStatus === 'pending') {
-      return (
-        <span className="flex items-center gap-1 text-xs text-amber-400 font-medium">
-          <CreditCard size={11} /> Stripe Pending
-        </span>
-      );
+      return <span className="flex items-center gap-1 text-xs text-amber-400 font-medium"><CreditCard size={11} /> Stripe Pending</span>;
+    }
+    return <span className="text-xs text-[#3a5070]">No Stripe</span>;
+  }
+
+  function Avatar({ c, size = 'md' }: { c: Cleaner; size?: 'sm' | 'md' | 'lg' }) {
+    const sz = size === 'lg' ? 'w-20 h-20 text-2xl' : size === 'md' ? 'w-9 h-9 text-sm' : 'w-8 h-8 text-xs';
+    if (c.photoUrl) {
+      return <img src={c.photoUrl} alt={c.name} className={`${sz} rounded-full object-cover border-2 border-[#1e3a5a] flex-shrink-0`} />;
     }
     return (
-      <span className="text-xs text-[#3a5070]">No Stripe</span>
+      <div className={`${sz} rounded-full bg-gradient-to-br from-[#1e3a5a] to-[#0e1e3a] border-2 border-[#1e3a5a] flex items-center justify-center flex-shrink-0`}>
+        <span className="font-bold text-[#4a90d9]">{c.name[0]?.toUpperCase()}</span>
+      </div>
     );
   }
 
@@ -245,122 +250,198 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                 <th className="text-left px-4 py-3">Status</th>
                 <th className="text-left px-4 py-3 hidden lg:table-cell">Stripe</th>
                 <th className="text-left px-4 py-3 hidden xl:table-cell">Agreement</th>
-                <th className="text-right px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1e2d45]">
               {cleaners.map(c => (
-                <tr key={c.id} className="hover:bg-[#162035] transition-colors">
+                <tr
+                  key={c.id}
+                  onClick={() => setSelected(c)}
+                  className={`cursor-pointer transition-colors ${selected?.id === c.id ? 'bg-[#0e1e3a]' : 'hover:bg-[#162035]'}`}
+                >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-[#162035] border border-[#1e3a5a] flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-bold text-[#4a90d9]">{c.name[0]?.toUpperCase()}</span>
-                      </div>
+                      <Avatar c={c} size="sm" />
                       <span className="font-medium text-white">{c.name}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-[#b8d4f0] hidden sm:table-cell">
-                    <a href={`mailto:${c.email}`} className="hover:text-[#4a90d9] flex items-center gap-1">
-                      <Mail size={12} />
-                      {c.email}
-                    </a>
+                    <span className="flex items-center gap-1"><Mail size={12} />{c.email}</span>
                   </td>
                   <td className="px-4 py-3 text-[#b8d4f0] hidden md:table-cell">
-                    {c.phone ? (
-                      <a href={`tel:${c.phone}`} className="hover:text-[#4a90d9] flex items-center gap-1">
-                        <Phone size={12} />
-                        {c.phone}
-                      </a>
-                    ) : (
-                      <span className="text-[#3a5070]">—</span>
-                    )}
+                    {c.phone ? <span className="flex items-center gap-1"><Phone size={12} />{c.phone}</span> : <span className="text-[#3a5070]">—</span>}
                   </td>
                   <td className="px-4 py-3">
                     {c.status === 'active' ? (
-                      <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
-                        <CheckCircle size={12} /> Active
-                      </span>
+                      <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium"><CheckCircle size={12} /> Active</span>
                     ) : (
-                      <span className="flex items-center gap-1 text-xs text-[#3a5070] font-medium">
-                        <XCircle size={12} /> Inactive
-                      </span>
+                      <span className="flex items-center gap-1 text-xs text-[#3a5070] font-medium"><XCircle size={12} /> Inactive</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 hidden lg:table-cell">
-                    {stripeStatusBadge(c)}
-                  </td>
+                  <td className="px-4 py-3 hidden lg:table-cell">{stripeStatusBadge(c)}</td>
                   <td className="px-4 py-3 hidden xl:table-cell">
                     {c.agreementSignedAt ? (
-                      <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
-                        <CheckCircle size={11} /> Signed
-                        <button
-                          onClick={() => downloadAgreement(c.id)}
-                          disabled={downloadingId === c.id}
-                          title="Download signed agreement PDF"
-                          className="ml-1 p-0.5 rounded text-[#5ce0a0] hover:text-white hover:bg-[#1e2d45] transition-colors disabled:opacity-50"
-                        >
-                          <Download size={11} />
-                        </button>
-                      </span>
+                      <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium"><CheckCircle size={11} /> Signed</span>
                     ) : (
                       <span className="text-xs text-[#3a5070]">Not signed</span>
                     )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => {
-                          const url = `${window.location.origin}?cleaner-dashboard=${c.id}`;
-                          navigator.clipboard.writeText(url).catch(() => {});
-                          alert(`Dashboard link copied!\n\n${url}`);
-                        }}
-                        title="Copy cleaner dashboard link"
-                        className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#5ce0a0] hover:bg-[#1e2d45] transition-colors"
-                      >
-                        <LayoutDashboard size={14} />
-                      </button>
-                      <button
-                        onClick={() => sendPortalLink(c.id)}
-                        disabled={portalSendingId === c.id}
-                        title="Send portal link to cleaner's phone"
-                        className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${portalSentId === c.id ? 'text-[#5ce0a0] bg-[#0a2518]' : 'text-[#3a5070] hover:text-[#d0954a] hover:bg-[#1e2d45]'}`}
-                      >
-                        {portalSentId === c.id ? <Check size={14} /> : <Smartphone size={14} />}
-                      </button>
-                      <button
-                        onClick={() => openAgreementModal(c)}
-                        title={c.agreementSignedAt ? 'Agreement signed — resend?' : 'Send contractor agreement'}
-                        className={`p-1.5 rounded-lg hover:bg-[#1e2d45] transition-colors ${c.agreementSignedAt ? 'text-[#5ce0a0]' : 'text-[#3a5070] hover:text-[#d0954a]'}`}
-                      >
-                        <FileText size={14} />
-                      </button>
-                      {c.stripeConnectStatus !== 'active' && (
-                        <button
-                          onClick={() => openStripeModal(c)}
-                          title="Setup Stripe Connect"
-                          className="p-1.5 rounded-lg text-[#3a5070] hover:text-amber-400 hover:bg-[#1e2d45] transition-colors"
-                        >
-                          <CreditCard size={14} />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => openEdit(c)}
-                        className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#1e2d45] transition-colors"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(c.id)}
-                        className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ── Cleaner Detail Panel ── */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between px-6 pt-6 pb-4">
+              <div className="flex items-center gap-4">
+                <Avatar c={selected} size="lg" />
+                <div>
+                  <h2 className="text-xl font-bold text-white">{selected.name}</h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    {selected.status === 'active' ? (
+                      <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-semibold bg-[#0a2518] border border-[#1e4030] px-2 py-0.5 rounded-full">
+                        <CheckCircle size={10} /> Active
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-xs text-[#3a5070] font-semibold bg-[#162035] border border-[#1e2d45] px-2 py-0.5 rounded-full">
+                        <XCircle size={10} /> Inactive
+                      </span>
+                    )}
+                    {selected.stripeConnectStatus === 'active' && (
+                      <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-semibold bg-[#0a2518] border border-[#1e4030] px-2 py-0.5 rounded-full">
+                        <CreditCard size={10} /> Stripe Active
+                      </span>
+                    )}
+                    {selected.stripeConnectStatus === 'pending' && (
+                      <span className="flex items-center gap-1 text-xs text-amber-400 font-semibold bg-[#2a1a05] border border-[#4a3010] px-2 py-0.5 rounded-full">
+                        <CreditCard size={10} /> Stripe Pending
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => setSelected(null)} className="text-[#3a5070] hover:text-white transition-colors mt-1">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Contact info */}
+            <div className="px-6 pb-4 grid grid-cols-1 gap-2">
+              <a href={`mailto:${selected.email}`} className="flex items-center gap-3 p-3 bg-[#162035] rounded-xl hover:bg-[#1e2d45] transition-colors group">
+                <Mail size={15} className="text-[#4a90d9] flex-shrink-0" />
+                <span className="text-sm text-[#b8d4f0] group-hover:text-white transition-colors">{selected.email}</span>
+              </a>
+              {selected.phone && (
+                <a href={`tel:${selected.phone}`} className="flex items-center gap-3 p-3 bg-[#162035] rounded-xl hover:bg-[#1e2d45] transition-colors group">
+                  <Phone size={15} className="text-[#4a90d9] flex-shrink-0" />
+                  <span className="text-sm text-[#b8d4f0] group-hover:text-white transition-colors">{selected.phone}</span>
+                </a>
+              )}
+              {selected.agreementSignedAt && (
+                <div className="flex items-center gap-3 p-3 bg-[#0a2518] border border-[#1e4030] rounded-xl">
+                  <Calendar size={15} className="text-[#5ce0a0] flex-shrink-0" />
+                  <span className="text-sm text-[#5ce0a0]">Agreement signed {new Date(selected.agreementSignedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div className="px-6 pb-6">
+              <p className="text-xs text-[#3a5070] font-semibold uppercase tracking-wider mb-3">Actions</p>
+              <div className="grid grid-cols-3 gap-2">
+                {/* Portal link */}
+                <button
+                  onClick={() => sendPortalLink(selected.id)}
+                  disabled={portalSendingId === selected.id}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-colors disabled:opacity-50 ${
+                    portalSentId === selected.id
+                      ? 'bg-[#0a2518] border-[#1e4030] text-[#5ce0a0]'
+                      : 'bg-[#162035] border-[#1e2d45] text-[#b8d4f0] hover:border-[#d0954a] hover:text-[#d0954a]'
+                  }`}
+                >
+                  {portalSentId === selected.id ? <Check size={18} /> : <Smartphone size={18} />}
+                  <span className="text-[10px] font-semibold text-center leading-tight">
+                    {portalSentId === selected.id ? 'Sent!' : 'Send Portal Link'}
+                  </span>
+                </button>
+
+                {/* Copy dashboard link */}
+                <button
+                  onClick={() => {
+                    const url = `${window.location.origin}?cleaner-dashboard=${selected.id}`;
+                    navigator.clipboard.writeText(url).catch(() => {});
+                    alert(`Dashboard link copied!\n\n${url}`);
+                  }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl border bg-[#162035] border-[#1e2d45] text-[#b8d4f0] hover:border-[#4a90d9] hover:text-[#4a90d9] transition-colors"
+                >
+                  <LayoutDashboard size={18} />
+                  <span className="text-[10px] font-semibold text-center leading-tight">Copy Dashboard Link</span>
+                </button>
+
+                {/* Send agreement */}
+                <button
+                  onClick={() => { setSelected(null); openAgreementModal(selected); }}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-colors ${
+                    selected.agreementSignedAt
+                      ? 'bg-[#0a2518] border-[#1e4030] text-[#5ce0a0] hover:border-[#5ce0a0]'
+                      : 'bg-[#162035] border-[#1e2d45] text-[#b8d4f0] hover:border-[#d0954a] hover:text-[#d0954a]'
+                  }`}
+                >
+                  <FileText size={18} />
+                  <span className="text-[10px] font-semibold text-center leading-tight">
+                    {selected.agreementSignedAt ? 'Resend Agreement' : 'Send Agreement'}
+                  </span>
+                </button>
+
+                {/* Download agreement PDF */}
+                {selected.agreementSignedAt && (
+                  <button
+                    onClick={() => downloadAgreement(selected.id)}
+                    disabled={downloadingId === selected.id}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl border bg-[#162035] border-[#1e2d45] text-[#b8d4f0] hover:border-[#5ce0a0] hover:text-[#5ce0a0] transition-colors disabled:opacity-50"
+                  >
+                    <Download size={18} />
+                    <span className="text-[10px] font-semibold text-center leading-tight">Download Agreement</span>
+                  </button>
+                )}
+
+                {/* Stripe setup */}
+                {selected.stripeConnectStatus !== 'active' && (
+                  <button
+                    onClick={() => { setSelected(null); openStripeModal(selected); }}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl border bg-[#162035] border-[#1e2d45] text-[#b8d4f0] hover:border-amber-400 hover:text-amber-400 transition-colors"
+                  >
+                    <CreditCard size={18} />
+                    <span className="text-[10px] font-semibold text-center leading-tight">Setup Stripe Payouts</span>
+                  </button>
+                )}
+
+                {/* Edit */}
+                <button
+                  onClick={() => { setSelected(null); openEdit(selected); }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl border bg-[#162035] border-[#1e2d45] text-[#b8d4f0] hover:border-[#4a90d9] hover:text-[#4a90d9] transition-colors"
+                >
+                  <Edit2 size={18} />
+                  <span className="text-[10px] font-semibold text-center leading-tight">Edit Cleaner</span>
+                </button>
+
+                {/* Delete */}
+                <button
+                  onClick={() => handleDelete(selected.id)}
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl border bg-[#162035] border-[#1e2d45] text-[#3a5070] hover:border-[#e05c5c] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"
+                >
+                  <Trash2 size={18} />
+                  <span className="text-[10px] font-semibold text-center leading-tight">Remove Cleaner</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -415,10 +496,7 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
               </div>
             </div>
             <div className="flex gap-3 px-5 pb-5">
-              <button
-                onClick={closeModal}
-                className="flex-1 px-4 py-2.5 bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors"
-              >
+              <button onClick={closeModal} className="flex-1 px-4 py-2.5 bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors">
                 Cancel
               </button>
               <button
@@ -455,14 +533,11 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                 </div>
               )}
               {agreementError && (
-                <div className="bg-[#2a0e0e] border border-[#5a1a1a] text-[#e05c5c] text-xs rounded-lg px-3 py-2">
-                  {agreementError}
-                </div>
+                <div className="bg-[#2a0e0e] border border-[#5a1a1a] text-[#e05c5c] text-xs rounded-lg px-3 py-2">{agreementError}</div>
               )}
               {agreementEmailSent && (
                 <div className="bg-[#0a1f14] border border-[#1a4a2e] text-[#5ce0a0] text-xs rounded-lg px-3 py-2 flex items-center gap-2">
-                  <CheckCircle size={12} />
-                  Email sent to {agreementModal.email}
+                  <CheckCircle size={12} /> Email sent to {agreementModal.email}
                 </div>
               )}
               {agreementLink && (
@@ -515,28 +590,19 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
               <p className="text-sm text-[#b8d4f0]">
                 Send {stripeModal.name} a link to connect their Stripe account so they can receive payouts automatically after each job.
               </p>
-
               {stripeError && (
-                <div className="bg-[#2a0e0e] border border-[#5a1a1a] text-[#e05c5c] text-xs rounded-lg px-3 py-2">
-                  {stripeError}
-                </div>
+                <div className="bg-[#2a0e0e] border border-[#5a1a1a] text-[#e05c5c] text-xs rounded-lg px-3 py-2">{stripeError}</div>
               )}
-
               {stripeEmailSent && (
                 <div className="bg-[#0a1f14] border border-[#1a4a2e] text-[#5ce0a0] text-xs rounded-lg px-3 py-2 flex items-center gap-2">
-                  <CheckCircle size={12} />
-                  Email sent to {stripeModal.email}
+                  <CheckCircle size={12} /> Email sent to {stripeModal.email}
                 </div>
               )}
-
               {stripeLink && (
                 <div className="bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 space-y-2">
                   <p className="text-xs text-[#3a5070]">Setup link (share this):</p>
                   <p className="text-xs text-[#b8d4f0] break-all font-mono">{stripeLink}</p>
-                  <button
-                    onClick={copyStripeLink}
-                    className="flex items-center gap-1.5 text-xs text-[#4a90d9] hover:text-[#5aa0e9] font-medium"
-                  >
+                  <button onClick={copyStripeLink} className="flex items-center gap-1.5 text-xs text-[#4a90d9] hover:text-[#5aa0e9] font-medium">
                     <Link2 size={11} />
                     {stripeCopied ? 'Copied!' : 'Copy link'}
                   </button>
