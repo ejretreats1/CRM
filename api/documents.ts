@@ -2509,7 +2509,7 @@ function isNoiseEmail(email: string): boolean {
 }
 
 async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
-  const { businessType = 'property management', city = '', state = '', count = '20' } = req.query as Record<string, string>;
+  const { businessType = 'property management', city = '', state = '', count = '20', debug = '' } = req.query as Record<string, string>;
   const cityState = `${city} ${state}`.trim();
   if (!cityState) return res.status(400).json({ error: 'city and state required' });
 
@@ -2524,25 +2524,53 @@ async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
   const seen = new Set<string>();
   const results: { name: string; url: string; description: string }[] = [];
 
+  const debugInfo: any[] = [];
+
   for (const q of queries) {
     if (results.length >= maxCount) break;
+    let fetchStatus = 0;
+    let htmlLen = 0;
+    let anchorCount = 0;
     try {
       const r = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cache-Control': 'no-cache',
         },
         signal: AbortSignal.timeout(15000),
       });
-      if (!r.ok) continue;
+      fetchStatus = r.status;
+      if (!r.ok) {
+        if (debug) debugInfo.push({ q, status: fetchStatus, error: 'non-ok' });
+        continue;
+      }
       const html = await r.text();
+      htmlLen = html.length;
 
       // Match whole <a> tags regardless of attribute order, then extract href separately
       const anchorRe = /<a\b[^>]*class="result__a"[^>]*>[\s\S]*?<\/a>/g;
       const snipRe   = /<a\b[^>]*class="result__snippet"[^>]*>[\s\S]*?<\/a>/g;
       const anchors  = [...html.matchAll(anchorRe)];
       const snips    = [...html.matchAll(snipRe)];
+      anchorCount = anchors.length;
+
+      // If no result__a matches, try fallback: extract all external hrefs from the page
+      if (!anchors.length) {
+        const allLinks = [...html.matchAll(/href="(https?:\/\/[^"]+)"/g)];
+        for (const m of allLinks) {
+          let rawUrl = m[1];
+          if (rawUrl.includes('duckduckgo.com')) continue;
+          let hostname = '';
+          try { hostname = new URL(rawUrl).hostname.replace(/^www\./, ''); } catch { continue; }
+          if (SCRAPER_SKIP_DOMAINS.some(d => hostname.includes(d))) continue;
+          if (seen.has(hostname)) continue;
+          seen.add(hostname);
+          results.push({ name: hostname, url: rawUrl, description: '' });
+          if (results.length >= maxCount) break;
+        }
+      }
 
       for (let i = 0; i < anchors.length && results.length < maxCount; i++) {
         const anchorHtml = anchors[i][0];
@@ -2572,10 +2600,15 @@ async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
         results.push({ name: title || hostname, url: rawUrl, description: snippet });
       }
 
+      if (debug) debugInfo.push({ q, status: fetchStatus, htmlLen, anchorCount, resultsSoFar: results.length, htmlSnippet: html.slice(0, 500) });
       if (queries.indexOf(q) < queries.length - 1) await new Promise(r => setTimeout(r, 800));
-    } catch { continue; }
+    } catch (e: any) {
+      if (debug) debugInfo.push({ q, error: e?.message ?? String(e) });
+      continue;
+    }
   }
 
+  if (debug) return res.status(200).json({ results, count: results.length, debug: debugInfo });
   return res.status(200).json({ results, count: results.length });
 }
 
