@@ -54,9 +54,10 @@ async function syncPropertyIcal(supabase: any, config: {
 }): Promise<{ created: number; cancelled: number; errors: string[] }> {
   const ical_urls = config.ical_urls ?? [];
   if (!ical_urls.length) return { created: 0, cancelled: 0, errors: [] };
-  const today = new Date().toISOString().slice(0, 10);
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + 120);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  // 7-day lookback so recently-past checkouts aren't permanently lost
+  const lookback = new Date(); lookback.setDate(lookback.getDate() - 7);
+  const lookbackStr = lookback.toISOString().slice(0, 10);
+  // No upper cutoff — import all future reservations regardless of how far out
   const { data: existing } = await supabase
     .from('cleaning_jobs').select('id, reservation_id, status').eq('property_id', config.property_id);
   type JobRow = { reservation_id: string; id: string; status: string };
@@ -84,8 +85,7 @@ async function syncPropertyIcal(supabase: any, config: {
           continue;
         }
         if (isBlock(ev.summary)) continue;
-        if (!ev.end || ev.end < today) continue;
-        if (ev.end > cutoffStr) continue;
+        if (ev.end < lookbackStr) continue; // skip checkouts older than 7 days
         if (byUid.has(ev.uid)) continue;
         const jobId = `ical_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const guestName = (ev.summary && ev.summary !== 'Reserved' && !isBlock(ev.summary)) ? ev.summary : null;
@@ -2548,6 +2548,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ ok: true, ...result });
       } catch (e) {
         return res.status(500).json({ error: e instanceof Error ? e.message : 'iCal sync failed.' });
+      }
+    }
+    if (action === 'ical-sync-all') {
+      try {
+        const supabase = getSupabase();
+        const { data: configs } = await supabase
+          .from('cleaning_property_configs')
+          .select('id, property_id, property_name, cleaning_fee, ical_urls');
+        let totalCreated = 0, totalCancelled = 0;
+        const allErrors: string[] = [];
+        const properties: { property: string; created: number; cancelled: number; errors: string[] }[] = [];
+        for (const config of configs ?? []) {
+          if (!config.ical_urls?.length) continue;
+          const r = await syncPropertyIcal(supabase, config);
+          totalCreated += r.created;
+          totalCancelled += r.cancelled;
+          if (r.errors.length) allErrors.push(...r.errors.map((e: string) => `${config.property_name}: ${e}`));
+          properties.push({ property: config.property_name, created: r.created, cancelled: r.cancelled, errors: r.errors });
+        }
+        return res.status(200).json({ ok: true, created: totalCreated, cancelled: totalCancelled, errors: allErrors, properties });
+      } catch (e) {
+        return res.status(500).json({ error: e instanceof Error ? e.message : 'Sync all failed.' });
       }
     }
   } else if (flow === 'cleaning-client') {

@@ -72,10 +72,11 @@ export async function syncPropertyIcal(supabase: any, config: {
   const ical_urls: IcalUrl[] = config.ical_urls ?? [];
   if (!ical_urls.length) return { created: 0, cancelled: 0, errors: [] };
 
-  const today = new Date().toISOString().slice(0, 10);
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() + 120); // 4-month look-ahead
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  // 7-day lookback so recently-past checkouts aren't permanently lost
+  const lookback = new Date();
+  lookback.setDate(lookback.getDate() - 7);
+  const lookbackStr = lookback.toISOString().slice(0, 10);
+  // No upper cutoff — import all future reservations regardless of how far out
 
   // Load existing jobs for this property (keyed by reservation_id = UID)
   const { data: existing } = await supabase
@@ -116,8 +117,7 @@ export async function syncPropertyIcal(supabase: any, config: {
         }
 
         if (isBlock(ev.summary)) continue;                // owner-blocked, no cleaning
-        if (!ev.end || ev.end < today) continue;          // already past
-        if (ev.end > cutoffStr) continue;                 // too far out
+        if (ev.end < lookbackStr) continue;               // older than 7 days, skip
         if (byUid.has(ev.uid)) continue;                  // already have this reservation
 
         const jobId = `ical_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;

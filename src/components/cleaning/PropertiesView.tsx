@@ -11,6 +11,7 @@ interface Props {
   onSave: (c: CleaningPropertyConfig) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onSyncIcal: (propertyId: string) => Promise<{ created: number; cancelled: number; errors: string[] }>;
+  onSyncAllIcal?: () => Promise<{ created: number; cancelled: number; errors: string[]; properties: { property: string; created: number; cancelled: number; errors: string[] }[] }>;
 }
 
 interface FormState {
@@ -47,7 +48,7 @@ function displayName(propertyId: string | undefined, propertyName: string, props
 
 const ICAL_PLATFORMS = ['Airbnb', 'VRBO', 'Booking.com', 'Guesty', 'Hostaway', 'Direct', 'Other'];
 
-export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete, onSyncIcal }: Props) {
+export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete, onSyncIcal, onSyncAllIcal }: Props) {
   // --- Edit modal state ---
   const [editing, setEditing] = useState<CleaningPropertyConfig | null | 'new'>(null);
   const [form, setForm] = useState<FormState>({ ...EMPTY });
@@ -58,6 +59,8 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   // --- iCal sync state ---
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<Record<string, { created: number; cancelled: number; errors: string[] }>>({});
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncAllResult, setSyncAllResult] = useState<{ created: number; cancelled: number; errors: string[]; properties: { property: string; created: number; cancelled: number; errors: string[] }[] } | null>(null);
 
   // --- Batch onboarding state ---
   const [selectedForOnboard, setSelectedForOnboard] = useState<Set<string>>(new Set());
@@ -182,6 +185,20 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       setSyncResult(prev => ({ ...prev, [propertyId]: { created: 0, cancelled: 0, errors: [e instanceof Error ? e.message : 'Sync failed'] } }));
     } finally {
       setSyncingId(null);
+    }
+  }
+
+  async function handleSyncAll() {
+    if (!onSyncAllIcal) return;
+    setSyncingAll(true);
+    setSyncAllResult(null);
+    try {
+      const r = await onSyncAllIcal();
+      setSyncAllResult(r);
+    } catch (e) {
+      setSyncAllResult({ created: 0, cancelled: 0, errors: [e instanceof Error ? e.message : 'Sync all failed'], properties: [] });
+    } finally {
+      setSyncingAll(false);
     }
   }
 
@@ -315,6 +332,16 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
               Send Onboarding ({selectedForOnboard.size})
             </button>
           )}
+          {onSyncAllIcal && configs.some(c => c.icalUrls?.length) && (
+            <button
+              onClick={handleSyncAll}
+              disabled={syncingAll || !!syncingId}
+              className="flex items-center gap-2 px-4 py-2 bg-[#0e1e3a] border border-[#1e3a5a] hover:bg-[#162035] text-[#4a90d9] text-sm font-semibold rounded-xl transition-colors disabled:opacity-40"
+            >
+              <RefreshCw size={15} className={syncingAll ? 'animate-spin' : ''} />
+              {syncingAll ? 'Syncing All…' : 'Sync All iCal'}
+            </button>
+          )}
           <button
             onClick={openAdd}
             className="flex items-center gap-2 px-4 py-2 bg-[#4a90d9] hover:bg-[#5aa0e9] text-white text-sm font-semibold rounded-xl transition-colors"
@@ -324,6 +351,25 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
           </button>
         </div>
       </div>
+
+      {syncAllResult && (
+        <div className={`rounded-xl px-4 py-3 text-sm border ${syncAllResult.errors.length ? 'bg-[#2a1a05] border-[#d0954a]' : 'bg-[#0a2518] border-[#2a6040]'}`}>
+          <div className="flex items-center justify-between">
+            <span className={syncAllResult.errors.length ? 'text-[#d0954a]' : 'text-[#3dd68c]'}>
+              {syncAllResult.errors.length
+                ? `Sync complete with errors — ${syncAllResult.created} jobs created, ${syncAllResult.cancelled} cancelled`
+                : `All calendars synced — ${syncAllResult.created} new jobs created, ${syncAllResult.cancelled} cancelled`}
+            </span>
+            <button onClick={() => setSyncAllResult(null)} className="text-[#3a5070] hover:text-white ml-4">✕</button>
+          </div>
+          {syncAllResult.properties.filter(p => p.created > 0 || p.errors.length > 0).map(p => (
+            <div key={p.property} className="mt-1 text-xs text-[#b8d4f0]">
+              <span className="font-medium">{p.property}:</span> {p.created} created
+              {p.errors.length > 0 && <span className="text-[#e05c5c]"> · {p.errors.join(', ')}</span>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {nonOnboardedConfigs.length > 0 && (
         <p className="text-xs text-[#3a5070]">Check properties below to batch-send onboarding links to your clients.</p>

@@ -403,11 +403,24 @@ export default function CleaningBusiness({ currentView, reservations, uplistingP
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error ?? 'Sync failed.');
-    // Reload jobs and configs to pick up new/cancelled jobs and updated lastSyncedAt
     const [j, pc] = await Promise.all([fetchCleaningJobs(), fetchPropertyConfigs()]);
     setJobs(j);
     setConfigs(pc);
     return d as { created: number; cancelled: number; errors: string[] };
+  }
+
+  async function handleSyncAllIcal() {
+    const r = await fetch('/api/documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flow: 'cleaning', action: 'ical-sync-all' }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error ?? 'Sync all failed.');
+    const [j, pc] = await Promise.all([fetchCleaningJobs(), fetchPropertyConfigs()]);
+    setJobs(j);
+    setConfigs(pc);
+    return d as { created: number; cancelled: number; errors: string[]; properties: { property: string; created: number; cancelled: number; errors: string[] }[] };
   }
 
   // Leads
@@ -669,6 +682,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
               onSave={handleSaveConfig}
               onDelete={handleDeleteConfig}
               onSyncIcal={handleSyncIcal}
+              onSyncAllIcal={handleSyncAllIcal}
             />
           )}
           {active === 'cleaning-cleaners' && (
