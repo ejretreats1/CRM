@@ -2694,59 +2694,101 @@ async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ results, count: results.length });
 }
 
+const SCRAPER_FETCH_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
+
+async function fetchHtml(url: string, timeoutMs = 9000): Promise<string> {
+  try {
+    const r = await fetch(url, { headers: SCRAPER_FETCH_HEADERS, signal: AbortSignal.timeout(timeoutMs), redirect: 'follow' });
+    return r.ok ? await r.text() : '';
+  } catch { return ''; }
+}
+
+function extractEmailsFromHtml(html: string): string[] {
+  const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,6}/g;
+  const MAILTO_RE = /href=["']mailto:([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,6})/gi;
+
+  // 1. mailto: href attributes — most reliable
+  const mailtoEmails = [...html.matchAll(MAILTO_RE)].map(m => m[1].toLowerCase());
+
+  // 2. JSON-LD / schema.org "email" fields
+  const jsonldEmails: string[] = [];
+  for (const block of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    const m = block[1].match(/"email"\s*:\s*"([^"@\s]+@[^"@\s]+)"/i);
+    if (m) jsonldEmails.push(m[1].toLowerCase());
+  }
+
+  // 3. General text scan
+  const textEmails = [...html.matchAll(EMAIL_RE)].map(m => m[0].toLowerCase());
+
+  const all = [...mailtoEmails, ...jsonldEmails, ...textEmails];
+  return [...new Set(all.filter(e => !isNoiseEmail(e)))].slice(0, 5);
+}
+
+function findContactPageLinks(html: string, origin: string, sameHost: string): string[] {
+  const links: string[] = [];
+  for (const m of html.matchAll(/href=["']([^"'#?]+)["']/gi)) {
+    const href = m[1];
+    const full = href.startsWith('http') ? href : href.startsWith('/') ? origin + href : null;
+    if (!full) continue;
+    if (!full.includes(sameHost)) continue;
+    if (/contact|about|reach|get-in-touch|team|staff/i.test(full)) links.push(full);
+  }
+  return [...new Set(links)].slice(0, 4);
+}
+
 async function scraperScrapeEmails(body: any, res: VercelResponse) {
   const { urls } = body;
   if (!Array.isArray(urls) || !urls.length) return res.status(400).json({ error: 'urls[] required' });
 
-  const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,6}/g;
   const PHONE_RE = /(?:\+?1[-.\s]?)?\(?([2-9][0-9]{2})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g;
 
-  const results = await Promise.all(urls.slice(0, 25).map(async (url: string) => {
+  const results = await Promise.all(urls.slice(0, 15).map(async (url: string) => {
+    const fallback = { url, businessName: '', emails: [] as string[], phones: [] as string[], found: false };
     try {
       const base = new URL(url);
-      const pagesToFetch = [
-        url,
-        `${base.origin}/contact`,
-        `${base.origin}/contact-us`,
-        `${base.origin}/about`,
-        `${base.origin}/team`,
-      ];
+      fallback.businessName = base.hostname.replace(/^www\./, '');
 
-      const htmlPages = await Promise.all(pagesToFetch.map(async p => {
-        try {
-          const r = await fetch(p, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
-            signal: AbortSignal.timeout(8000),
-            redirect: 'follow',
-          });
-          return r.ok ? await r.text() : '';
-        } catch { return ''; }
-      }));
-
-      const allHtml = htmlPages.join('\n');
+      // 1. Fetch homepage
+      const homeHtml = await fetchHtml(url);
+      if (!homeHtml) return { ...fallback, error: 'Could not load' };
 
       // Business name from <title>
-      const titleMatch = allHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-      const rawTitle = titleMatch?.[1]?.replace(/<[^>]+>/g, '').trim() ?? '';
-      const businessName = rawTitle
-        .replace(/\s*[-–|·•]\s*.+$/, '')   // strip "Company | Tagline" suffix
-        .replace(/\s+/g, ' ')
-        .trim() || new URL(url).hostname.replace(/^www\./, '');
+      const titleM = homeHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const rawTitle = (titleM?.[1] ?? '').replace(/<[^>]+>/g, '').trim();
+      fallback.businessName = rawTitle.replace(/\s*[-–|·•|,]\s*.{0,40}$/, '').replace(/\s+/g, ' ').trim() || fallback.businessName;
 
-      // Extract emails
-      const rawEmails = allHtml.match(EMAIL_RE) ?? [];
-      const emails = [...new Set(rawEmails.filter(e => !isNoiseEmail(e)).map(e => e.toLowerCase()))].slice(0, 5);
+      // 2. Try emails from homepage first
+      let emails = extractEmailsFromHtml(homeHtml);
 
-      // Extract phones
-      const rawPhones = allHtml.match(PHONE_RE) ?? [];
+      // 3. If none, look for a real contact page link in the HTML
+      if (!emails.length) {
+        const contactLinks = [
+          ...findContactPageLinks(homeHtml, base.origin, base.hostname.replace('www.', '')),
+          `${base.origin}/contact`,
+          `${base.origin}/contact-us`,
+          `${base.origin}/about`,
+        ];
+        for (const link of contactLinks.slice(0, 3)) {
+          const html = await fetchHtml(link, 7000);
+          emails = extractEmailsFromHtml(html);
+          if (emails.length) break;
+        }
+      }
+
+      // 4. Phone from homepage
+      const rawPhones = homeHtml.match(PHONE_RE) ?? [];
       const phones = [...new Set(rawPhones.map(p => {
-        const digits = p.replace(/\D/g, '').replace(/^1/, '');
-        return digits.length === 10 ? `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}` : null;
+        const d = p.replace(/\D/g, '').replace(/^1/, '');
+        return d.length === 10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : null;
       }).filter(Boolean) as string[])].slice(0, 3);
 
-      return { url, businessName, emails, phones, found: emails.length > 0 };
+      return { url, businessName: fallback.businessName, emails, phones, found: emails.length > 0 };
     } catch (e) {
-      return { url, businessName: new URL(url).hostname.replace(/^www\./, ''), emails: [], phones: [], found: false, error: String(e) };
+      return { ...fallback, error: String(e) };
     }
   }));
 

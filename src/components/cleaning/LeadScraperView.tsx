@@ -93,7 +93,8 @@ export default function LeadScraperView() {
     setScrapeErrors([]);
 
     const allResults: ScrapedResult[] = [];
-    const batchSize = 10; // scrape 10 in parallel per call
+    const errors: string[] = [];
+    const batchSize = 5; // 5 URLs × up to 4 pages each = manageable within 60s timeout
 
     for (let i = 0; i < urls.length; i += batchSize) {
       const batch = urls.slice(i, i + batchSize);
@@ -102,16 +103,22 @@ export default function LeadScraperView() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ flow: 'scraper', action: 'scrape-emails', urls: batch }),
+          signal: AbortSignal.timeout(55000),
         });
         const d = await r.json();
         if (r.ok && d.results) {
-          allResults.push(...(d.results as ScrapedResult[]).map(r => ({
-            ...r,
-            selected: r.emails.length > 0,
+          allResults.push(...(d.results as ScrapedResult[]).map((s: ScrapedResult) => ({
+            ...s,
+            selected: s.emails.length > 0,
           })));
+        } else {
+          errors.push(`Batch ${i / batchSize + 1}: ${d.error ?? 'Unknown error'}`);
         }
-      } catch {}
+      } catch (e) {
+        errors.push(`Batch ${i / batchSize + 1}: ${e instanceof Error ? e.message : 'Request failed'}`);
+      }
       setScrapeProgress(Math.min(i + batchSize, urls.length));
+      setScrapeErrors(errors.slice());
     }
 
     setScraped(allResults);
