@@ -430,10 +430,11 @@ export default function EmailMarketingView() {
       const [tRes, cRes, ls] = await Promise.all([
         fetch('/api/documents?flow=email-mkt&action=templates'),
         fetch('/api/documents?flow=email-mkt&action=campaigns'),
-        fetchCleaningLeads(),
+        fetchCleaningLeads().catch(() => [] as CleaningLead[]),
       ]);
-      if (!tRes.ok || !cRes.ok) throw new Error('Failed to load');
       const [tData, cData] = await Promise.all([tRes.json(), cRes.json()]);
+      if (!tRes.ok) throw new Error(tData.error ?? 'Failed to load templates');
+      if (!cRes.ok) throw new Error(cData.error ?? 'Failed to load campaigns');
       setTemplates(tData.templates ?? []);
       setCampaigns(cData.campaigns ?? []);
       setLeads(ls);
@@ -571,13 +572,26 @@ CREATE POLICY "anon_all" ON email_mkt_unsubscribes FOR ALL USING (true) WITH CHE
       </div>
 
       {/* DB setup banner */}
-      {error?.includes('relation') && (
-        <div className="bg-[#1a1000] border border-[#3a3200] rounded-2xl p-5">
-          <p className="text-sm font-bold text-[#d0954a] mb-1">Database tables needed</p>
-          <p className="text-xs text-[#8a6030] mb-3">Run this SQL in Supabase → SQL Editor.</p>
-          <pre className="bg-[#0f1200] rounded-lg p-3 text-xs text-[#b8d4a0] overflow-x-auto whitespace-pre-wrap leading-relaxed">{SQL}</pre>
-          <button onClick={async () => { await navigator.clipboard?.writeText(SQL); setSetupCopied(true); }}
-            className="mt-2 text-xs text-[#4a90d9] hover:underline">{setupCopied ? '✓ Copied' : 'Copy SQL'}</button>
+      {error && (
+        <div className="bg-[#1a1000] border border-[#3a3200] rounded-2xl p-5 space-y-3">
+          {error.includes('relation') || error.includes('does not exist') ? (
+            <>
+              <p className="text-sm font-bold text-[#d0954a]">Database tables needed</p>
+              <p className="text-xs text-[#8a6030]">Run this SQL in Supabase → SQL Editor, then click Retry.</p>
+              <pre className="bg-[#0f1200] rounded-lg p-3 text-xs text-[#b8d4a0] overflow-x-auto whitespace-pre-wrap leading-relaxed">{SQL}</pre>
+              <div className="flex gap-3">
+                <button onClick={async () => { await navigator.clipboard?.writeText(SQL); setSetupCopied(true); }}
+                  className="text-xs text-[#4a90d9] hover:underline">{setupCopied ? '✓ Copied' : 'Copy SQL'}</button>
+                <button onClick={load} className="text-xs text-[#5ce0a0] hover:underline">Retry</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-bold text-[#d0954a]">Error loading</p>
+              <p className="text-xs text-[#8a6030] font-mono">{error}</p>
+              <button onClick={load} className="text-xs text-[#4a90d9] hover:underline">Retry</button>
+            </>
+          )}
         </div>
       )}
 
