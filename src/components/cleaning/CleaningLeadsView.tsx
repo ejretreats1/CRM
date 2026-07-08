@@ -571,13 +571,18 @@ interface Props {
 export default function CleaningLeadsView({ leads, onSave, onBulkSave, onDelete }: Props) {
   const [modal, setModal] = useState<CleaningLead | null>(null);
   const [csvImport, setCsvImport] = useState(false);
+  const [section, setSection] = useState<'outreach' | 'scraped'>('outreach');
   const [oppFilter, setOppFilter] = useState<CleaningLeadOpportunityStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<CleaningLeadCategory | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<CleaningLeadPriority | 'all'>('all');
   const [search, setSearch] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const filtered = leads.filter(l => {
+  const sectionLeads = leads.filter(l =>
+    section === 'scraped' ? l.source === 'Scraped List' : l.source !== 'Scraped List'
+  );
+
+  const filtered = sectionLeads.filter(l => {
     if (oppFilter !== 'all' && l.opportunityStatus !== oppFilter) return false;
     if (categoryFilter !== 'all' && l.category !== categoryFilter) return false;
     if (priorityFilter !== 'all' && l.priority !== priorityFilter) return false;
@@ -589,8 +594,11 @@ export default function CleaningLeadsView({ leads, onSave, onBulkSave, onDelete 
     return true;
   });
 
-  const oppCounts: Record<string, number> = { all: leads.length };
-  for (const s of OPP_STAGES) oppCounts[s.id] = leads.filter(l => l.opportunityStatus === s.id).length;
+  const oppCounts: Record<string, number> = { all: sectionLeads.length };
+  for (const s of OPP_STAGES) oppCounts[s.id] = sectionLeads.filter(l => l.opportunityStatus === s.id).length;
+
+  const outreachCount = leads.filter(l => l.source !== 'Scraped List').length;
+  const scrapedCount  = leads.filter(l => l.source === 'Scraped List').length;
 
   async function handleDelete(id: string) {
     await onDelete(id);
@@ -612,7 +620,7 @@ export default function CleaningLeadsView({ leads, onSave, onBulkSave, onDelete 
         <div>
           <h1 className="text-xl font-bold text-white">Cleaning Leads</h1>
           <p className="text-xs text-[#3a5070] mt-0.5">
-            {leads.length} total · {leads.filter(l => l.opportunityStatus === 'Booked').length} booked
+            {outreachCount} outreach · {scrapedCount} scraped
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -627,6 +635,20 @@ export default function CleaningLeadsView({ leads, onSave, onBulkSave, onDelete 
             <Plus size={15} /> Add Lead
           </button>
         </div>
+      </div>
+
+      {/* Section toggle: Outreach Leads / Scraped Leads */}
+      <div className="flex bg-[#0f1923] border border-[#1e2d45] rounded-xl p-1 gap-1 w-fit mb-5">
+        <button
+          onClick={() => { setSection('outreach'); setOppFilter('all'); }}
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${section === 'outreach' ? 'bg-[#1a2335] text-white shadow-sm' : 'text-[#3a5070] hover:text-[#b8d4f0]'}`}>
+          Outreach Leads <span className="ml-1.5 text-xs opacity-70">({outreachCount})</span>
+        </button>
+        <button
+          onClick={() => { setSection('scraped'); setOppFilter('all'); }}
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${section === 'scraped' ? 'bg-[#1a2335] text-white shadow-sm' : 'text-[#3a5070] hover:text-[#b8d4f0]'}`}>
+          Scraped Leads <span className="ml-1.5 text-xs opacity-70">({scrapedCount})</span>
+        </button>
       </div>
 
       {/* Opportunity Status pipeline tabs */}
@@ -675,12 +697,18 @@ export default function CleaningLeadsView({ leads, onSave, onBulkSave, onDelete 
         <div className="text-center py-20 border-2 border-dashed border-[#1e2d45] rounded-2xl">
           <UserPlus size={36} className="text-[#3a5070] mx-auto mb-3" />
           <p className="text-[#b8d4f0] font-medium">
-            {leads.length === 0 ? 'No leads yet' : 'No leads match your filters'}
+            {sectionLeads.length === 0
+              ? section === 'scraped' ? 'No scraped leads yet' : 'No outreach leads yet'
+              : 'No leads match your filters'}
           </p>
           <p className="text-xs text-[#3a5070] mt-1 mb-4">
-            {leads.length === 0 ? 'Add your first cleaning service lead or import a CSV' : 'Try adjusting your search or filters'}
+            {sectionLeads.length === 0
+              ? section === 'scraped'
+                ? 'Use the Lead Scraper to find and import companies'
+                : 'Add leads manually or import a CSV'
+              : 'Try adjusting your search or filters'}
           </p>
-          {leads.length === 0 && (
+          {sectionLeads.length === 0 && section === 'outreach' && (
             <div className="flex items-center justify-center gap-2">
               <button onClick={() => setModal(blankLead())}
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-[#3dd68c] border border-[#0a2518] hover:bg-[#0a2518] px-4 py-2 rounded-lg transition-colors">

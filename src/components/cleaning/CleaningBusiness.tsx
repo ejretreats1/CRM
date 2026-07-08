@@ -29,8 +29,9 @@ import CleaningLeadsView from './CleaningLeadsView';
 import SopsView from './SopsView';
 import EmailMarketingView from './EmailMarketingView';
 import LeadScraperView from './LeadScraperView';
+import MarketingSalesView from './MarketingSalesView';
 
-type CleaningView = 'cleaning-dashboard' | 'cleaning-schedule' | 'cleaning-jobs' | 'cleaning-properties' | 'cleaning-cleaners' | 'cleaning-payments' | 'cleaning-leads' | 'cleaning-sops' | 'cleaning-email' | 'cleaning-scraper';
+type CleaningView = 'cleaning-dashboard' | 'cleaning-schedule' | 'cleaning-jobs' | 'cleaning-properties' | 'cleaning-cleaners' | 'cleaning-payments' | 'cleaning-leads' | 'cleaning-sops' | 'cleaning-email' | 'cleaning-scraper' | 'cleaning-marketing';
 
 interface Props {
   currentView: View;
@@ -315,7 +316,7 @@ function CleaningPayments({
   );
 }
 
-export default function CleaningBusiness({ currentView, reservations, uplistingProperties }: Props) {
+export default function CleaningBusiness({ currentView, onNavigate, reservations, uplistingProperties }: Props) {
   const active = (currentView as CleaningView) || 'cleaning-dashboard';
 
   const [cleaners, setCleaners] = useState<Cleaner[]>([]);
@@ -651,7 +652,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
       )}
 
       {/* Padded scrollable views */}
-      {active !== 'cleaning-sops' && active !== 'cleaning-email' && active !== 'cleaning-scraper' && (
+      {active !== 'cleaning-sops' && active !== 'cleaning-email' && active !== 'cleaning-scraper' && active !== 'cleaning-marketing' && (
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           {active === 'cleaning-dashboard' && (
             <CleaningDashboard jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} />
@@ -708,6 +709,11 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
       {active === 'cleaning-scraper' && (
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           <LeadScraperView />
+        </div>
+      )}
+      {active === 'cleaning-marketing' && (
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <MarketingSalesView onNavigate={onNavigate} />
         </div>
       )}
     </div>

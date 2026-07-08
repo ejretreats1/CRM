@@ -27,9 +27,9 @@ import {
   Briefcase,
   CreditCard,
   LayoutGrid,
-  UserPlus,
   BookOpen,
   MessageSquare,
+  Megaphone,
 } from 'lucide-react';
 import type { View } from '../types';
 
@@ -65,16 +65,14 @@ const PROPERTY_NAV_ITEMS = [
 ];
 
 const CLEANING_NAV_ITEMS = [
-  { id: 'cleaning-dashboard' as View,  label: 'Dashboard',  icon: LayoutDashboard },
-  { id: 'cleaning-schedule' as View,   label: 'Calendar',   icon: CalendarDays },
-  { id: 'cleaning-jobs' as View,       label: 'Jobs',       icon: Briefcase },
-  { id: 'cleaning-leads' as View,      label: 'Leads',      icon: UserPlus },
-  { id: 'cleaning-properties' as View, label: 'Properties', icon: Home },
-  { id: 'cleaning-cleaners' as View,   label: 'Cleaners',   icon: Users },
-  { id: 'cleaning-payments' as View,   label: 'Payments',   icon: CreditCard },
-  { id: 'cleaning-sops' as View,       label: "SOP's",      icon: BookOpen },
-  { id: 'cleaning-email' as View,      label: 'Email Mktg', icon: MailOpen },
-  { id: 'cleaning-scraper' as View,   label: 'Lead Scraper', icon: ScanSearch },
+  { id: 'cleaning-dashboard' as View,  label: 'Dashboard',       icon: LayoutDashboard },
+  { id: 'cleaning-schedule' as View,   label: 'Calendar',        icon: CalendarDays },
+  { id: 'cleaning-jobs' as View,       label: 'Jobs',            icon: Briefcase },
+  { id: 'cleaning-properties' as View, label: 'Properties',      icon: Home },
+  { id: 'cleaning-cleaners' as View,   label: 'Cleaners',        icon: Users },
+  { id: 'cleaning-payments' as View,   label: 'Payments',        icon: CreditCard },
+  { id: 'cleaning-marketing' as View,  label: 'Marketing/Sales', icon: Megaphone },
+  { id: 'cleaning-sops' as View,       label: "SOP's",           icon: BookOpen },
 ];
 
 // Bottom tab bar shows the 4 most-used views per mode; the rest live in "More"
