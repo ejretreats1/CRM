@@ -17,19 +17,19 @@ async function logEmails(
   recipients: { email: string; name: string }[],
   subject: string,
 ) {
-  if (!ids.length) return;
-  try {
-    const rows = ids.map((id, i) => ({
-      id,
-      email_type: emailType,
-      recipient_email: recipients[i]?.email ?? '',
-      recipient_name:  recipients[i]?.name  ?? null,
-      subject,
-      sent_at: new Date().toISOString(),
-      status: 'sent',
-    }));
-    await getSupabase().from('email_logs').insert(rows);
-  } catch {}
+  if (!ids.length) { console.log('[logEmails] no ids, skipping'); return; }
+  const rows = ids.map((id, i) => ({
+    id,
+    email_type: emailType,
+    recipient_email: recipients[i]?.email ?? '',
+    recipient_name:  recipients[i]?.name  ?? null,
+    subject,
+    sent_at: new Date().toISOString(),
+    status: 'sent',
+  }));
+  const { error } = await getSupabase().from('email_logs').insert(rows);
+  if (error) console.error('[logEmails] insert failed:', error.message, error.details ?? '');
+  else console.log(`[logEmails] inserted ${rows.length} rows (type=${emailType})`);
 }
 
 // ── LEAD TEMPLATE HELPERS ────────────────────────────────────────────────────
