@@ -1318,7 +1318,7 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {sortedSteps.map(s => (
                     <span key={s.step_number} className="text-[10px] bg-[#0d1e35] border border-[#1e3a5a] text-[#4a90d9] px-2 py-0.5 rounded-full">
-                      Day {s.delay_days} · {leadTemplates.find(t => t.id === s.template_id)?.name ?? 'Unknown'}
+                      Day {s.delay_days} · {leadTemplates.find(t => t.id === s.template_id)?.name ?? `Step ${s.step_number}`}
                     </span>
                   ))}
                 </div>
@@ -1622,7 +1622,7 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {sortedSteps.map(s => (
                           <span key={s.step_number} className="text-[10px] bg-[#0d1e35] border border-[#1e3a5a] text-[#4a90d9] px-2 py-0.5 rounded-full">
-                            Day {s.delay_days} · {leadTemplates.find(t => t.id === s.template_id)?.name ?? 'Unknown template'}
+                            Day {s.delay_days} · {leadTemplates.find(t => t.id === s.template_id)?.name ?? `Step ${s.step_number}`}
                           </span>
                         ))}
                         {sortedSteps.length === 0 && <span className="text-xs text-[#3a5070]">No steps configured</span>}
