@@ -364,6 +364,265 @@ async function runIcalSync(res: VercelResponse) {
   return res.status(200).json({ synced: toSync.length, dispatched: totalDispatched, results });
 }
 
+// ── CAMPAIGN AUTO-SEND ────────────────────────────────────────────────────────
+
+function replaceTokensServer(text: string, r: { name: string; email: string; propertyAddress?: string; company?: string }): string {
+  const firstName = (r.name ?? '').split(' ')[0] || r.name || 'there';
+  return text
+    .replace(/\{\{first_name\}\}/gi, firstName)
+    .replace(/\{\{full_name\}\}/gi,  r.name ?? '')
+    .replace(/\{\{property\}\}/gi,   r.propertyAddress ?? r.company ?? '')
+    .replace(/\{\{company\}\}/gi,    r.company ?? r.propertyAddress ?? '')
+    .replace(/\{\{email\}\}/gi,      r.email ?? '');
+}
+
+function buildEmailHtmlServer(bodyText: string, fromName: string): string {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const paragraphs = bodyText.split(/\n{2,}/).filter(Boolean);
+  const bodyHtml = paragraphs
+    .map(p => `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#1a1a1a">${esc(p).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<div style="max-width:560px;margin:0 auto;padding:32px 16px">
+<div style="background:#ffffff;border-radius:8px;padding:36px 32px;border:1px solid #e2e8f0">
+${bodyHtml}
+<hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0 20px">
+<p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5">${esc(fromName)}</p>
+</div></div></body></html>`;
+}
+
+async function runCampaignSend(res: VercelResponse) {
+  const sb = getSupabase();
+  const resend = getResend();
+  const now = new Date().toISOString();
+
+  const baseFrom = process.env.NEWSLETTER_FROM_EMAIL ?? 'E&J Retreats <hello@ejretreats.com>';
+  const fromEmailBase = baseFrom.match(/<([^>]+)>/)?.[1] ?? baseFrom;
+
+  // Fetch all active campaigns
+  const { data: campaigns, error: campErr } = await sb
+    .from('lead_campaigns').select('*').eq('status', 'active');
+  if (campErr) return res.status(500).json({ error: campErr.message });
+  if (!campaigns?.length) return res.status(200).json({ message: 'No active campaigns.', campaignsSent: 0 });
+
+  // Bulk-fetch all possible recipients across all campaigns
+  const allLeadIds    = [...new Set((campaigns as any[]).flatMap((c: any) => c.lead_ids    ?? []))];
+  const allContactIds = [...new Set((campaigns as any[]).flatMap((c: any) => c.contact_ids ?? []))];
+  const allScrapedIds = [...new Set((campaigns as any[]).flatMap((c: any) => c.scraped_lead_ids ?? []))];
+
+  const [{ data: leadsRows }, { data: contactRows }, { data: scrapedRows }] = await Promise.all([
+    allLeadIds.length    ? sb.from('leads').select('id,name,email,property_address').in('id', allLeadIds)           : { data: [] },
+    allContactIds.length ? sb.from('contacts').select('id,name,email').in('id', allContactIds)                       : { data: [] },
+    allScrapedIds.length ? sb.from('cleaning_leads').select('id,name,email,company').in('id', allScrapedIds)         : { data: [] },
+  ]);
+
+  const leadMap    = new Map((leadsRows    ?? []).map((r: any) => [r.id, r]));
+  const contactMap = new Map((contactRows  ?? []).map((r: any) => [r.id, r]));
+  const scrapedMap = new Map((scrapedRows  ?? []).map((r: any) => [r.id, r]));
+
+  const results: any[] = [];
+
+  for (const camp of (campaigns as any[])) {
+    const sentLeadSet    = new Set(camp.sent_lead_ids    ?? []);
+    const sentContactSet = new Set(camp.sent_contact_ids ?? []);
+    const sentScrapedSet = new Set(camp.sent_scraped_lead_ids ?? []);
+    const dailyLimit     = camp.daily_limit ?? 20;
+
+    // Build pending list in order: leads, contacts, scraped
+    const pending: Array<{ type: 'lead' | 'contact' | 'scraped'; id: string; name: string; email: string; extra: string }> = [];
+    for (const id of (camp.lead_ids ?? [])) {
+      if (sentLeadSet.has(id)) continue;
+      const l = leadMap.get(id);
+      if (l?.email) pending.push({ type: 'lead', id, name: l.name ?? '', email: l.email, extra: l.property_address ?? '' });
+    }
+    for (const id of (camp.contact_ids ?? [])) {
+      if (sentContactSet.has(id)) continue;
+      const c = contactMap.get(id);
+      if (c?.email) pending.push({ type: 'contact', id, name: c.name ?? '', email: c.email, extra: '' });
+    }
+    for (const id of (camp.scraped_lead_ids ?? [])) {
+      if (sentScrapedSet.has(id)) continue;
+      const l = scrapedMap.get(id);
+      if (l?.email) pending.push({ type: 'scraped', id, name: l.name ?? '', email: l.email, extra: l.company ?? '' });
+    }
+
+    const batch = pending.slice(0, dailyLimit);
+    if (!batch.length) {
+      results.push({ campaign: camp.name, sent: 0, note: 'all_sent' });
+      // Mark completed if truly nothing left
+      const totalSent = sentLeadSet.size + sentContactSet.size + sentScrapedSet.size;
+      const totalAll  = (camp.lead_ids?.length ?? 0) + (camp.contact_ids?.length ?? 0) + (camp.scraped_lead_ids?.length ?? 0);
+      if (totalSent >= totalAll && totalAll > 0) {
+        await sb.from('lead_campaigns').update({ status: 'completed', updated_at: now }).eq('id', camp.id);
+      }
+      continue;
+    }
+
+    const from = `${camp.from_name || 'E&J Retreats'} <${fromEmailBase}>`;
+    const emailBatch = batch.map(r => {
+      const ctx = r.type === 'scraped'
+        ? { name: r.name, email: r.email, company: r.extra }
+        : { name: r.name, email: r.email, propertyAddress: r.extra };
+      return {
+        from,
+        to:      r.email,
+        subject: replaceTokensServer(camp.subject ?? '', ctx),
+        html:    buildEmailHtmlServer(replaceTokensServer(camp.body ?? '', ctx), camp.from_name ?? 'E&J Retreats'),
+        ...(camp.reply_to && { reply_to: camp.reply_to }),
+      };
+    });
+
+    let sent = 0;
+    try {
+      const { data: bd } = await resend.batch.send(emailBatch) as { data: Array<{ id: string }> | null };
+      sent = emailBatch.length;
+      if (bd?.length) {
+        const logRows = bd.map((e, i) => ({
+          id:              e.id,
+          email_type:      'outreach',
+          recipient_email: batch[i]?.email ?? '',
+          recipient_name:  batch[i]?.name  ?? null,
+          subject:         emailBatch[i]?.subject ?? '',
+          sent_at:         now,
+          status:          'sent',
+        })).filter(r => r.id);
+        if (logRows.length) await sb.from('email_logs').insert(logRows).catch(() => {});
+      }
+    } catch (e) {
+      results.push({ campaign: camp.name, sent: 0, error: String(e) });
+      continue;
+    }
+
+    // Update sent IDs + status
+    const newSentLeadIds    = [...(camp.sent_lead_ids    ?? []), ...batch.filter(r => r.type === 'lead').map(r => r.id)];
+    const newSentContactIds = [...(camp.sent_contact_ids ?? []), ...batch.filter(r => r.type === 'contact').map(r => r.id)];
+    const newSentScrapedIds = [...(camp.sent_scraped_lead_ids ?? []), ...batch.filter(r => r.type === 'scraped').map(r => r.id)];
+    const totalSent = newSentLeadIds.length + newSentContactIds.length + newSentScrapedIds.length;
+    const totalAll  = (camp.lead_ids?.length ?? 0) + (camp.contact_ids?.length ?? 0) + (camp.scraped_lead_ids?.length ?? 0);
+    const allDone   = totalSent >= totalAll;
+
+    await sb.from('lead_campaigns').update({
+      sent_lead_ids:        newSentLeadIds,
+      sent_contact_ids:     newSentContactIds,
+      sent_scraped_lead_ids: newSentScrapedIds,
+      status:      allDone ? 'completed' : 'active',
+      updated_at:  now,
+    }).eq('id', camp.id);
+
+    // Auto-enroll in follow-up sequence
+    if ((camp.follow_up_steps ?? []).length > 0 && camp.linked_sequence_id) {
+      const { data: seq } = await sb.from('lead_campaign_sequences').select('*').eq('id', camp.linked_sequence_id).maybeSingle();
+      if (seq?.steps?.length) {
+        const steps = (seq.steps as Array<{ step_number: number; delay_days: number }>).sort((a, b) => a.delay_days - b.delay_days);
+        const firstStep = steps[0];
+        const { data: existing } = await sb.from('lead_campaign_sequence_enrollments').select('email').eq('sequence_id', seq.id);
+        const existingSet = new Set((existing ?? []).map((e: any) => e.email.toLowerCase()));
+        const toEnroll = batch
+          .filter(r => !existingSet.has(r.email.toLowerCase()))
+          .map(r => {
+            const nextSendAt = new Date(new Date(now).getTime() + firstStep.delay_days * 86400000);
+            return {
+              id:                 `lenr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+              sequence_id:        seq.id,
+              source_campaign_id: camp.id,
+              email:              r.email,
+              lead_name:          r.name ?? null,
+              from_name:          camp.from_name ?? null,
+              reply_to:           camp.reply_to  ?? null,
+              enrolled_at:        now,
+              next_step:          firstStep.step_number,
+              next_send_at:       nextSendAt.toISOString(),
+              status:             'active',
+            };
+          });
+        if (toEnroll.length) {
+          for (let i = 0; i < toEnroll.length; i += 500) {
+            await sb.from('lead_campaign_sequence_enrollments').insert(toEnroll.slice(i, i + 500)).catch(() => {});
+          }
+        }
+      }
+    }
+
+    results.push({ campaign: camp.name, sent, allDone });
+  }
+
+  // Process any due sequence follow-up emails
+  let seqSent = 0;
+  const { data: due } = await sb
+    .from('lead_campaign_sequence_enrollments')
+    .select('*').eq('status', 'active').lte('next_send_at', now).limit(200);
+  if (due?.length) {
+    const seqIds = [...new Set((due as any[]).map((e: any) => e.sequence_id))];
+    const { data: seqs } = await sb.from('lead_campaign_sequences').select('*').in('id', seqIds);
+    const allTplIds = [...new Set((seqs ?? []).flatMap((s: any) => (s.steps ?? []).map((st: any) => st.template_id).filter(Boolean)))];
+    const { data: tmpls } = allTplIds.length ? await sb.from('lead_campaign_templates').select('*').in('id', allTplIds) : { data: [] };
+    const tplMap = new Map((tmpls ?? []).map((t: any) => [t.id, t]));
+
+    for (const enr of (due as any[])) {
+      const seq = (seqs ?? []).find((s: any) => s.id === enr.sequence_id);
+      if (!seq) continue;
+      const steps: Array<{ step_number: number; template_id: string; delay_days: number }> = seq.steps ?? [];
+      const step = steps.find((s: any) => s.step_number === enr.next_step);
+      if (!step) {
+        await sb.from('lead_campaign_sequence_enrollments').update({ status: 'completed', next_send_at: null }).eq('id', enr.id);
+        continue;
+      }
+      const tmpl = tplMap.get(step.template_id);
+      if (!tmpl) continue;
+
+      const ctx = { name: enr.lead_name ?? '', email: enr.email ?? '' };
+      const subject = replaceTokensServer(tmpl.subject, ctx);
+      const body    = replaceTokensServer(tmpl.body, ctx);
+      const html    = buildEmailHtmlServer(body, enr.from_name ?? 'E&J Retreats');
+      const from    = `${enr.from_name ?? 'E&J Retreats'} <${fromEmailBase}>`;
+
+      try {
+        const { data: rd } = await resend.emails.send({
+          from, to: enr.email, subject, html,
+          ...(enr.reply_to && { reply_to: enr.reply_to }),
+        });
+        if (rd?.id) {
+          await sb.from('email_logs').insert({
+            id: rd.id, email_type: 'lead-sequence',
+            recipient_email: enr.email, recipient_name: enr.lead_name ?? null,
+            subject, sent_at: now, status: 'sent',
+          }).catch(() => {});
+        }
+        seqSent++;
+
+        const sorted   = [...steps].sort((a, b) => a.delay_days - b.delay_days);
+        const nextStep = sorted.find(s => s.step_number > enr.next_step);
+        if (nextStep) {
+          const nextAt = new Date(new Date(enr.enrolled_at).getTime() + nextStep.delay_days * 86400000);
+          await sb.from('lead_campaign_sequence_enrollments').update({ next_step: nextStep.step_number, next_send_at: nextAt.toISOString() }).eq('id', enr.id);
+        } else {
+          await sb.from('lead_campaign_sequence_enrollments').update({ status: 'completed', next_send_at: null }).eq('id', enr.id);
+        }
+      } catch { /* continue */ }
+    }
+  }
+
+  // Notify admin if anything sent
+  const totalSentAll = results.reduce((s, r) => s + (r.sent ?? 0), 0) + seqSent;
+  if (totalSentAll > 0) {
+    await getResend().emails.send({
+      from: 'E&J Retreats CRM <cleaning@ejretreats.com>',
+      to: 'ejretreats1@gmail.com',
+      subject: `📧 Daily campaign send complete — ${results.filter(r => r.sent > 0).length} campaigns, ${totalSentAll} emails`,
+      html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+        <h2 style="margin:0 0 16px;color:#1e293b">Daily Campaign Summary</h2>
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          ${results.map(r => `<tr><td style="padding:6px 0;color:#334155">${r.campaign}</td><td style="padding:6px 0;color:${r.sent > 0 ? '#16a34a' : '#94a3b8'};font-weight:600">${r.sent} sent</td><td style="padding:6px 0;color:#94a3b8">${r.allDone ? 'Completed' : r.note ?? ''}</td></tr>`).join('')}
+        </table>
+        ${seqSent > 0 ? `<p style="margin:16px 0 0;color:#334155">+ ${seqSent} follow-up sequence emails sent.</p>` : ''}
+      </div>`,
+    }).catch(() => {});
+  }
+
+  return res.status(200).json({ campaigns: results, sequenceEmailsSent: seqSent });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Vercel sends Authorization: Bearer {CRON_SECRET} for cron jobs
   const auth = req.headers['authorization'];
@@ -372,8 +631,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ?job=warmup → email warmup sequences; ?job=ical-sync → iCal calendar sync; default → charge/payout
-  if (req.query.job === 'warmup') return runWarmup(res);
-  if (req.query.job === 'ical-sync') return runIcalSync(res);
+  if (req.query.job === 'warmup')         return runWarmup(res);
+  if (req.query.job === 'ical-sync')      return runIcalSync(res);
+  if (req.query.job === 'campaign-send')  return runCampaignSend(res);
 
   const supabase = getSupabase();
   const today = new Date().toISOString().slice(0, 10);
