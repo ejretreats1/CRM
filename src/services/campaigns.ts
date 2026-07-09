@@ -5,6 +5,12 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY as string,
 );
 
+export interface FollowUpStep {
+  step_number: number;
+  template_id: string;
+  delay_days: number;
+}
+
 export interface Campaign {
   id: string;
   name: string;
@@ -18,6 +24,8 @@ export interface Campaign {
   sentContactIds: string[];
   scrapedLeadIds: string[];
   sentScrapedLeadIds: string[];
+  followUpSteps: FollowUpStep[];
+  linkedSequenceId: string;
   dailyLimit: number;
   status: 'draft' | 'active' | 'paused' | 'completed';
   createdAt: string;
@@ -39,6 +47,8 @@ function rowToCampaign(r: any): Campaign {
     sentContactIds:     r.sent_contact_ids ?? [],
     scrapedLeadIds:     r.scraped_lead_ids ?? [],
     sentScrapedLeadIds: r.sent_scraped_lead_ids ?? [],
+    followUpSteps:      r.follow_up_steps ?? [],
+    linkedSequenceId:   r.linked_sequence_id ?? '',
     dailyLimit:      r.daily_limit ?? 20,
     status:          r.status ?? 'draft',
     createdAt:       r.created_at ?? '',
@@ -58,8 +68,10 @@ function campaignToRow(c: Campaign) {
     sent_lead_ids:    c.sentLeadIds,
     contact_ids:          c.contactIds,
     sent_contact_ids:     c.sentContactIds,
-    scraped_lead_ids:     c.scrapedLeadIds,
+    scraped_lead_ids:      c.scrapedLeadIds,
     sent_scraped_lead_ids: c.sentScrapedLeadIds,
+    follow_up_steps:       c.followUpSteps,
+    linked_sequence_id:    c.linkedSequenceId || null,
     daily_limit:      c.dailyLimit,
     status:           c.status,
     created_at:       c.createdAt,

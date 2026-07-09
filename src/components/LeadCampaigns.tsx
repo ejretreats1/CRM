@@ -5,7 +5,7 @@ import {
   Play, Pause, RefreshCw, Users, Upload, Zap, CheckCircle, X,
 } from 'lucide-react';
 import type { Lead, Contact, ContactCategory } from '../types';
-import type { Campaign } from '../services/campaigns';
+import type { Campaign, FollowUpStep } from '../services/campaigns';
 import { fetchCampaigns, upsertCampaign, deleteCampaign } from '../services/campaigns';
 import { upsertContact, deleteContact } from '../services/contacts';
 import { fetchCleaningLeads } from '../services/cleaningDb';
@@ -133,6 +133,7 @@ function blankCampaign(): Campaign {
     leadIds: [], sentLeadIds: [],
     contactIds: [], sentContactIds: [],
     scrapedLeadIds: [], sentScrapedLeadIds: [],
+    followUpSteps: [], linkedSequenceId: '',
     dailyLimit: 20, status: 'draft',
     createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   };
@@ -606,7 +607,7 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
       const allDone    = totalSent >= totalAll;
       const newStatus: Campaign['status'] = allDone ? 'completed' : (detailCampaign.status === 'draft' ? 'active' : detailCampaign.status);
 
-      const updated: Campaign = {
+      let updated: Campaign = {
         ...detailCampaign,
         sentLeadIds:        newSentLeadIds,
         sentContactIds:     newSentContactIds,
@@ -618,7 +619,45 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
       setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
 
       const sentCount = result.sent ?? batch.length;
-      setSendMsg(`✓ Sent to ${sentCount} recipient${sentCount !== 1 ? 's' : ''}${warmupBatch.length ? ` + ${warmupBatch.length} warmup` : ''}.${allDone ? ' Campaign complete!' : ''}`);
+
+      // Auto-enroll in follow-up sequence if steps defined
+      if (detailCampaign.followUpSteps.length > 0) {
+        try {
+          const seqRes = await fetch('/api/send-newsletter', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'upsert-lead-sequence',
+              id: updated.linkedSequenceId || undefined,
+              name: `${detailCampaign.name} — Follow-Ups`,
+              steps: detailCampaign.followUpSteps,
+            }),
+          });
+          const seqData = await seqRes.json();
+          const seqId: string = seqData.id;
+          if (seqId && !updated.linkedSequenceId) {
+            updated = { ...updated, linkedSequenceId: seqId };
+            await upsertCampaign(updated);
+            setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
+          }
+          const justSent = batch
+            .filter(b => b.type !== 'scraped' ? true : true)
+            .map(b => ({ email: b.item.email, name: b.item.name }));
+          await fetch('/api/send-newsletter', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'enroll-lead-sequence',
+              sequenceId: seqId,
+              campaignId: detailCampaign.id,
+              fromName: detailCampaign.fromName,
+              replyTo: detailCampaign.replyTo,
+              recipients: justSent,
+            }),
+          });
+          await reloadSequences();
+        } catch { /* non-fatal */ }
+      }
+
+      setSendMsg(`✓ Sent to ${sentCount} recipient${sentCount !== 1 ? 's' : ''}${warmupBatch.length ? ` + ${warmupBatch.length} warmup` : ''}${detailCampaign.followUpSteps.length > 0 ? ' · enrolled in follow-up sequence' : ''}.${allDone ? ' Campaign complete!' : ''}`);
     } catch {
       setSendMsg('Send failed. Please try again.');
     } finally {
@@ -832,6 +871,73 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
             <p className="text-xs text-[#3a5070] mt-1">
               Tokens: <code className="text-[#4a90d9]">{'{{first_name}}'}</code> · <code className="text-[#4a90d9]">{'{{full_name}}'}</code> · <code className="text-[#4a90d9]">{'{{property}}'}</code>
             </p>
+          </div>
+
+          {/* Follow-Up Steps */}
+          <div className="bg-[#111d30] border border-[#243550] rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Follow-Up Sequence</p>
+                <p className="text-[10px] text-[#3a5070] mt-0.5">Recipients auto-enroll when you send — follow-ups go out X days after initial send</p>
+              </div>
+              {form.followUpSteps.length === 0 && (
+                <button type="button"
+                  onClick={() => setForm(f => ({ ...f, followUpSteps: [{ step_number: 1, template_id: '', delay_days: 3 }] }))}
+                  className="flex items-center gap-1.5 text-xs text-[#4a90d9] hover:text-[#6ab0f9] font-semibold transition-colors flex-shrink-0">
+                  <Plus size={13} /> Add Follow-Up
+                </button>
+              )}
+            </div>
+
+            {form.followUpSteps.length > 0 && (
+              <div className="space-y-2">
+                {[...form.followUpSteps].sort((a, b) => a.delay_days - b.delay_days).map((step, i) => (
+                  <div key={i} className="bg-[#1a2335] border border-[#243550] rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-[#4a90d9]">Follow-Up {i + 1}</span>
+                      <button type="button" onClick={() => setForm(f => ({ ...f, followUpSteps: f.followUpSteps.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, step_number: idx + 1 })) }))}
+                        className="text-[#3a5070] hover:text-[#e05c5c] transition-colors"><X size={12} /></button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2">
+                        <label className="block text-[10px] text-[#3a5070] mb-1">Template</label>
+                        <select className="w-full bg-[#111d30] border border-[#1e2d45] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#4a90d9]"
+                          value={step.template_id}
+                          onChange={e => setForm(f => ({ ...f, followUpSteps: f.followUpSteps.map((s, idx) => idx === i ? { ...s, template_id: e.target.value } : s) }))}>
+                          <option value="">— Pick template —</option>
+                          {leadTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#3a5070] mb-1">Day</label>
+                        <input type="number" min="1" max="365"
+                          className="w-full bg-[#111d30] border border-[#1e2d45] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#4a90d9]"
+                          value={step.delay_days}
+                          onChange={e => setForm(f => ({ ...f, followUpSteps: f.followUpSteps.map((s, idx) => idx === i ? { ...s, delay_days: Math.max(1, parseInt(e.target.value) || 1) } : s) }))} />
+                      </div>
+                    </div>
+                    {step.template_id && (
+                      <p className="text-[10px] text-[#3a5070]">
+                        Sends <span className="text-[#d0954a] font-semibold">Day {step.delay_days}</span> after initial email ·{' '}
+                        <span className="text-[#b8d4f0]">{leadTemplates.find(t => t.id === step.template_id)?.subject}</span>
+                      </p>
+                    )}
+                  </div>
+                ))}
+                <button type="button"
+                  onClick={() => {
+                    const maxDelay = form.followUpSteps.length ? Math.max(...form.followUpSteps.map(s => s.delay_days)) : 0;
+                    setForm(f => ({ ...f, followUpSteps: [...f.followUpSteps, { step_number: f.followUpSteps.length + 1, template_id: '', delay_days: maxDelay + 4 }] }));
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-[#4a90d9] hover:text-[#6ab0f9] font-semibold transition-colors">
+                  <Plus size={13} /> Add Another Follow-Up
+                </button>
+              </div>
+            )}
+
+            {leadTemplates.length === 0 && form.followUpSteps.length === 0 && (
+              <p className="text-[10px] text-[#3a5070]">Create templates first in the Templates tab, then add them here as follow-up steps.</p>
+            )}
           </div>
 
           <div>
@@ -1173,6 +1279,42 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
           )}
         </div>
 
+        {/* Follow-up status */}
+        {c.linkedSequenceId && (() => {
+          const linkedSeq = sequences.find(s => s.id === c.linkedSequenceId);
+          if (!linkedSeq) return null;
+          const sortedSteps = [...(linkedSeq.steps ?? [])].sort((a, b) => a.delay_days - b.delay_days);
+          return (
+            <div className="bg-[#1a2335] rounded-xl border border-[#243550] p-4 mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock size={14} className="text-[#4a90d9]" />
+                <span className="text-sm font-semibold text-white">Follow-Up Sequence</span>
+              </div>
+              <div className="flex flex-wrap gap-4 mb-3">
+                <span className="text-xs text-[#4a90d9]"><span className="font-bold text-white">{linkedSeq.active_count}</span> following up</span>
+                {linkedSeq.due_count > 0 && <span className="text-xs text-[#d0954a] font-semibold"><span className="font-bold">{linkedSeq.due_count}</span> due now</span>}
+                <span className="text-xs text-[#4ab57a]"><span className="font-bold text-white">{linkedSeq.completed_count}</span> completed</span>
+              </div>
+              {sortedSteps.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {sortedSteps.map(s => (
+                    <span key={s.step_number} className="text-[10px] bg-[#0d1e35] border border-[#1e3a5a] text-[#4a90d9] px-2 py-0.5 rounded-full">
+                      Day {s.delay_days} · {leadTemplates.find(t => t.id === s.template_id)?.name ?? 'Unknown'}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {linkedSeq.due_count > 0 && (
+                <button onClick={() => handleSendDue(linkedSeq.id)} disabled={sendingDue !== null}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#d0954a] hover:bg-[#e0a55a] text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
+                  <Send size={12} /> {sendingDue === linkedSeq.id ? 'Sending…' : `Send ${linkedSeq.due_count} Due Follow-Up${linkedSeq.due_count !== 1 ? 's' : ''}`}
+                </button>
+              )}
+              {dueResult && sendingDue === null && <p className="text-xs text-[#4ab57a] mt-1">✓ Sent {dueResult.sent} follow-up{dueResult.sent !== 1 ? 's' : ''}</p>}
+            </div>
+          );
+        })()}
+
         {/* Send panel */}
         {c.status !== 'completed' && (
           <div className="bg-[#1a2335] rounded-xl border border-[#243550] p-4 mb-4">
@@ -1401,7 +1543,8 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
                           <span className="text-xs text-[#b8d4f0]"><strong className="text-white">{totalAll}</strong> recipients</span>
                           <span className="text-xs text-[#4ab57a]"><strong>{totalSent}</strong> sent</span>
                           <span className="text-xs text-[#3a5070]"><strong>{totalAll - totalSent}</strong> pending</span>
-                          {c.contactIds.length > 0 && <span className="text-xs text-[#4ab57a]"><strong>{c.contactIds.length}</strong> contacts</span>}
+                          {c.followUpSteps?.length > 0 && <span className="text-xs text-[#4a90d9]"><strong>{c.followUpSteps.length}</strong> follow-up{c.followUpSteps.length !== 1 ? 's' : ''}</span>}
+                          {c.linkedSequenceId && (() => { const seq = sequences.find(s => s.id === c.linkedSequenceId); return seq?.due_count ? <span className="text-xs text-[#d0954a] font-semibold"><strong>{seq.due_count}</strong> due</span> : null; })()}
                         </div>
                         {totalAll > 0 && (
                           <div className="mt-2.5 h-1 bg-[#243550] rounded-full overflow-hidden">
