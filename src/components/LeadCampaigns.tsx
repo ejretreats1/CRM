@@ -823,6 +823,25 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
             </div>
           </div>
 
+          {/* Template picker */}
+          {leadTemplates.length > 0 && (
+            <div>
+              <label className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5 block">Use Template</label>
+              <select
+                className="w-full bg-[#111d30] border border-[#243550] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
+                value=""
+                onChange={e => {
+                  const tpl = leadTemplates.find(t => t.id === e.target.value);
+                  if (tpl) setForm(f => ({ ...f, subject: tpl.subject, body: tpl.body }));
+                }}
+              >
+                <option value="">— Load a saved template —</option>
+                {leadTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <p className="text-xs text-[#3a5070] mt-1">Selecting a template fills in the subject and body below — you can still edit them after.</p>
+            </div>
+          )}
+
           <div>
             <label className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5 block">Subject Line</label>
             <input
