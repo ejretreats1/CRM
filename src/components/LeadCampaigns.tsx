@@ -5,7 +5,7 @@ import {
   Play, Pause, RefreshCw, Users, Upload, Zap, CheckCircle, X,
 } from 'lucide-react';
 import type { Lead, Contact, ContactCategory } from '../types';
-import type { Campaign, FollowUpStep } from '../services/campaigns';
+import type { Campaign } from '../services/campaigns';
 import { fetchCampaigns, upsertCampaign, deleteCampaign } from '../services/campaigns';
 import { upsertContact, deleteContact } from '../services/contacts';
 import { fetchCleaningLeads } from '../services/cleaningDb';
