@@ -90,10 +90,10 @@ export async function fetchCampaigns(): Promise<Campaign[]> {
 
 export async function upsertCampaign(c: Campaign): Promise<void> {
   const { error } = await supabase.from('lead_campaigns').upsert(campaignToRow(c));
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteCampaign(id: string): Promise<void> {
   const { error } = await supabase.from('lead_campaigns').delete().eq('id', id);
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
