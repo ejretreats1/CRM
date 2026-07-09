@@ -16,6 +16,8 @@ export interface Campaign {
   sentLeadIds: string[];
   contactIds: string[];
   sentContactIds: string[];
+  scrapedLeadIds: string[];
+  sentScrapedLeadIds: string[];
   dailyLimit: number;
   status: 'draft' | 'active' | 'paused' | 'completed';
   createdAt: string;
@@ -33,8 +35,10 @@ function rowToCampaign(r: any): Campaign {
     body:            r.body ?? '',
     leadIds:         r.lead_ids ?? [],
     sentLeadIds:     r.sent_lead_ids ?? [],
-    contactIds:      r.contact_ids ?? [],
-    sentContactIds:  r.sent_contact_ids ?? [],
+    contactIds:         r.contact_ids ?? [],
+    sentContactIds:     r.sent_contact_ids ?? [],
+    scrapedLeadIds:     r.scraped_lead_ids ?? [],
+    sentScrapedLeadIds: r.sent_scraped_lead_ids ?? [],
     dailyLimit:      r.daily_limit ?? 20,
     status:          r.status ?? 'draft',
     createdAt:       r.created_at ?? '',
@@ -52,8 +56,10 @@ function campaignToRow(c: Campaign) {
     body:             c.body,
     lead_ids:         c.leadIds,
     sent_lead_ids:    c.sentLeadIds,
-    contact_ids:      c.contactIds,
-    sent_contact_ids: c.sentContactIds,
+    contact_ids:          c.contactIds,
+    sent_contact_ids:     c.sentContactIds,
+    scraped_lead_ids:     c.scrapedLeadIds,
+    sent_scraped_lead_ids: c.sentScrapedLeadIds,
     daily_limit:      c.dailyLimit,
     status:           c.status,
     created_at:       c.createdAt,

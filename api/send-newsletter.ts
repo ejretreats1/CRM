@@ -32,11 +32,197 @@ async function logEmails(
   } catch {}
 }
 
+// ── LEAD TEMPLATE HELPERS ────────────────────────────────────────────────────
+
+async function getLeadTemplates(res: VercelResponse) {
+  const { data } = await getSupabase().from('lead_campaign_templates').select('*').order('created_at', { ascending: false });
+  return res.status(200).json({ templates: data ?? [] });
+}
+
+async function upsertLeadTemplate(body: any, res: VercelResponse) {
+  const { id, name, subject, body: bodyText } = body;
+  const sb = getSupabase();
+  const tplId = id || `ltpl_${Date.now()}`;
+  const now = new Date().toISOString();
+  await sb.from('lead_campaign_templates').upsert(
+    { id: tplId, name: name.trim(), subject: subject.trim(), body: bodyText.trim(), updated_at: now, ...(id ? {} : { created_at: now }) },
+    { onConflict: 'id' },
+  );
+  return res.status(200).json({ ok: true, id: tplId });
+}
+
+async function deleteLeadTemplate(body: any, res: VercelResponse) {
+  await getSupabase().from('lead_campaign_templates').delete().eq('id', body.id);
+  return res.status(200).json({ ok: true });
+}
+
+// ── LEAD SEQUENCE HELPERS ────────────────────────────────────────────────────
+
+async function getLeadSequences(res: VercelResponse) {
+  const sb = getSupabase();
+  const now = new Date().toISOString();
+  const [{ data: seqs }, { data: enrollments }] = await Promise.all([
+    sb.from('lead_campaign_sequences').select('*').order('created_at', { ascending: false }),
+    sb.from('lead_campaign_sequence_enrollments').select('sequence_id, status, next_send_at'),
+  ]);
+  const result = (seqs ?? []).map((seq: any) => {
+    const enrs = (enrollments ?? []).filter((e: any) => e.sequence_id === seq.id);
+    return {
+      ...seq,
+      active_count:    enrs.filter((e: any) => e.status === 'active').length,
+      due_count:       enrs.filter((e: any) => e.status === 'active' && e.next_send_at <= now).length,
+      completed_count: enrs.filter((e: any) => e.status === 'completed').length,
+    };
+  });
+  return res.status(200).json({ sequences: result });
+}
+
+async function upsertLeadSequence(body: any, res: VercelResponse) {
+  const { id, name, steps } = body;
+  const sb = getSupabase();
+  const seqId = id || `lseq_${Date.now()}`;
+  await sb.from('lead_campaign_sequences').upsert(
+    { id: seqId, name: name.trim(), steps: steps ?? [], updated_at: new Date().toISOString() },
+    { onConflict: 'id' },
+  );
+  return res.status(200).json({ ok: true, id: seqId });
+}
+
+async function deleteLeadSequence(body: any, res: VercelResponse) {
+  const sb = getSupabase();
+  await sb.from('lead_campaign_sequence_enrollments').delete().eq('sequence_id', body.id);
+  await sb.from('lead_campaign_sequences').delete().eq('id', body.id);
+  return res.status(200).json({ ok: true });
+}
+
+async function enrollLeadSequence(body: any, res: VercelResponse) {
+  const { sequenceId, campaignId, fromName, replyTo: replyToAddr, recipients } = body;
+  if (!sequenceId || !recipients?.length) return res.status(400).json({ error: 'sequenceId and recipients required.' });
+  const sb = getSupabase();
+
+  const { data: seq } = await sb.from('lead_campaign_sequences').select('*').eq('id', sequenceId).single();
+  if (!seq) return res.status(404).json({ error: 'Sequence not found.' });
+  const steps: Array<{ step_number: number; subject: string; body: string; delay_days: number }> = seq.steps ?? [];
+  if (!steps.length) return res.status(400).json({ error: 'Sequence has no steps.' });
+  const firstStep = steps.sort((a, b) => a.delay_days - b.delay_days)[0];
+
+  const { data: existing } = await sb.from('lead_campaign_sequence_enrollments').select('email').eq('sequence_id', sequenceId);
+  const existingSet = new Set((existing ?? []).map((e: any) => e.email.toLowerCase()));
+
+  const now = new Date();
+  const toInsert: any[] = [];
+  for (const r of recipients as Array<{ email: string; name: string }>) {
+    if (!r.email || existingSet.has(r.email.toLowerCase())) continue;
+    const nextSendAt = new Date(now.getTime() + firstStep.delay_days * 86400000);
+    toInsert.push({
+      id: `lenr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      sequence_id: sequenceId,
+      source_campaign_id: campaignId ?? null,
+      email: r.email,
+      lead_name: r.name ?? null,
+      from_name: fromName ?? null,
+      reply_to: replyToAddr ?? null,
+      enrolled_at: now.toISOString(),
+      next_step: firstStep.step_number,
+      next_send_at: nextSendAt.toISOString(),
+      status: 'active',
+    });
+  }
+  if (!toInsert.length) return res.status(200).json({ ok: true, enrolled: 0, skipped: recipients.length });
+  for (let i = 0; i < toInsert.length; i += 500) {
+    await sb.from('lead_campaign_sequence_enrollments').insert(toInsert.slice(i, i + 500));
+  }
+  return res.status(200).json({ ok: true, enrolled: toInsert.length, skipped: recipients.length - toInsert.length });
+}
+
+async function sendDueLeadSequences(body: any, res: VercelResponse) {
+  const { sequenceId, batchSize = 50 } = body;
+  const sb = getSupabase();
+  const now = new Date().toISOString();
+
+  let q = sb.from('lead_campaign_sequence_enrollments')
+    .select('*').eq('status', 'active').lte('next_send_at', now).limit(batchSize);
+  if (sequenceId) q = (q as any).eq('sequence_id', sequenceId);
+  const { data: due } = await q;
+  if (!due?.length) return res.status(200).json({ sent: 0, total: 0 });
+
+  const seqIds = [...new Set((due as any[]).map((e: any) => e.sequence_id))];
+  const { data: seqs } = await sb.from('lead_campaign_sequences').select('*').in('id', seqIds);
+
+  const allTplIds = [...new Set((seqs ?? []).flatMap((s: any) => (s.steps ?? []).map((st: any) => st.template_id).filter(Boolean)))];
+  const { data: tmpls } = allTplIds.length
+    ? await sb.from('lead_campaign_templates').select('*').in('id', allTplIds)
+    : { data: [] };
+  const tplMap = new Map((tmpls ?? []).map((t: any) => [t.id, t]));
+
+  const baseFrom = process.env.NEWSLETTER_FROM_EMAIL ?? 'E&J Retreats <hello@ejretreats.com>';
+  const fromEmailBase = baseFrom.match(/<([^>]+)>/)?.[1] ?? baseFrom;
+
+  let sent = 0;
+  for (const enr of due as any[]) {
+    const seq = (seqs ?? []).find((s: any) => s.id === enr.sequence_id);
+    if (!seq) continue;
+    const steps: Array<{ step_number: number; template_id: string; delay_days: number }> = (seq as any).steps ?? [];
+    const step = steps.find((s: any) => s.step_number === enr.next_step);
+    if (!step) {
+      await sb.from('lead_campaign_sequence_enrollments').update({ status: 'completed', next_send_at: null }).eq('id', enr.id);
+      continue;
+    }
+
+    const tmpl = tplMap.get(step.template_id);
+    if (!tmpl) continue;
+
+    const firstName = (enr.lead_name || '').split(' ')[0] || 'there';
+    const personalSubject = (tmpl.subject as string)
+      .replace(/\{\{first_name\}\}/gi, firstName)
+      .replace(/\{\{full_name\}\}/gi, enr.lead_name ?? '')
+      .replace(/\{\{email\}\}/gi, enr.email);
+    const personalBody = (tmpl.body as string)
+      .replace(/\{\{first_name\}\}/gi, firstName)
+      .replace(/\{\{full_name\}\}/gi, enr.lead_name ?? '')
+      .replace(/\{\{email\}\}/gi, enr.email);
+
+    const fromName = enr.from_name ?? 'E&J Retreats';
+    const from = `${fromName} <${fromEmailBase}>`;
+    const paragraphs = personalBody.split(/\n{2,}/).filter(Boolean);
+    const bodyHtml = paragraphs.map((p: string) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#1a1a1a">${p.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</p>`).join('');
+    const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f8fafc;font-family:sans-serif"><div style="max-width:560px;margin:0 auto;padding:32px 16px"><div style="background:#fff;border-radius:8px;padding:36px 32px;border:1px solid #e2e8f0">${bodyHtml}<hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0 20px"><p style="margin:0;font-size:12px;color:#94a3b8">${fromName}</p></div></div></body></html>`;
+
+    try {
+      const { data: rd } = await resend.emails.send({
+        from,
+        to: enr.email,
+        subject: personalSubject,
+        html,
+        ...(enr.reply_to && { reply_to: enr.reply_to }),
+      });
+      if (rd?.id) await logEmails([rd.id], 'lead-sequence', [{ email: enr.email, name: enr.lead_name ?? '' }], personalSubject);
+      sent++;
+
+      const sorted = [...steps].sort((a, b) => a.delay_days - b.delay_days);
+      const nextStep = sorted.find((s: any) => s.step_number > enr.next_step);
+      if (nextStep) {
+        const nextSendAt = new Date(new Date(enr.enrolled_at).getTime() + nextStep.delay_days * 86400000);
+        await sb.from('lead_campaign_sequence_enrollments').update({ next_step: nextStep.step_number, next_send_at: nextSendAt.toISOString() }).eq('id', enr.id);
+      } else {
+        await sb.from('lead_campaign_sequence_enrollments').update({ status: 'completed', next_send_at: null }).eq('id', enr.id);
+      }
+    } catch { /* continue */ }
+  }
+  return res.status(200).json({ sent, total: due.length });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'GET') {
+    if (req.query.action === 'lead-sequences') return await getLeadSequences(res);
+    if (req.query.action === 'lead-templates') return await getLeadTemplates(res);
+    return res.status(404).end();
+  }
   if (req.method !== 'POST') return res.status(405).end();
 
   const body = req.body as {
-    action?: 'newsletter' | 'report' | 'quarterly' | 'calendar-intel' | 'pricelabs-optimize' | 'lead-outreach';
+    action?: 'newsletter' | 'report' | 'quarterly' | 'calendar-intel' | 'pricelabs-optimize' | 'lead-outreach'
+      | 'upsert-lead-sequence' | 'delete-lead-sequence' | 'enroll-lead-sequence' | 'send-due-lead-sequences';
     // newsletter fields
     subject?: string;
     html?: string;
@@ -382,6 +568,14 @@ Write a 2-sentence "summary" of the overall pricing strategy and a specific "est
     }
     return res.status(200).json({ sent, failed });
   }
+
+  // ── LEAD TEMPLATES + SEQUENCES ───────────────────────────────────────────────
+  if (body.action === 'upsert-lead-template')    return await upsertLeadTemplate(body, res);
+  if (body.action === 'delete-lead-template')    return await deleteLeadTemplate(body, res);
+  if (body.action === 'upsert-lead-sequence')    return await upsertLeadSequence(body, res);
+  if (body.action === 'delete-lead-sequence')    return await deleteLeadSequence(body, res);
+  if (body.action === 'enroll-lead-sequence')    return await enrollLeadSequence(body, res);
+  if (body.action === 'send-due-lead-sequences') return await sendDueLeadSequences(body, res);
 
   // ── NEWSLETTER BATCH ─────────────────────────────────────────────────────
   const { subject, html, recipients } = body;

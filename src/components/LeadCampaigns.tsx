@@ -2,12 +2,14 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Mail, Plus, Edit2, Trash2, Send, ChevronLeft,
   Eye, EyeOff, Flame, CheckCircle2, Clock, Search,
-  Play, Pause, RefreshCw, Users, Upload,
+  Play, Pause, RefreshCw, Users, Upload, Zap, CheckCircle, X,
 } from 'lucide-react';
 import type { Lead, Contact, ContactCategory } from '../types';
 import type { Campaign } from '../services/campaigns';
 import { fetchCampaigns, upsertCampaign, deleteCampaign } from '../services/campaigns';
 import { upsertContact, deleteContact } from '../services/contacts';
+import { fetchCleaningLeads } from '../services/cleaningDb';
+import type { CleaningLead } from '../services/cleaningDb';
 import LeadImportModal from './modals/LeadImportModal';
 
 interface Props {
@@ -17,9 +19,34 @@ interface Props {
   warmupAddresses?: string[];
 }
 
-type TopTab   = 'campaigns' | 'contacts';
+type TopTab   = 'campaigns' | 'sequences' | 'templates' | 'contacts';
 type Screen   = 'list' | 'compose' | 'detail';
-type RecipTab = 'leads' | 'contacts';
+type RecipTab = 'leads' | 'contacts' | 'scraped';
+
+interface LeadTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PMSequenceStep {
+  step_number: number;
+  template_id: string;
+  delay_days: number;
+}
+
+interface PMSequence {
+  id: string;
+  name: string;
+  steps: PMSequenceStep[];
+  created_at: string;
+  active_count: number;
+  due_count: number;
+  completed_count: number;
+}
 
 const CATEGORY_LABELS: Record<ContactCategory, string> = {
   real_estate_agent: 'Real Estate Agent',
@@ -69,12 +96,13 @@ const CONTACT_CATS: { value: string; label: string }[] = [
 ];
 
 
-function replaceTokens(text: string, r: { name: string; email: string; propertyAddress?: string }): string {
+function replaceTokens(text: string, r: { name: string; email: string; propertyAddress?: string; company?: string }): string {
   const firstName = (r.name ?? '').split(' ')[0] || r.name;
   return text
     .replace(/\{\{first_name\}\}/gi, firstName)
     .replace(/\{\{full_name\}\}/gi,  r.name ?? '')
-    .replace(/\{\{property\}\}/gi,   r.propertyAddress ?? '')
+    .replace(/\{\{property\}\}/gi,   r.propertyAddress ?? r.company ?? '')
+    .replace(/\{\{company\}\}/gi,    r.company ?? r.propertyAddress ?? '')
     .replace(/\{\{email\}\}/gi,      r.email ?? '');
 }
 
@@ -104,9 +132,261 @@ function blankCampaign(): Campaign {
     subject: '', body: '',
     leadIds: [], sentLeadIds: [],
     contactIds: [], sentContactIds: [],
+    scrapedLeadIds: [], sentScrapedLeadIds: [],
     dailyLimit: 20, status: 'draft',
     createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   };
+}
+
+// ── Lead Template Modal ───────────────────────────────────────────────────────
+
+function LeadTemplateModal({ template, onClose, onSave }: {
+  template: Partial<LeadTemplate>;
+  onClose: () => void;
+  onSave: (t: { id?: string; name: string; subject: string; body: string }) => Promise<void>;
+}) {
+  const [name, setName] = useState(template.name ?? '');
+  const [subject, setSubject] = useState(template.subject ?? '');
+  const [body, setBody] = useState(template.body ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSave() {
+    if (!name.trim() || !subject.trim() || !body.trim()) { setError('All fields required.'); return; }
+    setSaving(true); setError('');
+    try { await onSave({ id: template.id, name: name.trim(), subject: subject.trim(), body: body.trim() }); onClose(); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Save failed.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+      <div className="bg-[#1a2335] border border-[#243550] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#243550] flex-shrink-0">
+          <h2 className="font-bold text-white">{template.id ? 'Edit Template' : 'New Template'}</h2>
+          <button onClick={onClose} className="text-[#3a5070] hover:text-white text-xl">&times;</button>
+        </div>
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
+          <div>
+            <label className="block text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5">Template Name</label>
+            <input className="w-full bg-[#111d30] border border-[#243550] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+              value={name} onChange={e => setName(e.target.value)} placeholder="PM Follow-Up #1" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5">Subject Line</label>
+            <input className="w-full bg-[#111d30] border border-[#243550] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+              value={subject} onChange={e => setSubject(e.target.value)} placeholder="Following up, {{first_name}}" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1">Body</label>
+            <p className="text-xs text-[#3a5070] mb-1.5">Tokens: <code className="text-[#4a90d9]">{'{{first_name}}'}</code> · <code className="text-[#4a90d9]">{'{{full_name}}'}</code> · <code className="text-[#4a90d9]">{'{{property}}'}</code> · <code className="text-[#4a90d9]">{'{{company}}'}</code></p>
+            <textarea rows={10} className="w-full bg-[#111d30] border border-[#243550] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9] resize-none font-mono leading-relaxed"
+              value={body} onChange={e => setBody(e.target.value)} placeholder={`Hi {{first_name}},\n\nJust following up on my previous email...`} />
+          </div>
+          {error && <p className="text-xs text-[#e05c5c]">{error}</p>}
+        </div>
+        <div className="px-5 pb-5 flex gap-2 flex-shrink-0">
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-[#111d30] border border-[#243550] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors">Cancel</button>
+          <button onClick={handleSave} disabled={saving || !name.trim() || !subject.trim() || !body.trim()}
+            className="flex-1 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#3a7bc8] disabled:opacity-50 transition-colors">
+            {saving ? 'Saving…' : 'Save Template'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Lead Sequence Modal ───────────────────────────────────────────────────────
+
+function LeadSequenceModal({ sequence, templates, onClose, onSave }: {
+  sequence: Partial<PMSequence>;
+  templates: LeadTemplate[];
+  onClose: () => void;
+  onSave: (s: { id?: string; name: string; steps: PMSequenceStep[] }) => Promise<void>;
+}) {
+  const [name, setName] = useState(sequence.name ?? '');
+  const [steps, setSteps] = useState<PMSequenceStep[]>(
+    sequence.steps?.length ? sequence.steps : [{ step_number: 1, template_id: '', delay_days: 3 }]
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  function addStep() {
+    const maxDelay = steps.length ? Math.max(...steps.map(s => s.delay_days)) : 0;
+    setSteps(prev => [...prev, { step_number: prev.length + 1, template_id: '', delay_days: maxDelay + 4 }]);
+  }
+  function removeStep(i: number) { setSteps(prev => prev.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, step_number: idx + 1 }))); }
+  function updateStep(i: number, field: keyof PMSequenceStep, value: string | number) {
+    setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
+  }
+
+  async function handleSave() {
+    if (!name.trim()) { setError('Name required.'); return; }
+    if (steps.some(s => !s.template_id)) { setError('Every step needs a template.'); return; }
+    setSaving(true); setError('');
+    try { await onSave({ id: sequence.id, name: name.trim(), steps }); onClose(); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Save failed.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+      <div className="bg-[#1a2335] border border-[#243550] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#243550] flex-shrink-0">
+          <h2 className="font-bold text-white">{sequence.id ? 'Edit Sequence' : 'New Follow-Up Sequence'}</h2>
+          <button onClick={onClose} className="text-[#3a5070] hover:text-white text-xl">&times;</button>
+        </div>
+        <div className="p-5 space-y-5 overflow-y-auto flex-1">
+          <div>
+            <label className="block text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5">Sequence Name</label>
+            <input className="w-full bg-[#111d30] border border-[#243550] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+              value={name} onChange={e => setName(e.target.value)} placeholder="PM Realtor Follow-Up" />
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Follow-Up Steps</p>
+              <p className="text-[10px] text-[#3a5070]">Days = days after enrollment</p>
+            </div>
+            {steps.map((step, i) => (
+              <div key={i} className="bg-[#111d30] border border-[#243550] rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#4a90d9]">Follow-Up {i + 1}</span>
+                  {steps.length > 1 && (
+                    <button onClick={() => removeStep(i)} className="text-[#3a5070] hover:text-[#e05c5c]"><X size={13} /></button>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <label className="block text-[10px] text-[#3a5070] mb-1">Template</label>
+                    <select className="w-full bg-[#1a2335] border border-[#243550] rounded-lg px-2 py-2 text-xs text-white focus:outline-none focus:border-[#4a90d9]"
+                      value={step.template_id} onChange={e => updateStep(i, 'template_id', e.target.value)}>
+                      <option value="">— Pick template —</option>
+                      {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#3a5070] mb-1">Send on Day</label>
+                    <input type="number" min="1" max="365"
+                      className="w-full bg-[#1a2335] border border-[#243550] rounded-lg px-2 py-2 text-xs text-white focus:outline-none focus:border-[#4a90d9]"
+                      value={step.delay_days} onChange={e => updateStep(i, 'delay_days', Math.max(1, parseInt(e.target.value) || 1))} />
+                  </div>
+                </div>
+                {step.template_id && (
+                  <p className="text-[10px] text-[#3a5070]">
+                    Sends <span className="text-[#d0954a] font-semibold">Day {step.delay_days}</span> after enrollment ·{' '}
+                    <span className="text-[#b8d4f0]">{templates.find(t => t.id === step.template_id)?.subject}</span>
+                  </p>
+                )}
+              </div>
+            ))}
+            <button onClick={addStep} className="flex items-center gap-1.5 text-xs text-[#4a90d9] hover:text-[#6ab0f9] font-semibold transition-colors">
+              <Plus size={13} /> Add Another Follow-Up
+            </button>
+          </div>
+          {error && <p className="text-xs text-[#e05c5c]">{error}</p>}
+        </div>
+        <div className="px-5 pb-5 flex gap-2 flex-shrink-0">
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-[#111d30] border border-[#243550] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors">Cancel</button>
+          <button onClick={handleSave} disabled={saving || !name.trim()}
+            className="flex-1 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#3a7bc8] disabled:opacity-50 transition-colors">
+            {saving ? 'Saving…' : 'Save Sequence'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Lead Enroll Modal ─────────────────────────────────────────────────────────
+
+function LeadEnrollModal({ sequence, campaigns, onClose, onEnroll }: {
+  sequence: PMSequence;
+  campaigns: Campaign[];
+  onClose: () => void;
+  onEnroll: (sequenceId: string, campaignId: string) => Promise<{ enrolled: number; skipped: number }>;
+}) {
+  const [campaignId, setCampaignId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ enrolled: number; skipped: number } | null>(null);
+  const [error, setError] = useState('');
+
+  const sentCampaigns = campaigns.filter(c =>
+    c.sentLeadIds.length + c.sentContactIds.length + (c.sentScrapedLeadIds?.length ?? 0) > 0
+  );
+  const selected = sentCampaigns.find(c => c.id === campaignId);
+  const firstStep = sequence.steps?.sort((a, b) => a.delay_days - b.delay_days)[0];
+  const totalSent = selected ? selected.sentLeadIds.length + selected.sentContactIds.length + (selected.sentScrapedLeadIds?.length ?? 0) : 0;
+
+  async function handleEnroll() {
+    if (!campaignId) return;
+    setLoading(true); setError('');
+    try { setResult(await onEnroll(sequence.id, campaignId)); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : 'Enrollment failed.'); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+      <div className="bg-[#1a2335] border border-[#243550] rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#243550]">
+          <div>
+            <h2 className="font-bold text-white">Enroll in Sequence</h2>
+            <p className="text-xs text-[#3a5070] mt-0.5">{sequence.name}</p>
+          </div>
+          <button onClick={onClose} className="text-[#3a5070] hover:text-white text-xl">&times;</button>
+        </div>
+        <div className="p-5 space-y-4">
+          {result ? (
+            <div className="bg-[#0a2518] border border-[#1e4030] rounded-xl px-4 py-4 text-center space-y-2">
+              <CheckCircle size={24} className="text-[#4ab57a] mx-auto" />
+              <p className="text-white font-semibold">{result.enrolled} recipients enrolled</p>
+              {result.skipped > 0 && <p className="text-xs text-[#3a5070]">{result.skipped} skipped (already enrolled)</p>}
+              <p className="text-xs text-[#3a5070]">Follow-ups will send on their scheduled days. Click "Send X Due" to send them.</p>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-1.5">Pick the original campaign</label>
+                <select className="w-full bg-[#111d30] border border-[#243550] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
+                  value={campaignId} onChange={e => setCampaignId(e.target.value)}>
+                  <option value="">— Select campaign —</option>
+                  {sentCampaigns.map(c => {
+                    const cnt = c.sentLeadIds.length + c.sentContactIds.length + (c.sentScrapedLeadIds?.length ?? 0);
+                    return <option key={c.id} value={c.id}>{c.name} ({cnt} sent)</option>;
+                  })}
+                </select>
+                {sentCampaigns.length === 0 && <p className="text-xs text-[#d0954a] mt-1">No sent campaigns. Send a campaign batch first.</p>}
+              </div>
+              {selected && firstStep && (
+                <div className="bg-[#0d1e35] border border-[#1e3a5a] rounded-xl px-4 py-3 space-y-1.5">
+                  <p className="text-xs font-semibold text-[#4a90d9]">Preview</p>
+                  <p className="text-xs text-[#b8d4f0]">{totalSent} sent recipients will be enrolled</p>
+                  <p className="text-xs text-[#3a5070]">Follow-ups send Day {firstStep.delay_days} after today (enrollment date)</p>
+                  {sequence.steps.sort((a, b) => a.delay_days - b.delay_days).map(s => (
+                    <p key={s.step_number} className="text-xs text-[#3a5070]">· Day {s.delay_days}: Follow-Up {s.step_number}</p>
+                  ))}
+                </div>
+              )}
+              {error && <p className="text-xs text-[#e05c5c]">{error}</p>}
+            </>
+          )}
+        </div>
+        <div className="px-5 pb-5 flex gap-2">
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-[#111d30] border border-[#243550] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors">
+            {result ? 'Close' : 'Cancel'}
+          </button>
+          {!result && (
+            <button onClick={handleEnroll} disabled={!campaignId || loading}
+              className="flex-1 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#3a7bc8] disabled:opacity-50 transition-colors">
+              {loading ? 'Enrolling…' : 'Enroll Recipients'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function LeadCampaigns({ leads, contacts, onContactsChange, warmupAddresses = [] }: Props) {
@@ -130,12 +410,29 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
   const [contImportOpen, setContImportOpen] = useState(false);
   const [contactSearch,  setContactSearch]  = useState('');
   const [contactCatFilter, setContactCatFilter] = useState('');
+  const [scrapedLeads,   setScrapedLeads]   = useState<CleaningLead[]>([]);
+  const [scrapedSearch,  setScrapedSearch]  = useState('');
+  const [leadTemplates,  setLeadTemplates]  = useState<LeadTemplate[]>([]);
+  const [templateModal,  setTemplateModal]  = useState<Partial<LeadTemplate> | null>(null);
+  const [sequences,      setSequences]      = useState<PMSequence[]>([]);
+  const [sequenceModal,  setSequenceModal]  = useState<Partial<PMSequence> | null>(null);
+  const [enrollModal,    setEnrollModal]    = useState<PMSequence | null>(null);
+  const [sendingDue,     setSendingDue]     = useState<string | null>(null);
+  const [dueResult,      setDueResult]      = useState<{ sent: number } | null>(null);
+  const [seqSetupCopied, setSeqSetupCopied] = useState(false);
 
   useEffect(() => {
-    fetchCampaigns()
-      .then(c => setCampaigns(c))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetchCampaigns(),
+      fetchCleaningLeads().catch(() => [] as CleaningLead[]),
+      fetch('/api/send-newsletter?action=lead-sequences').then(r => r.json()).catch(() => ({ sequences: [] })),
+      fetch('/api/send-newsletter?action=lead-templates').then(r => r.json()).catch(() => ({ templates: [] })),
+    ]).then(([camps, cls, seqData, tplData]) => {
+      setCampaigns(camps);
+      setScrapedLeads(cls.filter((l: CleaningLead) => l.source === 'Scraped List'));
+      setSequences(seqData.sequences ?? []);
+      setLeadTemplates(tplData.templates ?? []);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const detailCampaign = campaigns.find(c => c.id === detailId) ?? null;
@@ -237,6 +534,7 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
     if (!detailCampaign) return;
     const sentLeadSet    = new Set(detailCampaign.sentLeadIds);
     const sentContactSet = new Set(detailCampaign.sentContactIds);
+    const sentScrapedSet = new Set(detailCampaign.sentScrapedLeadIds ?? []);
 
     const pendingLeads = detailCampaign.leadIds
       .map(id => leads.find(l => l.id === id))
@@ -246,10 +544,14 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
       .map(id => contacts.find(c => c.id === id))
       .filter((c): c is Contact => !!c && !!c.email && !sentContactSet.has(c.id));
 
-    // Interleave leads and contacts up to daily limit
-    const allPending: Array<{ type: 'lead' | 'contact'; item: Lead | Contact }> = [
+    const pendingScraped = (detailCampaign.scrapedLeadIds ?? [])
+      .map(id => scrapedLeads.find(l => l.id === id))
+      .filter((l): l is CleaningLead => !!l && !!l.email && !sentScrapedSet.has(l.id));
+
+    const allPending: Array<{ type: 'lead' | 'contact' | 'scraped'; item: Lead | Contact | CleaningLead }> = [
       ...pendingLeads.map(l => ({ type: 'lead' as const, item: l })),
       ...pendingContacts.map(c => ({ type: 'contact' as const, item: c })),
+      ...pendingScraped.map(l => ({ type: 'scraped' as const, item: l })),
     ];
     const batch = allPending.slice(0, detailCampaign.dailyLimit);
     if (!batch.length) { setSendMsg('No pending recipients to send to.'); return; }
@@ -262,13 +564,18 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
     setSendMsg(null);
     try {
       const emails = [
-        ...batch.map(({ item }) => ({
-          to:            item.email,
-          subject:       replaceTokens(detailCampaign.subject, item),
-          html:          buildEmailHtml(replaceTokens(detailCampaign.body, item), detailCampaign.fromName),
-          recipientName: item.name,
-          leadId:        item.id,
-        })),
+        ...batch.map(({ type, item }) => {
+          const r = type === 'scraped'
+            ? { name: item.name, email: item.email, company: (item as CleaningLead).company }
+            : { name: item.name, email: item.email, propertyAddress: (item as Lead).propertyAddress };
+          return {
+            to:            item.email,
+            subject:       replaceTokens(detailCampaign.subject, r),
+            html:          buildEmailHtml(replaceTokens(detailCampaign.body, r), detailCampaign.fromName),
+            recipientName: item.name,
+            leadId:        item.id,
+          };
+        }),
         ...warmupBatch.map((email, i) => ({
           to:            email,
           subject:       replaceTokens(detailCampaign.subject, { name: 'Warmup', email, propertyAddress: '' }),
@@ -291,19 +598,21 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
       });
       const result = await resp.json() as { sent?: number };
 
-      const newSentLeadIds    = [...detailCampaign.sentLeadIds,    ...batch.filter(b => b.type === 'lead').map(b => b.item.id)];
-      const newSentContactIds = [...detailCampaign.sentContactIds, ...batch.filter(b => b.type === 'contact').map(b => b.item.id)];
-      const totalSent  = newSentLeadIds.length + newSentContactIds.length;
-      const totalAll   = detailCampaign.leadIds.length + detailCampaign.contactIds.length;
+      const newSentLeadIds      = [...detailCampaign.sentLeadIds,    ...batch.filter(b => b.type === 'lead').map(b => b.item.id)];
+      const newSentContactIds   = [...detailCampaign.sentContactIds, ...batch.filter(b => b.type === 'contact').map(b => b.item.id)];
+      const newSentScrapedIds   = [...(detailCampaign.sentScrapedLeadIds ?? []), ...batch.filter(b => b.type === 'scraped').map(b => b.item.id)];
+      const totalSent  = newSentLeadIds.length + newSentContactIds.length + newSentScrapedIds.length;
+      const totalAll   = detailCampaign.leadIds.length + detailCampaign.contactIds.length + (detailCampaign.scrapedLeadIds?.length ?? 0);
       const allDone    = totalSent >= totalAll;
       const newStatus: Campaign['status'] = allDone ? 'completed' : (detailCampaign.status === 'draft' ? 'active' : detailCampaign.status);
 
       const updated: Campaign = {
         ...detailCampaign,
-        sentLeadIds:    newSentLeadIds,
-        sentContactIds: newSentContactIds,
-        status:         newStatus,
-        updatedAt:      new Date().toISOString(),
+        sentLeadIds:        newSentLeadIds,
+        sentContactIds:     newSentContactIds,
+        sentScrapedLeadIds: newSentScrapedIds,
+        status:             newStatus,
+        updatedAt:          new Date().toISOString(),
       };
       await upsertCampaign(updated);
       setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
@@ -320,7 +629,7 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
   async function resetSent() {
     if (!detailCampaign) return;
     if (!confirm('Reset sent list? All recipients will appear as pending again.')) return;
-    const updated: Campaign = { ...detailCampaign, sentLeadIds: [], sentContactIds: [], status: 'draft', updatedAt: new Date().toISOString() };
+    const updated: Campaign = { ...detailCampaign, sentLeadIds: [], sentContactIds: [], sentScrapedLeadIds: [], status: 'draft', updatedAt: new Date().toISOString() };
     try {
       await upsertCampaign(updated);
       setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
@@ -328,6 +637,94 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
     } catch (err) {
       alert(`Failed to reset campaign: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
+  }
+
+  async function reloadSequences() {
+    const r = await fetch('/api/send-newsletter?action=lead-sequences');
+    const d = await r.json();
+    setSequences(d.sequences ?? []);
+  }
+
+  async function handleSaveTemplate(t: { id?: string; name: string; subject: string; body: string }) {
+    const r = await fetch('/api/send-newsletter', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'upsert-lead-template', ...t }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error ?? 'Save failed.');
+    const r2 = await fetch('/api/send-newsletter?action=lead-templates');
+    const d2 = await r2.json();
+    setLeadTemplates(d2.templates ?? []);
+  }
+
+  async function handleDeleteTemplate(id: string) {
+    if (!confirm('Delete this template?')) return;
+    await fetch('/api/send-newsletter', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete-lead-template', id }),
+    });
+    setLeadTemplates(prev => prev.filter(t => t.id !== id));
+  }
+
+  async function handleSaveSequence(s: { id?: string; name: string; steps: PMSequenceStep[] }) {
+    const r = await fetch('/api/send-newsletter', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'upsert-lead-sequence', ...s }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error ?? 'Save failed.');
+    await reloadSequences();
+  }
+
+  async function handleDeleteSequence(id: string) {
+    if (!confirm('Delete this sequence and all enrollments?')) return;
+    await fetch('/api/send-newsletter', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete-lead-sequence', id }),
+    });
+    setSequences(prev => prev.filter(s => s.id !== id));
+  }
+
+  async function handleEnrollSequence(sequenceId: string, campaignId: string) {
+    const camp = campaigns.find(c => c.id === campaignId);
+    if (!camp) throw new Error('Campaign not found.');
+    const recipients: Array<{ email: string; name: string }> = [];
+    for (const id of camp.sentLeadIds) {
+      const l = leads.find(l => l.id === id);
+      if (l?.email) recipients.push({ email: l.email, name: l.name });
+    }
+    for (const id of camp.sentContactIds) {
+      const c = contacts.find(c => c.id === id);
+      if (c?.email) recipients.push({ email: c.email, name: c.name });
+    }
+    for (const id of (camp.sentScrapedLeadIds ?? [])) {
+      const l = scrapedLeads.find(l => l.id === id);
+      if (l?.email) recipients.push({ email: l.email, name: l.name });
+    }
+    if (!recipients.length) throw new Error('No sent recipients found in this campaign.');
+    const r = await fetch('/api/send-newsletter', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'enroll-lead-sequence', sequenceId, campaignId, fromName: camp.fromName, replyTo: camp.replyTo, recipients }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error ?? 'Enrollment failed.');
+    await reloadSequences();
+    return { enrolled: d.enrolled ?? 0, skipped: d.skipped ?? 0 };
+  }
+
+  async function handleSendDue(sequenceId?: string) {
+    const key = sequenceId ?? '__all__';
+    setSendingDue(key);
+    setDueResult(null);
+    try {
+      const r = await fetch('/api/send-newsletter', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send-due-lead-sequences', sequenceId: sequenceId ?? null, batchSize: 50 }),
+      });
+      const d = await r.json();
+      setDueResult({ sent: d.sent ?? 0 });
+      await reloadSequences();
+    } finally { setSendingDue(null); }
   }
 
   const previewRecipient = useMemo(() => {
@@ -459,18 +856,22 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
               )}
             </div>
 
-            {/* Leads / Contacts tabs */}
+            {/* Leads / Contacts / Scraped tabs */}
             <div className="flex gap-1 bg-[#111d30] p-1 rounded-lg mb-3">
-              {(['leads', 'contacts'] as RecipTab[]).map(t => (
+              {([
+                ['leads',    'Pipeline', form.leadIds.length,        'bg-[#4a90d9]'],
+                ['contacts', 'Contacts', form.contactIds.length,     'bg-[#4ab57a]'],
+                ['scraped',  'Scraped',  form.scrapedLeadIds.length, 'bg-[#d07af5]'],
+              ] as const).map(([val, label, cnt, badgeColor]) => (
                 <button
-                  key={t}
-                  onClick={() => setRecipTab(t)}
-                  className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
-                    recipTab === t ? 'bg-[#1e2d45] text-white' : 'text-[#3a5070] hover:text-[#b8d4f0]'
+                  key={val}
+                  onClick={() => setRecipTab(val as RecipTab)}
+                  className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${
+                    recipTab === val ? 'bg-[#1e2d45] text-white' : 'text-[#3a5070] hover:text-[#b8d4f0]'
                   }`}
                 >
-                  {t === 'leads' ? <><Send size={11} /> Pipeline Leads {form.leadIds.length > 0 && <span className="ml-1 bg-[#4a90d9] text-white text-[9px] px-1.5 py-0.5 rounded-full">{form.leadIds.length}</span>}</>
-                                 : <><Users size={11} /> Contacts {form.contactIds.length > 0 && <span className="ml-1 bg-[#4ab57a] text-white text-[9px] px-1.5 py-0.5 rounded-full">{form.contactIds.length}</span>}</>}
+                  {label}
+                  {cnt > 0 && <span className={`${badgeColor} text-white text-[9px] px-1.5 py-0.5 rounded-full ml-0.5`}>{cnt}</span>}
                 </button>
               ))}
             </div>
@@ -604,6 +1005,63 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
                 </div>
               </>
             )}
+
+            {recipTab === 'scraped' && (() => {
+              const filteredScraped = scrapedLeads.filter(l => {
+                if (!l.email) return false;
+                const q = scrapedSearch.toLowerCase();
+                return !q || l.name.toLowerCase().includes(q) || l.email.toLowerCase().includes(q) || (l.company ?? '').toLowerCase().includes(q);
+              });
+              const allScrapedSelected = filteredScraped.length > 0 && filteredScraped.every(l => form.scrapedLeadIds.includes(l.id));
+              return (
+                <>
+                  <div className="relative mb-2">
+                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3a5070]" />
+                    <input
+                      className="w-full bg-[#111d30] border border-[#243550] rounded-lg pl-8 pr-3 py-2 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                      placeholder="Search scraped leads..."
+                      value={scrapedSearch}
+                      onChange={e => setScrapedSearch(e.target.value)}
+                    />
+                  </div>
+                  {filteredScraped.length > 0 && (
+                    <button type="button"
+                      onClick={() => setForm(f => ({
+                        ...f,
+                        scrapedLeadIds: allScrapedSelected
+                          ? f.scrapedLeadIds.filter(id => !filteredScraped.find(l => l.id === id))
+                          : [...new Set([...f.scrapedLeadIds, ...filteredScraped.map(l => l.id)])],
+                      }))}
+                      className="text-xs text-[#d07af5] hover:underline mb-2 block">
+                      {allScrapedSelected ? `Deselect all ${filteredScraped.length}` : `Select all ${filteredScraped.length} filtered`}
+                    </button>
+                  )}
+                  <div className="bg-[#111d30] border border-[#243550] rounded-lg divide-y divide-[#1e2d45]" style={{ maxHeight: 240, overflow: 'auto' }}>
+                    {filteredScraped.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-sm text-[#3a5070]">
+                        {scrapedLeads.length === 0 ? 'No scraped leads found in Cleaning CRM' : 'No scraped leads match filter'}
+                      </div>
+                    ) : filteredScraped.map(lead => {
+                      const selected = form.scrapedLeadIds.includes(lead.id);
+                      return (
+                        <label key={lead.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#1a2335] cursor-pointer">
+                          <input type="checkbox" className="accent-[#d07af5] flex-shrink-0" checked={selected}
+                            onChange={() => setForm(f => ({
+                              ...f,
+                              scrapedLeadIds: selected ? f.scrapedLeadIds.filter(id => id !== lead.id) : [...f.scrapedLeadIds, lead.id],
+                            }))} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-white font-medium truncate">{lead.name}</div>
+                            <div className="text-xs text-[#3a5070] truncate">{lead.email}{lead.company ? ` · ${lead.company}` : ''}</div>
+                          </div>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 bg-[#1a1535] text-[#d07af5]">{lead.category}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
           <button
@@ -626,14 +1084,17 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
 
     const campLeads    = c.leadIds.map(id => leads.find(l => l.id === id)).filter((l): l is Lead => !!l);
     const campContacts = c.contactIds.map(id => contacts.find(ct => ct.id === id)).filter((ct): ct is Contact => !!ct);
+    const campScraped  = (c.scrapedLeadIds ?? []).map(id => scrapedLeads.find(l => l.id === id)).filter((l): l is CleaningLead => !!l);
 
     const pendingLeads    = campLeads.filter(l => l.email && !sentLeadSet.has(l.id));
     const pendingContacts = campContacts.filter(ct => ct.email && !sentContactSet.has(ct.id));
-    const totalPending    = pendingLeads.length + pendingContacts.length;
-    const nextBatch       = [...pendingLeads, ...pendingContacts].slice(0, c.dailyLimit);
+    const sentScrapedSet  = new Set(c.sentScrapedLeadIds ?? []);
+    const pendingScraped  = campScraped.filter(l => l.email && !sentScrapedSet.has(l.id));
+    const totalPending    = pendingLeads.length + pendingContacts.length + pendingScraped.length;
+    const nextBatch       = [...pendingLeads, ...pendingContacts, ...pendingScraped].slice(0, c.dailyLimit);
     const effectiveWarmup = Math.min(warmupCopies, warmupAddrs.length);
-    const totalAll        = c.leadIds.length + c.contactIds.length;
-    const totalSent       = c.sentLeadIds.length + c.sentContactIds.length;
+    const totalAll        = c.leadIds.length + c.contactIds.length + (c.scrapedLeadIds?.length ?? 0);
+    const totalSent       = c.sentLeadIds.length + c.sentContactIds.length + (c.sentScrapedLeadIds?.length ?? 0);
 
     return (
       <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
@@ -816,6 +1277,27 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
             </div>
           </div>
         )}
+
+        {campScraped.length > 0 && (
+          <div>
+            <h3 className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide mb-2">Scraped Leads ({campScraped.length})</h3>
+            <div className="bg-[#1a2335] rounded-xl border border-[#243550] divide-y divide-[#243550]">
+              {campScraped.map(l => {
+                const sent = sentScrapedSet.has(l.id);
+                return (
+                  <div key={l.id} className="flex items-center gap-3 px-4 py-3">
+                    {sent ? <CheckCircle2 size={14} className="text-[#4ab57a] flex-shrink-0" /> : <Clock size={14} className="text-[#3a5070] flex-shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-white font-medium">{l.name}</div>
+                      <div className="text-xs text-[#3a5070] truncate">{l.email}{l.company ? ` · ${l.company}` : ''}</div>
+                    </div>
+                    <span className={`text-[10px] font-semibold flex-shrink-0 ${sent ? 'text-[#4ab57a]' : 'text-[#3a5070]'}`}>{sent ? 'sent' : 'pending'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -824,16 +1306,38 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
   return (
     <div className="p-4 md:p-6">
       {/* Tab switcher */}
-      <div className="flex gap-1 bg-[#111d30] p-1 rounded-xl mb-5 max-w-xs">
-        {(['campaigns', 'contacts'] as TopTab[]).map(t => (
-          <button
-            key={t}
-            onClick={() => setTopTab(t)}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors capitalize ${
+      {sequences.some(s => s.due_count > 0) && (
+        <div className="bg-[#1a1000] border border-[#d0954a] rounded-2xl px-4 py-3 mb-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <Zap size={15} className="text-[#d0954a] flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-[#d0954a]">{sequences.reduce((n, s) => n + s.due_count, 0)} follow-up{sequences.reduce((n, s) => n + s.due_count, 0) !== 1 ? 's' : ''} ready</p>
+              <p className="text-xs text-[#8a6030]">These leads have reached their scheduled follow-up day</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {dueResult && <span className="text-xs text-[#5ce0a0]">✓ Sent {dueResult.sent}</span>}
+            <button onClick={() => handleSendDue()} disabled={sendingDue !== null}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#d0954a] hover:bg-[#e0a55a] text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50">
+              <Send size={13} /> {sendingDue === '__all__' ? 'Sending…' : 'Send All Due'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-1 bg-[#111d30] p-1 rounded-xl mb-5 overflow-x-auto">
+        {([
+          ['campaigns', `Campaigns${campaigns.length > 0 ? ` (${campaigns.length})` : ''}`],
+          ['sequences', `Sequences${sequences.length > 0 ? ` (${sequences.length})` : ''}${sequences.reduce((n,s)=>n+s.due_count,0)>0?` ·${sequences.reduce((n,s)=>n+s.due_count,0)}due`:''}`],
+          ['templates', `Templates${leadTemplates.length > 0 ? ` (${leadTemplates.length})` : ''}`],
+          ['contacts',  `Contacts${contacts.length > 0 ? ` (${contacts.length})` : ''}`],
+        ] as const).map(([t, label]) => (
+          <button key={t} onClick={() => setTopTab(t)}
+            className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
               topTab === t ? 'bg-[#1e2d45] text-white shadow-sm' : 'text-[#3a5070] hover:text-[#b8d4f0]'
             }`}
           >
-            {t === 'campaigns' ? `Campaigns${campaigns.length > 0 ? ` (${campaigns.length})` : ''}` : `Contacts${contacts.length > 0 ? ` (${contacts.length})` : ''}`}
+            {label}
           </button>
         ))}
       </div>
@@ -877,8 +1381,8 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
           ) : (
             <div className="space-y-3">
               {campaigns.map(c => {
-                const totalAll  = c.leadIds.length + c.contactIds.length;
-                const totalSent = c.sentLeadIds.length + c.sentContactIds.length;
+                const totalAll  = c.leadIds.length + c.contactIds.length + (c.scrapedLeadIds?.length ?? 0);
+                const totalSent = c.sentLeadIds.length + c.sentContactIds.length + (c.sentScrapedLeadIds?.length ?? 0);
                 const pct = totalAll > 0 ? Math.round((totalSent / totalAll) * 100) : 0;
                 return (
                   <div
@@ -926,6 +1430,159 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
             </div>
           )}
         </>
+      )}
+
+      {/* ── SEQUENCES ──────────────────────────────────────────── */}
+      {topTab === 'sequences' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <button onClick={() => setSequenceModal({})}
+              className="flex items-center gap-2 text-sm text-[#4a90d9] hover:text-[#6ab0f9] font-semibold transition-colors">
+              <Plus size={15} /> New Sequence
+            </button>
+            <p className="text-xs text-[#3a5070]">Follow-ups send X days after enrollment</p>
+          </div>
+
+          {sequences.length === 0 ? (
+            <div className="text-center py-12 text-[#3a5070]">
+              <Clock size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm font-semibold text-white mb-1">No sequences yet</p>
+              <p className="text-xs">Create a sequence with steps, then enroll a campaign's sent recipients.</p>
+            </div>
+          ) : sequences.map(seq => {
+            const sortedSteps = [...(seq.steps ?? [])].sort((a, b) => a.delay_days - b.delay_days);
+            return (
+              <div key={seq.id} className="bg-[#1a2335] border border-[#243550] rounded-2xl overflow-hidden">
+                <div className="px-4 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white">{seq.name}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {sortedSteps.map(s => (
+                          <span key={s.step_number} className="text-[10px] bg-[#0d1e35] border border-[#1e3a5a] text-[#4a90d9] px-2 py-0.5 rounded-full">
+                            Day {s.delay_days} · {leadTemplates.find(t => t.id === s.template_id)?.name ?? 'Unknown template'}
+                          </span>
+                        ))}
+                        {sortedSteps.length === 0 && <span className="text-xs text-[#3a5070]">No steps configured</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => setSequenceModal(seq)} className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#1e2d45] transition-colors"><Edit2 size={13} /></button>
+                      <button onClick={() => handleDeleteSequence(seq.id)} className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#1e2d45]">
+                    <div className="flex items-center gap-3 text-xs flex-1">
+                      <span className="flex items-center gap-1 text-[#4a90d9]"><Users size={11} /> {seq.active_count} active</span>
+                      {seq.due_count > 0 && <span className="flex items-center gap-1 text-[#d0954a] font-semibold"><Zap size={11} /> {seq.due_count} due</span>}
+                      <span className="flex items-center gap-1 text-[#4ab57a]"><CheckCircle size={11} /> {seq.completed_count} done</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button onClick={() => setEnrollModal(seq)}
+                        className="text-xs px-2.5 py-1.5 bg-[#1e2d45] border border-[#243550] text-[#b8d4f0] rounded-lg hover:border-[#4a90d9] hover:text-[#4a90d9] transition-colors font-semibold">
+                        + Enroll Campaign
+                      </button>
+                      {seq.due_count > 0 && (
+                        <button onClick={() => handleSendDue(seq.id)} disabled={sendingDue !== null}
+                          className="text-xs px-2.5 py-1.5 bg-[#d0954a] text-white rounded-lg hover:bg-[#e0a55a] transition-colors font-semibold disabled:opacity-50 flex items-center gap-1">
+                          <Send size={11} /> {sendingDue === seq.id ? 'Sending…' : `Send ${seq.due_count} Due`}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="bg-[#0d1e35] border border-[#1e3a5a] rounded-xl px-4 py-3 mt-2">
+            <p className="text-xs font-semibold text-[#4a90d9] mb-1">First-time setup</p>
+            <p className="text-xs text-[#3a5070] mb-2">Run this SQL in Supabase SQL Editor:</p>
+            <pre className="bg-[#060f1a] rounded-lg p-3 text-[10px] text-[#b8d4a0] overflow-x-auto whitespace-pre leading-relaxed">{`CREATE TABLE IF NOT EXISTS lead_campaign_templates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ
+);
+ALTER TABLE lead_campaign_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "anon_all" ON lead_campaign_templates FOR ALL USING (true) WITH CHECK (true);
+
+CREATE TABLE IF NOT EXISTS lead_campaign_sequences (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  steps JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ
+);
+ALTER TABLE lead_campaign_sequences ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "anon_all" ON lead_campaign_sequences FOR ALL USING (true) WITH CHECK (true);
+
+CREATE TABLE IF NOT EXISTS lead_campaign_sequence_enrollments (
+  id TEXT PRIMARY KEY,
+  sequence_id TEXT NOT NULL,
+  source_campaign_id TEXT,
+  email TEXT NOT NULL,
+  lead_name TEXT,
+  from_name TEXT,
+  reply_to TEXT,
+  enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  next_step INT NOT NULL DEFAULT 1,
+  next_send_at TIMESTAMPTZ,
+  status TEXT NOT NULL DEFAULT 'active',
+  UNIQUE(sequence_id, email)
+);
+ALTER TABLE lead_campaign_sequence_enrollments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "anon_all" ON lead_campaign_sequence_enrollments FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE lead_campaigns ADD COLUMN IF NOT EXISTS scraped_lead_ids TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE lead_campaigns ADD COLUMN IF NOT EXISTS sent_scraped_lead_ids TEXT[] NOT NULL DEFAULT '{}';`}</pre>
+            <button onClick={async () => {
+              const sql = document.querySelector('pre.overflow-x-auto')?.textContent ?? '';
+              await navigator.clipboard?.writeText(sql);
+              setSeqSetupCopied(true);
+            }} className="text-xs text-[#4a90d9] hover:underline mt-2">{seqSetupCopied ? '✓ Copied' : 'Copy SQL'}</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── TEMPLATES ──────────────────────────────────────────── */}
+      {topTab === 'templates' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold text-white">Email Templates</h1>
+            <button onClick={() => setTemplateModal({})}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#4a90d9] text-white hover:bg-[#3a7bc8] transition-colors">
+              <Plus size={15} /> New Template
+            </button>
+          </div>
+          <p className="text-sm text-[#3a5070] -mt-2">Reusable subject + body pairs for campaigns and sequences</p>
+
+          {leadTemplates.length === 0 ? (
+            <div className="bg-[#1a2335] border border-[#243550] rounded-2xl px-6 py-16 text-center">
+              <Mail size={36} className="text-[#3a5070] mx-auto mb-3" />
+              <p className="text-white font-semibold mb-1">No templates yet</p>
+              <p className="text-sm text-[#3a5070] mb-5">Save a template to reuse across campaigns and sequences.</p>
+              <button onClick={() => setTemplateModal({})} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#4a90d9] text-white hover:bg-[#3a7bc8] transition-colors">
+                <Plus size={15} /> New Template
+              </button>
+            </div>
+          ) : leadTemplates.map(t => (
+            <div key={t.id} className="bg-[#1a2335] border border-[#243550] rounded-xl px-4 py-4 flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white">{t.name}</p>
+                <p className="text-xs text-[#4a90d9] mt-0.5 font-mono truncate">{t.subject}</p>
+                <p className="text-xs text-[#3a5070] mt-1 line-clamp-2 leading-relaxed">{t.body.slice(0, 120)}…</p>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button onClick={() => setTemplateModal(t)} className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#1e2d45] transition-colors"><Edit2 size={13} /></button>
+                <button onClick={() => handleDeleteTemplate(t.id)} className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"><Trash2 size={13} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* ── CONTACTS LIST ──────────────────────────────────────────── */}
@@ -1016,6 +1673,15 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
           }}
           onClose={() => setContImportOpen(false)}
         />
+      )}
+      {templateModal !== null && (
+        <LeadTemplateModal template={templateModal} onClose={() => setTemplateModal(null)} onSave={handleSaveTemplate} />
+      )}
+      {sequenceModal !== null && (
+        <LeadSequenceModal sequence={sequenceModal} templates={leadTemplates} onClose={() => setSequenceModal(null)} onSave={handleSaveSequence} />
+      )}
+      {enrollModal !== null && (
+        <LeadEnrollModal sequence={enrollModal} campaigns={campaigns} onClose={() => setEnrollModal(null)} onEnroll={handleEnrollSequence} />
       )}
     </div>
   );
