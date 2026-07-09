@@ -262,9 +262,21 @@ function rowToCleaningLead(r: any): CleaningLead {
 }
 
 export async function fetchCleaningLeads(): Promise<CleaningLead[]> {
-  const { data, error } = await supabase.from('cleaning_leads').select('*').order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(rowToCleaningLead);
+  const PAGE = 1000;
+  const all: CleaningLead[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from('cleaning_leads')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + PAGE - 1);
+    if (error) throw error;
+    all.push(...(data ?? []).map(rowToCleaningLead));
+    if (!data || data.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
 }
 
 export async function upsertCleaningLead(lead: CleaningLead): Promise<void> {
