@@ -4,7 +4,7 @@ const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL  as string;
 const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 function sb() { return createClient(SUPABASE_URL, SUPABASE_ANON); }
 
-export type EmailType = 'signing' | 'agreement' | 'newsletter' | 'quarterly' | 'report' | 'outreach' | 'warmup' | 'other';
+export type EmailType = 'signing' | 'agreement' | 'newsletter' | 'quarterly' | 'report' | 'outreach' | 'warmup' | 'lead-sequence' | 'other';
 export type EmailStatus = 'sent' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'complained';
 
 export interface EmailLog {

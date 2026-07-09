@@ -295,25 +295,27 @@ function InboxWarmup({ entries, onAdd, onRemove, onTogglePause, onUpdate }: Inbo
 }
 
 const TYPE_LABELS: Record<EmailType, string> = {
-  signing:     'Contract Signing',
-  agreement:   'Rental Agreement',
-  newsletter:  'Newsletter',
-  quarterly:   'Quarterly Report',
-  report:      'Revenue Report',
-  outreach:    'Lead Outreach',
-  warmup:      'Inbox Warmup',
-  other:       'Other',
+  signing:          'Contract Signing',
+  agreement:        'Rental Agreement',
+  newsletter:       'Newsletter',
+  quarterly:        'Quarterly Report',
+  report:           'Revenue Report',
+  outreach:         'Lead Outreach',
+  warmup:           'Inbox Warmup',
+  'lead-sequence':  'Follow-Up Sequence',
+  other:            'Other',
 };
 
 const TYPE_COLORS: Record<EmailType, string> = {
-  signing:     'bg-[#162035] text-[#4a90d9]',
-  agreement:   'bg-[#1a1a35] text-[#d07af5]',
-  newsletter:  'bg-[#1a1535] text-[#d07af5]',
-  quarterly:   'bg-[#2a1a0a] text-[#d0954a]',
-  report:      'bg-[#162035] text-[#6ab0f5]',
-  outreach:    'bg-[#0a2518] text-[#4ab57a]',
-  warmup:      'bg-[#2a1a05] text-orange-400',
-  other:       'bg-[#1e2d45] text-[#b8d4f0]',
+  signing:          'bg-[#162035] text-[#4a90d9]',
+  agreement:        'bg-[#1a1a35] text-[#d07af5]',
+  newsletter:       'bg-[#1a1535] text-[#d07af5]',
+  quarterly:        'bg-[#2a1a0a] text-[#d0954a]',
+  report:           'bg-[#162035] text-[#6ab0f5]',
+  outreach:         'bg-[#0a2518] text-[#4ab57a]',
+  warmup:           'bg-[#2a1a05] text-orange-400',
+  'lead-sequence':  'bg-[#0a2028] text-[#4ab5c8]',
+  other:            'bg-[#1e2d45] text-[#b8d4f0]',
 };
 
 function StatusBadge({ log }: { log: EmailLog }) {
@@ -387,15 +389,19 @@ export default function EmailTracking({ warmupEntries, onWarmupAdd, onWarmupRemo
   const [logs, setLogs] = useState<EmailLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [typeFilter, setTypeFilter] = useState<EmailType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<EmailStatus | 'all'>('all');
 
   async function load(showRefreshing = false) {
     if (showRefreshing) setRefreshing(true);
+    setLoadError('');
     try {
-      const data = await fetchEmailLogs(1000);
+      const data = await fetchEmailLogs(2000);
       setLogs(data);
-    } catch {}
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load email logs');
+    }
     setLoading(false);
     setRefreshing(false);
   }
@@ -405,7 +411,7 @@ export default function EmailTracking({ warmupEntries, onWarmupAdd, onWarmupRemo
   const filtered = useMemo(() => {
     return logs.filter(l => {
       if (typeFilter !== 'all' && l.emailType !== typeFilter) return false;
-      if (statusFilter !== 'all' && l.status !== statusFilter) return false;
+      if (statusFilter !== 'all' && effectiveStatus(l) !== statusFilter) return false;
       return true;
     });
   }, [logs, typeFilter, statusFilter]);
@@ -437,10 +443,10 @@ export default function EmailTracking({ warmupEntries, onWarmupAdd, onWarmupRemo
           <button
             onClick={() => load(true)}
             disabled={refreshing}
-            className="flex items-center gap-1.5 text-sm text-[#b8d4f0] hover:text-[#b8d4f0] border border-[#1e2d45] bg-[#1a2335] px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-sm text-[#b8d4f0] hover:text-white border border-[#1e2d45] bg-[#1a2335] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
           >
             <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-            Refresh
+            {refreshing ? 'Loading…' : 'Refresh'}
           </button>
         )}
       </div>
@@ -517,7 +523,12 @@ export default function EmailTracking({ warmupEntries, onWarmupAdd, onWarmupRemo
 
       {/* Table */}
       <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
-        {loading ? (
+        {loadError && (
+          <div className="mb-4 p-3 bg-[#2a0e0e] border border-[#5a1a1a] rounded-xl text-xs text-[#e05c5c]">
+            Error loading logs: {loadError}
+          </div>
+        )}
+      {loading ? (
           <div className="py-16 text-center text-[#3a5070] text-sm">Loading…</div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center">
@@ -567,11 +578,12 @@ export default function EmailTracking({ warmupEntries, onWarmupAdd, onWarmupRemo
         <p className="text-xs text-[#f5c55c] font-medium mb-1">Setup required: Resend webhook</p>
         <p className="text-xs text-[#d0954a]">
           To see open/click data, go to your <strong>Resend dashboard → Webhooks</strong> and add a webhook pointing to{' '}
-          <code className="bg-[#2a1a0a] px-1 rounded">{window.location.origin}/api/documents</code>{' '}
-          with events: <code className="bg-[#2a1a0a] px-1 rounded">email.opened</code>,{' '}
-          <code className="bg-[#2a1a0a] px-1 rounded">email.clicked</code>,{' '}
-          <code className="bg-[#2a1a0a] px-1 rounded">email.delivered</code>,{' '}
-          <code className="bg-[#2a1a0a] px-1 rounded">email.bounced</code>.
+          <code className="bg-[#1a0e00] px-1 rounded select-all">{window.location.origin}/api/resend-webhook</code>{' '}
+          with events: <code className="bg-[#1a0e00] px-1 rounded">email.opened</code>,{' '}
+          <code className="bg-[#1a0e00] px-1 rounded">email.clicked</code>,{' '}
+          <code className="bg-[#1a0e00] px-1 rounded">email.delivered</code>,{' '}
+          <code className="bg-[#1a0e00] px-1 rounded">email.bounced</code>.
+          Copy the signing secret and add it as <code className="bg-[#1a0e00] px-1 rounded">RESEND_WEBHOOK_SECRET</code> in Vercel env vars.
         </p>
       </div>
       </>)}
