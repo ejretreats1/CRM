@@ -421,6 +421,8 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
   const [sendingDue,     setSendingDue]     = useState<string | null>(null);
   const [dueResult,      setDueResult]      = useState<{ sent: number } | null>(null);
   const [seqSetupCopied, setSeqSetupCopied] = useState(false);
+  const [autoSending,    setAutoSending]    = useState(false);
+  const [autoSendResult, setAutoSendResult] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -675,6 +677,30 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
       setSendMsg(null);
     } catch (err) {
       alert(`Failed to reset campaign: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }
+
+  async function runAutoSend() {
+    setAutoSending(true);
+    setAutoSendResult(null);
+    try {
+      const r = await fetch('/api/send-newsletter', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'auto-send-campaigns' }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setAutoSendResult(`Error: ${d.error ?? 'Unknown'}`); return; }
+      const sent = (d.results ?? []).reduce((s: number, x: { sent?: number }) => s + (x.sent ?? 0), 0);
+      const active = (d.results ?? []).filter((x: { sent?: number }) => (x.sent ?? 0) > 0).length;
+      setAutoSendResult(sent > 0
+        ? `✓ Sent ${sent} emails across ${active} campaign${active !== 1 ? 's' : ''}${d.seqSent > 0 ? ` + ${d.seqSent} follow-ups` : ''}`
+        : 'No pending recipients in any active campaign.');
+      const camps = await fetchCampaigns();
+      setCampaigns(camps);
+    } catch (e) {
+      setAutoSendResult(`Error: ${e instanceof Error ? e.message : 'Failed'}`);
+    } finally {
+      setAutoSending(false);
     }
   }
 
@@ -1511,13 +1537,30 @@ export default function LeadCampaigns({ leads, contacts, onContactsChange, warmu
               <h1 className="text-xl font-bold text-white">Lead Campaigns</h1>
               <p className="text-sm text-[#3a5070] mt-0.5">Email outreach to leads &amp; referral contacts</p>
             </div>
-            <button
-              onClick={() => openCompose()}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#4a90d9] text-white hover:bg-[#3a7bc8] transition-colors"
-            >
-              <Plus size={15} /> New Campaign
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={runAutoSend}
+                disabled={autoSending}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold bg-[#1a2335] border border-[#243550] text-[#b8d4f0] hover:bg-[#1e2d45] transition-colors disabled:opacity-50"
+                title="Send today's batch for all active campaigns"
+              >
+                <Send size={14} className={autoSending ? 'animate-pulse' : ''} />
+                {autoSending ? 'Sending…' : 'Send All Batches'}
+              </button>
+              <button
+                onClick={() => openCompose()}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#4a90d9] text-white hover:bg-[#3a7bc8] transition-colors"
+              >
+                <Plus size={15} /> New Campaign
+              </button>
+            </div>
           </div>
+
+          {autoSendResult && (
+            <div className={`mb-4 p-3 rounded-xl text-xs font-medium ${autoSendResult.startsWith('Error') ? 'bg-[#2a0e0e] border border-[#5a1a1a] text-[#e05c5c]' : 'bg-[#0a2518] border border-[#1e4530] text-[#4ab57a]'}`}>
+              {autoSendResult}
+            </div>
+          )}
 
           {warmupAddrs.length > 0 && (
             <div className="bg-[#162a1e] border border-[#1e4530] rounded-xl px-4 py-3 mb-5 flex items-center gap-3">
