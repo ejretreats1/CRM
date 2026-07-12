@@ -51,6 +51,15 @@ function normalizeProperty(p: any): UplistingProperty {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeReservation(r: any): UplistingReservation {
+  // TEMP: log raw financial fields to identify correct field names
+  if (typeof window !== 'undefined') {
+    const fin: Record<string, unknown> = {};
+    for (const k of Object.keys(r)) {
+      const v = r[k];
+      if (typeof v === 'number' || (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v))) fin[k] = v;
+    }
+    console.log('[hostaway raw financials]', fin);
+  }
   return {
     id:          String(r.id ?? ''),
     listing_id:  String(r.listingId ?? r.listing_id ?? r.listingMapId ?? ''),
@@ -58,7 +67,9 @@ function normalizeReservation(r: any): UplistingReservation {
     guest_email: r.guestEmail ?? '',
     check_in:    r.checkInDate  ?? r.arrivalDate   ?? '',
     check_out:   r.checkOutDate ?? r.departureDate ?? '',
-    total_price: Number(r.hostPayout ?? r.totalPrice ?? r.payout ?? 0),
+    total_price:         Number(r.hostPayout ?? r.totalPrice ?? r.payout ?? 0),
+    accommodation_total: r.totalRevenue    != null ? Number(r.totalRevenue)    : undefined,
+    cleaning_fee:        r.cleaningFee     != null ? Number(r.cleaningFee)     : undefined,
     status:      r.status ?? 'confirmed',
     channel:     r.channelName ?? r.source ?? '',
     nights:      Number(r.nights ?? 0),
