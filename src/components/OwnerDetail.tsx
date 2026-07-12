@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   ArrowLeft, Mail, Phone, Home, TrendingUp, Plus, Edit2, Trash2, Wifi,
   FileSignature, FileText, Download, Clock, CheckCircle2, XCircle, X,
@@ -183,15 +183,21 @@ export default function OwnerDetail({
   const [oLinkCopied, setOLinkCopied] = useState(false);
 
   const ownerOutreach = outreach.filter(e => e.ownerId === owner.id);
-  const activeProps   = owner.properties.filter(p => p.status === 'active');
-  const avgOccupancy  = activeProps.length
-    ? Math.round(activeProps.reduce((s, p) => s + p.occupancyRate, 0) / activeProps.length)
-    : 0;
-  const liveTotalRevenue = owner.properties.reduce((s, p) => {
-    const live = propMonthRevenue(p.id, reservations);
-    return s + (live ?? p.monthlyRevenue);
-  }, 0);
-  const totalRevenue = liveTotalRevenue;
+  const { totalRevenue, avgOccupancy, liveRevMap } = useMemo(() => {
+    const revs = reservations ?? [];
+    const activeProps = owner.properties.filter(p => p.status === 'active');
+    const avgOccupancy = activeProps.length
+      ? Math.round(activeProps.reduce((s, p) => s + p.occupancyRate, 0) / activeProps.length)
+      : 0;
+    const liveRevMap = new Map<string, number | null>();
+    let totalRevenue = 0;
+    for (const p of owner.properties) {
+      const live = propMonthRevenue(p.id, revs);
+      liveRevMap.set(p.id, live);
+      totalRevenue += live ?? p.monthlyRevenue;
+    }
+    return { totalRevenue, avgOccupancy, liveRevMap };
+  }, [owner.properties, reservations]);
 
   async function generateOnboardingLink() {
     setGeneratingOLink(true);
@@ -542,7 +548,7 @@ export default function OwnerDetail({
                   </div>
                   <div className="text-right flex-shrink-0">
                     {(() => {
-                      const live = propMonthRevenue(property.id, reservations);
+                      const live = liveRevMap.get(property.id) ?? null;
                       return live != null ? (
                         <>
                           <div className="font-bold text-[#4ab57a]">${live.toLocaleString()}</div>

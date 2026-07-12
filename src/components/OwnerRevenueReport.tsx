@@ -65,9 +65,8 @@ function commissionBasisLabel(s: CommissionSettings): string {
 }
 
 export default function OwnerRevenueReport({ owner, reservations, onDocumentSaved }: OwnerRevenueReportProps) {
-  const { from: defaultFrom, to: defaultTo } = defaultRange();
-  const [from, setFrom] = useState(defaultFrom);
-  const [to, setTo] = useState(defaultTo);
+  const [from, setFrom] = useState(() => defaultRange().from);
+  const [to, setTo] = useState(() => defaultRange().to);
 
   const [commission, setCommission] = useState<CommissionSettings>({ rate: 0, basis: 'payout', excludeCleaning: false, commissionExtras: false });
   const [commExtras, setCommExtras] = useState<Record<string, number>>({});
