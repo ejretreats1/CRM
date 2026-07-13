@@ -1060,6 +1060,19 @@ async function cleaningDecline(body: any, res: VercelResponse) {
     if (_cr?.id) await logEmail(_cr.id, 'cleaning-dispatch', nextCleaner.cleanerEmail, cascadeSubject, jobId, nextCleaner.cleanerName);
   } catch {}
 
+  // Notify admin that a cleaner passed and the next one was contacted
+  const passedName = cleanerInfo?.cleanerName ?? 'A cleaner';
+  const _passSubj = `👋 ${passedName} passed: ${row.property_name} – ${dateLabel}`;
+  await (await getResend()).emails.send({
+    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+    to: 'ejretreats1@gmail.com',
+    subject: _passSubj,
+    html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+      <p><strong>${passedName}</strong> passed on the cleaning for <strong>${row.property_name}</strong> (${dateLabel}).</p>
+      <p>✉️ <strong>${nextCleaner.cleanerName}</strong> has been contacted as the next backup cleaner.</p>
+    </div>`,
+  }).catch(() => {});
+
   return res.status(200).json({ passed: true });
 }
 
@@ -2491,11 +2504,15 @@ async function cleanerDashboardDecline(body: any, res: VercelResponse) {
     updated_at: new Date().toISOString(),
   }).eq('id', jobId);
 
+  const passedCleanerName = tokens[token]?.cleanerName ?? 'A cleaner';
+  let nextCleanerName = 'the next cleaner';
+
   if (nextInfo) {
     const nextCleanerRow = nextInfo.cleanerId
       ? (await supabase.from('cleaners').select('email,name').eq('id', nextInfo.cleanerId).single()).data
       : null;
     if (nextCleanerRow?.email) {
+      nextCleanerName = nextCleanerRow.name;
       const portalUrl = `${base}/?cleaner=${jobId}:${nextToken}`;
       await (await getResend()).emails.send({
         from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
@@ -2505,6 +2522,17 @@ async function cleanerDashboardDecline(body: any, res: VercelResponse) {
       }).catch(() => {});
     }
   }
+
+  // Notify admin
+  await (await getResend()).emails.send({
+    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+    to: 'ejretreats1@gmail.com',
+    subject: `👋 ${passedCleanerName} passed: ${row.property_name} – ${dateLabel}`,
+    html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+      <p><strong>${passedCleanerName}</strong> passed on the cleaning for <strong>${row.property_name}</strong> (${dateLabel}).</p>
+      <p>✉️ <strong>${nextCleanerName}</strong> has been contacted as the next backup cleaner.</p>
+    </div>`,
+  }).catch(() => {});
 
   return res.status(200).json({ success: true });
 }
