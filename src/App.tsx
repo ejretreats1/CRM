@@ -527,7 +527,7 @@ export default function App() {
   const cleanerParam = searchParams.get('cleaner');
   if (cleanerParam) return <CleanerPortalPage combined={cleanerParam} />;
   const cleanerDashboardParam = searchParams.get('cleaner-dashboard');
-  if (cleanerDashboardParam) return <CleanerDashboard cleanerId={cleanerDashboardParam} />;
+  if (cleanerDashboardParam) return <CleanerDashboard combined={cleanerDashboardParam} />;
   const cleaningOnboardToken = searchParams.get('cleaning-onboard');
   if (cleaningOnboardToken) return <CleaningClientOnboardingPage token={cleaningOnboardToken} />;
   const cleanerOnboardToken = searchParams.get('cleaner-onboard');

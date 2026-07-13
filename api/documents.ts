@@ -1188,10 +1188,17 @@ async function cleanerSendPortalLink(body: any, res: VercelResponse) {
   if (!cleanerId) return res.status(400).json({ error: 'cleanerId required.' });
 
   const supabase = getSupabase();
-  const { data: cleaner } = await supabase.from('cleaners').select('id, name, email').eq('id', cleanerId).single();
+  const { data: cleaner } = await supabase.from('cleaners').select('id, name, email, dashboard_token').eq('id', cleanerId).single();
   if (!cleaner?.email) return res.status(404).json({ error: 'Cleaner not found.' });
 
-  const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${cleanerId}`;
+  let dashToken: string = cleaner.dashboard_token;
+  if (!dashToken) {
+    const { randomUUID } = await import('crypto');
+    dashToken = randomUUID();
+    await supabase.from('cleaners').update({ dashboard_token: dashToken }).eq('id', cleanerId);
+  }
+
+  const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${cleanerId}:${dashToken}`;
   const firstName = cleaner.name.split(' ')[0];
   const portalAppName = `${cleaner.name} Cleaner Portal`;
 
@@ -1366,9 +1373,14 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
   const account = await stripe.accounts.retrieve(cleaner.stripe_account_id);
 
   if (account.details_submitted && cleaner.stripe_connect_status !== 'active') {
-    await supabase.from('cleaners').update({ stripe_connect_status: 'active' }).eq('id', cleanerId);
+    let dashToken: string = cleaner.dashboard_token;
+    if (!dashToken) {
+      const { randomUUID } = await import('crypto');
+      dashToken = randomUUID();
+    }
+    await supabase.from('cleaners').update({ stripe_connect_status: 'active', dashboard_token: dashToken }).eq('id', cleanerId);
 
-    const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${cleanerId}`;
+    const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${cleanerId}:${dashToken}`;
     const firstName = cleaner.name.split(' ')[0];
     const portalAppName = `${cleaner.name} Cleaner Portal`;
 
@@ -2244,7 +2256,11 @@ async function cleanerOnboardComplete(body: any, res: VercelResponse) {
 
 // ── CLEANER DASHBOARD ─────────────────────────────────────────────────────────
 
-async function cleanerDashboardGet(cleanerId: string, res: VercelResponse) {
+async function cleanerDashboardGet(combined: string, res: VercelResponse) {
+  const colonIdx = combined.indexOf(':');
+  const cleanerId = colonIdx === -1 ? combined : combined.slice(0, colonIdx);
+  const providedToken = colonIdx === -1 ? '' : combined.slice(colonIdx + 1);
+
   const supabase = getSupabase();
 
   const [{ data: cleanerRow }, { data: myJobRows }, { data: dispatchedRows }, { data: configs }] = await Promise.all([
@@ -2264,6 +2280,9 @@ async function cleanerDashboardGet(cleanerId: string, res: VercelResponse) {
   ]);
 
   if (!cleanerRow) return res.status(404).json({ error: 'Cleaner not found.' });
+  if (cleanerRow.dashboard_token && cleanerRow.dashboard_token !== providedToken) {
+    return res.status(403).json({ error: 'Invalid or expired portal link.' });
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function enrichJob(row: any, myPayout?: number) {
