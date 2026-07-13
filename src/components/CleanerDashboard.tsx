@@ -16,6 +16,7 @@ interface DashJob {
   checkoutTime?: string | null;
   checkinTime?: string | null;
   photoUrl?: string | null;
+  portalToken?: string | null;
 }
 
 interface DashData {
@@ -57,18 +58,41 @@ function fmtShort(dateStr: string) {
 
 // ── Job Detail Modal ──────────────────────────────────────────────────────────
 function JobDetailModal({
-  job, cleanerId, onClose, onAccepted,
+  job, cleanerId, onClose, onAccepted, onPassed,
 }: {
   job: DashJob;
   cleanerId: string;
   onClose: () => void;
   onAccepted?: (jobId: string) => void;
+  onPassed?: (jobId: string) => void;
 }) {
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState('');
   const [accepted, setAccepted] = useState(false);
+  const [passing, setPassing] = useState(false);
   const isAvailable = job.status === 'dispatched';
   const isSameDay = job.checkinDate && job.checkinDate === job.checkoutDate;
+
+  async function handlePass() {
+    if (!job.portalToken) return;
+    if (!confirm("Pass on this job? We'll contact the backup cleaner.")) return;
+    setPassing(true);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'decline', combined: `${job.id}:${job.portalToken}` }),
+      });
+      const d = await r.json();
+      if (!r.ok) { alert(d.error ?? 'Failed to pass. Please try again.'); return; }
+      onPassed?.(job.id);
+      onClose();
+    } catch {
+      alert('Network error. Please try again.');
+    } finally {
+      setPassing(false);
+    }
+  }
 
   async function handleAccept() {
     setAccepting(true);
@@ -211,20 +235,40 @@ function JobDetailModal({
             </div>
           )}
 
-          {/* Accept button (available jobs only) */}
+          {/* Submit Cleaning Report button (accepted / in-progress jobs) */}
+          {(job.status === 'accepted' || job.status === 'in_progress') && job.portalToken && (
+            <a
+              href={`/?cleaner=${job.id}:${job.portalToken}`}
+              className="w-full bg-[#2a6040] hover:bg-[#3a7050] text-[#5ce0a0] font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2 text-base border border-[#1e4030]"
+            >
+              <CheckCircle size={18} />
+              Submit Cleaning Report
+            </a>
+          )}
+
+          {/* Accept + Pass buttons (available jobs only) */}
           {isAvailable && !accepted && (
-            <div>
+            <div className="space-y-3">
               {acceptError && (
-                <p className="text-sm text-red-400 text-center mb-3">{acceptError}</p>
+                <p className="text-sm text-red-400 text-center">{acceptError}</p>
               )}
               <button
                 onClick={handleAccept}
-                disabled={accepting}
+                disabled={accepting || passing}
                 className="w-full bg-[#4a90d9] hover:bg-[#5aa0e9] disabled:opacity-60 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2 text-base"
               >
                 {accepting ? <Loader size={18} className="animate-spin" /> : <CheckCircle size={18} />}
                 {accepting ? 'Accepting…' : 'Accept This Job'}
               </button>
+              {job.portalToken && (
+                <button
+                  onClick={handlePass}
+                  disabled={accepting || passing}
+                  className="w-full bg-transparent border border-[#3a5070] text-[#3a5070] hover:border-[#e05c5c] hover:text-[#e05c5c] disabled:opacity-60 font-semibold py-3 rounded-xl transition-colors text-sm"
+                >
+                  {passing ? 'Passing…' : "Can't Do This Job — Pass"}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -267,6 +311,15 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
       availableJobs: curAvailable.filter(j => j.id !== jobId),
     });
     setSelectedJob(updated);
+  }
+
+  function handlePassed(jobId: string) {
+    if (!data) return;
+    setData({
+      ...data,
+      availableJobs: (data.availableJobs ?? []).filter(j => j.id !== jobId),
+    });
+    setSelectedJob(null);
   }
 
   if (error) {
@@ -404,6 +457,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
           cleanerId={cleanerId}
           onClose={() => setSelectedJob(null)}
           onAccepted={handleAccepted}
+          onPassed={handlePassed}
         />
       )}
     </div>

@@ -2304,6 +2304,9 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
   function enrichJob(row: any, myPayout?: number) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cfg = (configs ?? []).find((c: any) => c.property_id === row.property_id);
+    // Find this cleaner's dispatch token so the dashboard can link to the job portal
+    const tokens = (row.dispatch_tokens ?? {}) as Record<string, { cleanerId: string; payout?: number }>;
+    const portalToken = Object.entries(tokens).find(([, t]) => t.cleanerId === cleanerId)?.[0] ?? null;
     return {
       id: row.id,
       propertyId: row.property_id,
@@ -2319,10 +2322,11 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
       checkoutTime: cfg?.checkout_time ?? null,
       checkinTime: cfg?.checkin_time ?? null,
       photoUrl: cfg?.photo_url ?? null,
+      portalToken,
     };
   }
 
-  // Available = dispatched jobs where this cleaner has a token
+  // Available = dispatched jobs where this cleaner has a token (i.e. was emailed about the job)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const availableJobs = (dispatchedRows ?? []).flatMap((row: any) => {
     const tokens = (row.dispatch_tokens ?? {}) as Record<string, { cleanerId: string; payout?: number }>;

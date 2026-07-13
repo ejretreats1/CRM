@@ -359,6 +359,19 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
       </div>
 
       <div className="max-w-lg mx-auto p-4 space-y-5 pb-36">
+        {/* Instructions banner */}
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3.5 flex items-start gap-3">
+          <span className="text-lg leading-none mt-0.5">📋</span>
+          <div>
+            <p className="text-blue-800 font-semibold text-sm">How to Submit Your Cleaning Report</p>
+            <p className="text-blue-600 text-xs mt-1 leading-relaxed">
+              On the day of your clean, go through the checklist below, upload photos of each room, and tap <strong>Submit Report</strong> when you're done.
+            </p>
+            <p className="text-blue-600 text-xs mt-1 leading-relaxed">
+              <strong>Can't make it?</strong> Please tap <strong>Pass</strong> as soon as possible so we can contact the backup cleaner in time.
+            </p>
+          </div>
+        </div>
         {/* Job details card */}
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
           {isSameDayPortal && (
