@@ -1484,19 +1484,26 @@ async function cleanerBroadcastResetup(_body: any, res: VercelResponse) {
   const { data: cleaners } = await supabase
     .from('cleaners')
     .select('id, name, email, dashboard_token')
-    .eq('status', 'active')
-    .not('dashboard_token', 'is', null);
+    .eq('status', 'active');
 
   if (!cleaners?.length) return res.status(200).json({ sent: 0 });
 
   const resend = await getResend();
+  const { randomUUID } = await import('crypto');
   let sent = 0;
 
   for (const cleaner of cleaners) {
-    if (!cleaner.email || !cleaner.dashboard_token) continue;
+    if (!cleaner.email) continue;
+
+    // Generate a token on the fly if this cleaner doesn't have one yet
+    let dashToken: string = cleaner.dashboard_token;
+    if (!dashToken) {
+      dashToken = randomUUID();
+      await supabase.from('cleaners').update({ dashboard_token: dashToken }).eq('id', cleaner.id);
+    }
 
     const nameSlug = cleaner.name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
-    const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${nameSlug}:${cleaner.id}:${cleaner.dashboard_token}`;
+    const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${nameSlug}:${cleaner.id}:${dashToken}`;
     const firstName = cleaner.name.split(' ')[0];
     const portalAppName = `${cleaner.name} Cleaner Portal`;
     const subject = `Action needed: Re-save your Cleaner Portal app`;
@@ -1556,10 +1563,11 @@ async function cleanerBroadcastResetup(_body: any, res: VercelResponse) {
       `,
     }).catch(() => null);
 
-    if (_r?.id) {
-      await logEmail(_r.id, 'cleaning-portal-resetup', cleaner.email, subject, cleaner.id, cleaner.name);
-      sent++;
+    const emailId = _r?.data?.id ?? (_r as any)?.id;
+    if (emailId) {
+      await logEmail(emailId, 'cleaning-portal-resetup', cleaner.email, subject, cleaner.id, cleaner.name);
     }
+    if (_r && !_r.error) sent++;
   }
 
   return res.status(200).json({ sent });
