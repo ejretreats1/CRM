@@ -396,7 +396,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
           <div>
             <p className="text-[#b8d4f0] font-semibold text-sm">How It Works</p>
             <p className="text-[#3a5070] text-xs mt-1 leading-relaxed">
-              When you get a cleaning job email, tap <strong className="text-[#b8d4f0]">Available Cleans</strong> to accept or pass. On the day of your clean, tap the job in <strong className="text-[#b8d4f0]">My Cleans</strong> and hit <strong className="text-[#b8d4f0]">Submit Cleaning Report</strong> when done.
+              When you get a cleaning job email, tap <strong className="text-[#b8d4f0]">Available Cleans</strong> to accept or pass. On the day of your clean, tap the job in <strong className="text-[#b8d4f0]">My Cleans</strong> and hit <strong className="text-[#b8d4f0]">Submit Cleaning Report</strong> — you'll find all the property info, door codes, and checklist there. Upload your photos, note any damage, and tap submit when done.
             </p>
             <p className="text-[#d0954a] text-xs mt-1 leading-relaxed">
               Can't make it? Tap the job and press <strong>Pass</strong> ASAP so we can contact the backup cleaner.
