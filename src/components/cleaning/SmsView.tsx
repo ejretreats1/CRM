@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Send, MessageSquare, TrendingUp, Phone, Target, ChevronDown, ChevronUp, AlertCircle, Users, X } from 'lucide-react';
 import type { CleaningLead } from '../../services/cleaningDb';
 import { fetchCleaningLeads } from '../../services/cleaningDb';
+import type { Lead } from '../../types';
+
+type SmsLead = { id: string; name: string; phone: string; company?: string };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -149,16 +152,19 @@ function TemplateModal({ template, onClose, onSave }: {
 
 // ─── Send campaign modal ──────────────────────────────────────────────────────
 
-function SendCampaignModal({ templates, leads, onClose, onSend }: {
+function SendCampaignModal({ templates, leads, pipelineLeads, onClose, onSend }: {
   templates: SmsTemplate[];
   leads: CleaningLead[];
+  pipelineLeads: Lead[];
   onClose: () => void;
-  onSend: (payload: { campaignName: string; templateId?: string; templateBody: string; leads: CleaningLead[]; leadCategory: string }) => Promise<void>;
+  onSend: (payload: { campaignName: string; templateId?: string; templateBody: string; leads: SmsLead[]; leadCategory: string }) => Promise<void>;
 }) {
   const [campaignName, setCampaignName] = useState(`PM Campaign ${new Date().toLocaleDateString()}`);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [customBody, setCustomBody] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Property Management');
+  const [leadSource, setLeadSource] = useState<'cleaning' | 'pipeline'>('cleaning');
+  const [selectedStage, setSelectedStage] = useState<'all' | 'new' | 'contacted' | 'cold' | 'won'>('all');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -166,11 +172,21 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
   const messageBody = selectedTemplate?.body ?? customBody;
 
-  const targetLeads = leads.filter(l => {
-    if (l.category !== selectedCategory) return false;
-    if (!l.phone?.trim()) return false;
-    return true;
-  });
+  const targetLeads: SmsLead[] = leadSource === 'pipeline'
+    ? pipelineLeads.filter(l => {
+        if (selectedStage !== 'all' && l.stage !== selectedStage) return false;
+        if (!l.phone?.trim()) return false;
+        return true;
+      })
+    : leads.filter(l => {
+        if (l.category !== selectedCategory) return false;
+        if (!l.phone?.trim()) return false;
+        return true;
+      });
+
+  const leadCategory = leadSource === 'pipeline'
+    ? (selectedStage === 'all' ? 'Pipeline Leads' : `Pipeline: ${selectedStage}`)
+    : selectedCategory;
 
   async function handleSend() {
     if (!messageBody.trim() || targetLeads.length === 0) return;
@@ -182,7 +198,7 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
         templateId: selectedTemplateId || undefined,
         templateBody: messageBody,
         leads: targetLeads,
-        leadCategory: selectedCategory,
+        leadCategory,
       });
       onClose();
     } catch (e: unknown) {
@@ -193,6 +209,13 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
   }
 
   const CATEGORIES = ['Property Management', 'Realtor / Real Estate Team', 'Short-Term Rental', 'Real Estate Investor', 'Strategic Partner', 'Residential'];
+  const STAGES: { value: 'all' | 'new' | 'contacted' | 'cold' | 'won'; label: string }[] = [
+    { value: 'all', label: 'All Pipeline Leads' },
+    { value: 'new', label: 'New' },
+    { value: 'contacted', label: 'Contacted' },
+    { value: 'cold', label: 'Cold' },
+    { value: 'won', label: 'Won' },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
@@ -212,26 +235,65 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
             />
           </div>
 
+          {/* Lead source toggle */}
           <div>
-            <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Lead Category</label>
-            <select
-              className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
-              value={selectedCategory}
-              onChange={e => setSelectedCategory(e.target.value)}
-            >
-              {CATEGORIES.map(c => (
-                <option key={c} value={c}>{c}</option>
+            <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Lead Source</label>
+            <div className="flex gap-1 bg-[#0f1923] border border-[#1e2d45] rounded-lg p-1">
+              {(['cleaning', 'pipeline'] as const).map(src => (
+                <button
+                  key={src}
+                  onClick={() => setLeadSource(src)}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${leadSource === src ? 'bg-[#1e2d45] text-white' : 'text-[#3a5070] hover:text-[#b8d4f0]'}`}
+                >
+                  {src === 'cleaning' ? 'Cleaning Leads' : 'Pipeline Leads'}
+                </button>
               ))}
-            </select>
-            <p className="text-xs text-[#3a5070] mt-1">
-              {targetLeads.length} lead{targetLeads.length !== 1 ? 's' : ''} with phone numbers in this category
-              {leads.filter(l => l.category === selectedCategory && !l.phone?.trim()).length > 0 && (
-                <span className="text-[#d0954a] ml-1">
-                  · {leads.filter(l => l.category === selectedCategory && !l.phone?.trim()).length} missing phone skipped
-                </span>
-              )}
-            </p>
+            </div>
           </div>
+
+          {leadSource === 'cleaning' ? (
+            <div>
+              <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Lead Category</label>
+              <select
+                className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
+                value={selectedCategory}
+                onChange={e => setSelectedCategory(e.target.value)}
+              >
+                {CATEGORIES.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <p className="text-xs text-[#3a5070] mt-1">
+                {targetLeads.length} lead{targetLeads.length !== 1 ? 's' : ''} with phone numbers in this category
+                {leads.filter(l => l.category === selectedCategory && !l.phone?.trim()).length > 0 && (
+                  <span className="text-[#d0954a] ml-1">
+                    · {leads.filter(l => l.category === selectedCategory && !l.phone?.trim()).length} missing phone skipped
+                  </span>
+                )}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Pipeline Stage</label>
+              <select
+                className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
+                value={selectedStage}
+                onChange={e => setSelectedStage(e.target.value as typeof selectedStage)}
+              >
+                {STAGES.map(s => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+              <p className="text-xs text-[#3a5070] mt-1">
+                {targetLeads.length} pipeline lead{targetLeads.length !== 1 ? 's' : ''} with phone numbers
+                {pipelineLeads.filter(l => (selectedStage === 'all' || l.stage === selectedStage) && !l.phone?.trim()).length > 0 && (
+                  <span className="text-[#d0954a] ml-1">
+                    · {pipelineLeads.filter(l => (selectedStage === 'all' || l.stage === selectedStage) && !l.phone?.trim()).length} missing phone skipped
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Template</label>
@@ -265,7 +327,9 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
             <div className="bg-[#0f1923] border border-[#1e2d45] rounded-xl p-4">
               <p className="text-[11px] text-[#3a5070] font-semibold uppercase tracking-wide mb-2">Preview</p>
               <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">
-                {messageBody.replace(/\{name\}/gi, targetLeads[0]?.name ?? 'Jane').replace(/\{company\}/gi, targetLeads[0]?.company ?? 'Acme PM')}
+                {messageBody
+                  .replace(/\{name\}/gi, targetLeads[0]?.name ?? 'Jane')
+                  .replace(/\{company\}/gi, (targetLeads[0] as CleaningLead)?.company ?? 'Acme PM')}
               </p>
             </div>
           )}
@@ -459,7 +523,7 @@ function CampaignCard({ campaign, onUpdateStats, onDelete }: {
 
 // ─── Main SmsView ─────────────────────────────────────────────────────────────
 
-export default function SmsView() {
+export default function SmsView({ pipelineLeads = [] }: { pipelineLeads?: Lead[] }) {
   const [leads, setLeads] = useState<CleaningLead[]>([]);
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [campaigns, setCampaigns] = useState<SmsCampaign[]>([]);
@@ -517,7 +581,7 @@ export default function SmsView() {
     setTemplates(prev => prev.filter(t => t.id !== id));
   }
 
-  async function handleSendCampaign(payload: { campaignName: string; templateId?: string; templateBody: string; leads: CleaningLead[]; leadCategory: string }) {
+  async function handleSendCampaign(payload: { campaignName: string; templateId?: string; templateBody: string; leads: SmsLead[]; leadCategory: string }) {
     const r = await fetch('/api/documents?flow=sms&action=send-campaign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -629,7 +693,7 @@ CREATE POLICY "anon_all" ON sms_inbound_messages FOR ALL USING (true) WITH CHECK
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">SMS Campaigns</h1>
-          <p className="text-sm text-[#3a5070] mt-0.5">{pmLeadCount} Property Management leads · {templates.length} templates · {campaigns.length} campaigns</p>
+          <p className="text-sm text-[#3a5070] mt-0.5">{pmLeadCount} cleaning leads · {pipelineLeads.length} pipeline leads · {templates.length} templates · {campaigns.length} campaigns</p>
         </div>
         <button
           onClick={() => setSendModal(true)}
@@ -777,6 +841,7 @@ CREATE POLICY "anon_all" ON sms_inbound_messages FOR ALL USING (true) WITH CHECK
         <SendCampaignModal
           templates={templates}
           leads={leads}
+          pipelineLeads={pipelineLeads}
           onClose={() => setSendModal(false)}
           onSend={handleSendCampaign}
         />
