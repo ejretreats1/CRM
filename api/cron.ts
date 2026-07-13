@@ -173,7 +173,7 @@ async function autoCharge(job: Record<string, any>): Promise<{ ok: boolean; erro
       description: `Cleaning: ${job.property_name} — ${job.checkout_date}`,
       metadata: { job_id: job.id, property_id: job.property_id },
       // No transfer_data — we keep funds in platform balance until payout day
-    }, { idempotencyKey: `charge_${job.id}` });
+    }, { idempotencyKey: `charge_${job.id}_${Date.now()}` });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Stripe charge failed.';
     return { ok: false, error: msg };
