@@ -4,7 +4,7 @@ import type { CleaningLead } from '../../services/cleaningDb';
 import { fetchCleaningLeads } from '../../services/cleaningDb';
 import type { Lead } from '../../types';
 
-type SmsLead = { id: string; name: string; phone: string; company?: string };
+type SmsLead = { id: string; name: string; phone: string; company?: string; propertyAddress?: string };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,7 +109,7 @@ function TemplateModal({ template, onClose, onSave }: {
               placeholder={`Hi {name}, this is [Your Name] from E&J Retreats Cleaning. We specialize in short-term rental turnover cleaning for property managers in Miami. Would love to connect — do you have 10 minutes this week? Reply STOP to opt out.`}
             />
             <p className="text-[11px] text-[#3a5070] mt-1">
-              Use <code className="bg-[#0f1923] px-1 rounded text-[#4a90d9]">{'{name}'}</code> and <code className="bg-[#0f1923] px-1 rounded text-[#4a90d9]">{'{company}'}</code> for personalization. <strong className="text-[#d0954a]">Always include "Reply STOP to opt out"</strong> for TCPA compliance.
+              Use <code className="bg-[#0f1923] px-1 rounded text-[#4a90d9]">{'{name}'}</code>, <code className="bg-[#0f1923] px-1 rounded text-[#4a90d9]">{'{company}'}</code>, <code className="bg-[#0f1923] px-1 rounded text-[#4a90d9]">{'{propertyAddress}'}</code> for personalization. <strong className="text-[#d0954a]">Always include "Reply STOP to opt out"</strong> for TCPA compliance.
             </p>
           </div>
 
@@ -329,7 +329,8 @@ function SendCampaignModal({ templates, leads, pipelineLeads, onClose, onSend }:
               <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">
                 {messageBody
                   .replace(/\{name\}/gi, targetLeads[0]?.name ?? 'Jane')
-                  .replace(/\{company\}/gi, (targetLeads[0] as CleaningLead)?.company ?? 'Acme PM')}
+                  .replace(/\{company\}/gi, (targetLeads[0] as CleaningLead)?.company ?? 'Acme PM')
+                  .replace(/\{propertyAddress\}/gi, targetLeads[0]?.propertyAddress ?? '123 Main St')}
               </p>
             </div>
           )}
