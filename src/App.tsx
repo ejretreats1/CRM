@@ -766,7 +766,7 @@ export default function App() {
         />
       )}
 
-      {view === 'sms-outreach' && <SmsView />}
+      {view === 'sms-outreach' && <SmsView pipelineLeads={leads} />}
 
       {view === 'esign' && (
         <ESign userId={user?.id ?? 'crm'} />
