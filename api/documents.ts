@@ -1118,7 +1118,7 @@ async function cleaningAccept(body: any, res: VercelResponse) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleaningSubmit(body: any, res: VercelResponse) {
-  const { combined, checklist, photos, damageNotes } = body;
+  const { combined, checklist, photos, damageNotes, damageMedia } = body;
   const colonIdx = (combined as string).indexOf(':');
   const jobId = combined.slice(0, colonIdx);
   const token = combined.slice(colonIdx + 1);
@@ -1134,7 +1134,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
   if (row.assigned_cleaner_id !== cleanerInfo.cleanerId) return res.status(403).json({ error: 'You are not assigned to this job.' });
 
   const now = new Date().toISOString();
-  const portalData = { checklist, photos: photos ?? [], damageNotes: damageNotes ?? '', submittedAt: now };
+  const portalData = { checklist, photos: photos ?? [], damageNotes: damageNotes ?? '', damageMedia: damageMedia ?? [], submittedAt: now };
 
   await supabase.from('cleaning_jobs').update({
     status: 'completed',
@@ -1151,6 +1151,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
 
   const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const photoCount = (photos ?? []).length;
+  const damageMediaArr = (damageMedia ?? []) as string[];
   const checklistDone = Object.values(checklist as Record<string, boolean>).filter(Boolean).length;
   const checklistTotal = Object.keys(checklist as Record<string, boolean>).length;
 
@@ -1168,11 +1169,13 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
         <h2 style="color:#0f766e">🧹 Cleaning Job Submitted</h2>
         <p><strong>${cleanerInfo.cleanerName}</strong> has submitted the cleaning for <strong>${row.property_name}</strong> (${dateLabel}).</p>
         <p>✅ Checklist: ${checklistDone}/${checklistTotal} items completed<br>
-           📸 Photos uploaded: ${photoCount}<br>
+           📸 Cleaning photos: ${photoCount}<br>
            ${damageNotes ? `⚠️ Damage notes: ${damageNotes}<br>` : ''}
+           ${damageMediaArr.length ? `📸 Damage photos/videos: ${damageMediaArr.length}<br>` : ''}
            ${paymentLine}
         </p>
-        ${photoCount > 0 ? `<p>${(photos as string[]).map((url: string) => `<img src="${url}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;margin:4px" />`).join('')}</p>` : ''}
+        ${photoCount > 0 ? `<div><p style="font-weight:bold;margin-bottom:4px">Cleaning Photos</p>${(photos as string[]).map((url: string) => `<img src="${url}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;margin:4px" />`).join('')}</div>` : ''}
+        ${damageMediaArr.length > 0 ? `<div style="margin-top:12px"><p style="font-weight:bold;color:#dc2626;margin-bottom:4px">⚠️ Damage Photos/Videos</p>${damageMediaArr.map((url: string) => url.match(/\.(mp4|mov|webm)$/i) ? `<a href="${url}" style="display:inline-block;margin:4px;padding:8px 12px;background:#fee2e2;border-radius:6px;color:#dc2626;text-decoration:none;font-size:12px">▶ View Video</a>` : `<img src="${url}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;margin:4px;border:2px solid #dc2626" />`).join('')}</div>` : ''}
       </div>
     `,
   }).catch(() => null);
