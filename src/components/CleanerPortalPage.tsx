@@ -341,8 +341,8 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
   const isSameDayPortal = job?.checkinDate && job.checkinDate === job.checkoutDate;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-blue-700 text-white px-4 py-4 sticky top-0 z-10 shadow">
+    <div className="h-screen flex flex-col bg-gray-50">
+      <div className="bg-blue-700 text-white px-4 py-4 shrink-0 shadow z-10">
         <div className="flex items-center gap-3 max-w-lg mx-auto">
           <span className="text-xl">🧹</span>
           <div className="flex-1 min-w-0">
@@ -358,7 +358,8 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto p-4 space-y-5 pb-36">
+      <div className="flex-1 overflow-y-auto">
+      <div className="max-w-lg mx-auto p-4 space-y-5 pb-4">
         {/* Instructions banner */}
         <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3.5 flex items-start gap-3">
           <span className="text-lg leading-none mt-0.5">📋</span>
@@ -545,9 +546,10 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
           </div>
         </div>
       </div>
+      </div>
 
-      {/* Sticky submit */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-4 shadow-lg">
+      {/* Submit button — anchored to bottom */}
+      <div className="shrink-0 bg-white border-t px-4 py-4 shadow-lg">
         <div className="max-w-lg mx-auto">
           <button
             onClick={handleSubmit}
