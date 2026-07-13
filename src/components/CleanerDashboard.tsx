@@ -530,7 +530,7 @@ function AvailableJobCard({ job, onClick }: { job: DashJob; onClick: () => void 
         )}
       </div>
       <div className="mt-3 bg-[#4a90d9] text-white text-sm font-bold py-2.5 rounded-xl text-center">
-        View &amp; Accept →
+        View, Accept or Pass →
       </div>
     </button>
   );
