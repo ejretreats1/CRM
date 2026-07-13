@@ -2960,7 +2960,7 @@ async function smsSendCampaign(body: any, res: VercelResponse) {
       recipients.push({ id: randomUUID(), campaign_id: campaignId, lead_id: lead.id, lead_name: lead.name, phone: lead.phone, status: 'failed', sent_at: now, error_msg: 'Invalid phone number' });
       continue;
     }
-    const msg_body = templateBody.replace(/\{name\}/gi, lead.name || 'there').replace(/\{company\}/gi, lead.company || '');
+    const msg_body = templateBody.replace(/\{name\}/gi, lead.name || 'there').replace(/\{company\}/gi, lead.company || '').replace(/\{propertyAddress\}/gi, lead.propertyAddress || '');
     try {
       const msg = await twilio.messages.create({ body: msg_body, from: TWILIO_FROM(), to: phone });
       sentCount++;
