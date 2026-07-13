@@ -85,7 +85,7 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
   ];
 
   const filtered = filter === 'all' ? jobs : jobs.filter(j => j.status === filter);
-  const sortedJobs = [...filtered].sort((a, b) => b.checkoutDate.localeCompare(a.checkoutDate));
+  const sortedJobs = [...filtered].sort((a, b) => a.checkoutDate.localeCompare(b.checkoutDate));
 
   const configMap = new Map(configs.map(c => [c.propertyId, c]));
   const existingReservationIds = new Set(jobs.map(j => j.reservationId).filter(Boolean));
