@@ -1198,7 +1198,8 @@ async function cleanerSendPortalLink(body: any, res: VercelResponse) {
     await supabase.from('cleaners').update({ dashboard_token: dashToken }).eq('id', cleanerId);
   }
 
-  const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${cleanerId}:${dashToken}`;
+  const nameSlug = cleaner.name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+  const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${nameSlug}:${cleanerId}:${dashToken}`;
   const firstName = cleaner.name.split(' ')[0];
   const portalAppName = `${cleaner.name} Cleaner Portal`;
 
@@ -1380,7 +1381,8 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
     }
     await supabase.from('cleaners').update({ stripe_connect_status: 'active', dashboard_token: dashToken }).eq('id', cleanerId);
 
-    const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${cleanerId}:${dashToken}`;
+    const nameSlug2 = cleaner.name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+    const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${nameSlug2}:${cleanerId}:${dashToken}`;
     const firstName = cleaner.name.split(' ')[0];
     const portalAppName = `${cleaner.name} Cleaner Portal`;
 
@@ -2257,9 +2259,23 @@ async function cleanerOnboardComplete(body: any, res: VercelResponse) {
 // ── CLEANER DASHBOARD ─────────────────────────────────────────────────────────
 
 async function cleanerDashboardGet(combined: string, res: VercelResponse) {
-  const colonIdx = combined.indexOf(':');
-  const cleanerId = colonIdx === -1 ? combined : combined.slice(0, colonIdx);
-  const providedToken = colonIdx === -1 ? '' : combined.slice(colonIdx + 1);
+  // URL formats (newest first, all backward-compatible):
+  //   name-slug:cleanerId:token   ← current
+  //   cleanerId:token             ← previous security fix
+  //   cleanerId                   ← original (no token)
+  const parts = combined.split(':');
+  let cleanerId: string;
+  let providedToken: string;
+  if (parts.length >= 3) {
+    cleanerId = parts[1];
+    providedToken = parts[2];
+  } else if (parts.length === 2) {
+    cleanerId = parts[0];
+    providedToken = parts[1];
+  } else {
+    cleanerId = parts[0];
+    providedToken = '';
+  }
 
   const supabase = getSupabase();
 
