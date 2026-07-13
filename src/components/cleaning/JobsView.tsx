@@ -222,6 +222,19 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
     await onUpdateJob({ ...job, ...updates });
   }
 
+  const [undoing, setUndoing] = useState<string | null>(null);
+
+  async function handleUndoComplete(job: CleaningJob) {
+    if (!confirm('Undo complete? This will set the job back to Accepted so it will still auto-charge today if the checkout date matches.')) return;
+    setUndoing(job.id);
+    try {
+      const now = new Date().toISOString();
+      await onUpdateJob({ ...job, status: 'accepted', completedAt: undefined, updatedAt: now });
+    } finally {
+      setUndoing(null);
+    }
+  }
+
   async function handleCharge(job: CleaningJob) {
     if (!confirm(`Charge $${job.cleaningFee} to the client card on file for ${displayName(job.propertyId, job.propertyName, uplistingProperties)}?`)) return;
     setCharging(job.id);
@@ -478,6 +491,16 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
                       >
                         <CheckCircle size={12} />
                         Complete
+                      </button>
+                    )}
+                    {job.status === 'completed' && !job.chargedAt && (
+                      <button
+                        onClick={() => handleUndoComplete(job)}
+                        disabled={undoing === job.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a1a2e] border border-[#3a3a5a] text-[#9090d0] text-xs font-semibold rounded-lg hover:bg-[#22223a] transition-colors disabled:opacity-50 whitespace-nowrap"
+                      >
+                        <XCircle size={12} />
+                        {undoing === job.id ? 'Undoing…' : 'Undo Complete'}
                       </button>
                     )}
                     {job.status === 'completed' && config?.stripePaymentMethodId && !job.chargedAt && (
