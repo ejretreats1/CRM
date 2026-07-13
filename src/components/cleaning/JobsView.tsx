@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   RefreshCw, Plus, Send, CheckCircle, XCircle, Clock, AlertCircle, Home, User, DollarSign, Calendar, CreditCard,
   ChevronDown, ChevronUp, Image, FileText,
@@ -75,6 +75,8 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
   const [savingManual, setSavingManual] = useState(false);
   const [syncingFees, setSyncingFees] = useState(false);
   const [feesSyncMsg, setFeesSyncMsg] = useState('');
+  const todayMarkerRef = useRef<HTMLDivElement | null>(null);
+  const hasScrolled = useRef(false);
 
   const FILTERS: { id: StatusFilter; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -86,8 +88,18 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
     { id: 'cancelled', label: 'Cancelled' },
   ];
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+
   const filtered = filter === 'all' ? jobs : jobs.filter(j => j.status === filter);
   const sortedJobs = [...filtered].sort((a, b) => a.checkoutDate.localeCompare(b.checkoutDate));
+  const todayJobId = sortedJobs.find(j => j.checkoutDate >= todayStr)?.id ?? null;
+
+  useEffect(() => {
+    if (!hasScrolled.current && todayMarkerRef.current) {
+      todayMarkerRef.current.scrollIntoView({ behavior: 'instant', block: 'start' });
+      hasScrolled.current = true;
+    }
+  }, [todayJobId]);
 
   const configMap = new Map(configs.map(c => [c.propertyId, c]));
   const existingReservationIds = new Set(jobs.map(j => j.reservationId).filter(Boolean));
@@ -351,7 +363,7 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
             const assignedCleaner = job.assignedCleanerId ? cleaners.find(c => c.id === job.assignedCleanerId) : null;
 
             return (
-              <div key={job.id} className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-4">
+              <div key={job.id} ref={job.id === todayJobId ? todayMarkerRef : null} className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0 space-y-2">
                     {/* Row 1: property + status */}
