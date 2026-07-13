@@ -53,6 +53,7 @@ export interface CleaningPortalData {
   photos: string[];
   damageNotes?: string;
   damageMedia?: string[];
+  suppliesNotes?: string;
   submittedAt: string;
 }
 

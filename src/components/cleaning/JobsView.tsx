@@ -322,6 +322,11 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                           🚨 Damage Reported
                         </span>
                       )}
+                      {job.portalData?.suppliesNotes?.trim() && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-[#2a1e00] border-[#f59e0b] text-[#f59e0b]">
+                          📦 Supplies Needed
+                        </span>
+                      )}
                       {job.source === 'manual' && (
                         <span className="text-xs text-[#3a5070] border border-[#2a4060] rounded-full px-2 py-0.5">Manual</span>
                       )}
@@ -554,6 +559,14 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
 
                       {!pd.damageNotes && (!pd.damageMedia || pd.damageMedia.length === 0) && (
                         <p className="text-xs text-[#3a5070] italic">No damage reported.</p>
+                      )}
+
+                      {/* Supplies */}
+                      {pd.suppliesNotes?.trim() && (
+                        <div className="bg-[#1a1200] border border-[#f59e0b] rounded-xl p-3 mt-2">
+                          <p className="text-xs font-semibold text-[#f59e0b] mb-1">📦 Supplies Needed</p>
+                          <p className="text-xs text-[#fde68a] whitespace-pre-wrap">{pd.suppliesNotes}</p>
+                        </div>
                       )}
                     </div>
                   );
