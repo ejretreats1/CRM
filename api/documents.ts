@@ -937,6 +937,9 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
                 View &amp; Accept Job
               </a>
             </div>
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin:0 0 16px">
+              <p style="margin:0;color:#9a3412;font-size:13px">⚠️ <strong>Can't make it?</strong> Please tap the button above and press <strong>Pass</strong> as soon as possible so we can notify the backup cleaner in time.</p>
+            </div>
             <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">— E&amp;J Retreats</p>
           </div>
         </div>
@@ -1051,6 +1054,9 @@ async function cleaningDecline(body: any, res: VercelResponse) {
               <a href="${portalLink}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
                 View &amp; Accept Job
               </a>
+            </div>
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin:0 0 16px">
+              <p style="margin:0;color:#9a3412;font-size:13px">⚠️ <strong>Can't make it?</strong> Please tap the button above and press <strong>Pass</strong> as soon as possible so we can notify the backup cleaner in time.</p>
             </div>
             <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">— E&amp;J Retreats</p>
           </div>
@@ -2518,7 +2524,14 @@ async function cleanerDashboardDecline(body: any, res: VercelResponse) {
         from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
         to: nextCleanerRow.email,
         subject: `🧹 Cleaning job available: ${row.property_name} – ${dateLabel}`,
-        html: `<div style="font-family:sans-serif;padding:24px"><p>Hi ${nextCleanerRow.name},</p><p>A cleaning job is available at <strong>${row.property_name}</strong> on ${dateLabel}.</p><p><a href="${portalUrl}" style="background:#1d4ed8;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px">View &amp; Accept Job</a></p></div>`,
+        html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+          <p>Hi ${nextCleanerRow.name},</p>
+          <p>A cleaning job is available at <strong>${row.property_name}</strong> on ${dateLabel}.</p>
+          <p><a href="${portalUrl}" style="background:#1d4ed8;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px">View &amp; Accept Job</a></p>
+          <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin-top:16px">
+            <p style="margin:0;color:#9a3412;font-size:13px">⚠️ <strong>Can't make it?</strong> Please tap the button above and press <strong>Pass</strong> as soon as possible so we can notify the backup cleaner in time.</p>
+          </div>
+        </div>`,
       }).catch(() => {});
     }
   }
