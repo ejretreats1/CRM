@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Briefcase, Users, CreditCard,
   CheckCircle, TrendingUp, DollarSign, Sparkles, AlertCircle, RefreshCw,
+  ChevronUp, ChevronDown,
 } from 'lucide-react';
 import type { View } from '../../types';
 import type { CleaningJob, Cleaner, CleaningPropertyConfig } from '../../types/cleaning';
@@ -158,6 +159,7 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties }: { j
 type PaymentFilter = 'all' | 'charged' | 'not_charged' | 'payout_sent';
 
 function ManualPayoutPanel({ cleaners }: { cleaners: Cleaner[] }) {
+  const [open, setOpen] = useState(false);
   const [cleanerId, setCleanerId] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
@@ -190,60 +192,74 @@ function ManualPayoutPanel({ cleaners }: { cleaners: Cleaner[] }) {
   }
 
   return (
-    <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5 space-y-4">
-      <div>
-        <h2 className="text-sm font-bold text-white">Manual Payout</h2>
-        <p className="text-xs text-[#3a5070] mt-0.5">Send a custom Stripe transfer directly to a cleaner</p>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Cleaner</label>
-          <select
-            className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
-            value={cleanerId}
-            onChange={e => { setCleanerId(e.target.value); setResult(null); }}
-          >
-            <option value="">Select cleaner…</option>
-            {activeCleaners.map(c => (
-              <option key={c.id} value={c.id}>{c.name}{!c.stripeAccountId ? ' (no Stripe)' : ''}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Amount ($)</label>
-          <input
-            type="number" min="0.01" step="0.01" placeholder="0.00"
-            className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
-            value={amount}
-            onChange={e => { setAmount(e.target.value); setResult(null); }}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Memo (optional)</label>
-          <input
-            type="text" placeholder="Bonus, tip, etc."
-            className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
-            value={note}
-            onChange={e => { setNote(e.target.value); setResult(null); }}
-          />
-        </div>
-      </div>
-      {selected && !selected.stripeAccountId && (
-        <p className="text-xs text-[#d0954a]">⚠ {selected.name} hasn't connected their Stripe account — payout will fail.</p>
-      )}
-      <div className="flex items-center gap-3 flex-wrap">
+    <div className="flex flex-col gap-0">
+      <div className="flex items-center gap-3">
         <button
-          onClick={handleSend}
-          disabled={sending || !cleanerId || !amount || Number(amount) <= 0}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
+          onClick={() => { setOpen(o => !o); setResult(null); }}
+          className="flex items-center gap-2 px-3 py-1.5 bg-[#1a2335] border border-[#1e2d45] text-[#b8d4f0] text-xs font-semibold rounded-lg hover:bg-[#22304a] transition-colors"
         >
-          <CreditCard size={14} />
-          {sending ? 'Sending…' : 'Send Payout'}
+          <CreditCard size={12} />
+          Manual Payout
+          {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </button>
-        {result && (
+        {result && !open && (
           <p className={`text-xs font-medium ${result.ok ? 'text-[#5ce0a0]' : 'text-[#e05c5c]'}`}>{result.msg}</p>
         )}
       </div>
+
+      {open && (
+        <div className="mt-3 bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Cleaner</label>
+              <select
+                className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
+                value={cleanerId}
+                onChange={e => { setCleanerId(e.target.value); setResult(null); }}
+              >
+                <option value="">Select cleaner…</option>
+                {activeCleaners.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}{!c.stripeAccountId ? ' (no Stripe)' : ''}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Amount ($)</label>
+              <input
+                type="number" min="0.01" step="0.01" placeholder="0.00"
+                className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                value={amount}
+                onChange={e => { setAmount(e.target.value); setResult(null); }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Memo (optional)</label>
+              <input
+                type="text" placeholder="Bonus, tip, etc."
+                className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                value={note}
+                onChange={e => { setNote(e.target.value); setResult(null); }}
+              />
+            </div>
+          </div>
+          {selected && !selected.stripeAccountId && (
+            <p className="text-xs text-[#d0954a]">⚠ {selected.name} hasn't connected their Stripe account — payout will fail.</p>
+          )}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={handleSend}
+              disabled={sending || !cleanerId || !amount || Number(amount) <= 0}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
+            >
+              <CreditCard size={14} />
+              {sending ? 'Sending…' : 'Send Payout'}
+            </button>
+            {result && (
+              <p className={`text-xs font-medium ${result.ok ? 'text-[#5ce0a0]' : 'text-[#e05c5c]'}`}>{result.msg}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -300,12 +316,13 @@ function CleaningPayments({
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-white">Payments</h1>
-        <p className="text-sm text-[#3a5070] mt-0.5">Client charges, cleaner payouts, and profit tracking</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-white">Payments</h1>
+          <p className="text-sm text-[#3a5070] mt-0.5">Client charges, cleaner payouts, and profit tracking</p>
+        </div>
+        <ManualPayoutPanel cleaners={cleaners} />
       </div>
-
-      <ManualPayoutPanel cleaners={cleaners} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {summary.map(s => (
