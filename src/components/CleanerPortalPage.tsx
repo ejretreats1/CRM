@@ -397,6 +397,9 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
               On the day of your clean, go through the checklist below, upload photos of each room, and tap <strong>Submit Report</strong> when you're done.
             </p>
             <p className="text-blue-600 text-xs mt-1 leading-relaxed">
+              If there is any damage, please scroll down to the <strong>Damage Notes</strong> section, describe what you found, and upload photos or videos of the damage.
+            </p>
+            <p className="text-blue-600 text-xs mt-1 leading-relaxed">
               <strong>Can't make it?</strong> Please tap <strong>Pass</strong> as soon as possible so we can contact the backup cleaner in time.
             </p>
           </div>
