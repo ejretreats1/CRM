@@ -47,7 +47,7 @@ export async function acceptCleaningJob(jobId: string, token: string): Promise<v
 export async function submitCleaningJob(
   jobId: string,
   token: string,
-  data: { checklist: Record<string, boolean>; photos: string[]; damageNotes?: string },
+  data: { checklist: Record<string, boolean>; photos: string[]; damageNotes?: string; damageMedia?: string[] },
 ): Promise<void> {
   const r = await fetch(BASE, {
     method: 'POST',

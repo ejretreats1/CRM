@@ -63,7 +63,10 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [damageNotes, setDamageNotes] = useState('');
+  const [damageMedia, setDamageMedia] = useState<string[]>([]);
+  const [uploadingDamageMedia, setUploadingDamageMedia] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const damageMediaRef = useRef<HTMLInputElement>(null);
 
   const colonIdx = combined.indexOf(':');
   const jobId = combined.slice(0, colonIdx);
@@ -161,6 +164,27 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
     }
   };
 
+  const handleDamageMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setUploadingDamageMedia(true);
+    try {
+      for (const file of files) {
+        const ext = file.name.split('.').pop() ?? 'jpg';
+        const path = `${jobId}/damage-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error } = await supabase.storage.from('cleaning-photos').upload(path, file, { upsert: true });
+        if (error) throw error;
+        const { data: { publicUrl } } = supabase.storage.from('cleaning-photos').getPublicUrl(path);
+        setDamageMedia(prev => [...prev, publicUrl]);
+      }
+    } catch (e: unknown) {
+      alert('Upload failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    } finally {
+      setUploadingDamageMedia(false);
+      if (damageMediaRef.current) damageMediaRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async () => {
     const doneCount = Object.values(checklist).filter(Boolean).length;
     if (doneCount < Math.ceil(CHECKLIST_ITEMS.length * 0.5)) {
@@ -168,7 +192,11 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
     }
     setSubmitting(true);
     try {
-      await submitCleaningJob(jobId, token, { checklist, photos, damageNotes: damageNotes.trim() || undefined });
+      await submitCleaningJob(jobId, token, {
+        checklist, photos,
+        damageNotes: damageNotes.trim() || undefined,
+        damageMedia: damageMedia.length ? damageMedia : undefined,
+      });
       setPageState('submitted');
     } catch (e: unknown) {
       alert('Submit failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
@@ -533,16 +561,51 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
           <div className="px-4 py-3 border-b">
             <h2 className="font-semibold text-gray-800">Damage Notes</h2>
-            <p className="text-gray-400 text-xs mt-0.5">Report any damage or issues found (optional)</p>
+            <p className="text-gray-400 text-xs mt-0.5">Report any damage or issues found — add photos or videos (optional)</p>
           </div>
-          <div className="p-4">
+          <div className="p-4 space-y-3">
             <textarea
               value={damageNotes}
               onChange={e => setDamageNotes(e.target.value)}
               placeholder="Describe any damage, broken items, stains, or issues..."
-              rows={4}
-              className="w-full text-sm text-gray-700 placeholder-gray-300 resize-none outline-none"
+              rows={3}
+              className="w-full text-sm resize-none outline-none"
+              style={{ backgroundColor: 'white', color: '#374151' }}
             />
+            {/* Damage media thumbnails */}
+            {damageMedia.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {damageMedia.map((url, i) => (
+                  <div key={i} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
+                    {url.match(/\.(mp4|mov|webm|avi)$/i) ? (
+                      <video src={url} className="w-full h-full object-cover" />
+                    ) : (
+                      <img src={url} alt={`Damage ${i + 1}`} className="w-full h-full object-cover" />
+                    )}
+                    <button
+                      onClick={() => setDamageMedia(prev => prev.filter((_, idx) => idx !== i))}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-sm flex items-center justify-center font-bold shadow"
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <input
+              ref={damageMediaRef}
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              capture="environment"
+              onChange={handleDamageMediaUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => damageMediaRef.current?.click()}
+              disabled={uploadingDamageMedia}
+              className="w-full border-2 border-dashed border-gray-200 rounded-xl py-3 text-gray-400 text-sm font-medium active:bg-gray-50 disabled:opacity-60 transition-colors"
+            >
+              {uploadingDamageMedia ? '⏳ Uploading...' : '📸 Add Damage Photos or Videos'}
+            </button>
           </div>
         </div>
       </div>
