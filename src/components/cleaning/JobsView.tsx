@@ -423,7 +423,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         {charging === job.id ? 'Retrying…' : `Retry Charge $${job.cleaningFee}`}
                       </button>
                     )}
-                    {(job.status === 'pending' || job.status === 'dispatched') && (
+                    {(job.status === 'pending' || job.status === 'dispatched' || job.status === 'accepted' || job.status === 'in_progress') && !job.chargedAt && (
                       <button
                         onClick={() => handleStatusChange(job, 'cancelled')}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a0e0e] border border-[#3a1a1a] text-[#e05c5c] text-xs font-semibold rounded-lg hover:bg-[#240e0e] transition-colors whitespace-nowrap"
