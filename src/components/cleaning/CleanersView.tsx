@@ -375,7 +375,11 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                 {/* Copy dashboard link */}
                 <button
                   onClick={() => {
-                    const url = `${window.location.origin}/?cleaner-dashboard=${selected.id}`;
+                    if (!selected.dashboardToken) {
+                      alert('No secure link yet — click "Send Portal Link" first. That will generate a token and email it to the cleaner. Then copy the link from there.');
+                      return;
+                    }
+                    const url = `${window.location.origin}/?cleaner-dashboard=${selected.id}:${selected.dashboardToken}`;
                     navigator.clipboard.writeText(url).catch(() => {});
                     alert(`Dashboard link copied!\n\n${url}`);
                   }}
