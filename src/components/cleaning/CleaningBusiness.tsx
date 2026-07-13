@@ -157,10 +157,102 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties }: { j
 
 type PaymentFilter = 'all' | 'charged' | 'not_charged' | 'payout_sent';
 
+function ManualPayoutPanel({ cleaners }: { cleaners: Cleaner[] }) {
+  const [cleanerId, setCleanerId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ ok: true; msg: string } | { ok: false; msg: string } | null>(null);
+
+  const activeCleaners = cleaners.filter(c => c.status === 'active');
+  const selected = cleaners.find(c => c.id === cleanerId);
+
+  async function handleSend() {
+    if (!cleanerId || !amount || Number(amount) <= 0) return;
+    setSending(true);
+    setResult(null);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'manual-payout', cleanerId, amount: Number(amount), note }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error ?? 'Payout failed.');
+      setResult({ ok: true, msg: `$${Number(amount).toFixed(2)} sent to ${data.cleanerName} via Stripe.` });
+      setAmount('');
+      setNote('');
+    } catch (e) {
+      setResult({ ok: false, msg: e instanceof Error ? e.message : 'Payout failed.' });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5 space-y-4">
+      <div>
+        <h2 className="text-sm font-bold text-white">Manual Payout</h2>
+        <p className="text-xs text-[#3a5070] mt-0.5">Send a custom Stripe transfer directly to a cleaner</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Cleaner</label>
+          <select
+            className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
+            value={cleanerId}
+            onChange={e => { setCleanerId(e.target.value); setResult(null); }}
+          >
+            <option value="">Select cleaner…</option>
+            {activeCleaners.map(c => (
+              <option key={c.id} value={c.id}>{c.name}{!c.stripeAccountId ? ' (no Stripe)' : ''}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Amount ($)</label>
+          <input
+            type="number" min="0.01" step="0.01" placeholder="0.00"
+            className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+            value={amount}
+            onChange={e => { setAmount(e.target.value); setResult(null); }}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Memo (optional)</label>
+          <input
+            type="text" placeholder="Bonus, tip, etc."
+            className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+            value={note}
+            onChange={e => { setNote(e.target.value); setResult(null); }}
+          />
+        </div>
+      </div>
+      {selected && !selected.stripeAccountId && (
+        <p className="text-xs text-[#d0954a]">⚠ {selected.name} hasn't connected their Stripe account — payout will fail.</p>
+      )}
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          onClick={handleSend}
+          disabled={sending || !cleanerId || !amount || Number(amount) <= 0}
+          className="flex items-center gap-2 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
+        >
+          <CreditCard size={14} />
+          {sending ? 'Sending…' : 'Send Payout'}
+        </button>
+        {result && (
+          <p className={`text-xs font-medium ${result.ok ? 'text-[#5ce0a0]' : 'text-[#e05c5c]'}`}>{result.msg}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CleaningPayments({
-  jobs, uplistingProperties, onRetryCharge,
+  jobs, cleaners, uplistingProperties, onRetryCharge,
 }: {
   jobs: CleaningJob[];
+  cleaners: Cleaner[];
   uplistingProperties: UplistingProperty[];
   onRetryCharge: (job: CleaningJob) => Promise<void>;
 }) {
@@ -212,6 +304,8 @@ function CleaningPayments({
         <h1 className="text-xl font-bold text-white">Payments</h1>
         <p className="text-sm text-[#3a5070] mt-0.5">Client charges, cleaner payouts, and profit tracking</p>
       </div>
+
+      <ManualPayoutPanel cleaners={cleaners} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {summary.map(s => (
@@ -726,7 +820,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
             />
           )}
           {active === 'cleaning-payments' && (
-            <CleaningPayments jobs={jobs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} />
+            <CleaningPayments jobs={jobs} cleaners={cleaners} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} />
           )}
           {active === 'cleaning-leads' && (
             <CleaningLeadsView leads={leads} onSave={handleSaveLead} onBulkSave={handleBulkSaveLead} onDelete={handleDeleteLead} />

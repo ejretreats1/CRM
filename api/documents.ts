@@ -874,6 +874,32 @@ async function cleaningGet(combined: string, res: VercelResponse) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function manualCleanerPayout(body: any, res: VercelResponse) {
+  const { cleanerId, amount, note } = body;
+  if (!cleanerId || !amount || Number(amount) <= 0)
+    return res.status(400).json({ error: 'cleanerId and a positive amount are required.' });
+
+  const supabase = getSupabase();
+  const { data: cleaner } = await supabase
+    .from('cleaners').select('name, email, stripe_account_id').eq('id', cleanerId).single();
+  if (!cleaner) return res.status(404).json({ error: 'Cleaner not found.' });
+  if (!cleaner.stripe_account_id)
+    return res.status(400).json({ error: `${cleaner.name} has not connected their Stripe account yet.` });
+
+  const stripe = await getStripe();
+  try {
+    const transfer = await stripe.transfers.create({
+      amount: Math.round(Number(amount) * 100),
+      currency: 'usd',
+      destination: cleaner.stripe_account_id,
+      description: note?.trim() || `Manual payout to ${cleaner.name}`,
+    });
+    return res.json({ transferId: transfer.id, amount: Number(amount), cleanerName: cleaner.name });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message ?? 'Transfer failed.' });
+  }
+}
+
 async function cleaningCancellation(body: any, res: VercelResponse) {
   const { jobId } = body;
   if (!jobId) return res.status(400).json({ error: 'jobId required.' });
@@ -3651,6 +3677,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'send-portal-link') return await cleanerSendPortalLink(body, res);
   } else if (flow === 'cleaning') {
     if (action === 'cancellation')      return await cleaningCancellation(body, res);
+    if (action === 'manual-payout')     return await manualCleanerPayout(body, res);
     if (action === 'dispatch')          return await cleaningDispatch(body, res);
     if (action === 'accept')            return await cleaningAccept(body, res);
     if (action === 'decline')           return await cleaningDecline(body, res);
