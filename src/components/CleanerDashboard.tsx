@@ -74,14 +74,13 @@ function JobDetailModal({
   const isSameDay = job.checkinDate && job.checkinDate === job.checkoutDate;
 
   async function handlePass() {
-    if (!job.portalToken) return;
     if (!confirm("Pass on this job? We'll contact the backup cleaner.")) return;
     setPassing(true);
     try {
       const r = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ flow: 'cleaning', action: 'decline', combined: `${job.id}:${job.portalToken}` }),
+        body: JSON.stringify({ flow: 'cleaner', action: 'dashboard-decline', jobId: job.id, cleanerId }),
       });
       const d = await r.json();
       if (!r.ok) { alert(d.error ?? 'Failed to pass. Please try again.'); return; }
@@ -260,15 +259,13 @@ function JobDetailModal({
                 {accepting ? <Loader size={18} className="animate-spin" /> : <CheckCircle size={18} />}
                 {accepting ? 'Accepting…' : 'Accept This Job'}
               </button>
-              {job.portalToken && (
-                <button
-                  onClick={handlePass}
-                  disabled={accepting || passing}
-                  className="w-full bg-transparent border border-[#3a5070] text-[#3a5070] hover:border-[#e05c5c] hover:text-[#e05c5c] disabled:opacity-60 font-semibold py-3 rounded-xl transition-colors text-sm"
-                >
-                  {passing ? 'Passing…' : "Can't Do This Job — Pass"}
-                </button>
-              )}
+              <button
+                onClick={handlePass}
+                disabled={accepting || passing}
+                className="w-full bg-transparent border border-[#3a5070] text-[#3a5070] hover:border-[#e05c5c] hover:text-[#e05c5c] disabled:opacity-60 font-semibold py-3 rounded-xl transition-colors text-sm"
+              >
+                {passing ? 'Passing…' : "Can't Do This Job — Pass"}
+              </button>
             </div>
           )}
         </div>
@@ -392,8 +389,24 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
         </button>
       </div>
 
+      {/* Instructions banner */}
+      <div className="px-4 pt-4 max-w-lg mx-auto">
+        <div className="bg-[#0f1923] border border-[#1e2d45] rounded-2xl px-4 py-3.5 flex items-start gap-3">
+          <span className="text-base leading-none mt-0.5">📋</span>
+          <div>
+            <p className="text-[#b8d4f0] font-semibold text-sm">How It Works</p>
+            <p className="text-[#3a5070] text-xs mt-1 leading-relaxed">
+              When you get a cleaning job email, tap <strong className="text-[#b8d4f0]">Available</strong> to accept or pass. On the day of your clean, tap the job in <strong className="text-[#b8d4f0]">My Jobs</strong> and hit <strong className="text-[#b8d4f0]">Submit Cleaning Report</strong> when done.
+            </p>
+            <p className="text-[#d0954a] text-xs mt-1 leading-relaxed">
+              Can't make it? Tap the job and press <strong>Pass</strong> ASAP so we can contact the backup cleaner.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Content */}
-      <div className="px-4 py-5 space-y-3 max-w-lg mx-auto">
+      <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
 
         {/* ── MY JOBS TAB ── */}
         {tab === 'my-jobs' && (
