@@ -143,7 +143,7 @@ function JobDetailModal({
           {accepted && (
             <div className="bg-green-900/30 border border-green-600/50 rounded-xl px-4 py-3 flex items-center gap-2">
               <CheckCircle size={16} className="text-green-400" />
-              <p className="text-green-400 font-semibold text-sm">Job accepted! It's now in My Jobs.</p>
+              <p className="text-green-400 font-semibold text-sm">Job accepted! It's now in My Cleans.</p>
             </div>
           )}
 
@@ -361,7 +361,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
             tab === 'my-jobs' ? 'text-white' : 'text-[#3a5070] hover:text-[#b8d4f0]'
           }`}
         >
-          My Jobs
+          My Cleans
           {upcomingJobs.length > 0 && (
             <span className={`ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${
               tab === 'my-jobs' ? 'bg-[#4a90d9] text-white' : 'bg-[#1e2d45] text-[#4a90d9]'
@@ -377,7 +377,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
             tab === 'available' ? 'text-white' : 'text-[#3a5070] hover:text-[#b8d4f0]'
           }`}
         >
-          Available
+          Available Cleans
           {availableJobs.length > 0 && (
             <span className={`ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${
               tab === 'available' ? 'bg-[#d0954a] text-white' : 'bg-[#1a1800] text-[#d0954a]'
@@ -396,7 +396,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
           <div>
             <p className="text-[#b8d4f0] font-semibold text-sm">How It Works</p>
             <p className="text-[#3a5070] text-xs mt-1 leading-relaxed">
-              When you get a cleaning job email, tap <strong className="text-[#b8d4f0]">Available</strong> to accept or pass. On the day of your clean, tap the job in <strong className="text-[#b8d4f0]">My Jobs</strong> and hit <strong className="text-[#b8d4f0]">Submit Cleaning Report</strong> when done.
+              When you get a cleaning job email, tap <strong className="text-[#b8d4f0]">Available Cleans</strong> to accept or pass. On the day of your clean, tap the job in <strong className="text-[#b8d4f0]">My Cleans</strong> and hit <strong className="text-[#b8d4f0]">Submit Cleaning Report</strong> when done.
             </p>
             <p className="text-[#d0954a] text-xs mt-1 leading-relaxed">
               Can't make it? Tap the job and press <strong>Pass</strong> ASAP so we can contact the backup cleaner.
@@ -414,8 +414,8 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
             {myJobs.length === 0 ? (
               <div className="text-center py-16">
                 <Home size={36} className="text-[#1e2d45] mx-auto mb-3" />
-                <p className="text-[#3a5070] text-sm">No jobs assigned yet.</p>
-                <p className="text-[#1e2d45] text-xs mt-1">Check the Available tab for open jobs.</p>
+                <p className="text-[#3a5070] text-sm">No cleans assigned yet.</p>
+                <p className="text-[#1e2d45] text-xs mt-1">Check the Available Cleans tab for open jobs.</p>
               </div>
             ) : (
               <>
@@ -446,7 +446,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
             {availableJobs.length === 0 ? (
               <div className="text-center py-16">
                 <CheckCircle size={36} className="text-[#1e2d45] mx-auto mb-3" />
-                <p className="text-[#3a5070] text-sm">No available jobs right now.</p>
+                <p className="text-[#3a5070] text-sm">No available cleans right now.</p>
                 <p className="text-[#1e2d45] text-xs mt-1">Check back later for new openings.</p>
               </div>
             ) : (
