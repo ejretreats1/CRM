@@ -15,6 +15,7 @@ function rowToCleaner(r: any): Cleaner {
     agreementSignedAt: r.agreement_signed_at ?? undefined,
     status: r.status,
     createdAt: r.created_at,
+    dashboardToken: r.dashboard_token ?? undefined,
   };
 }
 
@@ -26,8 +27,8 @@ function cleanerToRow(c: Cleaner) {
     phone: c.phone ?? null,
     status: c.status,
     created_at: c.createdAt,
-    // Only include stripe_account_id if explicitly set — prevents clearing it on edit
-    ...(c.stripeAccountId !== undefined && { stripe_account_id: c.stripeAccountId }),
+    ...(c.stripeAccountId  !== undefined && { stripe_account_id: c.stripeAccountId }),
+    ...(c.dashboardToken   !== undefined && { dashboard_token: c.dashboardToken }),
   };
 }
 

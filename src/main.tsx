@@ -30,7 +30,7 @@ createRoot(document.getElementById('root')!).render(
     ) : onboardingToken ? (
       <OnboardingPage token={onboardingToken} />
     ) : cleanerDashboardId ? (
-      <CleanerDashboard cleanerId={cleanerDashboardId} />
+      <CleanerDashboard combined={cleanerDashboardId} />
     ) : (
       <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
         <App />

@@ -89,6 +89,7 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
         phone: (form.phone ?? '').trim() || undefined,
         status: form.status,
         createdAt: editing?.createdAt || now,
+        dashboardToken: editing?.dashboardToken || crypto.randomUUID(),
       };
       await onSave(cleaner);
       closeModal();

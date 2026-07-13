@@ -12,6 +12,7 @@ export interface Cleaner {
   agreementSignedAt?: string;
   status: 'active' | 'inactive';
   createdAt: string;
+  dashboardToken?: string;
 }
 
 export interface AssignedCleaner {

@@ -234,21 +234,24 @@ function JobDetailModal({
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export default function CleanerDashboard({ cleanerId }: { cleanerId: string }) {
+export default function CleanerDashboard({ combined }: { combined: string }) {
+  const colonIdx = combined.indexOf(':');
+  const cleanerId = colonIdx === -1 ? combined : combined.slice(0, colonIdx);
+
   const [data, setData] = useState<DashData | null>(null);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<'my-jobs' | 'available'>('my-jobs');
   const [selectedJob, setSelectedJob] = useState<DashJob | null>(null);
 
   useEffect(() => {
-    fetch(`/api/documents?flow=cleaner-dashboard&cleanerId=${encodeURIComponent(cleanerId)}`)
+    fetch(`/api/documents?flow=cleaner-dashboard&cleanerId=${encodeURIComponent(combined)}`)
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error);
         else setData(d);
       })
       .catch(() => setError('Failed to load. Please try again.'));
-  }, [cleanerId]);
+  }, [combined]);
 
   function handleAccepted(jobId: string) {
     if (!data) return;
