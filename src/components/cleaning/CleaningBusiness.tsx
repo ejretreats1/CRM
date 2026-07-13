@@ -17,7 +17,7 @@ import {
   type CleaningSop,
   fetchCleaners, upsertCleaner, deleteCleaner,
   fetchPropertyConfigs, upsertPropertyConfig, deletePropertyConfig,
-  fetchCleaningJobs, upsertCleaningJob, bulkUpsertCleaningJobs, deleteCleaningJob,
+  fetchCleaningJobs, upsertCleaningJob, bulkUpsertCleaningJobs, deleteCleaningJob, deleteCleaningJobsByProperty,
   fetchCleaningLeads, upsertCleaningLead, bulkUpsertCleaningLeads, deleteCleaningLead,
   fetchCleaningSops, upsertCleaningSop, deleteCleaningSop,
 } from '../../services/cleaningDb';
@@ -403,8 +403,13 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
     }
   }
   async function handleDeleteConfig(id: string) {
+    const config = configs.find(c => c.id === id);
     await deletePropertyConfig(id);
     setConfigs(prev => prev.filter(c => c.id !== id));
+    if (config?.propertyId) {
+      await deleteCleaningJobsByProperty(config.propertyId);
+      setJobs(prev => prev.filter(j => j.propertyId !== config.propertyId));
+    }
   }
 
   // Jobs

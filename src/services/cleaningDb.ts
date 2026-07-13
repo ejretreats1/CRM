@@ -189,6 +189,11 @@ export async function bulkUpsertCleaningJobs(jobs: CleaningJob[]): Promise<void>
   if (error) throw error;
 }
 
+export async function deleteCleaningJobsByProperty(propertyId: string): Promise<void> {
+  const { error } = await supabase.from('cleaning_jobs').delete().eq('property_id', propertyId);
+  if (error) throw error;
+}
+
 export async function deleteCleaningJob(id: string): Promise<void> {
   const { error } = await supabase.from('cleaning_jobs').delete().eq('id', id);
   if (error) throw error;
