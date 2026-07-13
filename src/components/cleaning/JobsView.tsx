@@ -289,7 +289,7 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="sticky top-0 z-10 bg-[#0f1923] pb-3 -mx-4 px-4 pt-1 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">Jobs</h1>
           <p className="text-sm text-[#3a5070] mt-0.5">{jobs.length} total · {jobs.filter(j => j.status === 'pending').length} pending dispatch</p>
