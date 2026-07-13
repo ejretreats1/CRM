@@ -874,6 +874,66 @@ async function cleaningGet(combined: string, res: VercelResponse) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningCancellation(body: any, res: VercelResponse) {
+  const { jobId } = body;
+  if (!jobId) return res.status(400).json({ error: 'jobId required.' });
+
+  const supabase = getSupabase();
+  const { data: job } = await supabase
+    .from('cleaning_jobs')
+    .select('id, property_name, checkout_date, assigned_cleaner_id, dispatch_tokens')
+    .eq('id', jobId)
+    .single();
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
+
+  const propertyName = job.property_name ?? 'the property';
+  const dateLabel = job.checkout_date
+    ? new Date(job.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    : '';
+
+  const toNotify: { name: string; email: string }[] = [];
+
+  if (job.assigned_cleaner_id) {
+    const { data: cleaner } = await supabase.from('cleaners').select('name, email').eq('id', job.assigned_cleaner_id).single();
+    if (cleaner?.email) toNotify.push({ name: cleaner.name, email: cleaner.email });
+  }
+
+  if (toNotify.length === 0 && job.dispatch_tokens) {
+    const tokens = job.dispatch_tokens as Record<string, { cleanerName: string; cleanerEmail: string }>;
+    for (const t of Object.values(tokens)) {
+      if (t.cleanerEmail) toNotify.push({ name: t.cleanerName, email: t.cleanerEmail });
+    }
+  }
+
+  if (toNotify.length === 0) return res.json({ notified: 0 });
+
+  const sg = getSendGrid();
+  let notified = 0;
+  for (const c of toNotify) {
+    const subject = `Cleaning Cancelled — ${propertyName}${dateLabel ? ` (${dateLabel})` : ''}`;
+    const html = `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0f1923;color:#b8d4f0;border-radius:12px;padding:32px">
+        <h2 style="color:#e05c5c;margin-top:0">🚫 Cleaning Cancelled</h2>
+        <p style="color:#b8d4f0">Hi ${c.name},</p>
+        <p style="color:#b8d4f0">The cleaning job at <strong style="color:#fff">${propertyName}</strong>${dateLabel ? ` scheduled for <strong style="color:#fff">${dateLabel}</strong>` : ''} has been <strong style="color:#e05c5c">cancelled</strong>.</p>
+        <div style="background:#1a0e0e;border:1px solid #3a1a1a;border-radius:10px;padding:16px;margin:20px 0;text-align:center">
+          <p style="color:#e05c5c;font-size:16px;font-weight:700;margin:0">You do not need to come — please disregard this assignment.</p>
+        </div>
+        <p style="color:#b8d4f0">Sorry for any inconvenience. We'll be in touch with your next assignment soon.</p>
+        <p style="color:#3a5070;font-size:13px;margin-top:32px">— E&amp;J Retreats Cleaning</p>
+      </div>
+    `;
+    try {
+      await sg.send({ to: c.email, from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>', subject, html });
+      notified++;
+    } catch (e) {
+      console.error('Cancellation email error:', c.email, e);
+    }
+  }
+
+  return res.json({ notified });
+}
+
 async function cleaningDispatch(body: any, res: VercelResponse) {
   const { jobId, propertyName, checkoutDate, checkinDate, guestName, notes, cleaners, appUrl } = body;
 
@@ -3590,6 +3650,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'dashboard-decline') return await cleanerDashboardDecline(body, res);
     if (action === 'send-portal-link') return await cleanerSendPortalLink(body, res);
   } else if (flow === 'cleaning') {
+    if (action === 'cancellation')      return await cleaningCancellation(body, res);
     if (action === 'dispatch')          return await cleaningDispatch(body, res);
     if (action === 'accept')            return await cleaningAccept(body, res);
     if (action === 'decline')           return await cleaningDecline(body, res);

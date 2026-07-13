@@ -144,6 +144,13 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
     if (status === 'completed') updates.completedAt = now;
     if (status === 'accepted')  updates.acceptedAt  = now;
     await onUpdateJob({ ...job, ...updates });
+    if (status === 'cancelled' && (job.assignedCleanerId || job.dispatchedAt)) {
+      fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'cancellation', jobId: job.id }),
+      }).catch(console.error);
+    }
   }
 
   const [undoing, setUndoing] = useState<string | null>(null);
