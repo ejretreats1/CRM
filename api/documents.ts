@@ -1479,6 +1479,93 @@ async function cleanerSendPortalLink(body: any, res: VercelResponse) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleanerBroadcastResetup(_body: any, res: VercelResponse) {
+  const supabase = getSupabase();
+  const { data: cleaners } = await supabase
+    .from('cleaners')
+    .select('id, name, email, dashboard_token')
+    .eq('status', 'active')
+    .not('dashboard_token', 'is', null);
+
+  if (!cleaners?.length) return res.status(200).json({ sent: 0 });
+
+  const resend = await getResend();
+  let sent = 0;
+
+  for (const cleaner of cleaners) {
+    if (!cleaner.email || !cleaner.dashboard_token) continue;
+
+    const nameSlug = cleaner.name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+    const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${nameSlug}:${cleaner.id}:${cleaner.dashboard_token}`;
+    const firstName = cleaner.name.split(' ')[0];
+    const portalAppName = `${cleaner.name} Cleaner Portal`;
+    const subject = `Action needed: Re-save your Cleaner Portal app`;
+
+    const _r = await resend.emails.send({
+      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+      to: cleaner.email,
+      subject,
+      html: `
+        <div style="font-family:sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f8fafc">
+          <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+            <h2 style="color:#dc2626;margin:0 0 16px;font-size:20px">📱 Important: Please Re-Save Your App</h2>
+
+            <p style="color:#334155;margin:0 0 12px">Hi ${firstName},</p>
+            <p style="color:#334155;margin:0 0 16px">We recently fixed an issue with the Cleaner Portal app on your phone's home screen. If you previously saved the portal as a shortcut, <strong>it may be opening the wrong page</strong>. Please follow the steps below to remove the old shortcut and re-save it correctly — it only takes about 30 seconds.</p>
+
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin:0 0 24px">
+              <p style="margin:0 0 8px;font-weight:700;color:#991b1b;font-size:14px">Step 1 — Delete the old shortcut from your home screen</p>
+              <p style="margin:0;color:#7f1d1d;font-size:13px">Press and hold the <strong>${portalAppName}</strong> icon on your home screen, then delete or remove it.</p>
+            </div>
+
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:20px;margin:0 0 24px;text-align:center">
+              <p style="margin:0 0 6px;font-size:13px;color:#1e40af;font-weight:700;letter-spacing:0.05em">Step 2 — Open your portal from this link</p>
+              <a href="${portalUrl}" style="display:inline-block;background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;margin:8px 0">${portalAppName}</a>
+              <p style="margin:10px 0 0;font-size:11px;color:#64748b;word-break:break-all">${portalUrl}</p>
+            </div>
+
+            <p style="color:#1e293b;font-weight:700;font-size:15px;margin:0 0 12px">Step 3 — Re-save it to your home screen</p>
+
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin:0 0 16px">
+              <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#0f172a">🍎 iPhone (Safari)</p>
+              <ol style="margin:0;padding-left:20px;color:#334155;font-size:13px;line-height:2">
+                <li>Open the link above in <strong>Safari</strong> (not Chrome)</li>
+                <li>Tap the <strong>Share button</strong> <span style="background:#e2e8f0;padding:1px 5px;border-radius:4px;font-size:12px">⬆</span> at the bottom</li>
+                <li>Tap <strong>"Add to Home Screen"</strong></li>
+                <li>Set the name to <strong>${portalAppName}</strong> and tap <strong>Add</strong></li>
+              </ol>
+            </div>
+
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin:0 0 24px">
+              <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#0f172a">🤖 Android (Chrome)</p>
+              <ol style="margin:0;padding-left:20px;color:#334155;font-size:13px;line-height:2">
+                <li>Open the link above in <strong>Chrome</strong></li>
+                <li>Tap the <strong>three dots menu</strong> <span style="background:#e2e8f0;padding:1px 5px;border-radius:4px;font-size:12px">⋮</span> in the top right</li>
+                <li>Tap <strong>"Add to Home screen"</strong></li>
+                <li>Set the name to <strong>${portalAppName}</strong> and tap <strong>Add</strong></li>
+              </ol>
+            </div>
+
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;margin:0 0 20px">
+              <p style="margin:0;color:#166534;font-size:13px">Once saved, the new shortcut will open <strong>only your personal dashboard</strong> — not the full CRM. Everything else works the same as before.</p>
+            </div>
+
+            <p style="color:#94a3b8;font-size:12px;margin:0;text-align:center">Questions? Contact E&amp;J Retreats anytime.<br>— E&amp;J Retreats</p>
+          </div>
+        </div>
+      `,
+    }).catch(() => null);
+
+    if (_r?.id) {
+      await logEmail(_r.id, 'cleaning-portal-resetup', cleaner.email, subject, cleaner.id, cleaner.name);
+      sent++;
+    }
+  }
+
+  return res.status(200).json({ sent });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleanerConnectSend(body: any, res: VercelResponse) {
   const { cleanerId, appUrl, sendEmail } = body;
   if (!cleanerId) return res.status(400).json({ error: 'cleanerId required.' });
@@ -3740,7 +3827,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'connect-url')     return await cleanerConnectUrl(body, res);
     if (action === 'dashboard-accept') return await cleanerDashboardAccept(body, res);
     if (action === 'dashboard-decline') return await cleanerDashboardDecline(body, res);
-    if (action === 'send-portal-link') return await cleanerSendPortalLink(body, res);
+    if (action === 'send-portal-link')   return await cleanerSendPortalLink(body, res);
+    if (action === 'broadcast-resetup')  return await cleanerBroadcastResetup(body, res);
   } else if (flow === 'cleaning') {
     if (action === 'cancellation')      return await cleaningCancellation(body, res);
     if (action === 'manual-charge')     return await manualClientCharge(body, res);
