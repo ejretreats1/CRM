@@ -374,20 +374,32 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
       const exists = prev.find(x => x.id === c.id);
       return exists ? prev.map(x => x.id === c.id ? c : x) : [c, ...prev];
     });
-    // Auto-sync cleaning fee to any uncharged jobs for this property
+    // Auto-sync client fee + cleaner payout to any uncharged/unpaid jobs for this property
     const now = new Date().toISOString();
-    const toUpdate = jobs.filter(j =>
-      j.propertyId === c.propertyId && !j.chargedAt && j.cleaningFee !== c.cleaningFee
-    );
-    await Promise.all(toUpdate.map(j =>
-      upsertCleaningJob({ ...j, cleaningFee: c.cleaningFee, updatedAt: now })
-    ));
+    const payoutMap = new Map(c.assignedCleaners.map(ac => [ac.id, ac.payout]));
+    const toUpdate = jobs.filter(j => {
+      if (j.propertyId !== c.propertyId) return false;
+      if (j.chargedAt || j.payoutSentAt) return false;
+      const feeChanged = j.cleaningFee !== c.cleaningFee;
+      const configuredPayout = j.assignedCleanerId ? payoutMap.get(j.assignedCleanerId) : undefined;
+      const payoutChanged = configuredPayout !== undefined && j.cleanerPayout !== configuredPayout;
+      return feeChanged || payoutChanged;
+    });
+    await Promise.all(toUpdate.map(j => {
+      const configuredPayout = j.assignedCleanerId ? payoutMap.get(j.assignedCleanerId) : undefined;
+      return upsertCleaningJob({
+        ...j,
+        cleaningFee: c.cleaningFee,
+        cleanerPayout: configuredPayout ?? j.cleanerPayout,
+        updatedAt: now,
+      });
+    }));
     if (toUpdate.length > 0) {
-      setJobs(prev => prev.map(j =>
-        j.propertyId === c.propertyId && !j.chargedAt && j.cleaningFee !== c.cleaningFee
-          ? { ...j, cleaningFee: c.cleaningFee, updatedAt: now }
-          : j
-      ));
+      setJobs(prev => prev.map(j => {
+        if (j.propertyId !== c.propertyId || j.chargedAt || j.payoutSentAt) return j;
+        const configuredPayout = j.assignedCleanerId ? payoutMap.get(j.assignedCleanerId) : undefined;
+        return { ...j, cleaningFee: c.cleaningFee, cleanerPayout: configuredPayout ?? j.cleanerPayout, updatedAt: now };
+      }));
     }
   }
   async function handleDeleteConfig(id: string) {
