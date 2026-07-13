@@ -2304,6 +2304,9 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
   function enrichJob(row: any, myPayout?: number) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cfg = (configs ?? []).find((c: any) => c.property_id === row.property_id);
+    // Find this cleaner's dispatch token so the dashboard can link to the job portal
+    const tokens = (row.dispatch_tokens ?? {}) as Record<string, { cleanerId: string; payout?: number }>;
+    const portalToken = Object.entries(tokens).find(([, t]) => t.cleanerId === cleanerId)?.[0] ?? null;
     return {
       id: row.id,
       propertyId: row.property_id,
@@ -2319,15 +2322,17 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
       checkoutTime: cfg?.checkout_time ?? null,
       checkinTime: cfg?.checkin_time ?? null,
       photoUrl: cfg?.photo_url ?? null,
+      portalToken,
     };
   }
 
-  // Available = dispatched jobs where this cleaner has a token
+  // Available = ALL dispatched jobs (cleaner may have been emailed or found it in dashboard).
+  // If this cleaner has a specific payout in dispatch_tokens, use that; otherwise use job default.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const availableJobs = (dispatchedRows ?? []).flatMap((row: any) => {
+  const availableJobs = (dispatchedRows ?? []).map((row: any) => {
     const tokens = (row.dispatch_tokens ?? {}) as Record<string, { cleanerId: string; payout?: number }>;
     const entry = Object.values(tokens).find(t => t.cleanerId === cleanerId);
-    return entry ? [enrichJob(row, entry.payout)] : [];
+    return enrichJob(row, entry?.payout);
   });
 
   return res.status(200).json({
@@ -2348,12 +2353,12 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
   if (!jobId || !cleanerId) return res.status(400).json({ error: 'Missing jobId or cleanerId.' });
 
   const supabase = getSupabase();
-  const { data: row } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
+  const [{ data: row }, { data: cleanerRow }] = await Promise.all([
+    supabase.from('cleaning_jobs').select('*').eq('id', jobId).single(),
+    supabase.from('cleaners').select('id, name').eq('id', cleanerId).single(),
+  ]);
   if (!row) return res.status(404).json({ error: 'Job not found.' });
-
-  const tokens = (row.dispatch_tokens ?? {}) as Record<string, { cleanerId: string; cleanerName: string; payout?: number }>;
-  const cleanerInfo = Object.values(tokens).find(t => t.cleanerId === cleanerId);
-  if (!cleanerInfo) return res.status(403).json({ error: 'You are not eligible for this job.' });
+  if (!cleanerRow) return res.status(403).json({ error: 'Cleaner not found.' });
 
   if (['accepted', 'in_progress', 'completed'].includes(row.status)) {
     if (row.assigned_cleaner_id === cleanerId) return res.status(200).json({ alreadyAccepted: true });
@@ -2361,12 +2366,17 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
   }
   if (row.status === 'cancelled') return res.status(410).json({ error: 'This job has been cancelled.' });
 
+  // Use this cleaner's specific payout from dispatch_tokens if available, else job default
+  const tokens = (row.dispatch_tokens ?? {}) as Record<string, { cleanerId: string; cleanerName: string; payout?: number }>;
+  const dispatchEntry = Object.values(tokens).find(t => t.cleanerId === cleanerId);
+  const payout = dispatchEntry?.payout ?? row.cleaner_payout ?? 0;
+
   const now = new Date().toISOString();
   const { data: updated, error } = await supabase.from('cleaning_jobs').update({
     status: 'accepted',
-    assigned_cleaner_id: cleanerInfo.cleanerId,
-    assigned_cleaner_name: cleanerInfo.cleanerName,
-    cleaner_payout: cleanerInfo.payout ?? 0,
+    assigned_cleaner_id: cleanerId,
+    assigned_cleaner_name: cleanerRow.name,
+    cleaner_payout: payout,
     accepted_at: now,
     updated_at: now,
   }).eq('id', jobId).in('status', ['dispatched', 'pending']).select('id');
@@ -2377,8 +2387,8 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
   await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: 'ejretreats1@gmail.com',
-    subject: `✅ ${cleanerInfo.cleanerName} accepted: ${row.property_name}`,
-    html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${cleanerInfo.cleanerName}</strong> accepted the cleaning job for <strong>${row.property_name}</strong> on ${new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}.</p></div>`,
+    subject: `✅ ${cleanerRow.name} accepted: ${row.property_name}`,
+    html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${cleanerRow.name}</strong> accepted the cleaning job for <strong>${row.property_name}</strong> on ${new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}.</p></div>`,
   }).catch(() => {});
 
   return res.status(200).json({ success: true });
