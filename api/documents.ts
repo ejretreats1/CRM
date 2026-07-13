@@ -2388,6 +2388,76 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
   return res.status(200).json({ success: true });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleanerDashboardDecline(body: any, res: VercelResponse) {
+  const { jobId, cleanerId } = body;
+  if (!jobId || !cleanerId) return res.status(400).json({ error: 'Missing jobId or cleanerId.' });
+
+  const supabase = getSupabase();
+  const { data: row } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
+  if (!row) return res.status(404).json({ error: 'Job not found.' });
+  if (row.status !== 'dispatched') return res.status(409).json({ error: 'This job is no longer available.' });
+
+  // Find the cleaner's token in dispatch_tokens
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tokens = (row.dispatch_tokens ?? {}) as Record<string, any>;
+  const token = Object.entries(tokens).find(([, t]) => t.cleanerId === cleanerId)?.[0];
+  if (!token) return res.status(403).json({ error: 'You were not dispatched to this job.' });
+
+  const dispatchOrder = (row.dispatch_order ?? []) as string[];
+  const currentIndex = row.dispatch_index ?? 0;
+
+  if (dispatchOrder[currentIndex] !== token) {
+    return res.status(400).json({ error: 'You have already passed on this job.' });
+  }
+
+  const nextIndex = currentIndex + 1;
+  const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  });
+  const base = 'https://crm-nine-delta-37.vercel.app';
+
+  if (nextIndex >= dispatchOrder.length) {
+    await supabase.from('cleaning_jobs').update({
+      status: 'pending',
+      dispatch_index: nextIndex,
+      updated_at: new Date().toISOString(),
+    }).eq('id', jobId);
+    await (await getResend()).emails.send({
+      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+      to: 'ejretreats1@gmail.com',
+      subject: `⚠️ No cleaners available: ${row.property_name} – ${dateLabel}`,
+      html: `<div style="font-family:sans-serif;padding:24px"><p>All cleaners passed on <strong>${row.property_name}</strong> (${dateLabel}). The job has been reverted to pending.</p></div>`,
+    }).catch(() => {});
+    return res.status(200).json({ success: true });
+  }
+
+  // Notify next cleaner
+  const nextToken = dispatchOrder[nextIndex];
+  const nextInfo = tokens[nextToken];
+  await supabase.from('cleaning_jobs').update({
+    dispatch_index: nextIndex,
+    updated_at: new Date().toISOString(),
+  }).eq('id', jobId);
+
+  if (nextInfo) {
+    const nextCleanerRow = nextInfo.cleanerId
+      ? (await supabase.from('cleaners').select('email,name').eq('id', nextInfo.cleanerId).single()).data
+      : null;
+    if (nextCleanerRow?.email) {
+      const portalUrl = `${base}/?cleaner=${jobId}:${nextToken}`;
+      await (await getResend()).emails.send({
+        from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+        to: nextCleanerRow.email,
+        subject: `🧹 Cleaning job available: ${row.property_name} – ${dateLabel}`,
+        html: `<div style="font-family:sans-serif;padding:24px"><p>Hi ${nextCleanerRow.name},</p><p>A cleaning job is available at <strong>${row.property_name}</strong> on ${dateLabel}.</p><p><a href="${portalUrl}" style="background:#1d4ed8;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px">View &amp; Accept Job</a></p></div>`,
+      }).catch(() => {});
+    }
+  }
+
+  return res.status(200).json({ success: true });
+}
+
 // ── EMAIL MARKETING ──────────────────────────────────────────────────────────
 
 async function emailMktGetTemplates(res: VercelResponse) {
@@ -3425,6 +3495,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'send-connect')    return await cleanerConnectSend(body, res);
     if (action === 'connect-url')     return await cleanerConnectUrl(body, res);
     if (action === 'dashboard-accept') return await cleanerDashboardAccept(body, res);
+    if (action === 'dashboard-decline') return await cleanerDashboardDecline(body, res);
     if (action === 'send-portal-link') return await cleanerSendPortalLink(body, res);
   } else if (flow === 'cleaning') {
     if (action === 'dispatch')          return await cleaningDispatch(body, res);
