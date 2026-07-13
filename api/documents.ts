@@ -874,6 +874,40 @@ async function cleaningGet(combined: string, res: VercelResponse) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function manualClientCharge(body: any, res: VercelResponse) {
+  const { propertyId, amount, description } = body;
+  if (!propertyId || !amount || Number(amount) <= 0)
+    return res.status(400).json({ error: 'propertyId and a positive amount are required.' });
+
+  const supabase = getSupabase();
+  const { data: config } = await supabase
+    .from('cleaning_property_configs')
+    .select('property_name, client_name, stripe_customer_id, stripe_payment_method_id')
+    .eq('property_id', propertyId)
+    .maybeSingle();
+  if (!config) return res.status(404).json({ error: 'Property not found.' });
+  if (!config.stripe_customer_id || !config.stripe_payment_method_id)
+    return res.status(400).json({ error: `${config.property_name} has no payment method on file — client onboarding not complete.` });
+
+  const stripe = await getStripe();
+  const amountCents = Math.round(Number(amount) * 100);
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: 'usd',
+      customer: config.stripe_customer_id,
+      payment_method: config.stripe_payment_method_id,
+      confirm: true,
+      off_session: true,
+      description: description?.trim() || `Manual charge — ${config.property_name}`,
+      metadata: { property_id: propertyId, type: 'manual_charge' },
+    }, { idempotencyKey: `manual_charge_${propertyId}_${Date.now()}` });
+    return res.json({ paymentIntentId: paymentIntent.id, amount: Number(amount), propertyName: config.property_name, clientName: config.client_name });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message ?? 'Charge failed.' });
+  }
+}
+
 async function manualCleanerPayout(body: any, res: VercelResponse) {
   const { cleanerId, amount, note } = body;
   if (!cleanerId || !amount || Number(amount) <= 0)
@@ -3677,6 +3711,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'send-portal-link') return await cleanerSendPortalLink(body, res);
   } else if (flow === 'cleaning') {
     if (action === 'cancellation')      return await cleaningCancellation(body, res);
+    if (action === 'manual-charge')     return await manualClientCharge(body, res);
     if (action === 'manual-payout')     return await manualCleanerPayout(body, res);
     if (action === 'dispatch')          return await cleaningDispatch(body, res);
     if (action === 'accept')            return await cleaningAccept(body, res);

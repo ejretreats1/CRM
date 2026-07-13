@@ -15,6 +15,7 @@ interface Props {
   onSyncJobs: (newJobs: CleaningJob[]) => Promise<void>;
   onUpdateJob: (job: CleaningJob) => Promise<void>;
   onDeleteJob?: (id: string) => Promise<void>;
+  onCleanupOrphans?: () => Promise<void>;
   autoSyncing?: boolean;
 }
 
@@ -59,7 +60,7 @@ interface ManualJobForm {
   notes: string;
 }
 
-export default function JobsView({ jobs, configs, cleaners, uplistingProperties, onSyncJobs, onUpdateJob, autoSyncing }: Props) {
+export default function JobsView({ jobs, configs, cleaners, uplistingProperties, onSyncJobs, onUpdateJob, onCleanupOrphans, autoSyncing }: Props) {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [dispatching, setDispatching] = useState<string | null>(null);
@@ -70,8 +71,19 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
     propertyId: '', propertyName: '', checkoutDate: '', guestName: '', notes: '',
   });
   const [savingManual, setSavingManual] = useState(false);
+  const [cleaningUp, setCleaningUp] = useState(false);
   const todayMarkerRef = useRef<HTMLDivElement | null>(null);
   const hasScrolled = useRef(false);
+
+  const configPropertyIds = new Set(configs.map(c => c.propertyId));
+  const orphanedCount = jobs.filter(j => !configPropertyIds.has(j.propertyId)).length;
+
+  async function handleCleanup() {
+    if (!onCleanupOrphans) return;
+    if (!confirm(`Delete ${orphanedCount} orphaned job${orphanedCount !== 1 ? 's' : ''} from deleted properties? This cannot be undone.`)) return;
+    setCleaningUp(true);
+    try { await onCleanupOrphans(); } finally { setCleaningUp(false); }
+  }
 
   const FILTERS: { id: StatusFilter; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -225,7 +237,17 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
           <h1 className="text-xl font-bold text-white">Jobs</h1>
           <p className="text-sm text-[#3a5070] mt-0.5">{jobs.length} total · {jobs.filter(j => j.status === 'pending').length} pending dispatch</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center flex-wrap">
+          {orphanedCount > 0 && onCleanupOrphans && (
+            <button
+              onClick={handleCleanup}
+              disabled={cleaningUp}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[#1a0e0e] border border-[#3a1a1a] text-[#e05c5c] text-xs font-semibold rounded-xl hover:bg-[#240e0e] transition-colors disabled:opacity-50"
+            >
+              <AlertCircle size={12} />
+              {cleaningUp ? 'Cleaning…' : `Clean up ${orphanedCount} orphaned`}
+            </button>
+          )}
           {autoSyncing && (
             <span className="flex items-center gap-1.5 px-3 py-2 text-[#3a5070] text-xs">
               <span className="w-2 h-2 rounded-full bg-[#4a90d9] animate-pulse" />

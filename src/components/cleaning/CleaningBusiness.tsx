@@ -158,6 +158,108 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties }: { j
 
 type PaymentFilter = 'all' | 'charged' | 'not_charged' | 'payout_sent';
 
+function ManualChargePanel({ configs }: { configs: CleaningPropertyConfig[] }) {
+  const [open, setOpen] = useState(false);
+  const [propertyId, setPropertyId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState('');
+  const [charging, setCharging] = useState(false);
+  const [result, setResult] = useState<{ ok: true; msg: string } | { ok: false; msg: string } | null>(null);
+
+  const selected = configs.find(c => c.propertyId === propertyId);
+
+  async function handleCharge() {
+    if (!propertyId || !amount || Number(amount) <= 0) return;
+    setCharging(true);
+    setResult(null);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'manual-charge', propertyId, amount: Number(amount), description }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error ?? 'Charge failed.');
+      setResult({ ok: true, msg: `$${Number(amount).toFixed(2)} charged to ${data.clientName || data.propertyName} via Stripe.` });
+      setAmount('');
+      setDescription('');
+    } catch (e) {
+      setResult({ ok: false, msg: e instanceof Error ? e.message : 'Charge failed.' });
+    } finally {
+      setCharging(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-0">
+      <button
+        onClick={() => { setOpen(o => !o); setResult(null); }}
+        className="flex items-center gap-2 px-3 py-1.5 bg-[#1a2335] border border-[#1e2d45] text-[#b8d4f0] text-xs font-semibold rounded-lg hover:bg-[#22304a] transition-colors"
+      >
+        <DollarSign size={12} />
+        Manual Charge
+        {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      </button>
+
+      {open && (
+        <div className="mt-3 bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Property / Client</label>
+              <select
+                className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
+                value={propertyId}
+                onChange={e => { setPropertyId(e.target.value); setResult(null); }}
+              >
+                <option value="">Select property…</option>
+                {configs.map(c => (
+                  <option key={c.propertyId} value={c.propertyId}>
+                    {c.propertyName}{!c.stripePaymentMethodId ? ' (no card on file)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Amount ($)</label>
+              <input
+                type="number" min="0.01" step="0.01" placeholder="0.00"
+                className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                value={amount}
+                onChange={e => { setAmount(e.target.value); setResult(null); }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Description (optional)</label>
+              <input
+                type="text" placeholder="Extra charge, supplies, etc."
+                className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                value={description}
+                onChange={e => { setDescription(e.target.value); setResult(null); }}
+              />
+            </div>
+          </div>
+          {selected && !selected.stripePaymentMethodId && (
+            <p className="text-xs text-[#d0954a]">⚠ {selected.propertyName} has no card on file — client onboarding not complete.</p>
+          )}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={handleCharge}
+              disabled={charging || !propertyId || !amount || Number(amount) <= 0 || !selected?.stripePaymentMethodId}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#5ce0a0] text-[#0a2518] text-sm font-semibold rounded-xl hover:bg-[#6cf0b0] transition-colors disabled:opacity-50"
+            >
+              <DollarSign size={14} />
+              {charging ? 'Charging…' : 'Charge Client'}
+            </button>
+            {result && (
+              <p className={`text-xs font-medium ${result.ok ? 'text-[#5ce0a0]' : 'text-[#e05c5c]'}`}>{result.msg}</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ManualPayoutPanel({ cleaners }: { cleaners: Cleaner[] }) {
   const [open, setOpen] = useState(false);
   const [cleanerId, setCleanerId] = useState('');
@@ -265,10 +367,11 @@ function ManualPayoutPanel({ cleaners }: { cleaners: Cleaner[] }) {
 }
 
 function CleaningPayments({
-  jobs, cleaners, uplistingProperties, onRetryCharge,
+  jobs, cleaners, configs, uplistingProperties, onRetryCharge,
 }: {
   jobs: CleaningJob[];
   cleaners: Cleaner[];
+  configs: CleaningPropertyConfig[];
   uplistingProperties: UplistingProperty[];
   onRetryCharge: (job: CleaningJob) => Promise<void>;
 }) {
@@ -316,12 +419,15 @@ function CleaningPayments({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-white">Payments</h1>
           <p className="text-sm text-[#3a5070] mt-0.5">Client charges, cleaner payouts, and profit tracking</p>
         </div>
-        <ManualPayoutPanel cleaners={cleaners} />
+        <div className="flex gap-2 flex-wrap">
+          <ManualChargePanel configs={configs} />
+          <ManualPayoutPanel cleaners={cleaners} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -539,6 +645,12 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
   async function handleDeleteJob(id: string) {
     await deleteCleaningJob(id);
     setJobs(prev => prev.filter(j => j.id !== id));
+  }
+  async function handleCleanupOrphans() {
+    const configPropertyIds = new Set(configs.map(c => c.propertyId));
+    const orphanPropertyIds = [...new Set(jobs.filter(j => !configPropertyIds.has(j.propertyId)).map(j => j.propertyId))];
+    await Promise.all(orphanPropertyIds.map(pid => deleteCleaningJobsByProperty(pid)));
+    setJobs(prev => prev.filter(j => configPropertyIds.has(j.propertyId)));
   }
   // iCal sync
   async function handleSyncIcal(propertyId: string) {
@@ -813,6 +925,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
               onSyncJobs={handleSyncJobs}
               onUpdateJob={handleUpdateJob}
               onDeleteJob={handleDeleteJob}
+              onCleanupOrphans={handleCleanupOrphans}
               autoSyncing={autoSyncing}
             />
           )}
@@ -837,7 +950,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
             />
           )}
           {active === 'cleaning-payments' && (
-            <CleaningPayments jobs={jobs} cleaners={cleaners} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} />
+            <CleaningPayments jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} />
           )}
           {active === 'cleaning-leads' && (
             <CleaningLeadsView leads={leads} onSave={handleSaveLead} onBulkSave={handleBulkSaveLead} onDelete={handleDeleteLead} />
