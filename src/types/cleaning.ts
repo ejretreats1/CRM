@@ -52,6 +52,7 @@ export interface CleaningPortalData {
   checklist: Record<string, boolean>;
   photos: string[];
   damageNotes?: string;
+  damageMedia?: string[];
   submittedAt: string;
 }
 

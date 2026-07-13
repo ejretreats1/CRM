@@ -38,6 +38,7 @@ interface Props {
   onNavigate: (view: View) => void;
   reservations: UplistingReservation[];
   uplistingProperties: UplistingProperty[];
+  uplistingApiKey?: string;
 }
 
 function fmtCurrency(n: number) {
@@ -316,7 +317,7 @@ function CleaningPayments({
   );
 }
 
-export default function CleaningBusiness({ currentView, onNavigate, reservations, uplistingProperties }: Props) {
+export default function CleaningBusiness({ currentView, onNavigate, reservations, uplistingProperties, uplistingApiKey }: Props) {
   const active = (currentView as CleaningView) || 'cleaning-dashboard';
 
   const [cleaners, setCleaners] = useState<Cleaner[]>([]);
@@ -683,6 +684,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
               onDelete={handleDeleteConfig}
               onSyncIcal={handleSyncIcal}
               onSyncAllIcal={handleSyncAllIcal}
+              uplistingApiKey={uplistingApiKey}
             />
           )}
           {active === 'cleaning-cleaners' && (

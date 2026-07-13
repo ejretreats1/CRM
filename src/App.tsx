@@ -783,6 +783,7 @@ export default function App() {
           onNavigate={navigate}
           reservations={allReservations}
           uplistingProperties={allProperties}
+          uplistingApiKey={uplistingApiKey || undefined}
         />
       )}
 

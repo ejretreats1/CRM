@@ -56,6 +56,7 @@ export async function submitCleaningJob(
       flow: 'cleaning',
       action: 'submit',
       combined: `${jobId}:${token}`,
+      appUrl: window.location.origin,
       ...data,
     }),
   });

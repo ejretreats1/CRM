@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw, ChevronUp, ChevronDown, Download } from 'lucide-react';
+import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw, ChevronUp, ChevronDown, Download, ImagePlus } from 'lucide-react';
 import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl } from '../../types/cleaning';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
+import { fetchPropertyAllPhotos } from '../../services/uplisting';
 
 interface Props {
   configs: CleaningPropertyConfig[];
@@ -12,6 +13,7 @@ interface Props {
   onDelete: (id: string) => Promise<void>;
   onSyncIcal: (propertyId: string) => Promise<{ created: number; cancelled: number; errors: string[] }>;
   onSyncAllIcal?: () => Promise<{ created: number; cancelled: number; errors: string[]; properties: { property: string; created: number; cancelled: number; errors: string[] }[] }>;
+  uplistingApiKey?: string;
 }
 
 interface FormState {
@@ -48,13 +50,16 @@ function displayName(propertyId: string | undefined, propertyName: string, props
 
 const ICAL_PLATFORMS = ['Airbnb', 'VRBO', 'Booking.com', 'Guesty', 'Hostaway', 'Direct', 'Other'];
 
-export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete, onSyncIcal, onSyncAllIcal }: Props) {
+export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete, onSyncIcal, onSyncAllIcal, uplistingApiKey }: Props) {
   // --- Edit modal state ---
   const [editing, setEditing] = useState<CleaningPropertyConfig | null | 'new'>(null);
   const [form, setForm] = useState<FormState>({ ...EMPTY });
   const [manualEntry, setManualEntry] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [importingPhotos, setImportingPhotos] = useState(false);
+  const [importPhotoMsg, setImportPhotoMsg] = useState('');
 
   // --- iCal sync state ---
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -793,7 +798,38 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
 
               {/* Staging / listing photos */}
               <div>
-                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Staging Reference Photos</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-[#3a5070]">Staging Reference Photos</label>
+                  {uplistingApiKey && form.propertyId && (
+                    <button
+                      type="button"
+                      disabled={importingPhotos}
+                      onClick={async () => {
+                        setImportingPhotos(true);
+                        setImportPhotoMsg('');
+                        try {
+                          const urls = await fetchPropertyAllPhotos(uplistingApiKey, form.propertyId);
+                          if (urls.length === 0) { setImportPhotoMsg('No photos found on Uplisting for this property.'); return; }
+                          const existing = new Set(form.stagingPhotoUrls);
+                          const newUrls = urls.filter(u => !existing.has(u));
+                          setForm(f => ({ ...f, stagingPhotoUrls: [...f.stagingPhotoUrls, ...newUrls] }));
+                          setImportPhotoMsg(`Imported ${newUrls.length} photo${newUrls.length !== 1 ? 's' : ''}${urls.length - newUrls.length > 0 ? ` (${urls.length - newUrls.length} already added)` : ''}.`);
+                        } catch {
+                          setImportPhotoMsg('Import failed — check Uplisting connection.');
+                        } finally {
+                          setImportingPhotos(false);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-2.5 py-1 bg-[#0a1e35] border border-[#1e3a5a] text-[#4a90d9] text-xs font-semibold rounded-lg hover:bg-[#0f2a45] transition-colors disabled:opacity-50"
+                    >
+                      <ImagePlus size={12} className={importingPhotos ? 'animate-pulse' : ''} />
+                      {importingPhotos ? 'Importing…' : 'Import from Uplisting'}
+                    </button>
+                  )}
+                </div>
+                {importPhotoMsg && (
+                  <p className="text-xs text-[#4a90d9] mb-2">{importPhotoMsg}</p>
+                )}
                 <p className="text-xs text-[#2a4060] mb-2">Cleaners see these to know how the property should look. Airbnb listing photo auto-fills when you select a property above.</p>
                 {/* Main listing photo preview */}
                 {form.photoUrl && (

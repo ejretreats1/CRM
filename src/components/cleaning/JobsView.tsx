@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   RefreshCw, Plus, Send, CheckCircle, XCircle, Clock, AlertCircle, Home, User, DollarSign, Calendar, CreditCard,
+  ChevronDown, ChevronUp, Image, FileText,
 } from 'lucide-react';
 import type { CleaningJob, CleaningPropertyConfig, Cleaner } from '../../types/cleaning';
 import type { UplistingReservation, UplistingProperty } from '../../services/uplisting';
@@ -61,6 +62,7 @@ interface ManualJobForm {
 
 export default function JobsView({ jobs, configs, cleaners, reservations, uplistingProperties, onSyncJobs, onUpdateJob, autoSyncing }: Props) {
   const [filter, setFilter] = useState<StatusFilter>('all');
+  const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
   const [dispatching, setDispatching] = useState<string | null>(null);
@@ -359,6 +361,11 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
                         <span className="font-semibold text-white text-sm">{displayName(job.propertyId, job.propertyName, uplistingProperties)}</span>
                       </div>
                       <StatusBadge status={job.status} />
+                      {job.portalData && (job.portalData.damageNotes?.trim() || (job.portalData.damageMedia ?? []).length > 0) && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-[#2a0a0a] border-[#e05c5c] text-[#e05c5c]">
+                          🚨 Damage Reported
+                        </span>
+                      )}
                       {job.source === 'manual' && (
                         <span className="text-xs text-[#3a5070] border border-[#2a4060] rounded-full px-2 py-0.5">Manual</span>
                       )}
@@ -481,8 +488,110 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
                         Cancel
                       </button>
                     )}
+                    {job.status === 'completed' && job.portalData && (
+                      <button
+                        onClick={() => setExpandedReport(expandedReport === job.id ? null : job.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0a1e30] border border-[#1e3a5a] text-[#4a90d9] text-xs font-semibold rounded-lg hover:bg-[#0f2a40] transition-colors whitespace-nowrap"
+                      >
+                        <FileText size={12} />
+                        {expandedReport === job.id ? 'Hide' : 'View Report'}
+                        {expandedReport === job.id ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                      </button>
+                    )}
                   </div>
                 </div>
+
+                {/* Cleaning Report Panel */}
+                {expandedReport === job.id && job.portalData && (() => {
+                  const pd = job.portalData;
+                  const checkItems = Object.entries(pd.checklist);
+                  const doneCount = checkItems.filter(([, v]) => v).length;
+                  return (
+                    <div className="mt-4 pt-4 border-t border-[#1e2d45] space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-[#b8d4f0]">Cleaning Report</p>
+                        <p className="text-xs text-[#3a5070]">
+                          Submitted {new Date(pd.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        </p>
+                      </div>
+
+                      {/* Checklist */}
+                      {checkItems.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-[#3a5070] mb-2">
+                            Checklist — {doneCount}/{checkItems.length} completed
+                          </p>
+                          <div className="grid grid-cols-2 gap-1">
+                            {checkItems.map(([item, done]) => (
+                              <div key={item} className="flex items-center gap-1.5 text-xs">
+                                {done
+                                  ? <CheckCircle size={12} className="text-[#5ce0a0] flex-shrink-0" />
+                                  : <XCircle size={12} className="text-[#e05c5c] flex-shrink-0" />
+                                }
+                                <span className={done ? 'text-[#b8d4f0]' : 'text-[#e05c5c]'}>{item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Cleaning Photos */}
+                      {pd.photos.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-[#3a5070] mb-2 flex items-center gap-1.5">
+                            <Image size={12} />
+                            {pd.photos.length} Cleaning Photo{pd.photos.length !== 1 ? 's' : ''}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {pd.photos.map((url, i) => (
+                              <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                                <img src={url} alt={`Photo ${i + 1}`} className="w-20 h-20 object-cover rounded-lg border border-[#1e2d45] hover:border-[#4a90d9] transition-colors" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Damage Notes */}
+                      {pd.damageNotes && (
+                        <div className="bg-[#1a0e0e] border border-[#3a1a1a] rounded-xl p-3">
+                          <p className="text-xs font-semibold text-[#e05c5c] mb-1">Damage / Notes</p>
+                          <p className="text-xs text-[#f0b8b8] whitespace-pre-wrap">{pd.damageNotes}</p>
+                        </div>
+                      )}
+
+                      {/* Damage Media */}
+                      {pd.damageMedia && pd.damageMedia.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-[#e05c5c] mb-2">
+                            {pd.damageMedia.length} Damage Media File{pd.damageMedia.length !== 1 ? 's' : ''}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {pd.damageMedia.map((url, i) => {
+                              const isVideo = url.startsWith('data:video') || /\.(mp4|webm|mov)$/i.test(url);
+                              return isVideo ? (
+                                <video
+                                  key={i}
+                                  src={url}
+                                  controls
+                                  className="w-28 h-20 object-cover rounded-lg border-2 border-[#e05c5c]"
+                                />
+                              ) : (
+                                <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                                  <img src={url} alt={`Damage ${i + 1}`} className="w-20 h-20 object-cover rounded-lg border-2 border-[#e05c5c] hover:opacity-80 transition-opacity" />
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {!pd.damageNotes && (!pd.damageMedia || pd.damageMedia.length === 0) && (
+                        <p className="text-xs text-[#3a5070] italic">No damage reported.</p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
