@@ -1,17 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  RefreshCw, Plus, Send, CheckCircle, XCircle, Clock, AlertCircle, Home, User, DollarSign, Calendar, CreditCard,
+  Plus, Send, CheckCircle, XCircle, Clock, AlertCircle, Home, User, DollarSign, Calendar, CreditCard,
   ChevronDown, ChevronUp, Image, FileText,
 } from 'lucide-react';
 import type { CleaningJob, CleaningPropertyConfig, Cleaner } from '../../types/cleaning';
-import type { UplistingReservation, UplistingProperty } from '../../services/uplisting';
+import type { UplistingProperty } from '../../services/uplisting';
 import { dispatchCleaningJob } from '../../services/cleaningApi';
 
 interface Props {
   jobs: CleaningJob[];
   configs: CleaningPropertyConfig[];
   cleaners: Cleaner[];
-  reservations: UplistingReservation[];
   uplistingProperties: UplistingProperty[];
   onSyncJobs: (newJobs: CleaningJob[]) => Promise<void>;
   onUpdateJob: (job: CleaningJob) => Promise<void>;
@@ -60,11 +59,9 @@ interface ManualJobForm {
   notes: string;
 }
 
-export default function JobsView({ jobs, configs, cleaners, reservations, uplistingProperties, onSyncJobs, onUpdateJob, autoSyncing }: Props) {
+export default function JobsView({ jobs, configs, cleaners, uplistingProperties, onSyncJobs, onUpdateJob, autoSyncing }: Props) {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState('');
   const [dispatching, setDispatching] = useState<string | null>(null);
   const [charging, setCharging] = useState<string | null>(null);
   const [chargeErrors, setChargeErrors] = useState<Record<string, string>>({});
@@ -73,8 +70,6 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
     propertyId: '', propertyName: '', checkoutDate: '', guestName: '', notes: '',
   });
   const [savingManual, setSavingManual] = useState(false);
-  const [syncingFees, setSyncingFees] = useState(false);
-  const [feesSyncMsg, setFeesSyncMsg] = useState('');
   const todayMarkerRef = useRef<HTMLDivElement | null>(null);
   const hasScrolled = useRef(false);
 
@@ -102,77 +97,6 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
   }, [todayJobId]);
 
   const configMap = new Map(configs.map(c => [c.propertyId, c]));
-  const existingReservationIds = new Set(jobs.map(j => j.reservationId).filter(Boolean));
-
-  async function handleSyncFees() {
-    const toUpdate = jobs.filter(j => {
-      if (j.chargedAt) return false; // never touch already-charged jobs
-      const cfg = configMap.get(j.propertyId ?? '');
-      return cfg && (cfg.cleaningFee !== j.cleaningFee);
-    });
-    if (!toUpdate.length) { setFeesSyncMsg('All uncharged jobs already match.'); return; }
-    setSyncingFees(true);
-    setFeesSyncMsg('');
-    try {
-      await Promise.all(toUpdate.map(j => {
-        const cfg = configMap.get(j.propertyId ?? '')!;
-        return onUpdateJob({ ...j, cleaningFee: cfg.cleaningFee, updatedAt: new Date().toISOString() });
-      }));
-      setFeesSyncMsg(`Updated ${toUpdate.length} job${toUpdate.length !== 1 ? 's' : ''}.`);
-    } catch {
-      setFeesSyncMsg('Update failed — please try again.');
-    } finally {
-      setSyncingFees(false);
-    }
-  }
-
-  async function handleSync() {
-    setSyncing(true);
-    setSyncMsg('');
-    try {
-      const today = new Date();
-      const windowStart = new Date(today); windowStart.setDate(today.getDate() - 14);
-      const startStr = windowStart.toISOString().slice(0, 10);
-
-      const relevant = reservations.filter(r => {
-        if (!r.check_out) return false;
-        if (r.check_out < startStr) return false; // skip checkouts older than 14 days
-        if (!configMap.has(r.listing_id)) return false;
-        if (existingReservationIds.has(r.id)) return false;
-        return true;
-      });
-
-      if (relevant.length === 0) {
-        setSyncMsg('All reservations are already synced — no new jobs created.');
-        return;
-      }
-
-      const now = new Date().toISOString();
-      const newJobs: CleaningJob[] = relevant.map(r => {
-        const config = configMap.get(r.listing_id)!;
-        return {
-          id: `cj_${Date.now()}_${r.id}`,
-          reservationId: r.id,
-          propertyId: r.listing_id,
-          propertyName: config.propertyName,
-          guestName: r.guest_name || undefined,
-          checkoutDate: r.check_out,
-          checkinDate: undefined,
-          status: 'pending' as const,
-          cleaningFee: config.cleaningFee,
-          cleanerPayout: 0, // set when cleaner accepts (each has own negotiated rate)
-          source: 'uplisting' as const,
-          createdAt: now,
-          updatedAt: now,
-        };
-      });
-
-      await onSyncJobs(newJobs);
-      setSyncMsg(`✓ ${newJobs.length} new job${newJobs.length === 1 ? '' : 's'} created from Uplisting checkouts.`);
-    } finally {
-      setSyncing(false);
-    }
-  }
 
   async function handleDispatch(job: CleaningJob) {
     const config = configMap.get(job.propertyId);
@@ -295,23 +219,12 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
           <p className="text-sm text-[#3a5070] mt-0.5">{jobs.length} total · {jobs.filter(j => j.status === 'pending').length} pending dispatch</p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={handleSyncFees}
-            disabled={syncingFees}
-            title="Update all uncharged jobs to use the current cleaning fee from Properties"
-            className="flex items-center gap-2 px-3 py-2 bg-[#162035] border border-[#1e3a5a] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors disabled:opacity-50"
-          >
-            <DollarSign size={14} className={syncingFees ? 'animate-pulse' : ''} />
-            {syncingFees ? 'Syncing…' : 'Sync Fees'}
-          </button>
-          <button
-            onClick={handleSync}
-            disabled={syncing || autoSyncing}
-            className="flex items-center gap-2 px-3 py-2 bg-[#162035] border border-[#1e3a5a] text-[#4a90d9] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={syncing || autoSyncing ? 'animate-spin' : ''} />
-            {autoSyncing ? 'Auto-syncing…' : 'Sync Uplisting'}
-          </button>
+          {autoSyncing && (
+            <span className="flex items-center gap-1.5 px-3 py-2 text-[#3a5070] text-xs">
+              <span className="w-2 h-2 rounded-full bg-[#4a90d9] animate-pulse" />
+              Syncing…
+            </span>
+          )}
           <button
             onClick={() => setShowManual(true)}
             className="flex items-center gap-2 px-3 py-2 bg-[#4a90d9] hover:bg-[#5aa0e9] text-white text-sm font-semibold rounded-xl transition-colors"
@@ -321,17 +234,6 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
           </button>
         </div>
       </div>
-
-      {syncMsg && (
-        <div className="bg-[#0a2518] border border-[#1e4030] text-[#5ce0a0] text-sm px-4 py-2.5 rounded-xl">
-          {syncMsg}
-        </div>
-      )}
-      {feesSyncMsg && (
-        <div className="bg-[#0a1f30] border border-[#1e3a5a] text-[#4a90d9] text-sm px-4 py-2.5 rounded-xl">
-          {feesSyncMsg}
-        </div>
-      )}
 
       {/* Status filter */}
       <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-1">

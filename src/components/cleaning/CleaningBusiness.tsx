@@ -374,6 +374,21 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
       const exists = prev.find(x => x.id === c.id);
       return exists ? prev.map(x => x.id === c.id ? c : x) : [c, ...prev];
     });
+    // Auto-sync cleaning fee to any uncharged jobs for this property
+    const now = new Date().toISOString();
+    const toUpdate = jobs.filter(j =>
+      j.propertyId === c.propertyId && !j.chargedAt && j.cleaningFee !== c.cleaningFee
+    );
+    await Promise.all(toUpdate.map(j =>
+      upsertCleaningJob({ ...j, cleaningFee: c.cleaningFee, updatedAt: now })
+    ));
+    if (toUpdate.length > 0) {
+      setJobs(prev => prev.map(j =>
+        j.propertyId === c.propertyId && !j.chargedAt && j.cleaningFee !== c.cleaningFee
+          ? { ...j, cleaningFee: c.cleaningFee, updatedAt: now }
+          : j
+      ));
+    }
   }
   async function handleDeleteConfig(id: string) {
     await deletePropertyConfig(id);
@@ -666,7 +681,6 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
               jobs={jobs}
               configs={configs}
               cleaners={cleaners}
-              reservations={reservations}
               uplistingProperties={uplistingProperties}
               onSyncJobs={handleSyncJobs}
               onUpdateJob={handleUpdateJob}
