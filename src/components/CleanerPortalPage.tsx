@@ -65,6 +65,7 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
   const [damageNotes, setDamageNotes] = useState('');
   const [damageMedia, setDamageMedia] = useState<string[]>([]);
   const [uploadingDamageMedia, setUploadingDamageMedia] = useState(false);
+  const [suppliesNotes, setSuppliesNotes] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const damageMediaRef = useRef<HTMLInputElement>(null);
 
@@ -196,6 +197,7 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
         checklist, photos,
         damageNotes: damageNotes.trim() || undefined,
         damageMedia: damageMedia.length ? damageMedia : undefined,
+        suppliesNotes: suppliesNotes.trim() || undefined,
       });
       setPageState('submitted');
     } catch (e: unknown) {
@@ -556,6 +558,24 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
             </div>
           </div>
         )}
+
+        {/* Supplies */}
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+          <div className="px-4 py-3 border-b">
+            <h2 className="font-semibold text-gray-800">Low Supplies</h2>
+            <p className="text-gray-400 text-xs mt-0.5">Note anything that's running low or needs to be replaced</p>
+          </div>
+          <div className="p-4">
+            <textarea
+              value={suppliesNotes}
+              onChange={e => setSuppliesNotes(e.target.value)}
+              placeholder="e.g. Paper towels almost out, trash bags low, dish soap empty..."
+              rows={3}
+              className="w-full text-sm resize-none outline-none"
+              style={{ backgroundColor: 'white', color: '#374151' }}
+            />
+          </div>
+        </div>
 
         {/* Damage Notes */}
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">

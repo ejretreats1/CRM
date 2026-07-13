@@ -1257,7 +1257,7 @@ async function cleaningAccept(body: any, res: VercelResponse) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleaningSubmit(body: any, res: VercelResponse) {
-  const { combined, checklist, photos, damageNotes, damageMedia, appUrl: rawAppUrl } = body;
+  const { combined, checklist, photos, damageNotes, damageMedia, suppliesNotes, appUrl: rawAppUrl } = body;
   const crmUrl = (rawAppUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
   const colonIdx = (combined as string).indexOf(':');
   const jobId = combined.slice(0, colonIdx);
@@ -1274,7 +1274,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
   if (row.assigned_cleaner_id !== cleanerInfo.cleanerId) return res.status(403).json({ error: 'You are not assigned to this job.' });
 
   const now = new Date().toISOString();
-  const portalData = { checklist, photos: photos ?? [], damageNotes: damageNotes ?? '', damageMedia: damageMedia ?? [], submittedAt: now };
+  const portalData = { checklist, photos: photos ?? [], damageNotes: damageNotes ?? '', damageMedia: damageMedia ?? [], suppliesNotes: suppliesNotes ?? '', submittedAt: now };
 
   await supabase.from('cleaning_jobs').update({
     status: 'completed',
@@ -1300,6 +1300,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
     : `⚠️ <strong>Auto-charge failed:</strong> ${paymentResult.error ?? 'No payment method on file'} — use the CRM to retry`;
 
   const hasDamage = !!(damageNotes?.trim() || damageMediaArr.length > 0);
+  const hasSuppliesNeeded = !!suppliesNotes?.trim();
 
   const _submitSubj = `${paymentResult.charged ? '✅' : '⚠️'} Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`;
   const _sr = await (await getResend()).emails.send({
@@ -1312,6 +1313,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
         <p><strong>${cleanerInfo.cleanerName}</strong> has submitted the cleaning for <strong>${row.property_name}</strong> (${dateLabel}).</p>
         <p>✅ Checklist: ${checklistDone}/${checklistTotal} items completed<br>
            📸 Cleaning photos: ${photoCount}<br>
+           ${suppliesNotes ? `📦 Supplies needed: ${suppliesNotes}<br>` : ''}
            ${damageNotes ? `⚠️ Damage notes: ${damageNotes}<br>` : ''}
            ${damageMediaArr.length ? `📸 Damage photos/videos: ${damageMediaArr.length}<br>` : ''}
            ${paymentLine}
@@ -1366,6 +1368,36 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
       `,
     }).catch(() => null);
     if (_dr?.id) await logEmail(_dr.id, 'cleaning-damage-alert', 'ejretreats1@gmail.com', _dmgSubj, jobId, 'Admin');
+  }
+
+  if (hasSuppliesNeeded) {
+    const _supSubj = `📦 Supplies Needed: ${row.property_name} – ${cleanerInfo.cleanerName}`;
+    const _sr2 = await (await getResend()).emails.send({
+      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+      to: 'ejretreats1@gmail.com',
+      subject: _supSubj,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+          <div style="background:#fffbeb;border:2px solid #f59e0b;border-radius:12px;padding:16px 20px;margin-bottom:20px">
+            <h2 style="color:#b45309;margin:0 0 8px">📦 Supplies Needed</h2>
+            <p style="margin:0;color:#78350f;font-size:15px">
+              <strong>${cleanerInfo.cleanerName}</strong> noted low/needed supplies at <strong>${row.property_name}</strong> on ${dateLabel}.
+            </p>
+          </div>
+          <div style="margin-bottom:20px">
+            <p style="font-weight:bold;color:#374151;margin-bottom:6px">Supplies Notes:</p>
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;color:#78350f;white-space:pre-wrap;font-size:14px">${suppliesNotes}</div>
+          </div>
+          <p style="margin-top:24px">
+            <a href="${crmUrl}" style="display:inline-block;background:#f59e0b;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold">
+              → View in CRM
+            </a>
+          </p>
+          <p style="font-size:12px;color:#9ca3af;margin-top:16px">Job: ${row.property_name} · ${dateLabel} · Cleaner: ${cleanerInfo.cleanerName}</p>
+        </div>
+      `,
+    }).catch(() => null);
+    if (_sr2?.id) await logEmail(_sr2.id, 'cleaning-supplies-alert', 'ejretreats1@gmail.com', _supSubj, jobId, 'Admin');
   }
 
   return res.status(200).json({ success: true });
