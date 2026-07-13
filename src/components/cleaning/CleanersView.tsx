@@ -35,6 +35,10 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
   const [portalSentId, setPortalSentId] = useState<string | null>(null);
   const [portalSendingId, setPortalSendingId] = useState<string | null>(null);
 
+  // Broadcast re-setup email state
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState<string | null>(null);
+
   async function sendPortalLink(cleanerId: string) {
     setPortalSendingId(cleanerId);
     try {
@@ -47,6 +51,27 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
       setTimeout(() => setPortalSentId(null), 3000);
     } finally {
       setPortalSendingId(null);
+    }
+  }
+
+  async function sendBroadcastResetup() {
+    if (!confirm('Send a re-setup email to ALL active cleaners instructing them to delete and re-save their home screen app?')) return;
+    setBroadcastSending(true);
+    setBroadcastResult(null);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaner', action: 'broadcast-resetup' }),
+      });
+      const d = await r.json();
+      setBroadcastResult(`Sent to ${d.sent ?? 0} cleaner${d.sent === 1 ? '' : 's'}`);
+      setTimeout(() => setBroadcastResult(null), 5000);
+    } catch {
+      setBroadcastResult('Failed to send');
+      setTimeout(() => setBroadcastResult(null), 4000);
+    } finally {
+      setBroadcastSending(false);
     }
   }
 
@@ -225,13 +250,24 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
           <h1 className="text-xl font-bold text-white">Cleaners</h1>
           <p className="text-sm text-[#3a5070] mt-0.5">Your cleaning team — {cleaners.filter(c => c.status === 'active').length} active</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-[#4a90d9] hover:bg-[#5aa0e9] text-white text-sm font-semibold rounded-xl transition-colors"
-        >
-          <Plus size={16} />
-          Add Cleaner
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={sendBroadcastResetup}
+            disabled={broadcastSending}
+            title="Send re-setup instructions to all active cleaners"
+            className="flex items-center gap-2 px-3 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+          >
+            <Smartphone size={15} />
+            {broadcastSending ? 'Sending…' : broadcastResult ?? 'Re-setup App'}
+          </button>
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2 bg-[#4a90d9] hover:bg-[#5aa0e9] text-white text-sm font-semibold rounded-xl transition-colors"
+          >
+            <Plus size={16} />
+            Add Cleaner
+          </button>
+        </div>
       </div>
 
       {cleaners.length === 0 ? (
