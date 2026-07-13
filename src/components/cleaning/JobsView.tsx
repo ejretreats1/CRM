@@ -361,6 +361,11 @@ export default function JobsView({ jobs, configs, cleaners, reservations, uplist
                         <span className="font-semibold text-white text-sm">{displayName(job.propertyId, job.propertyName, uplistingProperties)}</span>
                       </div>
                       <StatusBadge status={job.status} />
+                      {job.portalData && (job.portalData.damageNotes?.trim() || (job.portalData.damageMedia ?? []).length > 0) && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-[#2a0a0a] border-[#e05c5c] text-[#e05c5c]">
+                          🚨 Damage Reported
+                        </span>
+                      )}
                       {job.source === 'manual' && (
                         <span className="text-xs text-[#3a5070] border border-[#2a4060] rounded-full px-2 py-0.5">Manual</span>
                       )}

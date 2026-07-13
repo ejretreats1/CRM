@@ -98,6 +98,54 @@ export async function fetchProperties(apiKey: string): Promise<UplistingProperty
   return enriched;
 }
 
+export async function fetchPropertyAllPhotos(apiKey: string, propertyId: string): Promise<string[]> {
+  try {
+    const detail = await apiFetch(`properties/${propertyId}`, apiKey);
+    const d = detail?.property ?? detail?.data ?? detail;
+    if (!d) return [];
+    const a = d.attributes ?? d;
+    const included: any[] = detail?.included ?? [];
+
+    const urls: string[] = [];
+
+    // Array field: photos / images / pictures
+    const arr = a.photos ?? a.images ?? a.pictures;
+    if (Array.isArray(arr)) {
+      for (const item of arr) {
+        if (typeof item === 'string') urls.push(item);
+        else {
+          const u = item?.url ?? item?.original ?? item?.large ?? item?.medium ?? item?.src ?? item?.href;
+          if (u) urls.push(String(u));
+        }
+      }
+    }
+
+    // JSON:API relationships → included array
+    const photoRel = d.relationships?.photos?.data ?? d.relationships?.images?.data ?? d.relationships?.photo?.data;
+    if (photoRel && included.length > 0) {
+      const refs: any[] = Array.isArray(photoRel) ? photoRel : [photoRel];
+      for (const ref of refs) {
+        const match = included.find((i: any) => i.id === ref.id && (i.type === ref.type || /photo|image/i.test(i.type ?? '')));
+        if (match) {
+          const ma = match.attributes ?? match;
+          const u = ma.url ?? ma.original ?? ma.large ?? ma.medium ?? ma.src;
+          if (u) urls.push(String(u));
+        }
+      }
+    }
+
+    // Fallback: cover photo
+    if (urls.length === 0) {
+      const cover = extractPhotoUrl(a, d, included);
+      if (cover) urls.push(cover);
+    }
+
+    return [...new Set(urls)]; // deduplicate
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchReservations(
   apiKey: string,
   from?: string,
