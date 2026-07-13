@@ -235,8 +235,9 @@ function JobDetailModal({
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function CleanerDashboard({ combined }: { combined: string }) {
-  const colonIdx = combined.indexOf(':');
-  const cleanerId = colonIdx === -1 ? combined : combined.slice(0, colonIdx);
+  // Handle all URL formats: "name-slug:cleanerId:token", "cleanerId:token", "cleanerId"
+  const parts = combined.split(':');
+  const cleanerId = parts.length >= 3 ? parts[1] : parts[0];
 
   const [data, setData] = useState<DashData | null>(null);
   const [error, setError] = useState('');
