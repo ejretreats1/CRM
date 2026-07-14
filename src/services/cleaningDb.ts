@@ -378,3 +378,40 @@ export async function deleteCleaningSop(id: string): Promise<void> {
   const { error } = await supabase.from('cleaning_sops').delete().eq('id', id);
   if (error) throw error;
 }
+
+// ─── Expenses ─────────────────────────────────────────────────────────────────
+
+import type { CleaningExpense } from '../types/cleaning';
+
+export async function fetchCleaningExpenses(): Promise<CleaningExpense[]> {
+  const { data, error } = await supabase
+    .from('cleaning_expenses')
+    .select('*')
+    .order('date', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(r => ({
+    id: r.id,
+    date: r.date,
+    amount: Number(r.amount),
+    description: r.description ?? '',
+    category: r.category ?? 'laundry',
+    createdAt: r.created_at,
+  }));
+}
+
+export async function upsertCleaningExpense(e: CleaningExpense): Promise<void> {
+  const { error } = await supabase.from('cleaning_expenses').upsert({
+    id: e.id,
+    date: e.date,
+    amount: e.amount,
+    description: e.description,
+    category: e.category,
+    created_at: e.createdAt,
+  });
+  if (error) throw error;
+}
+
+export async function deleteCleaningExpense(id: string): Promise<void> {
+  const { error } = await supabase.from('cleaning_expenses').delete().eq('id', id);
+  if (error) throw error;
+}
