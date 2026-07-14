@@ -48,6 +48,17 @@ function fmtCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 
+function addBusinessDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  let added = 0;
+  const sign = n >= 0 ? 1 : -1;
+  while (added < Math.abs(n)) {
+    d.setDate(d.getDate() + sign);
+    if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
 function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expenses }: { jobs: CleaningJob[]; cleaners: Cleaner[]; configs: CleaningPropertyConfig[]; uplistingProperties: UplistingProperty[]; expenses: CleaningExpense[] }) {
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0,0,0,0);
@@ -161,7 +172,7 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
   );
 }
 
-type PaymentFilter = 'all' | 'charged' | 'not_charged' | 'payout_sent';
+type PaymentFilter = 'all' | 'charged' | 'not_charged' | 'awaiting_payout' | 'payout_sent';
 
 function ManualChargePanel({ configs }: { configs: CleaningPropertyConfig[] }) {
   const [open, setOpen] = useState(false);
@@ -441,12 +452,14 @@ function CleaningPayments({
     { id: 'all', label: 'All Completed' },
     { id: 'not_charged', label: 'Awaiting Charge' },
     { id: 'charged', label: 'Charged' },
+    { id: 'awaiting_payout', label: 'Awaiting Payout' },
     { id: 'payout_sent', label: 'Payout Sent' },
   ];
 
   let filtered = completed;
   if (filter === 'charged') filtered = filtered.filter(j => j.chargedAt);
   if (filter === 'not_charged') filtered = filtered.filter(j => !j.chargedAt);
+  if (filter === 'awaiting_payout') filtered = filtered.filter(j => !!j.chargedAt && !j.payoutSentAt);
   if (filter === 'payout_sent') filtered = filtered.filter(j => j.payoutSentAt);
   filtered = [...filtered].sort((a, b) => b.checkoutDate.localeCompare(a.checkoutDate));
 
@@ -521,6 +534,11 @@ function CleaningPayments({
                     <th className="text-right px-4 py-3">Payout</th>
                     <th className="text-left px-4 py-3">Status</th>
                   </>
+                ) : filter === 'awaiting_payout' ? (
+                  <>
+                    <th className="text-right px-4 py-3">Payout</th>
+                    <th className="text-left px-4 py-3">Payout Date</th>
+                  </>
                 ) : (
                   <>
                     <th className="text-right px-4 py-3">Fee</th>
@@ -551,6 +569,19 @@ function CleaningPayments({
                           </span>
                         ) : (
                           <span className="text-xs text-[#3a5070]">Pending</span>
+                        )}
+                      </td>
+                    </>
+                  ) : filter === 'awaiting_payout' ? (
+                    <>
+                      <td className="px-4 py-3 text-right text-[#d07af5] font-semibold">${job.cleanerPayout}</td>
+                      <td className="px-4 py-3">
+                        {job.chargedAt ? (
+                          <span className="text-xs font-medium text-[#d0954a]">
+                            {new Date(addBusinessDays(job.chargedAt.slice(0, 10), 2) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[#3a5070]">—</span>
                         )}
                       </td>
                     </>
