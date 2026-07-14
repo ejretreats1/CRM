@@ -57,6 +57,15 @@ export interface CleaningPortalData {
   submittedAt: string;
 }
 
+export interface CleaningExpense {
+  id: string;
+  date: string;
+  amount: number;
+  description: string;
+  category: 'laundry' | 'supplies' | 'other';
+  createdAt: string;
+}
+
 export interface CleaningJob {
   id: string;
   reservationId?: string;

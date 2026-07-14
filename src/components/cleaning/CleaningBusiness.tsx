@@ -21,7 +21,9 @@ import {
   fetchCleaningJobs, upsertCleaningJob, bulkUpsertCleaningJobs, deleteCleaningJob, deleteCleaningJobsByProperty,
   fetchCleaningLeads, upsertCleaningLead, bulkUpsertCleaningLeads, deleteCleaningLead,
   fetchCleaningSops, upsertCleaningSop, deleteCleaningSop,
+  fetchCleaningExpenses, upsertCleaningExpense, deleteCleaningExpense,
 } from '../../services/cleaningDb';
+import type { CleaningExpense } from '../../types/cleaning';
 import JobsView from './JobsView';
 import CleanersView from './CleanersView';
 import PropertiesView from './PropertiesView';
@@ -46,7 +48,7 @@ function fmtCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 
-function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties }: { jobs: CleaningJob[]; cleaners: Cleaner[]; configs: CleaningPropertyConfig[]; uplistingProperties: UplistingProperty[] }) {
+function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expenses }: { jobs: CleaningJob[]; cleaners: Cleaner[]; configs: CleaningPropertyConfig[]; uplistingProperties: UplistingProperty[]; expenses: CleaningExpense[] }) {
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0,0,0,0);
   const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
@@ -61,9 +63,12 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties }: { j
     .filter(j => j.checkoutDate >= monthStr && j.chargedAt)
     .reduce((s, j) => s + j.cleaningFee, 0);
   const activeCleaners = cleaners.filter(c => c.status === 'active').length;
+  const expensesThisMonth = expenses
+    .filter(e => e.date >= monthStr)
+    .reduce((s, e) => s + e.amount, 0);
   const profitThisMonth = jobs
     .filter(j => j.checkoutDate >= monthStr && j.chargedAt)
-    .reduce((s, j) => s + (j.cleaningFee - j.cleanerPayout), 0);
+    .reduce((s, j) => s + (j.cleaningFee - j.cleanerPayout), 0) - expensesThisMonth;
 
   const awaitingCharge = jobs.filter(j => j.status === 'completed' && !j.chargedAt);
 
@@ -367,22 +372,35 @@ function ManualPayoutPanel({ cleaners }: { cleaners: Cleaner[] }) {
 }
 
 function CleaningPayments({
-  jobs, cleaners, configs, uplistingProperties, onRetryCharge,
+  jobs, cleaners, configs, uplistingProperties, onRetryCharge, expenses, onSaveExpense, onDeleteExpense,
 }: {
   jobs: CleaningJob[];
   cleaners: Cleaner[];
   configs: CleaningPropertyConfig[];
   uplistingProperties: UplistingProperty[];
   onRetryCharge: (job: CleaningJob) => Promise<void>;
+  expenses: CleaningExpense[];
+  onSaveExpense: (e: CleaningExpense) => Promise<void>;
+  onDeleteExpense: (id: string) => Promise<void>;
 }) {
   const [filter, setFilter] = useState<PaymentFilter>('all');
   const [retrying, setRetrying] = useState<string | null>(null);
   const [retryErrors, setRetryErrors] = useState<Record<string, string>>({});
 
+  // Expense form state
+  const today = new Date().toISOString().slice(0, 10);
+  const [expDate, setExpDate] = useState(today);
+  const [expAmount, setExpAmount] = useState('');
+  const [expDesc, setExpDesc] = useState('');
+  const [expCategory, setExpCategory] = useState<CleaningExpense['category']>('laundry');
+  const [expSaving, setExpSaving] = useState(false);
+  const [deletingExpId, setDeletingExpId] = useState<string | null>(null);
+
   const completed = jobs.filter(j => j.status === 'completed');
   const totalCharged = completed.filter(j => j.chargedAt).reduce((s, j) => s + j.cleaningFee, 0);
   const totalPayouts = completed.filter(j => j.payoutSentAt).reduce((s, j) => s + j.cleanerPayout, 0);
-  const netProfit = totalCharged - totalPayouts;
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const netProfit = totalCharged - totalPayouts - totalExpenses;
   const pendingCount = completed.filter(j => !j.chargedAt).length;
 
   const summary = [
@@ -391,6 +409,33 @@ function CleaningPayments({
     { label: 'Net Profit',      value: fmtCurrency(netProfit),    icon: TrendingUp, color: 'text-[#d0954a]', bg: 'bg-[#1a1000]' },
     { label: 'Awaiting Charge', value: String(pendingCount),      icon: AlertCircle, color: pendingCount > 0 ? 'text-[#e05c5c]' : 'text-[#3a5070]', bg: pendingCount > 0 ? 'bg-[#1a0e0e]' : 'bg-[#0d1e35]' },
   ];
+
+  async function handleAddExpense() {
+    const amt = parseFloat(expAmount);
+    if (!expDate || isNaN(amt) || amt <= 0) return;
+    setExpSaving(true);
+    try {
+      await onSaveExpense({
+        id: `exp_${Date.now()}`,
+        date: expDate,
+        amount: amt,
+        description: expDesc.trim(),
+        category: expCategory,
+        createdAt: new Date().toISOString(),
+      });
+      setExpAmount('');
+      setExpDesc('');
+      setExpDate(today);
+      setExpCategory('laundry');
+    } finally {
+      setExpSaving(false);
+    }
+  }
+
+  async function handleDeleteExp(id: string) {
+    setDeletingExpId(id);
+    try { await onDeleteExpense(id); } finally { setDeletingExpId(null); }
+  }
 
   const FILTERS: { id: PaymentFilter; label: string }[] = [
     { id: 'all', label: 'All Completed' },
@@ -530,6 +575,91 @@ function CleaningPayments({
           </table>
         </div>
       )}
+
+      {/* ── Expenses Log ──────────────────────────────────────────────────── */}
+      <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-white">Expenses</h2>
+            <p className="text-xs text-[#3a5070] mt-0.5">Laundry, supplies, and other costs deducted from net profit</p>
+          </div>
+          {expenses.length > 0 && (
+            <span className="text-xs font-semibold text-[#e05c5c] bg-[#1a0e0e] border border-[#3a1a1a] rounded-lg px-2.5 py-1">
+              −{fmtCurrency(totalExpenses)} total
+            </span>
+          )}
+        </div>
+
+        {/* Add expense form */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <input
+            type="date"
+            value={expDate}
+            onChange={e => setExpDate(e.target.value)}
+            className="col-span-1 px-3 py-2 bg-[#0f1923] border border-[#1e2d45] rounded-xl text-white text-sm focus:outline-none focus:border-[#4a90d9]"
+          />
+          <select
+            value={expCategory}
+            onChange={e => setExpCategory(e.target.value as CleaningExpense['category'])}
+            className="col-span-1 px-3 py-2 bg-[#0f1923] border border-[#1e2d45] rounded-xl text-white text-sm focus:outline-none focus:border-[#4a90d9]"
+          >
+            <option value="laundry">Laundry</option>
+            <option value="supplies">Supplies</option>
+            <option value="other">Other</option>
+          </select>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Amount ($)"
+            value={expAmount}
+            onChange={e => setExpAmount(e.target.value)}
+            className="col-span-1 px-3 py-2 bg-[#0f1923] border border-[#1e2d45] rounded-xl text-white text-sm placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+          />
+          <input
+            type="text"
+            placeholder="Note (optional)"
+            value={expDesc}
+            onChange={e => setExpDesc(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAddExpense()}
+            className="col-span-1 px-3 py-2 bg-[#0f1923] border border-[#1e2d45] rounded-xl text-white text-sm placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+          />
+        </div>
+        <button
+          onClick={handleAddExpense}
+          disabled={expSaving || !expAmount || parseFloat(expAmount) <= 0}
+          className="flex items-center gap-2 px-4 py-2 bg-[#e05c5c] hover:bg-[#f06c6c] disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors"
+        >
+          {expSaving ? 'Saving…' : '+ Log Expense'}
+        </button>
+
+        {/* Expense list */}
+        {expenses.length > 0 && (
+          <div className="divide-y divide-[#1e2d45]">
+            {expenses.map(e => (
+              <div key={e.id} className="flex items-center justify-between py-2.5 gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-xs text-[#3a5070] whitespace-nowrap">
+                    {new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] capitalize">{e.category}</span>
+                  {e.description && <span className="text-sm text-[#b8d4f0] truncate">{e.description}</span>}
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <span className="text-sm font-semibold text-[#e05c5c]">−{fmtCurrency(e.amount)}</span>
+                  <button
+                    onClick={() => handleDeleteExp(e.id)}
+                    disabled={deletingExpId === e.id}
+                    className="text-[#3a5070] hover:text-[#e05c5c] transition-colors disabled:opacity-40 text-xs"
+                  >
+                    {deletingExpId === e.id ? '…' : '✕'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -542,6 +672,7 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
   const [jobs, setJobs] = useState<CleaningJob[]>([]);
   const [leads, setLeads] = useState<CleaningLead[]>([]);
   const [sops, setSops] = useState<CleaningSop[]>([]);
+  const [expenses, setExpenses] = useState<CleaningExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
 
@@ -559,6 +690,7 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
       setJobs(j);
       fetchCleaningLeads().then(setLeads).catch(() => {});
       fetchCleaningSops().then(setSops).catch(() => {});
+      fetchCleaningExpenses().then(setExpenses).catch(() => {});
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('relation') || msg.includes('does not exist')) {
@@ -712,6 +844,18 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
   async function handleDeleteSop(id: string) {
     await deleteCleaningSop(id);
     setSops(prev => prev.filter(s => s.id !== id));
+  }
+
+  async function handleSaveExpense(e: CleaningExpense) {
+    await upsertCleaningExpense(e);
+    setExpenses(prev => {
+      const exists = prev.find(x => x.id === e.id);
+      return exists ? prev.map(x => x.id === e.id ? e : x) : [e, ...prev];
+    });
+  }
+  async function handleDeleteExpense(id: string) {
+    await deleteCleaningExpense(id);
+    setExpenses(prev => prev.filter(e => e.id !== id));
   }
 
   async function handleRetryCharge(job: CleaningJob) {
@@ -911,7 +1055,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
       {active !== 'cleaning-sops' && active !== 'cleaning-email' && active !== 'cleaning-scraper' && active !== 'cleaning-marketing' && (
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           {active === 'cleaning-dashboard' && (
-            <CleaningDashboard jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} />
+            <CleaningDashboard jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} expenses={expenses} />
           )}
           {active === 'cleaning-schedule' && (
             <ScheduleView jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} />
@@ -950,7 +1094,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
             />
           )}
           {active === 'cleaning-payments' && (
-            <CleaningPayments jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} />
+            <CleaningPayments jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} expenses={expenses} onSaveExpense={handleSaveExpense} onDeleteExpense={handleDeleteExpense} />
           )}
           {active === 'cleaning-leads' && (
             <CleaningLeadsView leads={leads} onSave={handleSaveLead} onBulkSave={handleBulkSaveLead} onDelete={handleDeleteLead} />
