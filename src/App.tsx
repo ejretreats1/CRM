@@ -524,14 +524,8 @@ export default function App() {
   if (ownerPortalToken) return <OwnerPortalPage token={ownerPortalToken} />;
   const onboardingToken = searchParams.get('onboarding');
   if (onboardingToken) return <OnboardingPage token={onboardingToken} />;
-  // For all cleaner-facing pages, remove the PWA manifest so that
-  // "Add to Home Screen" saves the current URL (with token) instead of
-  // the manifest's start_url ("/") which opens the full CRM.
-  const isCleanerPage = ['cleaner', 'cleaner-dashboard', 'cleaning-onboard', 'cleaner-onboard', 'cleaner-setup', 'cleaner-connected'].some(k => searchParams.has(k));
-  if (isCleanerPage) {
-    document.querySelector('link[rel="manifest"]')?.remove();
-  }
-
+  // Cleaner portal pages. New URLs are served from /cleaner (no manifest in HTML).
+  // Old /?cleaner-dashboard= URLs still work for backward compat.
   const cleanerParam = searchParams.get('cleaner');
   if (cleanerParam) return <CleanerPortalPage combined={cleanerParam} />;
   const cleanerDashboardParam = searchParams.get('cleaner-dashboard');

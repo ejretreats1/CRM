@@ -1421,7 +1421,7 @@ async function cleanerSendPortalLink(body: any, res: VercelResponse) {
   }
 
   const nameSlug = cleaner.name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
-  const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${nameSlug}:${cleanerId}:${dashToken}`;
+  const portalUrl = `https://crm-nine-delta-37.vercel.app/cleaner?cleaner-dashboard=${nameSlug}:${cleanerId}:${dashToken}`;
   const firstName = cleaner.name.split(' ')[0];
   const portalAppName = `${cleaner.name} Cleaner Portal`;
 
@@ -1503,7 +1503,7 @@ async function cleanerBroadcastResetup(_body: any, res: VercelResponse) {
     }
 
     const nameSlug = cleaner.name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
-    const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${nameSlug}:${cleaner.id}:${dashToken}`;
+    const portalUrl = `https://crm-nine-delta-37.vercel.app/cleaner?cleaner-dashboard=${nameSlug}:${cleaner.id}:${dashToken}`;
     const firstName = cleaner.name.split(' ')[0];
     const portalAppName = `${cleaner.name} Cleaner Portal`;
     const subject = `Action needed: Re-save your Cleaner Portal app`;
@@ -1699,7 +1699,7 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
     await supabase.from('cleaners').update({ stripe_connect_status: 'active', dashboard_token: dashToken }).eq('id', cleanerId);
 
     const nameSlug2 = cleaner.name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
-    const portalUrl = `https://crm-nine-delta-37.vercel.app/?cleaner-dashboard=${nameSlug2}:${cleanerId}:${dashToken}`;
+    const portalUrl = `https://crm-nine-delta-37.vercel.app/cleaner?cleaner-dashboard=${nameSlug2}:${cleanerId}:${dashToken}`;
     const firstName = cleaner.name.split(' ')[0];
     const portalAppName = `${cleaner.name} Cleaner Portal`;
 
