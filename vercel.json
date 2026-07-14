@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/cleaner", "destination": "/cleaner.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "crons": [

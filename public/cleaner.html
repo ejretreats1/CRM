@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Cleaner Portal</title>
+
+    <!-- Cleaner portal favicon -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- NO manifest link — this page must not carry the CRM's start_url.
+         iOS and Android use the current URL when adding to home screen,
+         so cleaners get their personal token URL saved, not "/". -->
+
+    <meta name="theme-color" content="#1e3a5a" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
