@@ -121,6 +121,16 @@ function getSupabase() {
   return createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);
 }
 
+// Service-role client — bypasses RLS. Used only for storage uploads from
+// unauthenticated cleaner sessions where the anon key would be blocked.
+function getSupabaseAdmin() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY env var is not set');
+  return createClient(process.env.VITE_SUPABASE_URL!, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
 async function logEmail(
   emailId: string,
   emailType: string,
@@ -1207,26 +1217,26 @@ async function cleaningUploadPhoto(body: any, res: VercelResponse) {
   const { photoBase64, filename, jobId } = body;
   if (!photoBase64 || !jobId) return res.status(400).json({ error: 'photoBase64 and jobId required' });
 
-  const supabase = getSupabase();
+  // Use service-role client so RLS on storage.objects doesn't block the upload
+  const admin = getSupabaseAdmin();
 
-  // Verify the job exists
-  const { data: job } = await supabase.from('cleaning_jobs').select('id').eq('id', jobId).single();
+  // Verify the job exists (anon client is fine for a read)
+  const { data: job } = await getSupabase().from('cleaning_jobs').select('id').eq('id', jobId).single();
   if (!job) return res.status(404).json({ error: 'Job not found' });
 
-  // Decode base64 → Buffer
   const base64Data = (photoBase64 as string).replace(/^data:image\/\w+;base64,/, '');
   const buffer = Buffer.from(base64Data, 'base64');
 
   const ext = (filename as string | undefined)?.split('.').pop()?.toLowerCase() ?? 'jpg';
   const path = `${jobId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-  const { error } = await supabase.storage.from('cleaning-photos').upload(path, buffer, {
+  const { error } = await admin.storage.from('cleaning-photos').upload(path, buffer, {
     contentType: ext === 'png' ? 'image/png' : 'image/jpeg',
     upsert: true,
   });
   if (error) return res.status(500).json({ error: error.message });
 
-  const { data: { publicUrl } } = supabase.storage.from('cleaning-photos').getPublicUrl(path);
+  const { data: { publicUrl } } = admin.storage.from('cleaning-photos').getPublicUrl(path);
   return res.status(200).json({ url: publicUrl });
 }
 
