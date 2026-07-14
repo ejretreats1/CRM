@@ -2051,22 +2051,6 @@ async function doChargeAndPayout(job: Record<string, any>): Promise<ChargeResult
   const stripe = await getStripe();
   const amountCents = Math.round(Number(config.cleaning_fee) * 100);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let transferData: any = undefined;
-  let cleanerStripeId: string | null = null;
-
-  if (job.assigned_cleaner_id && Number(job.cleaner_payout) > 0) {
-    const { data: cleaner } = await supabase
-      .from('cleaners').select('stripe_account_id').eq('id', job.assigned_cleaner_id).single();
-    if (cleaner?.stripe_account_id) {
-      cleanerStripeId = cleaner.stripe_account_id;
-      transferData = {
-        amount: Math.round(Number(job.cleaner_payout) * 100),
-        destination: cleanerStripeId,
-      };
-    }
-  }
-
   let paymentIntent;
   try {
     paymentIntent = await stripe.paymentIntents.create({
@@ -2078,30 +2062,27 @@ async function doChargeAndPayout(job: Record<string, any>): Promise<ChargeResult
       off_session: true,
       description: `Cleaning: ${job.property_name} — ${job.checkout_date}`,
       metadata: { job_id: job.id, property_id: job.property_id },
-      ...(transferData ? { transfer_data: transferData } : {}),
+      // No transfer_data — cleaner payout is sent 2 business days later by the cron job
     }, { idempotencyKey: `charge_${job.id}_${Date.now()}` });
   } catch (err: unknown) {
     const msg = (err instanceof Error ? err.message : (err as { message?: string })?.message) ?? 'Payment failed.';
-    return { charged: false, payoutSent: false, error: msg, cleanerStripeId };
+    return { charged: false, payoutSent: false, error: msg };
   }
 
   const now = new Date().toISOString();
-  const payoutSent = !!transferData && paymentIntent.status === 'succeeded';
 
   await supabase.from('cleaning_jobs').update({
     charged_at: now,
     stripe_charge_id: paymentIntent.id,
-    payout_sent_at: payoutSent ? now : null,
     updated_at: now,
   }).eq('id', job.id);
 
   return {
     charged: true,
-    payoutSent,
+    payoutSent: false,
     paymentIntentId: paymentIntent.id,
     cleaningFee: Number(config.cleaning_fee),
     cleanerPayout: Number(job.cleaner_payout),
-    cleanerStripeId,
   };
 }
 
