@@ -1,6 +1,39 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../services/supabase';
 import { acceptCleaningJob, submitCleaningJob } from '../services/cleaningApi';
+
+async function compressAndUpload(file: File, jobId: string): Promise<string> {
+  const MAX_PX = 1600;
+  const QUALITY = 0.78;
+
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_PX / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+
+  const blob = await new Promise<Blob>(resolve =>
+    canvas.toBlob(b => resolve(b!), 'image/jpeg', QUALITY)
+  );
+  const base64 = await new Promise<string>(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
+
+  const r = await fetch('/api/documents', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ flow: 'cleaning', action: 'upload-photo', photoBase64: base64, filename: 'photo.jpg', jobId }),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error ?? 'Upload failed');
+  return d.url as string;
+}
 
 const CHECKLIST_ITEMS = [
   'All surfaces dusted',
@@ -150,12 +183,8 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
     setUploadingPhoto(true);
     try {
       for (const file of files) {
-        const ext = file.name.split('.').pop() ?? 'jpg';
-        const path = `${jobId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error } = await supabase.storage.from('cleaning-photos').upload(path, file, { upsert: true });
-        if (error) throw error;
-        const { data: { publicUrl } } = supabase.storage.from('cleaning-photos').getPublicUrl(path);
-        setPhotos(prev => [...prev, publicUrl]);
+        const url = await compressAndUpload(file, jobId);
+        setPhotos(prev => [...prev, url]);
       }
     } catch (e: unknown) {
       alert('Photo upload failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
@@ -171,12 +200,8 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
     setUploadingDamageMedia(true);
     try {
       for (const file of files) {
-        const ext = file.name.split('.').pop() ?? 'jpg';
-        const path = `${jobId}/damage-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error } = await supabase.storage.from('cleaning-photos').upload(path, file, { upsert: true });
-        if (error) throw error;
-        const { data: { publicUrl } } = supabase.storage.from('cleaning-photos').getPublicUrl(path);
-        setDamageMedia(prev => [...prev, publicUrl]);
+        const url = await compressAndUpload(file, jobId);
+        setDamageMedia(prev => [...prev, url]);
       }
     } catch (e: unknown) {
       alert('Upload failed: ' + (e instanceof Error ? e.message : 'Unknown error'));

@@ -1203,6 +1203,34 @@ async function cleaningDecline(body: any, res: VercelResponse) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningUploadPhoto(body: any, res: VercelResponse) {
+  const { photoBase64, filename, jobId } = body;
+  if (!photoBase64 || !jobId) return res.status(400).json({ error: 'photoBase64 and jobId required' });
+
+  const supabase = getSupabase();
+
+  // Verify the job exists
+  const { data: job } = await supabase.from('cleaning_jobs').select('id').eq('id', jobId).single();
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+
+  // Decode base64 → Buffer
+  const base64Data = (photoBase64 as string).replace(/^data:image\/\w+;base64,/, '');
+  const buffer = Buffer.from(base64Data, 'base64');
+
+  const ext = (filename as string | undefined)?.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const path = `${jobId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+  const { error } = await supabase.storage.from('cleaning-photos').upload(path, buffer, {
+    contentType: ext === 'png' ? 'image/png' : 'image/jpeg',
+    upsert: true,
+  });
+  if (error) return res.status(500).json({ error: error.message });
+
+  const { data: { publicUrl } } = supabase.storage.from('cleaning-photos').getPublicUrl(path);
+  return res.status(200).json({ url: publicUrl });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleaningAccept(body: any, res: VercelResponse) {
   const { combined } = body;
   const colonIdx = (combined as string).indexOf(':');
@@ -2086,7 +2114,10 @@ async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
 
 // ── CONTENT STUDIO ───────────────────────────────────────────────────────────
 
-export const config = { maxDuration: 60 };
+export const config = {
+  maxDuration: 60,
+  api: { bodyParser: { sizeLimit: '25mb' } },
+};
 
 async function contentGenerate(body: any, res: VercelResponse) {
   const SlideSchema = z.object({
@@ -3841,6 +3872,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'cancellation')      return await cleaningCancellation(body, res);
     if (action === 'manual-charge')     return await manualClientCharge(body, res);
     if (action === 'manual-payout')     return await manualCleanerPayout(body, res);
+    if (action === 'upload-photo')      return await cleaningUploadPhoto(body, res);
     if (action === 'dispatch')          return await cleaningDispatch(body, res);
     if (action === 'accept')            return await cleaningAccept(body, res);
     if (action === 'decline')           return await cleaningDecline(body, res);
