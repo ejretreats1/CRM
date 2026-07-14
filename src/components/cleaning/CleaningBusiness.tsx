@@ -516,12 +516,21 @@ function CleaningPayments({
               <tr className="border-b border-[#1e2d45] text-[#3a5070] text-xs uppercase tracking-wider">
                 <th className="text-left px-4 py-3">Property</th>
                 <th className="text-left px-4 py-3 hidden sm:table-cell">Date</th>
-                <th className="text-right px-4 py-3">Fee</th>
-                <th className="text-right px-4 py-3 hidden md:table-cell">Payout</th>
-                <th className="text-right px-4 py-3 hidden lg:table-cell">Net</th>
-                <th className="text-left px-4 py-3">Charge</th>
-                <th className="text-left px-4 py-3 hidden sm:table-cell">Payout</th>
-                <th className="text-right px-4 py-3">Action</th>
+                {filter === 'payout_sent' ? (
+                  <>
+                    <th className="text-right px-4 py-3">Payout</th>
+                    <th className="text-left px-4 py-3">Status</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="text-right px-4 py-3">Fee</th>
+                    <th className="text-right px-4 py-3 hidden md:table-cell">Payout</th>
+                    <th className="text-right px-4 py-3 hidden lg:table-cell">Net</th>
+                    <th className="text-left px-4 py-3">Charge</th>
+                    {filter !== 'charged' && <th className="text-left px-4 py-3 hidden sm:table-cell">Payout</th>}
+                    <th className="text-right px-4 py-3">Action</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1e2d45]">
@@ -531,44 +540,64 @@ function CleaningPayments({
                   <td className="px-4 py-3 text-[#b8d4f0] hidden sm:table-cell">
                     {new Date(job.checkoutDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </td>
-                  <td className="px-4 py-3 text-right text-[#5ce0a0] font-semibold">${job.cleaningFee}</td>
-                  <td className="px-4 py-3 text-right text-[#d07af5] hidden md:table-cell">${job.cleanerPayout}</td>
-                  <td className="px-4 py-3 text-right text-[#d0954a] font-semibold hidden lg:table-cell">${job.cleaningFee - job.cleanerPayout}</td>
-                  <td className="px-4 py-3">
-                    {job.chargedAt ? (
-                      <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
-                        <CheckCircle size={11} /> Charged
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-xs text-[#e05c5c] font-medium">
-                        <AlertCircle size={11} /> Not charged
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 hidden sm:table-cell">
-                    {job.payoutSentAt ? (
-                      <span className="flex items-center gap-1 text-xs text-[#d07af5] font-medium">
-                        <CheckCircle size={11} /> Sent
-                      </span>
-                    ) : (
-                      <span className="text-xs text-[#3a5070]">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {!job.chargedAt && (
-                      <button
-                        onClick={() => handleRetry(job)}
-                        disabled={retrying === job.id}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50 ml-auto"
-                      >
-                        <CreditCard size={11} />
-                        {retrying === job.id ? 'Retrying…' : 'Retry'}
-                      </button>
-                    )}
-                    {retryErrors[job.id] && (
-                      <p className="text-xs text-[#e05c5c] mt-1 max-w-[160px]">{retryErrors[job.id]}</p>
-                    )}
-                  </td>
+
+                  {filter === 'payout_sent' ? (
+                    <>
+                      <td className="px-4 py-3 text-right text-[#d07af5] font-semibold">${job.cleanerPayout}</td>
+                      <td className="px-4 py-3">
+                        {job.payoutSentAt ? (
+                          <span className="flex items-center gap-1 text-xs text-[#d07af5] font-medium">
+                            <CheckCircle size={11} /> Sent
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[#3a5070]">Pending</span>
+                        )}
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-3 text-right text-[#5ce0a0] font-semibold">${job.cleaningFee}</td>
+                      <td className="px-4 py-3 text-right text-[#d07af5] hidden md:table-cell">${job.cleanerPayout}</td>
+                      <td className="px-4 py-3 text-right text-[#d0954a] font-semibold hidden lg:table-cell">${job.cleaningFee - job.cleanerPayout}</td>
+                      <td className="px-4 py-3">
+                        {job.chargedAt ? (
+                          <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
+                            <CheckCircle size={11} /> Charged
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-xs text-[#e05c5c] font-medium">
+                            <AlertCircle size={11} /> Not charged
+                          </span>
+                        )}
+                      </td>
+                      {filter !== 'charged' && (
+                        <td className="px-4 py-3 hidden sm:table-cell">
+                          {job.payoutSentAt ? (
+                            <span className="flex items-center gap-1 text-xs text-[#d07af5] font-medium">
+                              <CheckCircle size={11} /> Sent
+                            </span>
+                          ) : (
+                            <span className="text-xs text-[#3a5070]">—</span>
+                          )}
+                        </td>
+                      )}
+                      <td className="px-4 py-3 text-right">
+                        {!job.chargedAt && (
+                          <button
+                            onClick={() => handleRetry(job)}
+                            disabled={retrying === job.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50 ml-auto"
+                          >
+                            <CreditCard size={11} />
+                            {retrying === job.id ? 'Retrying…' : 'Retry'}
+                          </button>
+                        )}
+                        {retryErrors[job.id] && (
+                          <p className="text-xs text-[#e05c5c] mt-1 max-w-[160px]">{retryErrors[job.id]}</p>
+                        )}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
