@@ -110,6 +110,55 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
 
   const configMap = new Map(configs.map(c => [c.propertyId, c]));
 
+  async function handleRedispatch(job: CleaningJob) {
+    const config = configMap.get(job.propertyId);
+    if (!config || config.assignedCleaners.length === 0) {
+      alert('No cleaners assigned to this property. Go to Properties tab to assign cleaners.');
+      return;
+    }
+    const assignedCleaners = config.assignedCleaners
+      .map(ac => {
+        const profile = cleaners.find(c => c.id === ac.id);
+        return profile && profile.status === 'active' ? { ...profile, payout: ac.payout } : null;
+      })
+      .filter((c): c is Cleaner & { payout: number } => !!c);
+
+    if (assignedCleaners.length === 0) {
+      alert('No active cleaners assigned to this property.');
+      return;
+    }
+
+    setDispatching(job.id);
+    try {
+      // Clear the existing assignment then re-send to the full roster
+      const now = new Date().toISOString();
+      const cleared = {
+        ...job,
+        status: 'dispatched' as const,
+        assignedCleanerId: undefined,
+        assignedCleanerName: undefined,
+        acceptedAt: undefined,
+        dispatchedAt: now,
+        updatedAt: now,
+      };
+      await onUpdateJob(cleared);
+      await dispatchCleaningJob({
+        jobId: job.id,
+        propertyName: job.propertyName,
+        checkoutDate: job.checkoutDate,
+        checkinDate: job.checkinDate,
+        guestName: job.guestName,
+        cleanerPayout: 0,
+        notes: job.notes,
+        cleaners: assignedCleaners.map(c => ({ id: c.id, name: c.name, email: c.email, payout: c.payout })),
+      });
+    } catch (e) {
+      alert(`Re-dispatch failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+    } finally {
+      setDispatching(null);
+    }
+  }
+
   async function handleDispatch(job: CleaningJob) {
     const config = configMap.get(job.propertyId);
     if (!config || config.assignedCleaners.length === 0) {
@@ -418,6 +467,16 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                       >
                         <CheckCircle size={12} />
                         Mark Accepted
+                      </button>
+                    )}
+                    {(job.status === 'dispatched' || job.status === 'accepted') && (
+                      <button
+                        onClick={() => handleRedispatch(job)}
+                        disabled={dispatching === job.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a1000] border border-[#4a3a10] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#251800] transition-colors disabled:opacity-50 whitespace-nowrap"
+                      >
+                        <Send size={12} />
+                        {dispatching === job.id ? 'Sending…' : 'Re-dispatch'}
                       </button>
                     )}
                     {(job.status === 'accepted' || job.status === 'in_progress') && (
