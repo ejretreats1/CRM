@@ -174,7 +174,7 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
 
 type PaymentFilter = 'all' | 'charged' | 'not_charged' | 'awaiting_payout' | 'payout_sent';
 
-function ManualChargePanel({ configs }: { configs: CleaningPropertyConfig[] }) {
+function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyConfig[]; onRefresh: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [propertyId, setPropertyId] = useState('');
   const [amount, setAmount] = useState('');
@@ -199,6 +199,7 @@ function ManualChargePanel({ configs }: { configs: CleaningPropertyConfig[] }) {
       setResult({ ok: true, msg: `$${Number(amount).toFixed(2)} charged to ${data.clientName || data.propertyName} via Stripe.` });
       setAmount('');
       setDescription('');
+      await onRefresh();
     } catch (e) {
       setResult({ ok: false, msg: e instanceof Error ? e.message : 'Charge failed.' });
     } finally {
@@ -276,7 +277,7 @@ function ManualChargePanel({ configs }: { configs: CleaningPropertyConfig[] }) {
   );
 }
 
-function ManualPayoutPanel({ cleaners }: { cleaners: Cleaner[] }) {
+function ManualPayoutPanel({ cleaners, onRefresh }: { cleaners: Cleaner[]; onRefresh: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [cleanerId, setCleanerId] = useState('');
   const [amount, setAmount] = useState('');
@@ -302,6 +303,7 @@ function ManualPayoutPanel({ cleaners }: { cleaners: Cleaner[] }) {
       setResult({ ok: true, msg: `$${Number(amount).toFixed(2)} sent to ${data.cleanerName} via Stripe.` });
       setAmount('');
       setNote('');
+      await onRefresh();
     } catch (e) {
       setResult({ ok: false, msg: e instanceof Error ? e.message : 'Payout failed.' });
     } finally {
@@ -383,7 +385,7 @@ function ManualPayoutPanel({ cleaners }: { cleaners: Cleaner[] }) {
 }
 
 function CleaningPayments({
-  jobs, cleaners, configs, uplistingProperties, onRetryCharge, expenses, onSaveExpense, onDeleteExpense,
+  jobs, cleaners, configs, uplistingProperties, onRetryCharge, expenses, onSaveExpense, onDeleteExpense, onRefresh,
 }: {
   jobs: CleaningJob[];
   cleaners: Cleaner[];
@@ -393,6 +395,7 @@ function CleaningPayments({
   expenses: CleaningExpense[];
   onSaveExpense: (e: CleaningExpense) => Promise<void>;
   onDeleteExpense: (id: string) => Promise<void>;
+  onRefresh: () => Promise<void>;
 }) {
   const [filter, setFilter] = useState<PaymentFilter>('all');
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -492,8 +495,8 @@ function CleaningPayments({
           <p className="text-sm text-[#3a5070] mt-0.5">Client charges, cleaner payouts, and profit tracking</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <ManualChargePanel configs={configs} />
-          <ManualPayoutPanel cleaners={cleaners} />
+          <ManualChargePanel configs={configs} onRefresh={onRefresh} />
+          <ManualPayoutPanel cleaners={cleaners} onRefresh={onRefresh} />
         </div>
       </div>
 
@@ -1168,7 +1171,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
             />
           )}
           {active === 'cleaning-payments' && (
-            <CleaningPayments jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} expenses={expenses} onSaveExpense={handleSaveExpense} onDeleteExpense={handleDeleteExpense} />
+            <CleaningPayments jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} expenses={expenses} onSaveExpense={handleSaveExpense} onDeleteExpense={handleDeleteExpense} onRefresh={loadAll} />
           )}
           {active === 'cleaning-leads' && (
             <CleaningLeadsView leads={leads} onSave={handleSaveLead} onBulkSave={handleBulkSaveLead} onDelete={handleDeleteLead} />
