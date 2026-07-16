@@ -912,7 +912,26 @@ async function manualClientCharge(body: any, res: VercelResponse) {
       description: description?.trim() || `Manual charge — ${config.property_name}`,
       metadata: { property_id: propertyId, type: 'manual_charge' },
     }, { idempotencyKey: `manual_charge_${propertyId}_${Date.now()}` });
-    return res.json({ paymentIntentId: paymentIntent.id, amount: Number(amount), propertyName: config.property_name, clientName: config.client_name });
+
+    const now = new Date().toISOString();
+    const jobId = `cj_manual_${Date.now()}`;
+    await supabase.from('cleaning_jobs').insert({
+      id: jobId,
+      property_id: propertyId,
+      property_name: config.property_name,
+      status: 'completed',
+      checkout_date: now.slice(0, 10),
+      cleaning_fee: Number(amount),
+      cleaner_payout: 0,
+      charged_at: now,
+      stripe_charge_id: paymentIntent.id,
+      notes: description?.trim() || 'Manual charge',
+      source: 'manual',
+      created_at: now,
+      updated_at: now,
+    });
+
+    return res.json({ paymentIntentId: paymentIntent.id, jobId, amount: Number(amount), propertyName: config.property_name, clientName: config.client_name });
   } catch (e: any) {
     return res.status(500).json({ error: e.message ?? 'Charge failed.' });
   }
@@ -938,7 +957,28 @@ async function manualCleanerPayout(body: any, res: VercelResponse) {
       destination: cleaner.stripe_account_id,
       description: note?.trim() || `Manual payout to ${cleaner.name}`,
     });
-    return res.json({ transferId: transfer.id, amount: Number(amount), cleanerName: cleaner.name });
+
+    const now = new Date().toISOString();
+    const jobId = `cj_manual_payout_${Date.now()}`;
+    await supabase.from('cleaning_jobs').insert({
+      id: jobId,
+      property_id: `manual_payout_${cleanerId}`,
+      property_name: `Manual Payout`,
+      status: 'completed',
+      checkout_date: now.slice(0, 10),
+      cleaning_fee: 0,
+      cleaner_payout: Number(amount),
+      assigned_cleaner_id: cleanerId,
+      assigned_cleaner_name: cleaner.name,
+      payout_sent_at: now,
+      stripe_transfer_id: transfer.id,
+      notes: note?.trim() || `Manual payout to ${cleaner.name}`,
+      source: 'manual',
+      created_at: now,
+      updated_at: now,
+    });
+
+    return res.json({ transferId: transfer.id, jobId, amount: Number(amount), cleanerName: cleaner.name });
   } catch (e: any) {
     return res.status(500).json({ error: e.message ?? 'Transfer failed.' });
   }
