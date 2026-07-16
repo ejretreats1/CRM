@@ -397,6 +397,7 @@ function CleaningPayments({
   const [filter, setFilter] = useState<PaymentFilter>('all');
   const [retrying, setRetrying] = useState<string | null>(null);
   const [retryErrors, setRetryErrors] = useState<Record<string, string>>({});
+  const filterRef = useRef<HTMLDivElement>(null);
 
   // Expense form state
   const today = new Date().toISOString().slice(0, 10);
@@ -412,13 +413,21 @@ function CleaningPayments({
   const totalPayouts = completed.filter(j => j.payoutSentAt).reduce((s, j) => s + j.cleanerPayout, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const netProfit = totalCharged - totalPayouts - totalExpenses;
+  const awaitingChargeDollars = completed.filter(j => !j.chargedAt).reduce((s, j) => s + j.cleaningFee, 0);
   const pendingCount = completed.filter(j => !j.chargedAt).length;
+  const awaitingPayoutDollars = completed.filter(j => !!j.chargedAt && !j.payoutSentAt).reduce((s, j) => s + j.cleanerPayout, 0);
 
-  const summary = [
-    { label: 'Total Charged',   value: fmtCurrency(totalCharged), icon: DollarSign, color: 'text-[#5ce0a0]', bg: 'bg-[#0a2518]' },
-    { label: 'Total Payouts',   value: fmtCurrency(totalPayouts), icon: CreditCard, color: 'text-[#d07af5]', bg: 'bg-[#1a0a2e]' },
-    { label: 'Net Profit',      value: fmtCurrency(netProfit),    icon: TrendingUp, color: 'text-[#d0954a]', bg: 'bg-[#1a1000]' },
-    { label: 'Awaiting Charge', value: String(pendingCount),      icon: AlertCircle, color: pendingCount > 0 ? 'text-[#e05c5c]' : 'text-[#3a5070]', bg: pendingCount > 0 ? 'bg-[#1a0e0e]' : 'bg-[#0d1e35]' },
+  function goToFilter(f: PaymentFilter) {
+    setFilter(f);
+    setTimeout(() => filterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  const summary: { label: string; value: string; sub?: string; icon: typeof DollarSign; color: string; bg: string; filter: PaymentFilter }[] = [
+    { label: 'Total Charged',   value: fmtCurrency(totalCharged),         icon: DollarSign,  color: 'text-[#5ce0a0]', bg: 'bg-[#0a2518]',  filter: 'charged' },
+    { label: 'Total Payouts',   value: fmtCurrency(totalPayouts),          icon: CreditCard,  color: 'text-[#d07af5]', bg: 'bg-[#1a0a2e]',  filter: 'payout_sent' },
+    { label: 'Net Profit',      value: fmtCurrency(netProfit),             icon: TrendingUp,  color: 'text-[#d0954a]', bg: 'bg-[#1a1000]',  filter: 'all' },
+    { label: 'Awaiting Charge', value: fmtCurrency(awaitingChargeDollars), sub: `${pendingCount} job${pendingCount !== 1 ? 's' : ''}`, icon: AlertCircle, color: pendingCount > 0 ? 'text-[#e05c5c]' : 'text-[#3a5070]', bg: pendingCount > 0 ? 'bg-[#1a0e0e]' : 'bg-[#0d1e35]', filter: 'not_charged' },
+    { label: 'Awaiting Payout', value: fmtCurrency(awaitingPayoutDollars), icon: CreditCard,  color: awaitingPayoutDollars > 0 ? 'text-[#d0954a]' : 'text-[#3a5070]', bg: awaitingPayoutDollars > 0 ? 'bg-[#1a1200]' : 'bg-[#0d1e35]', filter: 'awaiting_payout' },
   ];
 
   async function handleAddExpense() {
@@ -488,19 +497,24 @@ function CleaningPayments({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {summary.map(s => (
-          <div key={s.label} className={`${s.bg} border border-[#1e2d45] rounded-2xl p-4 space-y-2`}>
+          <button
+            key={s.label}
+            onClick={() => goToFilter(s.filter)}
+            className={`${s.bg} border border-[#1e2d45] rounded-2xl p-4 space-y-2 text-left hover:brightness-110 transition-all active:scale-[0.98]`}
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs text-[#3a5070] font-medium">{s.label}</span>
               <s.icon size={16} className={s.color} />
             </div>
             <p className="text-2xl font-bold text-white">{s.value}</p>
-          </div>
+            {s.sub && <p className="text-xs text-[#3a5070]">{s.sub}</p>}
+          </button>
         ))}
       </div>
 
-      <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-1">
+      <div ref={filterRef} className="flex gap-1 overflow-x-auto hide-scrollbar pb-1">
         {FILTERS.map(f => (
           <button
             key={f.id}
