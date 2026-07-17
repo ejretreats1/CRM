@@ -1367,6 +1367,13 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
     : await doChargeAndPayout({ ...row, assigned_cleaner_id: row.assigned_cleaner_id ?? cleanerInfo.cleanerId, cleaner_payout: cleanerInfo.payout ?? 0 })
         .catch(e => ({ charged: false as const, payoutSent: false, error: (e as Error).message ?? 'Unexpected error' }));
 
+  // Look up cleaner's Stripe Connect status for the notification email
+  const cleanerIdForLookup = row.assigned_cleaner_id ?? cleanerInfo.cleanerId;
+  const { data: cleanerRow } = cleanerIdForLookup
+    ? await supabase.from('cleaners').select('stripe_account_id').eq('id', cleanerIdForLookup).single()
+    : { data: null };
+  const cleanerHasStripe = !!cleanerRow?.stripe_account_id;
+
   const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const photoCount = (photos ?? []).length;
   const damageMediaArr = (damageMedia ?? []) as string[];
@@ -1374,8 +1381,8 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
   const checklistTotal = Object.keys(checklist as Record<string, boolean>).length;
 
   const paymentLine = paymentResult.charged
-    ? `💳 <strong>$${paymentResult.cleaningFee} charged</strong> to client automatically${paymentResult.payoutSent ? ` · $${paymentResult.cleanerPayout} payout sent to cleaner via Stripe Connect ✓` : paymentResult.cleanerStripeId ? ` · Payout transfer failed — pay manually` : ` · Cleaner has no Stripe Connect account — pay manually`}`
-    : `⚠️ <strong>Auto-charge failed:</strong> ${paymentResult.error ?? 'No payment method on file'} — use the CRM to retry`;
+    ? `💳 <strong>$${(paymentResult as any).cleaningFee ?? row.cleaning_fee} charged</strong> to client automatically${paymentResult.payoutSent ? ` · Payout already sent to cleaner ✓` : cleanerHasStripe ? ` · Cleaner payout will be sent automatically in 2 business days via Stripe Connect` : ` · Cleaner has no Stripe Connect account — pay manually`}`
+    : `⚠️ <strong>Auto-charge failed:</strong> ${(paymentResult as any).error ?? 'No payment method on file'} — use the CRM to retry`;
 
   const hasDamage = !!(damageNotes?.trim() || damageMediaArr.length > 0);
   const hasSuppliesNeeded = !!suppliesNotes?.trim();
