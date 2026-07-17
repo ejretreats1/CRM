@@ -7,6 +7,29 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_ANON_KEY!
 );
 
+function toE164(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  return digits.length >= 7 ? `+${digits}` : null;
+}
+
+async function sendWelcomeSms(phone: string, firstName: string) {
+  const to = toE164(phone);
+  if (!to) return;
+  try {
+    const { default: Twilio } = await import('twilio');
+    const client = new Twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
+    await client.messages.create({
+      to,
+      from: process.env.TWILIO_PHONE_NUMBER!,
+      body: `Hi ${firstName}! Thanks for reaching out to EJ Retreats. We received your inquiry and someone from our team will be in touch with you shortly!`,
+    });
+  } catch (err) {
+    console.error('[inbound-lead] SMS failed:', err);
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS — allow any origin so website forms can POST from any domain
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -50,6 +73,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (error) {
     console.error('inbound-lead insert error:', error);
     return res.status(500).json({ error: 'Failed to create lead' });
+  }
+
+  if (phone?.trim()) {
+    sendWelcomeSms(phone.trim(), first_name.trim());
   }
 
   return res.status(201).json({ success: true, id });
