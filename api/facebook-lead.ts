@@ -2,6 +2,30 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID, createHmac, timingSafeEqual } from 'crypto';
 
+function toE164(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  return digits.length >= 7 ? `+${digits}` : null;
+}
+
+async function sendWelcomeSms(phone: string, name: string) {
+  const to = toE164(phone);
+  if (!to) return;
+  const firstName = name.split(' ')[0] || name;
+  try {
+    const { default: Twilio } = await import('twilio');
+    const client = new Twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
+    await client.messages.create({
+      to,
+      from: process.env.TWILIO_PHONE_NUMBER!,
+      body: `Hi ${firstName}! Thanks for reaching out to EJ Retreats. We received your inquiry and someone from our team will be in touch with you shortly!`,
+    });
+  } catch (err) {
+    console.error('[facebook-lead] SMS failed:', err);
+  }
+}
+
 // Disable Vercel's body parser so we get the raw bytes for HMAC signature verification
 export const config = { api: { bodyParser: false } };
 
@@ -112,6 +136,11 @@ async function insertLead(
   }).select('id, name');
 
   if (error) return { error: error.message };
+
+  if (contact.phone) {
+    sendWelcomeSms(contact.phone, contact.name || 'there');
+  }
+
   return { inserted: data?.[0] as { id: string; name: string } };
 }
 
