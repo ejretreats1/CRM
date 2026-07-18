@@ -38,6 +38,7 @@ const StrReportSchema = z.object({
   revenueProjections: z.object({ conservative: z.number(), realistic: z.number(), optimistic: z.number() }),
   keyFindings: z.array(z.string()),
   opportunityScore: z.number().int().min(1).max(10),
+  valueAddHighlights: z.array(z.string()),
 });
 
 const MtrReportSchema = z.object({
@@ -353,6 +354,7 @@ The attached PDF is an AirDNA Rentalizer report. Please:
 5. If owner revenue is provided, include a performance gap analysis.
 6. Write 3–5 specific recommendations. Do not recommend amenities the owner already has.
 7. Assign an opportunity score 1–10 using this exact guide based on gross yield (projectedAnnualRevenue / listingPrice × 100 if listing price provided, else based on ADR×occupancy×365 vs market): ≥15% = 10, 12–14.9% = 9, 10–11.9% = 8, 8–9.9% = 7, 6–7.9% = 6, 4–5.9% = 5, <4% = 1–4.
+8. Write 3–5 valueAddHighlights: specific, data-driven bullets on exactly what E&J Retreats would do for THIS property to grow revenue. Reference the actual AirDNA numbers (ADR gaps, occupancy vs comps, seasonal peaks). Frame each as "We will..." or "Our team will...". Focus on: dynamic pricing, booking platform strategy, peak-season capture, comp benchmarking, and ongoing revenue management. Each bullet should feel personalized to this specific property's data, not generic.
 ${seasonalityInstructions}
 ${globalRules}
 

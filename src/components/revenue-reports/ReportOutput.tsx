@@ -76,6 +76,7 @@ interface ReportData {
   recommendations: { title: string; description: string }[];
   keyFindings: string[];
   opportunityScore: number;
+  valueAddHighlights?: string[];
 }
 
 interface ReportOutputProps {
@@ -264,7 +265,7 @@ export function buildReportEmail(address: string, data: ReportData, ownerActualR
   })() : '';
 
   // ── Score + Summary ─────────────────────────────────────────────────────────
-  const scoreHtml = `
+  const scoreHtml = isDeal ? `
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;"><tr>
       <td width="28%" valign="top" style="padding-right:12px;">
         <div style="background:${BG_INNER};border:1px solid ${BORDER};border-radius:8px;padding:16px;text-align:center;">
@@ -278,7 +279,26 @@ export function buildReportEmail(address: string, data: ReportData, ownerActualR
           <div style="font-size:12px;color:${TEXT_GRAY};line-height:1.7;">${data.executiveSummary}</div>
         </div>
       </td>
-    </tr></table>`;
+    </tr></table>` : `
+    <div style="background:${BG_INNER};border:1px solid ${BORDER};border-radius:8px;padding:16px;margin-bottom:24px;">
+      <div style="font-size:9px;font-weight:700;color:${TEXT_LABEL};text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Executive Summary</div>
+      <div style="font-size:12px;color:${TEXT_GRAY};line-height:1.7;">${data.executiveSummary}</div>
+    </div>`;
+
+  // ── EJ Retreats Value Add (STR only) ────────────────────────────────────────
+  const ejValueHtml = !isDeal && !isMtr && (data.valueAddHighlights?.length ?? 0) > 0 ? `
+    <div style="margin-bottom:24px;">
+      ${sectionTitle('How E&amp;J Retreats Grows Your Revenue')}
+      <div style="background:#1a0f00;border:1px solid rgba(255,102,0,0.35);border-radius:8px;padding:16px;">
+        ${data.valueAddHighlights!.map((item, i) => `
+          <table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:${i < data.valueAddHighlights!.length - 1 ? '12px' : '0'};"><tr>
+            <td width="24" valign="top" style="padding-right:10px;">
+              <div style="background:${ORANGE};color:#fff;border-radius:50%;width:18px;height:18px;font-size:9px;font-weight:900;text-align:center;line-height:18px;">${i + 1}</div>
+            </td>
+            <td style="font-size:12px;color:${TEXT_GRAY};line-height:1.6;">${item}</td>
+          </tr></table>`).join('')}
+      </div>
+    </div>` : '';
 
   // ── Key Findings ────────────────────────────────────────────────────────────
   const findingsHtml = data.keyFindings.length > 0 ? `
@@ -463,11 +483,11 @@ export function buildReportEmail(address: string, data: ReportData, ownerActualR
           <div style="font-size:12px;color:${TEXT_GRAY};margin-top:4px;">${address} · Powered by AirDNA</div>
           <div style="font-size:10px;color:${TEXT_MUTED};margin-top:4px;">${date}</div>
         </td>
-        <td valign="middle" align="right" style="padding-left:16px;">
+        ${isDeal ? `<td valign="middle" align="right" style="padding-left:16px;">
           <div style="background:#1a0f00;border:1px solid ${ORANGE};border-radius:99px;padding:6px 14px;white-space:nowrap;">
             <span style="font-size:11px;font-weight:700;color:${scoreC};">Opportunity Score: ${data.opportunityScore} / 10</span>
           </div>
-        </td>
+        </td>` : '<td></td>'}
       </tr></table>
     </div>
 
@@ -489,6 +509,7 @@ export function buildReportEmail(address: string, data: ReportData, ownerActualR
       ${mtrDetailsHtml}
       ${strVsMtrHtml}
       ${recsHtml}
+      ${ejValueHtml}
       ${projectionsHtml}
       ${ctaHtml}
       <div style="border-top:1px solid ${BORDER};padding-top:16px;text-align:center;font-size:10px;color:${TEXT_MUTED};">
@@ -638,7 +659,7 @@ function ComparablesTable({ comps }: { comps: CompData[] }) {
 function defaultEmailNote(firstName: string, address: string): string {
   return `Hi ${firstName || '{{First Name}}'},
 
-Your revenue analysis for ${address} is attached. It covers your property's market potential, an opportunity score, and a few specific recommendations.
+Your revenue analysis for ${address} is attached. It covers your property's market potential, what we can specifically do to grow your revenue, and a few targeted recommendations.
 
 Every property is a little different though, so I'd love to hear more about yours if you have a sec:
 
@@ -973,7 +994,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               <p className="text-xs text-[#9CA3AF] mt-1">{address} · Powered by AirDNA</p>
               <p className="text-[10px] text-[#4B5563] mt-0.5">{date}</p>
             </div>
-            <ScorePill score={data.opportunityScore} />
+            {isDeal && <ScorePill score={data.opportunityScore} />}
           </div>
         </div>
 
@@ -1193,25 +1214,32 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
           )}
 
           {/* ── Score + Executive Summary ── */}
-          <div className="print-section grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-1 bg-[#151a27] border border-[#2a2f3e] rounded-xl p-4 text-center">
-              {(() => {
-                const c = data.opportunityScore >= 7 ? 'text-[#22C55E]' : data.opportunityScore >= 4 ? 'text-[#FF6600]' : 'text-red-400';
-                const bar = data.opportunityScore >= 7 ? 'bg-[#22C55E]' : data.opportunityScore >= 4 ? 'bg-[#FF6600]' : 'bg-red-500';
-                return <>
-                  <p className="text-[9px] font-bold uppercase tracking-[2px] text-[#6B7280] mb-2">Opportunity Score</p>
-                  <p className={`text-5xl font-black ${c}`}>{data.opportunityScore}<span className="text-lg font-semibold text-[#4B5563]">/10</span></p>
-                  <div className="mt-3 h-1.5 bg-[#2a2f3e] rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${bar}`} style={{ width: `${(data.opportunityScore / 10) * 100}%` }} />
-                  </div>
-                </>;
-              })()}
+          {isDeal ? (
+            <div className="print-section grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-1 bg-[#151a27] border border-[#2a2f3e] rounded-xl p-4 text-center">
+                {(() => {
+                  const c = data.opportunityScore >= 7 ? 'text-[#22C55E]' : data.opportunityScore >= 4 ? 'text-[#FF6600]' : 'text-red-400';
+                  const bar = data.opportunityScore >= 7 ? 'bg-[#22C55E]' : data.opportunityScore >= 4 ? 'bg-[#FF6600]' : 'bg-red-500';
+                  return <>
+                    <p className="text-[9px] font-bold uppercase tracking-[2px] text-[#6B7280] mb-2">Opportunity Score</p>
+                    <p className={`text-5xl font-black ${c}`}>{data.opportunityScore}<span className="text-lg font-semibold text-[#4B5563]">/10</span></p>
+                    <div className="mt-3 h-1.5 bg-[#2a2f3e] rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${bar}`} style={{ width: `${(data.opportunityScore / 10) * 100}%` }} />
+                    </div>
+                  </>;
+                })()}
+              </div>
+              <div className="sm:col-span-2 bg-[#151a27] border border-[#2a2f3e] rounded-xl p-5">
+                <SectionLabel>Executive Summary</SectionLabel>
+                <p className="text-sm text-[#9CA3AF] leading-relaxed">{data.executiveSummary}</p>
+              </div>
             </div>
-            <div className="sm:col-span-2 bg-[#151a27] border border-[#2a2f3e] rounded-xl p-5">
+          ) : (
+            <div className="print-section bg-[#151a27] border border-[#2a2f3e] rounded-xl p-5">
               <SectionLabel>Executive Summary</SectionLabel>
               <p className="text-sm text-[#9CA3AF] leading-relaxed">{data.executiveSummary}</p>
             </div>
-          </div>
+          )}
 
           {/* ── Key Findings ── */}
           {data.keyFindings.length > 0 && (
@@ -1298,6 +1326,23 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               </div>
             );
           })()}
+
+          {/* ── How EJ Retreats Can Help (STR only) ── */}
+          {!isMtr && !isDeal && (data.valueAddHighlights?.length ?? 0) > 0 && (
+            <div className="print-section">
+              <SectionLabel>How E&amp;J Retreats Grows Your Revenue</SectionLabel>
+              <div className="bg-[#1a0f00] border border-[#FF6600]/30 rounded-xl p-5 space-y-3">
+                {data.valueAddHighlights!.map((item, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-[#FF6600] flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-white text-[9px] font-black">{i + 1}</span>
+                    </div>
+                    <p className="text-sm text-[#9CA3AF] leading-relaxed">{item}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Refine with AI ── */}
           {onRefine && (
