@@ -50,6 +50,7 @@ interface PendingReport {
     revenueProjections?: { conservative: number; realistic: number; optimistic: number };
     keyFindings: string[];
     opportunityScore: number;
+    valueAddHighlights?: string[];
   };
 }
 
