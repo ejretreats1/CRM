@@ -103,8 +103,8 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(s => (
-          <div key={s.label} className={`${s.bg} border border-[#1e2d45] rounded-2xl p-4 space-y-2`}>
+        {stats.map((s, i) => (
+          <div key={s.label} style={{ transitionDelay: `${i * 60}ms` }} className={`scroll-fade ${s.bg} border border-[#1e2d45] rounded-2xl p-4 space-y-2`}>
             <div className="flex items-center justify-between">
               <span className="text-xs text-[#3a5070] font-medium">{s.label}</span>
               <s.icon size={16} className={s.color} />
@@ -501,11 +501,12 @@ function CleaningPayments({
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {summary.map(s => (
+        {summary.map((s, i) => (
           <button
             key={s.label}
             onClick={() => goToFilter(s.filter)}
-            className={`${s.bg} border border-[#1e2d45] rounded-2xl p-4 space-y-2 text-left hover:brightness-110 transition-all active:scale-[0.98]`}
+            style={{ transitionDelay: `${i * 60}ms` }}
+            className={`scroll-fade ${s.bg} border border-[#1e2d45] rounded-2xl p-4 space-y-2 text-left hover:brightness-110 transition-all active:scale-[0.98]`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs text-[#3a5070] font-medium">{s.label}</span>

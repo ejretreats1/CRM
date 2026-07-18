@@ -85,6 +85,30 @@
   @apply ring-2 ring-[#4a90d9] bg-[#162035];
 }
 
+/* ── Button hover / press animations ────────────────────────────────────── */
+button:not(:disabled) {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+button:active:not(:disabled) {
+  transform: scale(0.97) translateY(0px);
+  box-shadow: none;
+}
+
+/* ── Scroll fade-up animation ─────────────────────────────────────────── */
+.scroll-fade {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.scroll-fade.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
