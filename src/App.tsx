@@ -39,6 +39,7 @@ import OwnerModal from './components/modals/OwnerModal';
 import PropertyModal from './components/modals/PropertyModal';
 import OutreachModal from './components/modals/OutreachModal';
 import { useSupabaseCache } from './hooks/useSupabaseCache';
+import { useScrollAnimation } from './hooks/useScrollAnimation';
 import {
   fetchLeads, upsertLead, deleteLead,
   fetchOwners, upsertOwner, deleteOwner, archiveOwner,
@@ -71,6 +72,7 @@ type Modal =
   | null;
 
 export default function App() {
+  useScrollAnimation();
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
   const isAdmin = (user?.publicMetadata?.role as string) === 'admin';

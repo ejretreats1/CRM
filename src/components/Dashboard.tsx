@@ -362,8 +362,9 @@ export default function Dashboard({
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(({ label, value, sub, icon: Icon, color, view, onClick }) => {
+        {stats.map(({ label, value, sub, icon: Icon, color, view, onClick }, idx) => {
           const handler = onClick ?? (view ? () => onNavigate(view) : undefined);
+          const stagger = { transitionDelay: `${idx * 60}ms` };
           const inner = (
             <>
               <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center mb-3`}>
@@ -379,12 +380,13 @@ export default function Dashboard({
             <button
               key={label}
               onClick={handler}
-              className="bg-[#1a2335] rounded-xl p-4 border border-[#1e2d45] shadow-sm text-left hover:border-[#4a90d9] hover:shadow-md transition-all overflow-hidden"
+              style={stagger}
+              className="scroll-fade bg-[#1a2335] rounded-xl p-4 border border-[#1e2d45] shadow-sm text-left hover:border-[#4a90d9] hover:shadow-md transition-all overflow-hidden"
             >
               {inner}
             </button>
           ) : (
-            <div key={label} className="bg-[#1a2335] rounded-xl p-4 border border-[#1e2d45] shadow-sm overflow-hidden">
+            <div key={label} style={stagger} className="scroll-fade bg-[#1a2335] rounded-xl p-4 border border-[#1e2d45] shadow-sm overflow-hidden">
               {inner}
             </div>
           );
@@ -392,7 +394,7 @@ export default function Dashboard({
       </div>
 
       {/* Calendar + Todos row */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="scroll-fade grid lg:grid-cols-2 gap-6">
         {/* Google Calendar Widget */}
         <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-sm">
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
@@ -632,7 +634,7 @@ export default function Dashboard({
       </div>
 
       {/* Recent leads + outreach row */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="scroll-fade grid lg:grid-cols-2 gap-6">
         {/* Recent leads */}
         <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] shadow-sm">
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
