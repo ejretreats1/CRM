@@ -284,7 +284,7 @@ const CONFIRMED_STATUSES = new Set([
   'completed', 'stayed', 'departed', 'arrived',
 ]);
 
-/** Estimate monthly revenue from reservations that checked in during the last 30 days */
+/** Estimate revenue from reservations whose stay overlapped the last 30 days */
 export function estimateMonthlyRevenue(
   propertyId: string,
   reservations: UplistingReservation[]
@@ -299,8 +299,8 @@ export function estimateMonthlyRevenue(
       (r) =>
         r.listing_id === propertyId &&
         CONFIRMED_STATUSES.has(r.status) &&
-        r.check_in.slice(0, 10) >= cutoffStr &&
-        r.check_in.slice(0, 10) <= todayStr
+        r.check_in.slice(0, 10) <= todayStr &&
+        r.check_out.slice(0, 10) >= cutoffStr
     )
     .reduce((sum, r) => sum + r.total_price, 0);
 }
