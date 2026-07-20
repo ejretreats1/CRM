@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Download, Calendar, Percent, Save, CheckCircle } from 'lucide-react';
 import type { Owner } from '../types';
 import type { UplistingReservation } from '../services/uplisting';
+import { CONFIRMED_STATUSES } from '../services/uplisting';
 import { uploadOwnerDocument } from '../services/ownerDocuments';
 import { cacheGet, cacheSet } from '../services/appCache';
 
@@ -110,8 +111,8 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
       return ownerListingIds.has(r.listing_id) && checkIn >= from && checkIn <= to;
     };
     return {
-      filtered: reservations.filter(r => r.status !== 'cancelled' && inRange(r)),
-      cancelled: reservations.filter(r => r.status === 'cancelled' && inRange(r)),
+      filtered: reservations.filter(r => CONFIRMED_STATUSES.has(r.status) && inRange(r)),
+      cancelled: reservations.filter(r => !CONFIRMED_STATUSES.has(r.status) && inRange(r)),
     };
   }, [reservations, ownerListingIds, from, to]);
 

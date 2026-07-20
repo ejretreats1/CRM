@@ -77,7 +77,7 @@ const SIG_STATUS: Record<string, { icon: React.ReactNode; label: string; cls: st
   expired: { icon: <XCircle size={12} />,      label: 'Expired', cls: 'bg-[#1e2d45] text-[#b8d4f0]' },
 };
 
-const CONFIRMED = new Set(['confirmed','accepted','checked_in','checked_out','completed','stayed','departed','arrived']);
+const CONFIRMED = new Set(['confirmed','accepted','checked_in','checked_out','completed','stayed','departed','arrived','checkedIn','checkedOut','modified']);
 
 function propMonthRevenue(propertyId: string, reservations: UplistingReservation[]): number | null {
   const parts = propertyId.split('_');

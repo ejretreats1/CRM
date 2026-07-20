@@ -50,6 +50,7 @@ interface DashboardProps {
   uplistingReservations: UplistingReservation[];
   lastSync: string | null;
   onSync: () => Promise<void>;
+  pmsDataReady?: boolean;
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -130,7 +131,7 @@ function timeAgoShort(ts: string): string {
 export default function Dashboard({
   leads, owners, outreach, todos, calendarUrl, slackToken, slackChannels,
   onNavigate, onToggleTodo, onAddTodo, onOpenLeadDetail,
-  uplistingConnected, uplistingProperties, uplistingReservations, lastSync, onSync,
+  uplistingConnected, uplistingProperties, uplistingReservations, lastSync, onSync, pmsDataReady,
 }: DashboardProps) {
   const [calEvents, setCalEvents] = useState<CalEvent[]>([]);
   const [calLoading, setCalLoading] = useState(false);
@@ -196,9 +197,10 @@ export default function Dashboard({
   const revenueProperties = allProperties.filter(p => p.status !== 'inactive');
   const activeOwners = owners.filter(o => o.properties.some(p => p.status !== 'inactive'));
 
-  // Only switch to live PMS numbers once BOTH properties and reservations have loaded
-  // from cache — avoids a flash of $0 while the second cache read is still in flight.
-  const pmsReady = uplistingProperties.length > 0 && uplistingReservations.length > 0;
+  // Only switch to live PMS numbers once all cache slots have loaded from Supabase.
+  // pmsDataReady comes from App.tsx (all 4 cache reads completed); fall back to length
+  // heuristic so existing call sites without the prop still work.
+  const pmsReady = pmsDataReady ?? (uplistingProperties.length > 0 && uplistingReservations.length > 0);
 
   const totalMonthlyRevenue = pmsReady
     ? uplistingProperties.reduce((sum, p) => sum + estimateMonthlyRevenue(p.id, uplistingReservations), 0)
