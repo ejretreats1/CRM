@@ -328,7 +328,12 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
           )}
 
           {filtered.length === 0 && cancelled.length === 0 ? (
-            <p className="text-sm text-[#3a5070] py-4">No reservations found for this date range.</p>
+            <div className="py-4 space-y-1">
+              <p className="text-sm text-[#3a5070]">No reservations found for this date range.</p>
+              <p className="text-xs text-[#3a5070]">
+                Searching {ownerListingIds.size} listing{ownerListingIds.size !== 1 ? 's' : ''}: {[...ownerListingIds].join(', ')}
+              </p>
+            </div>
           ) : (
             <div className="space-y-5">
               {/* Completed reservations */}
