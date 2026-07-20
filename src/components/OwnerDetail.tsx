@@ -77,6 +77,8 @@ const SIG_STATUS: Record<string, { icon: React.ReactNode; label: string; cls: st
   expired: { icon: <XCircle size={12} />,      label: 'Expired', cls: 'bg-[#1e2d45] text-[#b8d4f0]' },
 };
 
+const CONFIRMED = new Set(['confirmed','accepted','checked_in','checked_out','completed','stayed','departed','arrived']);
+
 function propMonthRevenue(propertyId: string, reservations: UplistingReservation[]): number | null {
   const parts = propertyId.split('_');
   const uid = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
@@ -84,7 +86,7 @@ function propMonthRevenue(propertyId: string, reservations: UplistingReservation
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const today  = new Date().toISOString().slice(0, 10);
   const total = reservations
-    .filter(r => r.listing_id === uid && r.status !== 'cancelled' && r.check_in.slice(0, 10) >= cutoff && r.check_in.slice(0, 10) <= today)
+    .filter(r => r.listing_id === uid && CONFIRMED.has(r.status) && r.check_in.slice(0, 10) <= today && r.check_out.slice(0, 10) >= cutoff)
     .reduce((s, r) => s + (r.total_price ?? 0), 0);
   return total > 0 ? total : null;
 }
