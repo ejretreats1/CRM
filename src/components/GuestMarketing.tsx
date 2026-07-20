@@ -165,7 +165,7 @@ export default function GuestMarketing({ reservations, apiKey, warmupAddresses =
     try {
       const today = new Date().toISOString().slice(0, 10);
       const ago   = new Date(); ago.setFullYear(ago.getFullYear() - 3);
-      const hist  = await fetchReservations(apiKey, ago.toISOString().slice(0, 10), today);
+      const { reservations: hist } = await fetchReservations(apiKey, ago.toISOString().slice(0, 10), today);
       cacheSet('ej_uplisting_history', hist); setHistory(hist);
       cacheSet('ej_uplisting_history_date', today);
       setHistoryLastFetched(today);

@@ -56,7 +56,7 @@ import {
   fetchProjects, upsertProject, deleteProject as deleteProjectDb,
   fetchTodos, upsertTodo, deleteTodo,
 } from './services/projects';
-import { fetchProperties, fetchReservations, estimateMonthlyRevenue, estimateOccupancy } from './services/uplisting';
+import { fetchProperties, fetchReservations } from './services/uplisting';
 import { fetchHostawayProperties, fetchHostawayReservations } from './services/hostaway';
 import { fetchSettings, saveSettings } from './services/settings';
 import type { Lead, Owner, Property, OutreachEntry, View, Project, Todo, Contact } from './types';
@@ -174,7 +174,7 @@ export default function App() {
       const ninetyDaysAhead = new Date(today);
       ninetyDaysAhead.setDate(today.getDate() + 90);
       const props = await fetchProperties(uplistingApiKey);
-      const res = await fetchReservations(
+      const { reservations: res, revenueMap } = await fetchReservations(
         uplistingApiKey,
         oneYearAgo.toISOString().slice(0, 10),
         ninetyDaysAhead.toISOString().slice(0, 10),
@@ -187,10 +187,10 @@ export default function App() {
       setOwners(prev => prev.map(owner => {
         const updatedProps = owner.properties.map(prop => {
           const parts = prop.id.split('_');
-          const uplistingId = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
-          if (!uplistingId) return prop;
-          const monthlyRevenue = estimateMonthlyRevenue(uplistingId, res);
-          const occupancyRate  = estimateOccupancy(uplistingId, res);
+          const pmsId = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
+          if (!pmsId || !(pmsId in revenueMap.revenue)) return prop;
+          const monthlyRevenue = revenueMap.revenue[pmsId];
+          const occupancyRate  = revenueMap.occupancy[pmsId] ?? 0;
           if (monthlyRevenue === prop.monthlyRevenue && occupancyRate === prop.occupancyRate) return prop;
           const updated = { ...prop, monthlyRevenue, occupancyRate };
           upsertProperty(owner.id, updated);
@@ -217,7 +217,7 @@ export default function App() {
       oneYearAgo.setFullYear(today.getFullYear() - 1);
       const ninetyDaysAhead = new Date(today);
       ninetyDaysAhead.setDate(today.getDate() + 90);
-      const [props, resv] = await Promise.all([
+      const [props, { reservations: resv, revenueMap: hostawayRevenueMap }] = await Promise.all([
         fetchHostawayProperties(hostawayAccountId, hostawaySecret),
         fetchHostawayReservations(
           hostawayAccountId, hostawaySecret,
@@ -232,10 +232,10 @@ export default function App() {
       setOwners(prev => prev.map(owner => {
         const updatedProps = owner.properties.map(prop => {
           const parts = prop.id.split('_');
-          const hostawayId = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
-          if (!hostawayId) return prop;
-          const monthlyRevenue = estimateMonthlyRevenue(hostawayId, resv);
-          const occupancyRate  = estimateOccupancy(hostawayId, resv);
+          const pmsId = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
+          if (!pmsId || !(pmsId in hostawayRevenueMap.revenue)) return prop;
+          const monthlyRevenue = hostawayRevenueMap.revenue[pmsId];
+          const occupancyRate  = hostawayRevenueMap.occupancy[pmsId] ?? 0;
           if (monthlyRevenue === prop.monthlyRevenue && occupancyRate === prop.occupancyRate) return prop;
           const updated = { ...prop, monthlyRevenue, occupancyRate };
           upsertProperty(owner.id, updated);

@@ -1,4 +1,5 @@
-import type { UplistingProperty, UplistingReservation } from './uplisting';
+import { CONFIRMED_STATUSES } from './uplisting';
+import type { UplistingProperty, UplistingReservation, PropertyRevenueMap } from './uplisting';
 
 export interface HostawayConnectionResult {
   ok: boolean;
@@ -113,7 +114,7 @@ export async function fetchHostawayReservations(
   secret: string,
   from?: string,
   to?: string,
-): Promise<UplistingReservation[]> {
+): Promise<{ reservations: UplistingReservation[]; revenueMap: PropertyRevenueMap }> {
   const all: UplistingReservation[] = [];
   let offset = 0;
   const limit = 100;
@@ -130,5 +131,35 @@ export async function fetchHostawayReservations(
     if (list.length < limit) break;
     offset += limit;
   }
-  return all;
+
+  const today = new Date();
+  const cutoff = new Date();
+  cutoff.setDate(today.getDate() - 30);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const revenueMap: PropertyRevenueMap = { revenue: {}, occupancy: {} };
+  const byProperty = new Map<string, UplistingReservation[]>();
+  for (const r of all) {
+    if (!r.listing_id) continue;
+    const group = byProperty.get(r.listing_id) ?? [];
+    group.push(r);
+    byProperty.set(r.listing_id, group);
+  }
+  for (const [propId, resv] of byProperty) {
+    const confirmed = resv.filter(r =>
+      CONFIRMED_STATUSES.has(r.status) &&
+      r.check_in.slice(0, 10) <= todayStr &&
+      r.check_out.slice(0, 10) >= cutoffStr
+    );
+    revenueMap.revenue[propId] = confirmed.reduce((s, r) => s + r.total_price, 0);
+    const bookedNights = resv.filter(r =>
+      CONFIRMED_STATUSES.has(r.status) &&
+      new Date(r.check_out) >= cutoff &&
+      new Date(r.check_in) <= today
+    ).reduce((s, r) => s + (r.nights || 1), 0);
+    revenueMap.occupancy[propId] = Math.min(100, Math.round((bookedNights / 30) * 100));
+  }
+
+  return { reservations: all, revenueMap };
 }

@@ -49,6 +49,11 @@ export interface UplistingConnectionResult {
   reservations?: UplistingReservation[];
 }
 
+export interface PropertyRevenueMap {
+  revenue: Record<string, number>;
+  occupancy: Record<string, number>;
+}
+
 async function apiFetch(path: string, apiKey: string, params?: Record<string, string>) {
   const q = new URLSearchParams({ path, ...params });
   const res = await fetch(`/api/uplisting-proxy?${q}`, {
@@ -151,26 +156,46 @@ export async function fetchReservations(
   from?: string,
   to?: string,
   properties?: UplistingProperty[]
-): Promise<UplistingReservation[]> {
+): Promise<{ reservations: UplistingReservation[]; revenueMap: PropertyRevenueMap }> {
   const params: Record<string, string> = {};
   if (from) params.from = from;
   if (to) params.to = to;
-  // bookings endpoint requires a listing_id; fetch all properties first and aggregate
-  // (callers that already fetched properties can pass them in to avoid refetching)
   const props = properties ?? await fetchProperties(apiKey);
+
+  const today = new Date();
+  const cutoff = new Date();
+  cutoff.setDate(today.getDate() - 30);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const revenueMap: PropertyRevenueMap = { revenue: {}, occupancy: {} };
   const allBookings: UplistingReservation[] = (await Promise.all(props.map(async prop => {
     try {
       const data = await apiFetch(`bookings/${prop.id}`, apiKey, params);
       const rawList: any[] = data?.bookings ?? data?.data ?? data ?? [];
-      return rawList.map(r => ({
+      const normalized = rawList.map(r => ({
         ...normalizeReservation(r),
-        listing_id: prop.id, // always stamp — Uplisting fetches per-property so we know the ID
+        listing_id: prop.id,
       }));
+      // Compute revenue directly — we know exactly which reservations belong to this property
+      const confirmed = normalized.filter(r =>
+        CONFIRMED_STATUSES.has(r.status) &&
+        r.check_in.slice(0, 10) <= todayStr &&
+        r.check_out.slice(0, 10) >= cutoffStr
+      );
+      revenueMap.revenue[prop.id] = confirmed.reduce((s, r) => s + r.total_price, 0);
+      const bookedNights = normalized.filter(r =>
+        CONFIRMED_STATUSES.has(r.status) &&
+        new Date(r.check_out) >= cutoff &&
+        new Date(r.check_in) <= today
+      ).reduce((s, r) => s + (r.nights || 1), 0);
+      revenueMap.occupancy[prop.id] = Math.min(100, Math.round((bookedNights / 30) * 100));
+      return normalized;
     } catch {
       return [];
     }
   }))).flat();
-  return allBookings;
+  return { reservations: allBookings, revenueMap };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
