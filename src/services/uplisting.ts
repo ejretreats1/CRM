@@ -252,24 +252,37 @@ function normalizeUpsells(a: any): UplistingUpsell[] | undefined {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeReservation(r: any): UplistingReservation {
   const a = r.attributes ?? r; // handle JSON:API format
+  const checkIn  = a.check_in  ?? a.start_date ?? '';
+  const checkOut = a.check_out ?? a.end_date   ?? '';
+  const rawNights = Number(a.number_of_nights ?? a.nights ?? 0);
+  const nights = rawNights > 0 ? rawNights : (() => {
+    if (!checkIn || !checkOut) return 0;
+    const diff = Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000);
+    return diff > 0 ? diff : 0;
+  })();
   return {
     id: String(r.id ?? a.id ?? ''),
     listing_id: String(a.property_id ?? a.listing_id ?? r.property_id ?? ''),
     guest_name: a.guest_name ?? a.guest?.name ?? 'Guest',
     guest_email: a.guest_email ?? a.guest?.email ?? '',
-    check_in: a.check_in ?? a.start_date ?? '',
-    check_out: a.check_out ?? a.end_date ?? '',
+    check_in:  checkIn,
+    check_out: checkOut,
     total_price: Number(a.total_payout ?? a.host_payout ?? a.total_price ?? 0),
-    accommodation_total: a.accommodation_total ?? a.accomodation_total != null
+    accommodation_total: (a.accommodation_total ?? a.accomodation_total) != null
       ? Number(a.accommodation_total ?? a.accomodation_total)
       : undefined,
     cleaning_fee: a.cleaning_fee != null ? Number(a.cleaning_fee) : undefined,
     upsells: normalizeUpsells(a),
     status: a.status ?? 'confirmed',
     channel: a.channel ?? a.source ?? '',
-    nights: Number(a.number_of_nights ?? a.nights ?? 0),
+    nights,
   };
 }
+
+const CONFIRMED_STATUSES = new Set([
+  'confirmed', 'accepted', 'checked_in', 'checked_out',
+  'completed', 'stayed', 'departed', 'arrived',
+]);
 
 /** Estimate monthly revenue from reservations that checked in during the last 30 days */
 export function estimateMonthlyRevenue(
@@ -285,7 +298,7 @@ export function estimateMonthlyRevenue(
     .filter(
       (r) =>
         r.listing_id === propertyId &&
-        r.status !== 'cancelled' &&
+        CONFIRMED_STATUSES.has(r.status) &&
         r.check_in.slice(0, 10) >= cutoffStr &&
         r.check_in.slice(0, 10) <= todayStr
     )
@@ -304,7 +317,7 @@ export function estimateOccupancy(
     .filter(
       (r) =>
         r.listing_id === propertyId &&
-        r.status !== 'cancelled' &&
+        CONFIRMED_STATUSES.has(r.status) &&
         new Date(r.check_out) >= cutoff &&
         new Date(r.check_in) <= today
     )

@@ -131,9 +131,9 @@ export function analyzeProperty(
     : [];
 
   // Occupancy: average occupied nights per unit so multi-unit reads correctly
-  const occupancy30d = isMultiUnit ? avgOccupancy(allIds, allReservations, today, d30, 30) : Math.round((bookedNightsInWindow(propRes, today, d30) / 30) * 100);
-  const occupancy60d = isMultiUnit ? avgOccupancy(allIds, allReservations, today, d60, 60) : Math.round((bookedNightsInWindow(propRes, today, d60) / 60) * 100);
-  const occupancy90d = isMultiUnit ? avgOccupancy(allIds, allReservations, today, d90, 90) : Math.round((bookedNightsInWindow(propRes, today, d90) / 90) * 100);
+  const occupancy30d = Math.min(100, isMultiUnit ? avgOccupancy(allIds, allReservations, today, d30, 30) : Math.round((bookedNightsInWindow(propRes, today, d30) / 30) * 100));
+  const occupancy60d = Math.min(100, isMultiUnit ? avgOccupancy(allIds, allReservations, today, d60, 60) : Math.round((bookedNightsInWindow(propRes, today, d60) / 60) * 100));
+  const occupancy90d = Math.min(100, isMultiUnit ? avgOccupancy(allIds, allReservations, today, d90, 90) : Math.round((bookedNightsInWindow(propRes, today, d90) / 90) * 100));
 
   const past90 = propRes.filter(
     r => r.status !== 'cancelled' && r.check_out.slice(0, 10) >= d90ago && r.check_in.slice(0, 10) <= today,
@@ -145,7 +145,15 @@ export function analyzeProperty(
 
   const adrSource = past90.filter(r => (r.nights ?? 0) > 0);
   const adr = adrSource.length
-    ? Math.round(adrSource.reduce((s, r) => s + r.total_price / (r.nights ?? 1), 0) / adrSource.length)
+    ? Math.round(adrSource.reduce((s, r) => {
+        // Use accommodation_total if available to exclude cleaning fees from ADR
+        const nightly = r.accommodation_total != null
+          ? r.accommodation_total / (r.nights ?? 1)
+          : r.cleaning_fee != null
+          ? (r.total_price - r.cleaning_fee) / (r.nights ?? 1)
+          : r.total_price / (r.nights ?? 1);
+        return s + Math.max(0, nightly);
+      }, 0) / adrSource.length)
     : 0;
 
   // Gaps: use primary listing only (the "entire property" view)
@@ -166,9 +174,10 @@ export function analyzeProperty(
       r.check_in.slice(0, 10) <= priorYearEnd,
   ).length;
 
-  const withLeadTime = past90.filter(r => r.check_in > ((r as any).created_at ?? ''));
+  // created_at is not guaranteed from PMS — only compute lead time when it's present and valid
+  const withLeadTime = past90.filter(r => typeof (r as any).created_at === 'string' && (r as any).created_at.length >= 10);
   const avgLeadTimeDays = withLeadTime.length
-    ? Math.round(withLeadTime.reduce((s, r) => s + daysBetween(((r as any).created_at?.slice(0, 10) ?? today), r.check_in.slice(0, 10)), 0) / withLeadTime.length)
+    ? Math.round(withLeadTime.reduce((s, r) => s + Math.max(0, daysBetween((r as any).created_at.slice(0, 10), r.check_in.slice(0, 10))), 0) / withLeadTime.length)
     : 0;
 
   const channelMix: Record<string, number> = {};

@@ -514,7 +514,7 @@ export default function App() {
   };
 
   const selectedOwner = owners.find(o => o.id === selectedOwnerId);
-  const uplistingConnected = !!uplistingApiKey;
+  const uplistingConnected = !!(uplistingApiKey || (hostawayAccountId && hostawaySecret));
 
   // Public share/portal links — render without auth
   const searchParams = new URLSearchParams(window.location.search);

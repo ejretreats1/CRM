@@ -64,7 +64,8 @@ const STAGES: {
 ];
 
 function formatCurrency(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+  const safe = Number(n) || 0;
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(safe);
 }
 
 function timeAgo(dateStr: string) {
@@ -433,9 +434,11 @@ function CallRow({ lead, index, called, onToggle, onView, onEdit }: {
             {lead.phone}
           </a>
         )}
-        <span className="text-xs font-semibold text-[#4a90d9] hidden sm:block">
-          ${lead.estimatedRevenue.toLocaleString()}/mo
-        </span>
+        {(Number(lead.estimatedRevenue) || 0) > 0 && (
+          <span className="text-xs font-semibold text-[#4a90d9] hidden sm:block">
+            ${(Number(lead.estimatedRevenue) || 0).toLocaleString()}/mo
+          </span>
+        )}
         <button
           onClick={onEdit}
           className="p-1.5 rounded-lg text-[#3a5070] hover:text-white hover:bg-[#1e2d45] transition-colors opacity-0 group-hover:opacity-100"
@@ -486,7 +489,7 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
   };
 
   const activeLeads = leads.filter(l => l.stage !== 'won');
-  const totalPipelineValue = activeLeads.reduce((s, l) => s + l.estimatedRevenue, 0);
+  const totalPipelineValue = activeLeads.reduce((s, l) => s + (Number(l.estimatedRevenue) || 0), 0);
 
   return (
     <>
@@ -547,7 +550,7 @@ export default function Pipeline({ leads, onUpdateLeads, onOpenLeadModal, onOpen
         <div className="flex gap-4 p-5 h-full min-w-max">
           {STAGES.map(stage => {
             const stageLeads = leads.filter(l => l.stage === stage.id);
-            const stageValue = stageLeads.reduce((s, l) => s + l.estimatedRevenue, 0);
+            const stageValue = stageLeads.reduce((s, l) => s + (Number(l.estimatedRevenue) || 0), 0);
             const isOver = dragOverStage === stage.id;
 
             return (
