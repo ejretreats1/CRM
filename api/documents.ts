@@ -2110,7 +2110,7 @@ async function doChargeAndPayout(job: Record<string, any>): Promise<ChargeResult
       description: `Cleaning: ${job.property_name} — ${job.checkout_date}`,
       metadata: { job_id: job.id, property_id: job.property_id },
       // No transfer_data — cleaner payout is sent 2 business days later by the cron job
-    }, { idempotencyKey: `charge_${job.id}_${Date.now()}` });
+    }, { idempotencyKey: `charge_${job.id}` });
   } catch (err: unknown) {
     const msg = (err instanceof Error ? err.message : (err as { message?: string })?.message) ?? 'Payment failed.';
     return { charged: false, payoutSent: false, error: msg };
