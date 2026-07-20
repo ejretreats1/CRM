@@ -196,7 +196,11 @@ export default function Dashboard({
   const revenueProperties = allProperties.filter(p => p.status !== 'inactive');
   const activeOwners = owners.filter(o => o.properties.some(p => p.status !== 'inactive'));
 
-  const totalMonthlyRevenue = uplistingProperties.length > 0
+  // Only switch to live PMS numbers once BOTH properties and reservations have loaded
+  // from cache — avoids a flash of $0 while the second cache read is still in flight.
+  const pmsReady = uplistingProperties.length > 0 && uplistingReservations.length > 0;
+
+  const totalMonthlyRevenue = pmsReady
     ? uplistingProperties.reduce((sum, p) => sum + estimateMonthlyRevenue(p.id, uplistingReservations), 0)
     : revenueProperties.reduce((sum, p) => sum + p.monthlyRevenue, 0);
 
@@ -210,7 +214,7 @@ export default function Dashboard({
       let rev = 0;
       for (const prop of owner.properties) {
         if (prop.status === 'inactive') continue;
-        if (uplistingProperties.length > 0) {
+        if (pmsReady) {
           // Extract PMS listing ID from property ID (format: p_{timestamp}_{listingId})
           const parts = prop.id.split('_');
           const listingId = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;

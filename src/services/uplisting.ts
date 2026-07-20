@@ -280,8 +280,11 @@ function normalizeReservation(r: any): UplistingReservation {
 }
 
 const CONFIRMED_STATUSES = new Set([
+  // Uplisting / generic statuses
   'confirmed', 'accepted', 'checked_in', 'checked_out',
   'completed', 'stayed', 'departed', 'arrived',
+  // Hostaway camelCase statuses
+  'checkedIn', 'checkedOut', 'modified',
 ]);
 
 /** Estimate revenue from reservations whose stay overlapped the last 30 days */
