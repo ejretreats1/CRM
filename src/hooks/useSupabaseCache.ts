@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { cacheGet, cacheSet } from '../services/appCache';
 
 export function useSupabaseCache<T>(key: string, initialValue: T): [T, (val: T) => void, boolean] {
@@ -17,10 +17,13 @@ export function useSupabaseCache<T>(key: string, initialValue: T): [T, (val: T) 
     });
   }, [key]);
 
-  function set(newVal: T) {
+  // useCallback is CRITICAL here — without it, every render creates a new `set` reference,
+  // which destabilises handleSync's useCallback deps, which causes the sync useEffect to
+  // fire on every render (infinite loop that repeatedly overwrites revenue with $0).
+  const set = useCallback((newVal: T) => {
     setValue(newVal);
     cacheSet(key, newVal);
-  }
+  }, [key]);
 
   return [value, set, loaded];
 }
