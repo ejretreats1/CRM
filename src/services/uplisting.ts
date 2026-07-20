@@ -162,7 +162,13 @@ export async function fetchReservations(
     try {
       const data = await apiFetch(`bookings/${prop.id}`, apiKey, params);
       const rawList: any[] = data?.bookings ?? data?.data ?? data ?? [];
-      return rawList.map(normalizeReservation);
+      return rawList.map(r => {
+        const res = normalizeReservation(r);
+        // Uplisting bookings are fetched per-property, so the API may not echo back
+        // the property ID inside each booking object. Fall back to the prop.id we used
+        // to fetch the bookings so matching always works.
+        return res.listing_id ? res : { ...res, listing_id: prop.id };
+      });
     } catch {
       return [];
     }
@@ -262,7 +268,7 @@ function normalizeReservation(r: any): UplistingReservation {
   })();
   return {
     id: String(r.id ?? a.id ?? ''),
-    listing_id: String(a.property_id ?? a.listing_id ?? r.property_id ?? ''),
+    listing_id: String(a.property_id ?? a.listing_id ?? a.listingId ?? r.property_id ?? r.listingId ?? ''),
     guest_name: a.guest_name ?? a.guest?.name ?? 'Guest',
     guest_email: a.guest_email ?? a.guest?.email ?? '',
     check_in:  checkIn,
