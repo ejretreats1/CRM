@@ -1,14 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { cacheGet, cacheSet } from '../services/appCache';
 
-export function useSupabaseCache<T>(key: string, initialValue: T): [T, (val: T) => void] {
+export function useSupabaseCache<T>(key: string, initialValue: T): [T, (val: T) => void, boolean] {
   const [value, setValue] = useState<T>(initialValue);
-  const loaded = useRef(false);
+  const [loaded, setLoaded] = useState(false);
+  const keyRef = useRef(key);
 
   useEffect(() => {
+    keyRef.current = key;
+    setLoaded(false);
     cacheGet<T>(key).then(v => {
-      if (v !== null) setValue(v);
-      loaded.current = true;
+      if (keyRef.current === key) {
+        if (v !== null) setValue(v);
+        setLoaded(true);
+      }
     });
   }, [key]);
 
@@ -17,5 +22,5 @@ export function useSupabaseCache<T>(key: string, initialValue: T): [T, (val: T) 
     cacheSet(key, newVal);
   }
 
-  return [value, set];
+  return [value, set, loaded];
 }

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Home, ChevronRight, TrendingUp, Calendar } from 'lucide-react';
 import type { Owner, Property } from '../types';
 import type { UplistingReservation, UplistingProperty } from '../services/uplisting';
+import { CONFIRMED_STATUSES } from '../services/uplisting';
 
 interface PropertiesProps {
   owners: Owner[];
@@ -47,7 +48,7 @@ export default function Properties({ owners, reservations, uplistingProperties, 
         const upcomingCount = uplistingId
           ? reservations.filter(r =>
               r.listing_id === uplistingId &&
-              r.status !== 'cancelled' &&
+              CONFIRMED_STATUSES.has(r.status) &&
               r.check_in.slice(0, 10) >= today
             ).length
           : 0;

@@ -279,13 +279,19 @@ function normalizeReservation(r: any): UplistingReservation {
   };
 }
 
-const CONFIRMED_STATUSES = new Set([
+export const CONFIRMED_STATUSES = new Set([
   // Uplisting / generic statuses
   'confirmed', 'accepted', 'checked_in', 'checked_out',
   'completed', 'stayed', 'departed', 'arrived',
   // Hostaway camelCase statuses
   'checkedIn', 'checkedOut', 'modified',
 ]);
+
+/** Extract the PMS listing ID from a CRM property ID (format: p_{timestamp}_{listingId}) */
+export function extractListingId(propertyId: string): string | null {
+  const parts = propertyId.split('_');
+  return parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
+}
 
 /** Estimate revenue from reservations whose stay overlapped the last 30 days */
 export function estimateMonthlyRevenue(
