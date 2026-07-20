@@ -77,19 +77,6 @@ const SIG_STATUS: Record<string, { icon: React.ReactNode; label: string; cls: st
   expired: { icon: <XCircle size={12} />,      label: 'Expired', cls: 'bg-[#1e2d45] text-[#b8d4f0]' },
 };
 
-const CONFIRMED = new Set(['confirmed','accepted','checked_in','checked_out','completed','stayed','departed','arrived','checkedIn','checkedOut','modified']);
-
-function propMonthRevenue(propertyId: string, reservations: UplistingReservation[]): number | null {
-  const parts = propertyId.split('_');
-  const uid = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
-  if (!uid) return null;
-  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const today  = new Date().toISOString().slice(0, 10);
-  const total = reservations
-    .filter(r => r.listing_id === uid && CONFIRMED.has(r.status) && r.check_in.slice(0, 10) <= today && r.check_out.slice(0, 10) >= cutoff)
-    .reduce((s, r) => s + (r.total_price ?? 0), 0);
-  return total > 0 ? total : null;
-}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024)        return `${bytes} B`;
@@ -185,21 +172,14 @@ export default function OwnerDetail({
   const [oLinkCopied, setOLinkCopied] = useState(false);
 
   const ownerOutreach = outreach.filter(e => e.ownerId === owner.id);
-  const { totalRevenue, avgOccupancy, liveRevMap } = useMemo(() => {
-    const revs = reservations ?? [];
+  const { totalRevenue, avgOccupancy } = useMemo(() => {
     const activeProps = owner.properties.filter(p => p.status === 'active');
     const avgOccupancy = activeProps.length
       ? Math.round(activeProps.reduce((s, p) => s + p.occupancyRate, 0) / activeProps.length)
       : 0;
-    const liveRevMap = new Map<string, number | null>();
-    let totalRevenue = 0;
-    for (const p of owner.properties) {
-      const live = propMonthRevenue(p.id, revs);
-      liveRevMap.set(p.id, live);
-      totalRevenue += live ?? p.monthlyRevenue;
-    }
-    return { totalRevenue, avgOccupancy, liveRevMap };
-  }, [owner.properties, reservations]);
+    const totalRevenue = owner.properties.reduce((s, p) => s + (p.monthlyRevenue ?? 0), 0);
+    return { totalRevenue, avgOccupancy };
+  }, [owner.properties]);
 
   async function generateOnboardingLink() {
     setGeneratingOLink(true);
@@ -549,20 +529,8 @@ export default function OwnerDetail({
                     )}
                   </div>
                   <div className="text-right flex-shrink-0">
-                    {(() => {
-                      const live = liveRevMap.get(property.id) ?? null;
-                      return live != null ? (
-                        <>
-                          <div className="font-bold text-[#4ab57a]">${live.toLocaleString()}</div>
-                          <div className="text-xs text-teal-500">30d · live</div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="font-bold text-[#4ab57a]">${property.monthlyRevenue.toLocaleString()}</div>
-                          <div className="text-xs text-[#3a5070]">/mo est.</div>
-                        </>
-                      );
-                    })()}
+                    <div className="font-bold text-[#4ab57a]">${(property.monthlyRevenue ?? 0).toLocaleString()}</div>
+                    <div className="text-xs text-[#3a5070]">/mo</div>
                     {property.occupancyRate > 0 && <div className="text-xs text-[#b8d4f0] mt-0.5">{property.occupancyRate}% occ.</div>}
                   </div>
                 </div>

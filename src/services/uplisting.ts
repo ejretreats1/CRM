@@ -162,13 +162,10 @@ export async function fetchReservations(
     try {
       const data = await apiFetch(`bookings/${prop.id}`, apiKey, params);
       const rawList: any[] = data?.bookings ?? data?.data ?? data ?? [];
-      return rawList.map(r => {
-        const res = normalizeReservation(r);
-        // Uplisting bookings are fetched per-property, so the API may not echo back
-        // the property ID inside each booking object. Fall back to the prop.id we used
-        // to fetch the bookings so matching always works.
-        return res.listing_id ? res : { ...res, listing_id: prop.id };
-      });
+      return rawList.map(r => ({
+        ...normalizeReservation(r),
+        listing_id: prop.id, // always stamp — Uplisting fetches per-property so we know the ID
+      }));
     } catch {
       return [];
     }

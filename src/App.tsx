@@ -97,17 +97,14 @@ export default function App() {
   const [priceLabsApiKey, setPriceLabsApiKey] = useState('');
 
   // Uplisting cached data (Supabase app_cache)
-  const [uplistingProperties, setUplistingProperties, uplistingPropsLoaded] = useSupabaseCache<UplistingProperty[]>('ej_uplisting_properties', []);
-  const [uplistingReservations, setUplistingReservations, uplistingResLoaded] = useSupabaseCache<UplistingReservation[]>('ej_uplisting_reservations', []);
+  const [uplistingProperties, setUplistingProperties] = useSupabaseCache<UplistingProperty[]>('ej_uplisting_properties', []);
+  const [uplistingReservations, setUplistingReservations] = useSupabaseCache<UplistingReservation[]>('ej_uplisting_reservations', []);
   const [lastSync, setLastSync] = useSupabaseCache<string | null>('ej_uplisting_last_sync', null);
 
   // Hostaway cached data (Supabase app_cache)
-  const [hostawayProperties, setHostawayProperties, hostawayPropsLoaded] = useSupabaseCache<UplistingProperty[]>('ej_hostaway_properties', []);
-  const [hostawayReservations, setHostawayReservations, hostawayResLoaded] = useSupabaseCache<UplistingReservation[]>('ej_hostaway_reservations', []);
+  const [hostawayProperties, setHostawayProperties] = useSupabaseCache<UplistingProperty[]>('ej_hostaway_properties', []);
+  const [hostawayReservations, setHostawayReservations] = useSupabaseCache<UplistingReservation[]>('ej_hostaway_reservations', []);
   const [hostawayLastSync, setHostawayLastSync] = useSupabaseCache<string | null>('ej_hostaway_last_sync', null);
-
-  // True once all 4 PMS cache slots have been read from Supabase (prevents $0 flash)
-  const pmsDataReady = uplistingPropsLoaded && uplistingResLoaded && hostawayPropsLoaded && hostawayResLoaded;
 
   // Merged arrays — passed to all views so both PMS sources appear everywhere
   const allProperties  = useMemo(() => [...uplistingProperties,  ...hostawayProperties],  [uplistingProperties,  hostawayProperties]);
@@ -598,7 +595,6 @@ export default function App() {
           uplistingReservations={allReservations}
           lastSync={lastSync}
           onSync={handleSync}
-          pmsDataReady={pmsDataReady}
         />
       )}
 

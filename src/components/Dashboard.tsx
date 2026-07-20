@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import type { Lead, Owner, OutreachEntry, Todo } from '../types';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
-import { estimateMonthlyRevenue, estimateOccupancy } from '../services/uplisting';
 import WeeklyCalendarModal from './WeeklyCalendarModal';
 
 interface CalEvent {
@@ -47,10 +46,9 @@ interface DashboardProps {
   onOpenLeadDetail: (lead: Lead) => void;
   uplistingConnected: boolean;
   uplistingProperties: UplistingProperty[];
-  uplistingReservations: UplistingReservation[];
+  uplistingReservations?: UplistingReservation[];
   lastSync: string | null;
   onSync: () => Promise<void>;
-  pmsDataReady?: boolean;
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -131,7 +129,7 @@ function timeAgoShort(ts: string): string {
 export default function Dashboard({
   leads, owners, outreach, todos, calendarUrl, slackToken, slackChannels,
   onNavigate, onToggleTodo, onAddTodo, onOpenLeadDetail,
-  uplistingConnected, uplistingProperties, uplistingReservations, lastSync, onSync, pmsDataReady,
+  uplistingConnected, uplistingProperties, lastSync, onSync,
 }: DashboardProps) {
   const [calEvents, setCalEvents] = useState<CalEvent[]>([]);
   const [calLoading, setCalLoading] = useState(false);
@@ -192,41 +190,23 @@ export default function Dashboard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slackToken, JSON.stringify(slackChannels)]);
 
-  // Prefer live PMS data when any properties are synced, fall back to manual data
+  // Revenue comes from stored monthlyRevenue on each property (written by sync).
+  // This is the single source of truth — no live recalculation from cached PMS data.
   const allProperties = owners.flatMap(o => o.properties);
   const revenueProperties = allProperties.filter(p => p.status !== 'inactive');
   const activeOwners = owners.filter(o => o.properties.some(p => p.status !== 'inactive'));
 
-  // Only switch to live PMS numbers once all cache slots have loaded from Supabase.
-  // pmsDataReady comes from App.tsx (all 4 cache reads completed); fall back to length
-  // heuristic so existing call sites without the prop still work.
-  const pmsReady = pmsDataReady ?? (uplistingProperties.length > 0 && uplistingReservations.length > 0);
-
-  const totalMonthlyRevenue = pmsReady
-    ? uplistingProperties.reduce((sum, p) => sum + estimateMonthlyRevenue(p.id, uplistingReservations), 0)
-    : revenueProperties.reduce((sum, p) => sum + p.monthlyRevenue, 0);
+  const totalMonthlyRevenue = revenueProperties.reduce((sum, p) => sum + (p.monthlyRevenue ?? 0), 0);
 
   const activePropertyCount = uplistingProperties.length > 0
     ? uplistingProperties.filter(p => p.status !== 'inactive').length
     : revenueProperties.length;
 
-  // Per-owner last-30-day revenue computed directly from reservation data
   const ownerRevenueBreakdown = owners
     .map(owner => {
-      let rev = 0;
-      for (const prop of owner.properties) {
-        if (prop.status === 'inactive') continue;
-        if (pmsReady) {
-          // Extract PMS listing ID from property ID (format: p_{timestamp}_{listingId})
-          const parts = prop.id.split('_');
-          const listingId = parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
-          rev += listingId
-            ? estimateMonthlyRevenue(listingId, uplistingReservations)
-            : prop.monthlyRevenue;
-        } else {
-          rev += prop.monthlyRevenue;
-        }
-      }
+      const rev = owner.properties
+        .filter(p => p.status !== 'inactive')
+        .reduce((s, p) => s + (p.monthlyRevenue ?? 0), 0);
       const activeCount = owner.properties.filter(p => p.status !== 'inactive').length;
       return { owner, rev, activeCount };
     })
@@ -721,8 +701,12 @@ export default function Dashboard({
           </div>
           <div className="divide-y divide-[#1e2d45]">
             {uplistingProperties.map(p => {
-              const rev = estimateMonthlyRevenue(p.id, uplistingReservations);
-              const occ = estimateOccupancy(p.id, uplistingReservations);
+              const crmProp = allProperties.find(cp => {
+                const parts = cp.id.split('_');
+                return parts[0] === 'p' && parts.length >= 3 && parts.slice(2).join('_') === p.id;
+              });
+              const rev = crmProp?.monthlyRevenue ?? 0;
+              const occ = crmProp?.occupancyRate ?? 0;
               return (
                 <div key={p.id} className="flex items-center gap-4 px-5 py-3.5">
                   <div className="w-9 h-9 rounded-lg bg-[#162035] flex items-center justify-center flex-shrink-0">
