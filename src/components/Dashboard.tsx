@@ -236,7 +236,7 @@ export default function Dashboard({
 
   const stats: { label: string; value: string | number; sub: string; icon: React.ElementType; color: string; view?: Parameters<typeof onNavigate>[0]; onClick?: () => void }[] = [
     {
-      label: 'Monthly Revenue',
+      label: 'Revenue (60d)',
       value: `$${totalMonthlyRevenue.toLocaleString()}`,
       sub: `last 30 days · ${activePropertyCount} properties`,
       icon: TrendingUp,

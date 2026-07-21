@@ -431,7 +431,7 @@ export default function OwnerDetail({
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Monthly Revenue', value: `$${totalRevenue.toLocaleString()}`, icon: TrendingUp, color: 'text-teal-600' },
+          { label: 'Revenue (60d)', value: `$${totalRevenue.toLocaleString()}`, icon: TrendingUp, color: 'text-teal-600' },
           { label: 'Properties',      value: owner.properties.length,              icon: Home,       color: 'text-indigo-500' },
           { label: 'Avg Occupancy',   value: avgOccupancy ? `${avgOccupancy}%` : '—', icon: Wifi, color: 'text-amber-500' },
         ].map(s => (
@@ -530,7 +530,7 @@ export default function OwnerDetail({
                   </div>
                   <div className="text-right flex-shrink-0">
                     <div className="font-bold text-[#4ab57a]">${(property.monthlyRevenue ?? 0).toLocaleString()}</div>
-                    <div className="text-xs text-[#3a5070]">/mo</div>
+                    <div className="text-xs text-[#3a5070]">60d</div>
                     {property.occupancyRate > 0 && <div className="text-xs text-[#b8d4f0] mt-0.5">{property.occupancyRate}% occ.</div>}
                   </div>
                 </div>
