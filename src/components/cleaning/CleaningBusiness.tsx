@@ -59,6 +59,18 @@ function addBusinessDays(dateStr: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Returns the date a payout will actually go out — 2 biz days after charge,
+// or the next business day from today if that date has already passed.
+function getPayoutDate(chargedAt: string): string {
+  const scheduled = addBusinessDays(chargedAt.slice(0, 10), 2);
+  const today = new Date().toISOString().slice(0, 10);
+  if (scheduled >= today) return scheduled;
+  // Scheduled date passed — find next business day (today if it's a weekday)
+  const d = new Date(today + 'T12:00:00');
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expenses }: { jobs: CleaningJob[]; cleaners: Cleaner[]; configs: CleaningPropertyConfig[]; uplistingProperties: UplistingProperty[]; expenses: CleaningExpense[] }) {
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0,0,0,0);
@@ -594,11 +606,16 @@ function CleaningPayments({
                     <>
                       <td className="px-4 py-3 text-right text-[#d07af5] font-semibold">${job.cleanerPayout}</td>
                       <td className="px-4 py-3">
-                        {job.chargedAt ? (
-                          <span className="text-xs font-medium text-[#d0954a]">
-                            {new Date(addBusinessDays(job.chargedAt.slice(0, 10), 2) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </span>
-                        ) : (
+                        {job.chargedAt ? (() => {
+                          const payoutDate = getPayoutDate(job.chargedAt);
+                          const today = new Date().toISOString().slice(0, 10);
+                          const isToday = payoutDate === today;
+                          return (
+                            <span className={`text-xs font-medium ${isToday ? 'text-[#5ce0a0]' : 'text-[#d0954a]'}`}>
+                              {isToday ? 'Today' : new Date(payoutDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          );
+                        })() : (
                           <span className="text-xs text-[#3a5070]">—</span>
                         )}
                       </td>
