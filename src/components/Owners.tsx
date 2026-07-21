@@ -138,7 +138,7 @@ export default function Owners({ owners, onViewOwner, onOpenOwnerModal, onDelete
         {[
           { label: 'Active Clients',    value: active.length,                         icon: '👤' },
           { label: 'Active Properties', value: activeProperties,                      icon: '🏠' },
-          { label: 'Monthly Revenue',   value: `$${totalRevenue.toLocaleString()}`,   icon: '💰' },
+          { label: 'Revenue (60d)',      value: `$${totalRevenue.toLocaleString()}`,   icon: '💰' },
         ].map(s => (
           <div key={s.label} className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-3 overflow-hidden">
             <div className="text-lg mb-1">{s.icon}</div>

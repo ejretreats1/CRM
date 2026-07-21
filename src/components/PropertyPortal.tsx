@@ -229,10 +229,10 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
     if (!propReservations.length) return null;
     const now = new Date();
     const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const todayStr = now.toISOString().slice(0, 10);
+    const ahead = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const confirmed = propReservations.filter(r =>
       !CANCELLED_STATUSES.has(r.status) &&
-      r.check_in.slice(0, 10) <= todayStr &&
+      r.check_in.slice(0, 10) <= ahead &&
       r.check_out.slice(0, 10) >= cutoff
     );
     const rolling = confirmed.reduce((s, r) => s + (r.total_price ?? 0), 0);

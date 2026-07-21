@@ -165,8 +165,10 @@ export async function fetchReservations(
   const today = new Date();
   const cutoff = new Date();
   cutoff.setDate(today.getDate() - 30);
+  const ahead = new Date();
+  ahead.setDate(today.getDate() + 30);
   const cutoffStr = cutoff.toISOString().slice(0, 10);
-  const todayStr = today.toISOString().slice(0, 10);
+  const aheadStr  = ahead.toISOString().slice(0, 10);
 
   const revenueMap: PropertyRevenueMap = { revenue: {}, occupancy: {} };
   const allBookings: UplistingReservation[] = (await Promise.all(props.map(async prop => {
@@ -177,13 +179,15 @@ export async function fetchReservations(
         ...normalizeReservation(r),
         listing_id: prop.id,
       }));
-      // Compute revenue directly — we know exactly which reservations belong to this property
+      // Revenue = all confirmed bookings checking in within last 30 days OR next 30 days.
+      // Including upcoming bookings prevents newly-live properties from always showing $0.
       const confirmed = normalized.filter(r =>
         !CANCELLED_STATUSES.has(r.status) &&
-        r.check_in.slice(0, 10) <= todayStr &&
+        r.check_in.slice(0, 10) <= aheadStr &&
         r.check_out.slice(0, 10) >= cutoffStr
       );
       revenueMap.revenue[prop.id] = confirmed.reduce((s, r) => s + r.total_price, 0);
+      // Occupancy stays trailing-only (future nights aren't occupied yet)
       const bookedNights = normalized.filter(r =>
         !CANCELLED_STATUSES.has(r.status) &&
         new Date(r.check_out) >= cutoff &&
@@ -329,7 +333,7 @@ export function extractListingId(propertyId: string): string | null {
   return parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
 }
 
-/** Estimate revenue from reservations whose stay overlapped the last 30 days */
+/** Estimate revenue from confirmed reservations overlapping last 30 days or next 30 days */
 export function estimateMonthlyRevenue(
   propertyId: string,
   reservations: UplistingReservation[]
@@ -337,14 +341,16 @@ export function estimateMonthlyRevenue(
   const today = new Date();
   const cutoff = new Date();
   cutoff.setDate(today.getDate() - 30);
+  const ahead = new Date();
+  ahead.setDate(today.getDate() + 30);
   const cutoffStr = cutoff.toISOString().slice(0, 10);
-  const todayStr = today.toISOString().slice(0, 10);
+  const aheadStr  = ahead.toISOString().slice(0, 10);
   return reservations
     .filter(
       (r) =>
         r.listing_id === propertyId &&
         !CANCELLED_STATUSES.has(r.status) &&
-        r.check_in.slice(0, 10) <= todayStr &&
+        r.check_in.slice(0, 10) <= aheadStr &&
         r.check_out.slice(0, 10) >= cutoffStr
     )
     .reduce((sum, r) => sum + r.total_price, 0);

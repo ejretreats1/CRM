@@ -135,8 +135,10 @@ export async function fetchHostawayReservations(
   const today = new Date();
   const cutoff = new Date();
   cutoff.setDate(today.getDate() - 30);
+  const ahead = new Date();
+  ahead.setDate(today.getDate() + 30);
   const cutoffStr = cutoff.toISOString().slice(0, 10);
-  const todayStr = today.toISOString().slice(0, 10);
+  const aheadStr  = ahead.toISOString().slice(0, 10);
 
   const revenueMap: PropertyRevenueMap = { revenue: {}, occupancy: {} };
   const byProperty = new Map<string, UplistingReservation[]>();
@@ -149,7 +151,7 @@ export async function fetchHostawayReservations(
   for (const [propId, resv] of byProperty) {
     const confirmed = resv.filter(r =>
       !CANCELLED_STATUSES.has(r.status) &&
-      r.check_in.slice(0, 10) <= todayStr &&
+      r.check_in.slice(0, 10) <= aheadStr &&
       r.check_out.slice(0, 10) >= cutoffStr
     );
     revenueMap.revenue[propId] = confirmed.reduce((s, r) => s + r.total_price, 0);
