@@ -179,13 +179,13 @@ export async function fetchReservations(
       }));
       // Compute revenue directly — we know exactly which reservations belong to this property
       const confirmed = normalized.filter(r =>
-        CONFIRMED_STATUSES.has(r.status) &&
+        !CANCELLED_STATUSES.has(r.status) &&
         r.check_in.slice(0, 10) <= todayStr &&
         r.check_out.slice(0, 10) >= cutoffStr
       );
       revenueMap.revenue[prop.id] = confirmed.reduce((s, r) => s + r.total_price, 0);
       const bookedNights = normalized.filter(r =>
-        CONFIRMED_STATUSES.has(r.status) &&
+        !CANCELLED_STATUSES.has(r.status) &&
         new Date(r.check_out) >= cutoff &&
         new Date(r.check_in) <= today
       ).reduce((s, r) => s + (r.nights || 1), 0);
@@ -307,13 +307,20 @@ function normalizeReservation(r: any): UplistingReservation {
   };
 }
 
+// Denylist: anything NOT in this set is treated as a confirmed/revenue booking.
+// This is more robust than an allowlist because PMS platforms use many different
+// confirmed-status strings ('new', 'accepted', 'booked', 'reservation', etc.)
+// while cancellation strings are predictable and finite.
+export const CANCELLED_STATUSES = new Set([
+  'cancelled', 'canceled', 'declined', 'expired',
+  'rejected', 'request_denied', 'denied', 'no_show',
+]);
+
+// Keep for any external code that imported it; all internal logic uses CANCELLED_STATUSES.
 export const CONFIRMED_STATUSES = new Set([
-  // Uplisting / generic statuses
   'confirmed', 'accepted', 'checked_in', 'checked_out',
   'completed', 'stayed', 'departed', 'arrived',
-  // Hostaway statuses
-  'new',        // Hostaway's primary "confirmed booking" status
-  'checkedIn', 'checkedOut', 'modified', 'ownerStay',
+  'new', 'checkedIn', 'checkedOut', 'modified', 'ownerStay',
 ]);
 
 /** Extract the PMS listing ID from a CRM property ID (format: p_{timestamp}_{listingId}) */
@@ -336,7 +343,7 @@ export function estimateMonthlyRevenue(
     .filter(
       (r) =>
         r.listing_id === propertyId &&
-        CONFIRMED_STATUSES.has(r.status) &&
+        !CANCELLED_STATUSES.has(r.status) &&
         r.check_in.slice(0, 10) <= todayStr &&
         r.check_out.slice(0, 10) >= cutoffStr
     )
@@ -355,7 +362,7 @@ export function estimateOccupancy(
     .filter(
       (r) =>
         r.listing_id === propertyId &&
-        CONFIRMED_STATUSES.has(r.status) &&
+        !CANCELLED_STATUSES.has(r.status) &&
         new Date(r.check_out) >= cutoff &&
         new Date(r.check_in) <= today
     )

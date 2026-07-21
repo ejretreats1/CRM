@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import type { Owner, Property, PropertyInfo, PropertyStatus } from '../types';
 import type { UplistingReservation, UplistingProperty } from '../services/uplisting';
-import { CONFIRMED_STATUSES } from '../services/uplisting';
+import { CANCELLED_STATUSES } from '../services/uplisting';
 import PropertyInfoPanel from './PropertyInfoPanel';
 import RentalAgreementBuilderModal from './modals/RentalAgreementBuilderModal';
 
@@ -231,12 +231,12 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
     const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const todayStr = now.toISOString().slice(0, 10);
     const confirmed = propReservations.filter(r =>
-      CONFIRMED_STATUSES.has(r.status) &&
+      !CANCELLED_STATUSES.has(r.status) &&
       r.check_in.slice(0, 10) <= todayStr &&
       r.check_out.slice(0, 10) >= cutoff
     );
     const rolling = confirmed.reduce((s, r) => s + (r.total_price ?? 0), 0);
-    const activeCount = propReservations.filter(r => CONFIRMED_STATUSES.has(r.status)).length;
+    const activeCount = propReservations.filter(r => !CANCELLED_STATUSES.has(r.status)).length;
     const occupied = confirmed.reduce((s, r) => {
       const ci = new Date(Math.max(new Date(r.check_in).getTime(), new Date(cutoff).getTime()));
       const co = new Date(Math.min(new Date(r.check_out).getTime(), now.getTime()));

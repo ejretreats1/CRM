@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Brain, AlertTriangle, Info, CheckCircle, ChevronDown, ChevronUp, RefreshCw, Zap, Clock, SlidersHorizontal, Settings2, TrendingUp, ChevronRight } from 'lucide-react';
 import type { Owner } from '../types';
 import type { UplistingReservation } from '../services/uplisting';
-import { CONFIRMED_STATUSES } from '../services/uplisting';
+import { CANCELLED_STATUSES } from '../services/uplisting';
 import { analyzeProperty, urgencyLevel, type PropertyInsight } from '../services/calendarAnalysis';
 import { fetchPLListings, type PLListing } from '../services/pricelabs';
 import { fetchSettings, saveSettings } from '../services/settings';
@@ -57,7 +57,7 @@ const PL_PRIORITY: Record<string, string> = {
 function computeReservationStats(reservations: UplistingReservation[], listingId: string) {
   const res = reservations.filter(r =>
     r.listing_id === listingId &&
-    CONFIRMED_STATUSES.has(r.status)
+    !CANCELLED_STATUSES.has(r.status)
   );
   if (!res.length) return null;
 

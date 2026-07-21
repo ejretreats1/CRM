@@ -1,4 +1,4 @@
-import { CONFIRMED_STATUSES } from './uplisting';
+import { CANCELLED_STATUSES } from './uplisting';
 import type { UplistingProperty, UplistingReservation, PropertyRevenueMap } from './uplisting';
 
 export interface HostawayConnectionResult {
@@ -148,13 +148,13 @@ export async function fetchHostawayReservations(
   }
   for (const [propId, resv] of byProperty) {
     const confirmed = resv.filter(r =>
-      CONFIRMED_STATUSES.has(r.status) &&
+      !CANCELLED_STATUSES.has(r.status) &&
       r.check_in.slice(0, 10) <= todayStr &&
       r.check_out.slice(0, 10) >= cutoffStr
     );
     revenueMap.revenue[propId] = confirmed.reduce((s, r) => s + r.total_price, 0);
     const bookedNights = resv.filter(r =>
-      CONFIRMED_STATUSES.has(r.status) &&
+      !CANCELLED_STATUSES.has(r.status) &&
       new Date(r.check_out) >= cutoff &&
       new Date(r.check_in) <= today
     ).reduce((s, r) => s + (r.nights || 1), 0);
