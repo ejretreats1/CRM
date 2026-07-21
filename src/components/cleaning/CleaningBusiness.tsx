@@ -626,7 +626,9 @@ function CleaningPayments({
                       <td className="px-4 py-3 text-right text-[#d07af5] hidden md:table-cell">${job.cleanerPayout}</td>
                       <td className="px-4 py-3 text-right text-[#d0954a] font-semibold hidden lg:table-cell">${job.cleaningFee - job.cleanerPayout}</td>
                       <td className="px-4 py-3">
-                        {job.chargedAt ? (
+                        {job.propertyName === 'Manual Payout' ? (
+                          <span className="text-xs text-[#3a5070]">—</span>
+                        ) : job.chargedAt ? (
                           <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
                             <CheckCircle size={11} /> Charged
                           </span>
@@ -648,7 +650,7 @@ function CleaningPayments({
                         </td>
                       )}
                       <td className="px-4 py-3 text-right">
-                        {!job.chargedAt && (
+                        {!job.chargedAt && job.propertyName !== 'Manual Payout' && (
                           <button
                             onClick={() => handleRetry(job)}
                             disabled={retrying === job.id}
