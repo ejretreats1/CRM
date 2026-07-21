@@ -984,6 +984,53 @@ async function manualCleanerPayout(body: any, res: VercelResponse) {
   }
 }
 
+async function sendJobPayout(body: any, res: VercelResponse) {
+  const { jobId } = body;
+  if (!jobId) return res.status(400).json({ error: 'jobId required.' });
+
+  const supabase = getSupabase();
+  const { data: job } = await supabase
+    .from('cleaning_jobs')
+    .select('id, property_name, checkout_date, assigned_cleaner_id, cleaner_payout, payout_sent_at')
+    .eq('id', jobId)
+    .single();
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
+  if (job.payout_sent_at) return res.status(400).json({ error: 'Payout already sent.' });
+  if (!job.assigned_cleaner_id) return res.status(400).json({ error: 'No cleaner assigned to this job.' });
+  if (Number(job.cleaner_payout) <= 0) return res.status(400).json({ error: 'Cleaner payout is $0.' });
+
+  const { data: cleaner } = await supabase
+    .from('cleaners').select('name, stripe_account_id').eq('id', job.assigned_cleaner_id).single();
+  if (!cleaner) return res.status(404).json({ error: 'Cleaner not found.' });
+  if (!cleaner.stripe_account_id)
+    return res.status(400).json({ error: `${cleaner.name} has not connected their Stripe account yet.` });
+
+  const stripe = await getStripe();
+  const amountCents = Math.round(Number(job.cleaner_payout) * 100);
+  let transfer;
+  try {
+    transfer = await stripe.transfers.create({
+      amount: amountCents,
+      currency: 'usd',
+      destination: cleaner.stripe_account_id,
+      description: `Payout: ${job.property_name} — ${job.checkout_date}`,
+      metadata: { job_id: job.id, cleaner_id: job.assigned_cleaner_id },
+    }, { idempotencyKey: `payout_${job.id}` });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message ?? 'Stripe transfer failed.' });
+  }
+
+  const now = new Date().toISOString();
+  const { error: dbErr } = await supabase.from('cleaning_jobs').update({
+    payout_sent_at: now,
+    stripe_transfer_id: transfer.id,
+    updated_at: now,
+  }).eq('id', job.id);
+  if (dbErr) return res.status(500).json({ error: `Transfer sent but DB update failed: ${dbErr.message}` });
+
+  return res.json({ transferId: transfer.id, jobId: job.id, amount: Number(job.cleaner_payout), cleanerName: cleaner.name });
+}
+
 async function cleaningCancellation(body: any, res: VercelResponse) {
   const { jobId } = body;
   if (!jobId) return res.status(400).json({ error: 'jobId required.' });
@@ -3910,6 +3957,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'cancellation')      return await cleaningCancellation(body, res);
     if (action === 'manual-charge')     return await manualClientCharge(body, res);
     if (action === 'manual-payout')     return await manualCleanerPayout(body, res);
+    if (action === 'send-job-payout')   return await sendJobPayout(body, res);
     if (action === 'upload-photo')      return await cleaningUploadPhoto(body, res);
     if (action === 'dispatch')          return await cleaningDispatch(body, res);
     if (action === 'accept')            return await cleaningAccept(body, res);

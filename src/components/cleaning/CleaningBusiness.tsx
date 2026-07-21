@@ -412,6 +412,8 @@ function CleaningPayments({
   const [filter, setFilter] = useState<PaymentFilter>('all');
   const [retrying, setRetrying] = useState<string | null>(null);
   const [retryErrors, setRetryErrors] = useState<Record<string, string>>({});
+  const [sendingPayout, setSendingPayout] = useState<string | null>(null);
+  const [payoutErrors, setPayoutErrors] = useState<Record<string, string>>({});
   const filterRef = useRef<HTMLDivElement>(null);
 
   // Expense form state
@@ -483,7 +485,7 @@ function CleaningPayments({
   let filtered = completed;
   if (filter === 'charged') filtered = filtered.filter(j => j.chargedAt);
   if (filter === 'not_charged') filtered = filtered.filter(j => !j.chargedAt);
-  if (filter === 'awaiting_payout') filtered = filtered.filter(j => !!j.chargedAt && !j.payoutSentAt);
+  if (filter === 'awaiting_payout') filtered = filtered.filter(j => !!j.chargedAt && !j.payoutSentAt && j.cleanerPayout > 0);
   if (filter === 'payout_sent') filtered = filtered.filter(j => j.payoutSentAt);
   filtered = [...filtered].sort((a, b) => b.checkoutDate.localeCompare(a.checkoutDate));
 
@@ -496,6 +498,25 @@ function CleaningPayments({
       setRetryErrors(prev => ({ ...prev, [job.id]: e instanceof Error ? e.message : 'Retry failed.' }));
     } finally {
       setRetrying(null);
+    }
+  }
+
+  async function handleSendPayout(job: CleaningJob) {
+    setSendingPayout(job.id);
+    setPayoutErrors(prev => { const next = { ...prev }; delete next[job.id]; return next; });
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'send-job-payout', jobId: job.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Payout failed.');
+      await onRefresh();
+    } catch (e) {
+      setPayoutErrors(prev => ({ ...prev, [job.id]: e instanceof Error ? e.message : 'Payout failed.' }));
+    } finally {
+      setSendingPayout(null);
     }
   }
 
@@ -568,6 +589,7 @@ function CleaningPayments({
                   <>
                     <th className="text-right px-4 py-3">Payout</th>
                     <th className="text-left px-4 py-3">Payout Date</th>
+                    <th className="text-right px-4 py-3">Action</th>
                   </>
                 ) : (
                   <>
@@ -617,6 +639,19 @@ function CleaningPayments({
                           );
                         })() : (
                           <span className="text-xs text-[#3a5070]">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => handleSendPayout(job)}
+                          disabled={sendingPayout === job.id}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0a2518] border border-[#1a4a2e] text-[#5ce0a0] text-xs font-semibold rounded-lg hover:bg-[#0d3020] transition-colors disabled:opacity-50 ml-auto"
+                        >
+                          <CreditCard size={11} />
+                          {sendingPayout === job.id ? 'Sending…' : 'Send Now'}
+                        </button>
+                        {payoutErrors[job.id] && (
+                          <p className="text-xs text-[#e05c5c] mt-1 max-w-[160px]">{payoutErrors[job.id]}</p>
                         )}
                       </td>
                     </>
