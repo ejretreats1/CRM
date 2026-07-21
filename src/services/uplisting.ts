@@ -311,8 +311,9 @@ export const CONFIRMED_STATUSES = new Set([
   // Uplisting / generic statuses
   'confirmed', 'accepted', 'checked_in', 'checked_out',
   'completed', 'stayed', 'departed', 'arrived',
-  // Hostaway camelCase statuses
-  'checkedIn', 'checkedOut', 'modified',
+  // Hostaway statuses
+  'new',        // Hostaway's primary "confirmed booking" status
+  'checkedIn', 'checkedOut', 'modified', 'ownerStay',
 ]);
 
 /** Extract the PMS listing ID from a CRM property ID (format: p_{timestamp}_{listingId}) */
