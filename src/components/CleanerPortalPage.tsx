@@ -424,7 +424,7 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
               On the day of your clean, go through the checklist below, upload photos of each room, and tap <strong>Submit Report</strong> when you're done.
             </p>
             <p className="text-blue-600 text-xs mt-1 leading-relaxed">
-              If there is any damage, please scroll down to the <strong>Damage Notes</strong> section, describe what you found, and upload photos or videos of the damage.
+              If there is any damage, please scroll down to the <strong>Damage Notes</strong> section, describe what you found, and upload photos of the damage.
             </p>
           </div>
         </div>
@@ -544,7 +544,6 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
               type="file"
               accept="image/*"
               multiple
-              capture="environment"
               onChange={handlePhotoUpload}
               className="hidden"
             />
@@ -606,7 +605,7 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
           <div className="px-4 py-3 border-b">
             <h2 className="font-semibold text-gray-800">Damage Notes</h2>
-            <p className="text-gray-400 text-xs mt-0.5">Report any damage or issues found — add photos or videos (optional)</p>
+            <p className="text-gray-400 text-xs mt-0.5">Report any damage or issues found — add photos (optional)</p>
           </div>
           <div className="p-4 space-y-3">
             <textarea
@@ -638,9 +637,8 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
             <input
               ref={damageMediaRef}
               type="file"
-              accept="image/*,video/*"
+              accept="image/*"
               multiple
-              capture="environment"
               onChange={handleDamageMediaUpload}
               className="hidden"
             />
