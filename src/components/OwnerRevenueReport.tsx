@@ -132,15 +132,13 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
 
   const showCommission = commission.rate > 0;
   const basisLabel = commissionBasisLabel(commission);
-  const showUpsells = filtered.some(r => (r.upsells?.length ?? 0) > 0);
 
   function reportFileName() {
     return `${owner.name.replace(/\s+/g, '-')}-Revenue-${from}-to-${to}.csv`;
   }
 
   function buildCSVBlob(): Blob {
-    const headers = ['Status', 'Property', 'Guest', 'Check-In', 'Check-Out', 'Nights', 'Channel', 'Accommodation', 'Cleaning Fee'];
-    if (showUpsells) headers.push('Upsells');
+    const headers = ['Status', 'Property', 'Guest', 'Check-In', 'Check-Out', 'Nights', 'Channel', 'Accommodation', 'Cleaning Fee', 'Upsells'];
     headers.push('Total Payout');
     if (showCommission) headers.push(`Commission (${commission.rate}% of ${basisLabel})`);
 
@@ -156,11 +154,9 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
         r.accommodation_total != null ? r.accommodation_total.toFixed(2) : '',
         r.cleaning_fee != null ? r.cleaning_fee.toFixed(2) : '',
       ];
-      if (showUpsells) {
-        const u = upsellTotal(r);
-        const ce = getCommExtra(r);
-        row.push(u > 0 ? `${u.toFixed(2)}${ce > 0 ? ` (comm: ${ce.toFixed(2)})` : ''}` : '');
-      }
+      const u = upsellTotal(r);
+      const ce = getCommExtra(r);
+      row.push(u > 0 ? `${u.toFixed(2)}${ce > 0 ? ` (comm: ${ce.toFixed(2)})` : ''}` : '');
       row.push(r.total_price.toFixed(2));
       if (showCommission) row.push(status === 'Cancelled' ? '' : calcCommission(r, commission, getCommExtra(r)).toFixed(2));
       return row;
@@ -172,7 +168,7 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
       totals.accommodation.toFixed(2),
       totals.cleaning.toFixed(2),
     ];
-    if (showUpsells) totalsRow.push(totals.upsells.toFixed(2));
+    totalsRow.push(totals.upsells.toFixed(2));
     totalsRow.push(totals.payout.toFixed(2));
     if (showCommission) totalsRow.push(totals.commission.toFixed(2));
 
@@ -351,9 +347,7 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                         <th className="text-left px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Channel</th>
                         <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Accom.</th>
                         <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Cleaning</th>
-                        {showUpsells && (
-                          <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#d0954a] uppercase tracking-wide">Upsells</th>
-                        )}
+                        <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#d0954a] uppercase tracking-wide">Upsells</th>
                         <th className="text-right px-3 py-2.5 text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Payout</th>
                         {showCommission && (
                           <th className="text-right px-3 py-2.5 text-xs font-semibold text-indigo-500 uppercase tracking-wide">Commission</th>
@@ -371,12 +365,12 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                           <td className="px-3 py-2.5 text-[#b8d4f0] text-xs">{CHANNEL_LABEL[r.channel ?? ''] ?? r.channel ?? ''}</td>
                           <td className="px-3 py-2.5 text-right text-[#b8d4f0]">{r.accommodation_total != null ? fmt(r.accommodation_total) : ''}</td>
                           <td className="px-3 py-2.5 text-right text-[#b8d4f0]">{r.cleaning_fee != null ? fmt(r.cleaning_fee) : ''}</td>
-                          {showUpsells && (() => {
+                          {(() => {
                             const u = upsellTotal(r);
                             const ce = getCommExtra(r);
                             return (
                               <td className="px-3 py-2.5 text-right text-[#d0954a]">
-                                {u > 0 ? <div className="font-medium">{fmt(u)}</div> : null}
+                                {u > 0 ? <div className="font-medium">{fmt(u)}</div> : <span className="text-[#3a5070]">—</span>}
                                 {showCommission && commission.commissionExtras && (
                                   <div className="flex items-center justify-end gap-1 mt-1">
                                     <span className="text-indigo-400 text-xs">comm:</span>
@@ -414,9 +408,7 @@ export default function OwnerRevenueReport({ owner, reservations, onDocumentSave
                         <td />
                         <td className="px-3 py-2.5 text-right text-[#b8d4f0]">{totals.accommodation > 0 ? fmt(totals.accommodation) : ''}</td>
                         <td className="px-3 py-2.5 text-right text-[#b8d4f0]">{totals.cleaning > 0 ? fmt(totals.cleaning) : ''}</td>
-                        {showUpsells && (
-                          <td className="px-3 py-2.5 text-right text-[#d0954a]">{totals.upsells > 0 ? fmt(totals.upsells) : ''}</td>
-                        )}
+                        <td className="px-3 py-2.5 text-right text-[#d0954a]">{totals.upsells > 0 ? fmt(totals.upsells) : '—'}</td>
                         <td className="px-3 py-2.5 text-right text-[#4a90d9]">{fmt(totals.payout)}</td>
                         {showCommission && (
                           <td className="px-3 py-2.5 text-right text-[#d07af5]">{fmt(totals.commission)}</td>

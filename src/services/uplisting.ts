@@ -264,17 +264,25 @@ function normalizeProperty(p: any, included: any[] = []): UplistingProperty {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeUpsells(a: any): UplistingUpsell[] | undefined {
-  // Some platforms return an array of upsell objects
-  const rawArr = a.upsells ?? a.add_ons ?? a.extras ?? a.addons;
+  // Array of upsell/service/add-on objects (all platforms)
+  const rawArr = a.upsells ?? a.add_ons ?? a.extras ?? a.addons ?? a.services
+    ?? a.upsell_items ?? a.extra_items ?? a.line_items ?? a.fees;
   if (Array.isArray(rawArr) && rawArr.length > 0) {
-    return rawArr.map((u: any) => ({
-      name: String(u.name ?? u.title ?? u.description ?? 'Upsell'),
-      price: Number(u.price ?? u.amount ?? u.total ?? 0),
-    }));
+    const items: UplistingUpsell[] = [];
+    for (const u of rawArr) {
+      const price = Number(u.price ?? u.amount ?? u.total ?? u.charge ?? u.fee ?? u.value ?? 0);
+      if (price === 0) continue;
+      items.push({ name: String(u.name ?? u.title ?? u.description ?? u.type ?? u.label ?? 'Upsell'), price });
+    }
+    if (items.length > 0) return items;
   }
-  // Uplisting returns upsells as a plain number in extra_charges
-  const extra = Number(a.extra_charges ?? 0);
-  const other = Number(a.other_charges ?? 0);
+  // Uplisting / Hostaway return upsells as a flat numeric field
+  const extra = Number(
+    a.extra_charges ?? a.extras_total ?? a.upsell_total ?? a.upsells_total ??
+    a.add_on_total ?? a.add_ons_total ?? a.services_total ?? a.additional_charges ??
+    a.guest_charge_extras ?? a.extra_amount ?? 0
+  );
+  const other = Number(a.other_charges ?? a.misc_charges ?? a.other_fees ?? 0);
   const result: UplistingUpsell[] = [];
   if (extra > 0) result.push({ name: 'Extra Charges', price: extra });
   if (other > 0) result.push({ name: 'Other Charges', price: other });
