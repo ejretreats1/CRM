@@ -196,34 +196,41 @@ export default function Dashboard({
   const activeOwners = owners.filter(o => o.properties.some(p => p.status !== 'inactive'));
 
   // Compute trailing-30-day revenue live from reservation cache when available.
-  // Falls back to stored monthlyRevenue (60d window) if reservations not yet loaded.
-  const trailing30Revenue = useMemo(() => {
+  // Returns total and a per-owner map; falls back to stored monthlyRevenue if not loaded.
+  const revenueData = useMemo(() => {
     if (!uplistingReservations?.length) return null;
     const today = new Date().toISOString().slice(0, 10);
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 30);
     const cutoffStr = cutoff.toISOString().slice(0, 10);
-    const pmsIds = new Set<string>();
+
+    // Build map: pmsId -> ownerId
+    const pmsToOwner = new Map<string, string>();
     for (const owner of owners) {
       if (owner.archived) continue;
       for (const prop of owner.properties) {
         if (prop.status === 'inactive') continue;
         const parts = prop.id.split('_');
-        if (parts[0] === 'p' && parts.length >= 3) pmsIds.add(parts.slice(2).join('_'));
+        if (parts[0] === 'p' && parts.length >= 3) pmsToOwner.set(parts.slice(2).join('_'), owner.id);
       }
     }
-    return uplistingReservations
-      .filter(r =>
-        pmsIds.has(r.listing_id) &&
-        !CANCELLED_STATUSES.has(r.status) &&
-        r.check_in.slice(0, 10) <= today &&
-        r.check_out.slice(0, 10) >= cutoffStr
-      )
-      .reduce((s, r) => s + r.total_price, 0);
+
+    const byOwner: Record<string, number> = {};
+    let total = 0;
+    for (const r of uplistingReservations) {
+      const ownerId = pmsToOwner.get(r.listing_id);
+      if (!ownerId) continue;
+      if (CANCELLED_STATUSES.has(r.status)) continue;
+      if (r.check_in.slice(0, 10) > today) continue;
+      if (r.check_out.slice(0, 10) < cutoffStr) continue;
+      byOwner[ownerId] = (byOwner[ownerId] ?? 0) + r.total_price;
+      total += r.total_price;
+    }
+    return { total, byOwner };
   }, [uplistingReservations, owners]);
 
   const totalMonthlyRevenue = revenueProperties.reduce((sum, p) => sum + (p.monthlyRevenue ?? 0), 0);
-  const displayRevenue = trailing30Revenue ?? totalMonthlyRevenue;
+  const displayRevenue = revenueData?.total ?? totalMonthlyRevenue;
 
   const activePropertyCount = uplistingProperties.length > 0
     ? uplistingProperties.filter(p => p.status !== 'inactive').length
@@ -231,10 +238,10 @@ export default function Dashboard({
 
   const ownerRevenueBreakdown = owners
     .map(owner => {
-      const rev = owner.properties
-        .filter(p => p.status !== 'inactive')
-        .reduce((s, p) => s + (p.monthlyRevenue ?? 0), 0);
       const activeCount = owner.properties.filter(p => p.status !== 'inactive').length;
+      const rev = revenueData
+        ? (revenueData.byOwner[owner.id] ?? 0)
+        : owner.properties.filter(p => p.status !== 'inactive').reduce((s, p) => s + (p.monthlyRevenue ?? 0), 0);
       return { owner, rev, activeCount };
     })
     .filter(x => x.rev > 0 || x.activeCount > 0)
