@@ -77,6 +77,7 @@ export interface Property {
   bathrooms: number;
   maxGuests: number;
   monthlyRevenue: number;
+  trailing30Revenue?: number;
   occupancyRate: number;
   platforms: string[];
   status: PropertyStatus;

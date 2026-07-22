@@ -51,6 +51,7 @@ export interface UplistingConnectionResult {
 
 export interface PropertyRevenueMap {
   revenue: Record<string, number>;
+  revenue30d: Record<string, number>;
   occupancy: Record<string, number>;
 }
 
@@ -170,7 +171,8 @@ export async function fetchReservations(
   const cutoffStr = cutoff.toISOString().slice(0, 10);
   const aheadStr  = ahead.toISOString().slice(0, 10);
 
-  const revenueMap: PropertyRevenueMap = { revenue: {}, occupancy: {} };
+  const todayStr = today.toISOString().slice(0, 10);
+  const revenueMap: PropertyRevenueMap = { revenue: {}, revenue30d: {}, occupancy: {} };
   const allBookings: UplistingReservation[] = (await Promise.all(props.map(async prop => {
     try {
       const data = await apiFetch(`bookings/${prop.id}`, apiKey, params);
@@ -179,15 +181,21 @@ export async function fetchReservations(
         ...normalizeReservation(r),
         listing_id: prop.id,
       }));
-      // Revenue = all confirmed bookings checking in within last 30 days OR next 30 days.
-      // Including upcoming bookings prevents newly-live properties from always showing $0.
-      const confirmed = normalized.filter(r =>
+      // 60d revenue: trailing 30 + upcoming 30 (prevents newly-live properties showing $0)
+      const confirmed60 = normalized.filter(r =>
         !CANCELLED_STATUSES.has(r.status) &&
         r.check_in.slice(0, 10) <= aheadStr &&
         r.check_out.slice(0, 10) >= cutoffStr
       );
-      revenueMap.revenue[prop.id] = confirmed.reduce((s, r) => s + r.total_price, 0);
-      // Occupancy stays trailing-only (future nights aren't occupied yet)
+      revenueMap.revenue[prop.id] = confirmed60.reduce((s, r) => s + r.total_price, 0);
+      // 30d revenue: trailing 30 only (for dashboard "last 30 days" metric)
+      const confirmed30 = normalized.filter(r =>
+        !CANCELLED_STATUSES.has(r.status) &&
+        r.check_in.slice(0, 10) <= todayStr &&
+        r.check_out.slice(0, 10) >= cutoffStr
+      );
+      revenueMap.revenue30d[prop.id] = confirmed30.reduce((s, r) => s + r.total_price, 0);
+      // Occupancy stays trailing-only
       const bookedNights = normalized.filter(r =>
         !CANCELLED_STATUSES.has(r.status) &&
         new Date(r.check_out) >= cutoff &&
