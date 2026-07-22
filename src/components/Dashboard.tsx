@@ -1,11 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   TrendingUp, Users, Home, Phone, ArrowRight, Wifi, WifiOff, X,
   RefreshCw, CalendarDays, ListTodo, CheckSquare, Square, MapPin, Plus, Hash, Video, CalendarRange, Bell, ScanSearch,
 } from 'lucide-react';
 import type { Lead, Owner, OutreachEntry, Todo } from '../types';
 import type { UplistingProperty, UplistingReservation } from '../services/uplisting';
-import { CANCELLED_STATUSES } from '../services/uplisting';
 import WeeklyCalendarModal from './WeeklyCalendarModal';
 
 interface CalEvent {
@@ -130,7 +129,7 @@ function timeAgoShort(ts: string): string {
 export default function Dashboard({
   leads, owners, outreach, todos, calendarUrl, slackToken, slackChannels,
   onNavigate, onToggleTodo, onAddTodo, onOpenLeadDetail,
-  uplistingConnected, uplistingProperties, uplistingReservations, lastSync, onSync,
+  uplistingConnected, uplistingProperties, lastSync, onSync,
 }: DashboardProps) {
   const [calEvents, setCalEvents] = useState<CalEvent[]>([]);
   const [calLoading, setCalLoading] = useState(false);
@@ -195,42 +194,9 @@ export default function Dashboard({
   const revenueProperties = allProperties.filter(p => p.status !== 'inactive');
   const activeOwners = owners.filter(o => o.properties.some(p => p.status !== 'inactive'));
 
-  // Compute trailing-30-day revenue live from reservation cache when available.
-  // Returns total and a per-owner map; falls back to stored monthlyRevenue if not loaded.
-  const revenueData = useMemo(() => {
-    if (!uplistingReservations?.length) return null;
-    const today = new Date().toISOString().slice(0, 10);
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 30);
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
-
-    // Build map: pmsId -> ownerId
-    const pmsToOwner = new Map<string, string>();
-    for (const owner of owners) {
-      if (owner.archived) continue;
-      for (const prop of owner.properties) {
-        if (prop.status === 'inactive') continue;
-        const parts = prop.id.split('_');
-        if (parts[0] === 'p' && parts.length >= 3) pmsToOwner.set(parts.slice(2).join('_'), owner.id);
-      }
-    }
-
-    const byOwner: Record<string, number> = {};
-    let total = 0;
-    for (const r of uplistingReservations) {
-      const ownerId = pmsToOwner.get(r.listing_id);
-      if (!ownerId) continue;
-      if (CANCELLED_STATUSES.has(r.status)) continue;
-      if (r.check_in.slice(0, 10) > today) continue;
-      if (r.check_out.slice(0, 10) < cutoffStr) continue;
-      byOwner[ownerId] = (byOwner[ownerId] ?? 0) + r.total_price;
-      total += r.total_price;
-    }
-    return { total, byOwner };
-  }, [uplistingReservations, owners]);
-
   const totalMonthlyRevenue = revenueProperties.reduce((sum, p) => sum + (p.monthlyRevenue ?? 0), 0);
-  const displayRevenue = revenueData?.total ?? totalMonthlyRevenue;
+  // trailing30Revenue is set during sync; fall back to monthlyRevenue (60d) if not yet synced
+  const displayRevenue = revenueProperties.reduce((sum, p) => sum + (p.trailing30Revenue ?? p.monthlyRevenue ?? 0), 0);
 
   const activePropertyCount = uplistingProperties.length > 0
     ? uplistingProperties.filter(p => p.status !== 'inactive').length
@@ -239,9 +205,9 @@ export default function Dashboard({
   const ownerRevenueBreakdown = owners
     .map(owner => {
       const activeCount = owner.properties.filter(p => p.status !== 'inactive').length;
-      const rev = revenueData
-        ? (revenueData.byOwner[owner.id] ?? 0)
-        : owner.properties.filter(p => p.status !== 'inactive').reduce((s, p) => s + (p.monthlyRevenue ?? 0), 0);
+      const rev = owner.properties
+        .filter(p => p.status !== 'inactive')
+        .reduce((s, p) => s + (p.trailing30Revenue ?? p.monthlyRevenue ?? 0), 0);
       return { owner, rev, activeCount };
     })
     .filter(x => x.rev > 0 || x.activeCount > 0)
