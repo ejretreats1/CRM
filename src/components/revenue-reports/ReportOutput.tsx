@@ -741,6 +741,9 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
   const [copiedLink, setCopiedLink]         = useState(false);
   const [shorteningLink, setShorteningLink] = useState(false);
   const [copiedPortal, setCopiedPortal]     = useState(false);
+  const [sendingText, setSendingText]       = useState(false);
+  const [textSent, setTextSent]             = useState(false);
+  const [textError, setTextError]           = useState('');
 
   const addressSlug   = address.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   const shareUrl      = savedReportId ? `${window.location.origin}/?share=${savedReportId}&address=${addressSlug}` : null;
@@ -749,6 +752,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
   const previewHtml   = buildReportEmail(address, data, ownerActualRevenue, personalNote, noteTemplate === 'sales');
   const firstName     = (emailName || recipientName || '').trim().split(' ')[0] || 'there';
   const followUpText  = `Hey ${firstName}! This is Ethan, I just ran your revenue analysis for your property at ${address} and emailed it to you at ${emailTo || recipientEmail || ''}. Please check your promotions/spam folder as they sometimes end up there.${shareUrl ? `\n\nYou can also view it online here: ${shareUrl}` : ''}\n\nIf you want, we can implement this for you and manage everything end-to-end. Book a 15-minute call here: https://calendly.com/ejretreats1/30min`;
+  const smsMessage    = `Hey ${firstName}! This is Ethan from E&J Retreats. I just ran your revenue analysis for ${address} and sent it to your email.${shareUrl ? `\n\nView your report here: ${shareUrl}` : ''}\n\nIf you want us to manage this end-to-end, book a 15-min call: https://calendly.com/ejretreats1/30min\n\nReply STOP to opt out.`;
 
   function copyText(text: string, setCopied: (v: boolean) => void) {
     navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
@@ -807,6 +811,26 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
       setEmailError(err instanceof Error ? err.message : 'Failed to send. Please try again.');
     } finally {
       setEmailSending(false);
+    }
+  }
+
+  async function handleSendText() {
+    if (!recipientPhone) return;
+    setSendingText(true);
+    setTextError('');
+    try {
+      const r = await fetch('/api/documents?flow=sms&action=reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reply', to: recipientPhone, replyBody: smsMessage }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Text failed.');
+      setTextSent(true);
+    } catch (e: unknown) {
+      setTextError(e instanceof Error ? e.message : 'Failed to send text.');
+    } finally {
+      setSendingText(false);
     }
   }
 
@@ -890,6 +914,22 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                   <button onClick={() => copyText(followUpText, setCopiedMsg)} className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs border border-[#2a2f3e] text-[#9CA3AF] hover:bg-[#151a27] py-2 rounded-lg transition-colors font-medium">
                     {copiedMsg ? <><CheckIcon size={12} /> Copied!</> : <><Copy size={12} /> Copy Text Message</>}
                   </button>
+                  {recipientPhone && (
+                    <>
+                      <button
+                        onClick={handleSendText}
+                        disabled={sendingText || textSent}
+                        className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs bg-[#1a3a1a] border border-[#22C55E]/40 text-[#22C55E] hover:bg-[#1f4a1f] disabled:opacity-60 py-2 rounded-lg transition-colors font-semibold"
+                      >
+                        {textSent
+                          ? <><CheckIcon size={12} /> Text Sent!</>
+                          : sendingText
+                            ? <><Loader size={12} className="animate-spin" /> Sending…</>
+                            : <><Phone size={12} /> Send Text via Twilio</>}
+                      </button>
+                      {textError && <p className="text-xs text-red-400 mt-1">{textError}</p>}
+                    </>
+                  )}
                 </div>
                 <button onClick={() => setEmailOpen(false)} className="w-full text-sm bg-[#FF6600] hover:bg-[#e55a00] text-white py-2.5 rounded-lg transition-colors font-semibold">Close</button>
               </div>
