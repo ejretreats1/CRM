@@ -3408,16 +3408,69 @@ async function smsInbound(req: VercelRequest, res: VercelResponse) {
   const from = normalizePhone(fromRaw) ?? fromRaw;
   const sb = getSupabase();
   const now = new Date().toISOString();
+
   await sb.from('sms_inbound_messages').insert({ id: randomUUID(), from_phone: from, body: msgBody, twilio_sid: sid, received_at: now });
-  const { data: recipient } = await sb.from('sms_campaign_recipients').select('id, campaign_id, status').eq('phone', from).eq('status', 'sent').order('sent_at', { ascending: false }).limit(1).single();
-  if (recipient) {
+
+  // Find most recent recipient record for this phone (any status) to get lead name
+  const { data: recipient } = await sb
+    .from('sms_campaign_recipients')
+    .select('id, campaign_id, status, lead_name')
+    .eq('phone', from)
+    .order('sent_at', { ascending: false })
+    .limit(1).single();
+
+  const leadName: string | null = recipient?.lead_name ?? null;
+
+  if (recipient && recipient.status === 'sent') {
     await sb.from('sms_campaign_recipients').update({ status: 'responded', responded_at: now }).eq('id', recipient.id);
     const { data: camp } = await sb.from('sms_campaigns').select('response_count').eq('id', recipient.campaign_id).single();
     if (camp) await sb.from('sms_campaigns').update({ response_count: (camp.response_count ?? 0) + 1 }).eq('id', recipient.campaign_id);
   }
+
   if (/^\s*stop\s*$/i.test(msgBody)) {
-    await sb.from('sms_campaign_recipients').update({ status: 'opted_out' }).eq('phone', from).eq('status', 'sent');
+    await sb.from('sms_campaign_recipients').update({ status: 'opted_out' }).eq('phone', from);
+  } else {
+    // Send notification email (non-blocking — don't delay Twilio response)
+    const notifyEmail = process.env.NOTIFY_EMAIL;
+    if (notifyEmail) {
+      const crmUrl = (process.env.CRM_URL ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+      const inboxUrl = `${crmUrl}?goto=sms-inbox`;
+      const preview = msgBody.length > 80 ? msgBody.slice(0, 80) + '…' : msgBody;
+      const subjectName = leadName ?? from;
+      getResend().then(resend => resend.emails.send({
+        from: 'E&J Retreats CRM <cleaning@ejretreats.com>',
+        to: notifyEmail,
+        subject: `📱 SMS reply from ${subjectName}: "${preview}"`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f8fafc">
+            <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+              <h2 style="color:#1e40af;margin:0 0 4px;font-size:18px">📱 New SMS Reply</h2>
+              <p style="color:#64748b;margin:0 0 20px;font-size:13px">Someone replied to your SMS campaign</p>
+              <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
+                <table style="width:100%;border-collapse:collapse">
+                  <tr>
+                    <td style="padding:4px 0;color:#64748b;font-size:13px;width:90px">From</td>
+                    <td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:13px">${leadName ? `${leadName} (${from})` : from}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:4px 0;color:#64748b;font-size:13px;vertical-align:top">Message</td>
+                    <td style="padding:4px 0;color:#0f172a;font-size:14px;line-height:1.5">${msgBody.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</td>
+                  </tr>
+                </table>
+              </div>
+              <div style="text-align:center;margin:24px 0">
+                <a href="${inboxUrl}" style="background:#1e40af;color:white;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block">
+                  View &amp; Reply in CRM →
+                </a>
+              </div>
+              <p style="color:#94a3b8;font-size:11px;text-align:center;margin:0">Go to SMS Campaigns → Inbox tab to reply</p>
+            </div>
+          </div>
+        `,
+      })).catch(() => {});
+    }
   }
+
   res.setHeader('Content-Type', 'text/xml');
   return res.status(200).send('<Response></Response>');
 }
