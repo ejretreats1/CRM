@@ -637,11 +637,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const supabase = getSupabase();
   const today = new Date().toISOString().slice(0, 10);
-  // Pay cleaners for jobs charged 2 business days + 2 hours ago.
-  // Uses the date 2 business days ago at (current UTC time - 2h) as the cutoff timestamp.
   const twoBizDaysAgo = addBusinessDays(today, -2);
-  const twoHoursAgoTime = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().slice(11);
-  const payoutCutoffTs = twoBizDaysAgo + 'T' + twoHoursAgoTime;
+
+  // Any job charged on or before the end of 2 business days ago qualifies.
+  // Using end-of-day prevents the cutoff from landing before the charge
+  // timestamp (the charge cron also runs at 17:00 UTC so a time-based
+  // cutoff of "now - 2h" was always earlier than charged_at).
+  const payoutCutoffTs = twoBizDaysAgo + 'T23:59:59.999Z';
 
   const results = {
     chargesAttempted: 0,
