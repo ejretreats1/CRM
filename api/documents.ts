@@ -3361,6 +3361,45 @@ async function smsDeleteCampaign(body: any, res: VercelResponse) {
   return res.json({ ok: true });
 }
 
+async function smsGetInbox(res: VercelResponse) {
+  const sb = getSupabase();
+  const [{ data: messages, error: mErr }, { data: replies }] = await Promise.all([
+    sb.from('sms_inbound_messages').select('*').order('received_at', { ascending: false }).limit(500),
+    sb.from('sms_outbound_replies').select('*').order('sent_at', { ascending: false }).limit(500),
+  ]);
+  if (mErr) return res.status(500).json({ error: mErr.message });
+
+  const phones = [...new Set((messages ?? []).map((m: any) => m.from_phone as string))];
+  const leadByPhone = new Map<string, string>();
+  if (phones.length > 0) {
+    const { data: recipients } = await sb
+      .from('sms_campaign_recipients').select('phone, lead_name').in('phone', phones);
+    for (const r of (recipients ?? [])) {
+      if (r.lead_name && !leadByPhone.has(r.phone)) leadByPhone.set(r.phone, r.lead_name);
+    }
+  }
+  const enriched = (messages ?? []).map((m: any) => ({ ...m, lead_name: leadByPhone.get(m.from_phone) ?? null }));
+  return res.json({ messages: enriched, replies: replies ?? [] });
+}
+
+async function smsSendReply(body: any, res: VercelResponse) {
+  const { to, replyBody } = body;
+  if (!to || !replyBody?.trim()) return res.status(400).json({ error: 'to and replyBody required.' });
+  const phone = normalizePhone(to) ?? to;
+  const twilio = await getTwilio();
+  try {
+    const msg = await twilio.messages.create({ body: replyBody, from: TWILIO_FROM(), to: phone });
+    const sb = getSupabase();
+    await sb.from('sms_outbound_replies').insert({
+      id: randomUUID(), to_phone: phone, body: replyBody,
+      twilio_message_sid: msg.sid, sent_at: new Date().toISOString(),
+    });
+    return res.json({ sid: msg.sid });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message ?? 'Reply failed.' });
+  }
+}
+
 async function smsInbound(req: VercelRequest, res: VercelResponse) {
   const fromRaw: string = (req.body?.From ?? req.query?.From ?? '') as string;
   const msgBody: string = (req.body?.Body ?? req.query?.Body ?? '') as string;
@@ -4029,6 +4068,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'send-due-sequences')  return await emailMktSendDueSequences(body, res);
   } else if (flow === 'sms') {
     if (action === 'inbound') return await smsInbound(req, res);
+    if (action === 'inbox')   return await smsGetInbox(res);
+    if (action === 'reply')   return await smsSendReply(body, res);
     if (action === 'upsert-template') return await smsUpsertTemplate(body, res);
     if (action === 'delete-template') return await smsDeleteTemplate(body, res);
     if (action === 'send-campaign') return await smsSendCampaign(body, res);

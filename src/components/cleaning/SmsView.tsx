@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Send, MessageSquare, TrendingUp, Phone, Target, ChevronDown, ChevronUp, AlertCircle, Users, X } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Plus, Edit2, Trash2, Send, MessageSquare, TrendingUp, Phone, Target, ChevronDown, ChevronUp, AlertCircle, Users, X, Copy, ExternalLink, ChevronRight, Inbox } from 'lucide-react';
 import type { CleaningLead } from '../../services/cleaningDb';
 import { fetchCleaningLeads } from '../../services/cleaningDb';
 import type { Lead } from '../../types';
@@ -31,6 +31,32 @@ interface SmsCampaign {
   sent_at: string | null;
 }
 
+
+interface InboxMessage {
+  id: string;
+  from_phone: string;
+  body: string;
+  received_at: string;
+  lead_name: string | null;
+}
+
+interface OutboundReply {
+  id: string;
+  to_phone: string;
+  body: string;
+  sent_at: string;
+}
+
+type ConvoMsg = { id: string; body: string; timestamp: string; direction: 'inbound' | 'outbound' };
+
+function fmtTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}d ago`;
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 // ─── Stat tile ────────────────────────────────────────────────────────────────
 
@@ -528,29 +554,41 @@ export default function SmsView({ pipelineLeads = [] }: { pipelineLeads?: Lead[]
   const [leads, setLeads] = useState<CleaningLead[]>([]);
   const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [campaigns, setCampaigns] = useState<SmsCampaign[]>([]);
+  const [inboxMessages, setInboxMessages] = useState<InboxMessage[]>([]);
+  const [outboundReplies, setOutboundReplies] = useState<OutboundReply[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [templateModal, setTemplateModal] = useState<Partial<SmsTemplate> | null | 'new'>(null);
   const [sendModal, setSendModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'campaigns' | 'templates'>('campaigns');
+  const [activeTab, setActiveTab] = useState<'campaigns' | 'templates' | 'inbox'>('campaigns');
   const [setupCopied, setSetupCopied] = useState(false);
   const [twilioMissing, setTwilioMissing] = useState(false);
+  const [expandedPhone, setExpandedPhone] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+  const [replying, setReplying] = useState<string | null>(null);
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [tRes, cRes, cleaningLeads] = await Promise.all([
+      const [tRes, cRes, cleaningLeads, iRes] = await Promise.all([
         fetch('/api/documents?flow=sms&action=templates'),
         fetch('/api/documents?flow=sms&action=campaigns'),
         fetchCleaningLeads(),
+        fetch('/api/documents?flow=sms&action=inbox'),
       ]);
       if (!tRes.ok || !cRes.ok) throw new Error('Failed to load SMS data');
-      const [tData, cData] = await Promise.all([tRes.json(), cRes.json()]);
+      const [tData, cData, iData] = await Promise.all([
+        tRes.json(), cRes.json(),
+        iRes.ok ? iRes.json() : Promise.resolve({ messages: [], replies: [] }),
+      ]);
       setTemplates(tData.templates ?? []);
       setCampaigns(cData.campaigns ?? []);
       setLeads(cleaningLeads);
+      setInboxMessages(iData.messages ?? []);
+      setOutboundReplies(iData.replies ?? []);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Load failed.');
     } finally {
@@ -618,6 +656,27 @@ export default function SmsView({ pipelineLeads = [] }: { pipelineLeads?: Lead[]
     setCampaigns(prev => prev.filter(c => c.id !== id));
   }
 
+  async function handleSendReply(to: string, body: string) {
+    if (!body.trim()) return;
+    setReplying(to);
+    try {
+      const r = await fetch('/api/documents?flow=sms&action=reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reply', to, replyBody: body }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Reply failed.');
+      const now = new Date().toISOString();
+      setOutboundReplies(prev => [...prev, { id: `opt_${Date.now()}`, to_phone: to, body, sent_at: now }]);
+      setReplyDraft(prev => ({ ...prev, [to]: '' }));
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Reply failed.');
+    } finally {
+      setReplying(null);
+    }
+  }
+
   // Aggregate stats across all campaigns
   const totalSent = campaigns.reduce((s, c) => s + (c.sent_count ?? 0), 0);
   const totalResponses = campaigns.reduce((s, c) => s + (c.response_count ?? 0), 0);
@@ -625,6 +684,27 @@ export default function SmsView({ pipelineLeads = [] }: { pipelineLeads?: Lead[]
   const totalCloses = campaigns.reduce((s, c) => s + (c.closes ?? 0), 0);
   const overallResponseRate = totalSent > 0 ? Math.round((totalResponses / totalSent) * 100) : 0;
   const pmLeadCount = leads.filter(l => l.category === 'Property Management').length;
+
+  const conversations = useMemo(() => {
+    const byPhone = new Map<string, { inbound: InboxMessage[]; outbound: OutboundReply[]; leadName: string | null }>();
+    for (const msg of inboxMessages) {
+      if (!byPhone.has(msg.from_phone)) byPhone.set(msg.from_phone, { inbound: [], outbound: [], leadName: msg.lead_name });
+      else if (msg.lead_name && !byPhone.get(msg.from_phone)!.leadName) byPhone.get(msg.from_phone)!.leadName = msg.lead_name;
+      byPhone.get(msg.from_phone)!.inbound.push(msg);
+    }
+    for (const reply of outboundReplies) {
+      if (!byPhone.has(reply.to_phone)) byPhone.set(reply.to_phone, { inbound: [], outbound: [], leadName: null });
+      byPhone.get(reply.to_phone)!.outbound.push(reply);
+    }
+    return [...byPhone.entries()].map(([phone, { inbound, outbound, leadName }]) => {
+      const msgs: ConvoMsg[] = [
+        ...inbound.map(m => ({ id: m.id, body: m.body, timestamp: m.received_at, direction: 'inbound' as const })),
+        ...outbound.map(r => ({ id: r.id, body: r.body, timestamp: r.sent_at, direction: 'outbound' as const })),
+      ].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      const last = msgs[msgs.length - 1];
+      return { phone, leadName, msgs, lastAt: last?.timestamp ?? '', lastBody: last?.body ?? '' };
+    }).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+  }, [inboxMessages, outboundReplies]);
 
   const SQL = `-- Run in Supabase SQL Editor
 
@@ -756,13 +836,17 @@ CREATE POLICY "anon_all" ON sms_inbound_messages FOR ALL USING (true) WITH CHECK
 
       {/* Tabs */}
       <div className="flex gap-1 bg-[#0f1923] border border-[#1e2d45] rounded-xl p-1 w-fit">
-        {(['campaigns', 'templates'] as const).map(tab => (
+        {([
+          { id: 'campaigns', label: `Campaigns (${campaigns.length})` },
+          { id: 'templates', label: `Templates (${templates.length})` },
+          { id: 'inbox',     label: conversations.length > 0 ? `Inbox (${conversations.length})` : 'Inbox' },
+        ] as const).map(tab => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${activeTab === tab ? 'bg-[#1e2d45] text-white' : 'text-[#3a5070] hover:text-[#b8d4f0]'}`}
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${activeTab === tab.id ? 'bg-[#1e2d45] text-white' : 'text-[#3a5070] hover:text-[#b8d4f0]'}`}
           >
-            {tab === 'campaigns' ? `Campaigns (${campaigns.length})` : `Templates (${templates.length})`}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -825,6 +909,131 @@ CREATE POLICY "anon_all" ON sms_inbound_messages FOR ALL USING (true) WITH CHECK
                 </div>
               </div>
             ))
+          )}
+        </div>
+      )}
+
+      {/* Inbox tab */}
+      {activeTab === 'inbox' && (
+        <div className="space-y-2">
+          {conversations.length === 0 ? (
+            <div className="text-center py-12 text-[#3a5070]">
+              <Inbox size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm">No replies yet — messages from leads will appear here.</p>
+              <p className="text-xs mt-1 text-[#3a5070]">Make sure your Twilio inbound webhook is set (see compliance reminders above).</p>
+            </div>
+          ) : (
+            conversations.map(convo => {
+              const isOpen = expandedPhone === convo.phone;
+              const lastInbound = [...convo.msgs].reverse().find(m => m.direction === 'inbound');
+              return (
+                <div key={convo.phone} className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
+                  {/* Conversation row */}
+                  <div
+                    className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-[#1e2a40] transition-colors"
+                    onClick={() => setExpandedPhone(isOpen ? null : convo.phone)}
+                  >
+                    <div className="w-9 h-9 rounded-full bg-[#0d1e35] border border-[#1e3a5a] flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-bold text-[#4a90d9]">
+                        {(convo.leadName ?? convo.phone).charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-white truncate">
+                          {convo.leadName ?? 'Unknown'}
+                        </p>
+                        {lastInbound && (
+                          <span className="w-2 h-2 rounded-full bg-[#4a90d9] flex-shrink-0" title="New reply" />
+                        )}
+                      </div>
+                      <p className="text-xs text-[#3a5070] truncate">{convo.phone}</p>
+                      <p className="text-xs text-[#b8d4f0] mt-0.5 truncate">{convo.lastBody}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <span className="text-[11px] text-[#3a5070]">{fmtTime(convo.lastAt)}</span>
+                      <span className="text-xs text-[#3a5070]">{convo.msgs.length} msg{convo.msgs.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <ChevronRight size={15} className={`text-[#3a5070] flex-shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                  </div>
+
+                  {/* Expanded thread */}
+                  {isOpen && (
+                    <div className="border-t border-[#1e2d45] px-4 py-4 space-y-4">
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={async () => {
+                            await navigator.clipboard?.writeText(convo.phone);
+                            setCopiedPhone(convo.phone);
+                            setTimeout(() => setCopiedPhone(null), 2000);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0f1923] border border-[#1e2d45] rounded-lg text-xs text-[#b8d4f0] hover:border-[#4a90d9] transition-colors"
+                        >
+                          <Copy size={12} />
+                          {copiedPhone === convo.phone ? 'Copied!' : 'Copy number'}
+                        </button>
+                        <a
+                          href={`sms:${convo.phone}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0f1923] border border-[#1e2d45] rounded-lg text-xs text-[#b8d4f0] hover:border-[#4a90d9] transition-colors"
+                        >
+                          <ExternalLink size={12} />
+                          Open in Messages
+                        </a>
+                        <a
+                          href={`tel:${convo.phone}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0f1923] border border-[#1e2d45] rounded-lg text-xs text-[#b8d4f0] hover:border-[#4a90d9] transition-colors"
+                        >
+                          <Phone size={12} />
+                          Call
+                        </a>
+                      </div>
+
+                      {/* Message thread */}
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {convo.msgs.map(msg => (
+                          <div key={msg.id} className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${
+                              msg.direction === 'outbound'
+                                ? 'bg-[#1a3055] border border-[#2a5080] rounded-br-sm'
+                                : 'bg-[#0f1923] border border-[#1e2d45] rounded-bl-sm'
+                            }`}>
+                              <p className="text-sm text-white leading-relaxed">{msg.body}</p>
+                              <p className="text-[10px] text-[#3a5070] mt-1">{fmtTime(msg.timestamp)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Reply box */}
+                      <div className="flex gap-2 items-end">
+                        <textarea
+                          rows={2}
+                          className="flex-1 bg-[#0f1923] border border-[#1e2d45] rounded-xl px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9] resize-none"
+                          placeholder="Type a reply…"
+                          value={replyDraft[convo.phone] ?? ''}
+                          onChange={e => setReplyDraft(prev => ({ ...prev, [convo.phone]: e.target.value }))}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                              handleSendReply(convo.phone, replyDraft[convo.phone] ?? '');
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => handleSendReply(convo.phone, replyDraft[convo.phone] ?? '')}
+                          disabled={replying === convo.phone || !(replyDraft[convo.phone] ?? '').trim()}
+                          className="flex items-center gap-1.5 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] disabled:opacity-50 transition-colors flex-shrink-0"
+                        >
+                          <Send size={14} />
+                          {replying === convo.phone ? 'Sending…' : 'Send'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-[#3a5070]">⌘↵ to send</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       )}
