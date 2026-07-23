@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import LoginPage from './components/LoginPage';
 import Layout from './components/Layout';
@@ -99,12 +99,12 @@ export default function App() {
   // Uplisting cached data (Supabase app_cache)
   const [uplistingProperties, setUplistingProperties] = useSupabaseCache<UplistingProperty[]>('ej_uplisting_properties', []);
   const [uplistingReservations, setUplistingReservations] = useSupabaseCache<UplistingReservation[]>('ej_uplisting_reservations', []);
-  const [lastSync, setLastSync] = useSupabaseCache<string | null>('ej_uplisting_last_sync', null);
+  const [lastSync, setLastSync, lastSyncLoaded] = useSupabaseCache<string | null>('ej_uplisting_last_sync', null);
 
   // Hostaway cached data (Supabase app_cache)
   const [hostawayProperties, setHostawayProperties] = useSupabaseCache<UplistingProperty[]>('ej_hostaway_properties', []);
   const [hostawayReservations, setHostawayReservations] = useSupabaseCache<UplistingReservation[]>('ej_hostaway_reservations', []);
-  const [hostawayLastSync, setHostawayLastSync] = useSupabaseCache<string | null>('ej_hostaway_last_sync', null);
+  const [hostawayLastSync, setHostawayLastSync, hostawayLastSyncLoaded] = useSupabaseCache<string | null>('ej_hostaway_last_sync', null);
 
   // Merged arrays — passed to all views so both PMS sources appear everywhere
   const allProperties  = useMemo(() => [...uplistingProperties,  ...hostawayProperties],  [uplistingProperties,  hostawayProperties]);
@@ -204,10 +204,15 @@ export default function App() {
     }
   }, [uplistingApiKey, setUplistingProperties, setUplistingReservations, setLastSync]);
 
+  const uplistingAutoSynced = useRef(false);
   useEffect(() => {
-    if (!uplistingApiKey) return;
+    if (!uplistingApiKey || !lastSyncLoaded) return;
+    if (uplistingAutoSynced.current) return;
+    uplistingAutoSynced.current = true;
+    // Only auto-sync once per day; manual sync always available in Settings
+    if (lastSync && Date.now() - new Date(lastSync).getTime() < 23 * 3_600_000) return;
     handleSync();
-  }, [uplistingApiKey, handleSync]);
+  }, [uplistingApiKey, lastSyncLoaded, lastSync, handleSync]);
 
   // Hostaway sync
   const handleHostawaySync = useCallback(async () => {
@@ -250,10 +255,14 @@ export default function App() {
     }
   }, [hostawayAccountId, hostawaySecret, setHostawayProperties, setHostawayReservations, setHostawayLastSync]);
 
+  const hostawayAutoSynced = useRef(false);
   useEffect(() => {
-    if (!hostawayAccountId || !hostawaySecret) return;
+    if (!hostawayAccountId || !hostawaySecret || !hostawayLastSyncLoaded) return;
+    if (hostawayAutoSynced.current) return;
+    hostawayAutoSynced.current = true;
+    if (hostawayLastSync && Date.now() - new Date(hostawayLastSync).getTime() < 23 * 3_600_000) return;
     handleHostawaySync();
-  }, [hostawayAccountId, hostawaySecret, handleHostawaySync]);
+  }, [hostawayAccountId, hostawaySecret, hostawayLastSyncLoaded, hostawayLastSync, handleHostawaySync]);
 
   // Settings save handlers
   const handleSaveApiKey = async (key: string) => {
