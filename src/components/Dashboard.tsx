@@ -194,8 +194,6 @@ export default function Dashboard({
   const revenueProperties = allProperties.filter(p => p.status !== 'inactive');
   const activeOwners = owners.filter(o => o.properties.some(p => p.status !== 'inactive'));
 
-  const totalMonthlyRevenue = revenueProperties.reduce((sum, p) => sum + (p.monthlyRevenue ?? 0), 0);
-  // trailing30Revenue is set during sync; fall back to monthlyRevenue (60d) if not yet synced
   const displayRevenue = revenueProperties.reduce((sum, p) => sum + (p.trailing30Revenue ?? p.monthlyRevenue ?? 0), 0);
 
   const activePropertyCount = uplistingProperties.length > 0
@@ -895,7 +893,7 @@ export default function Dashboard({
             </div>
             <div className="px-5 py-3.5 border-t border-[#1e2d45] flex items-center justify-between bg-[#1e2d45] rounded-b-2xl">
               <span className="text-xs font-medium text-[#b8d4f0]">Portfolio total</span>
-              <span className="text-sm font-bold text-white">${totalMonthlyRevenue.toLocaleString()}</span>
+              <span className="text-sm font-bold text-white">${displayRevenue.toLocaleString()}</span>
             </div>
           </div>
         </div>
