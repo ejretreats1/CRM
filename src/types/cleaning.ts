@@ -1,5 +1,6 @@
 export type CleaningJobStatus = 'pending' | 'dispatched' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
 export type CleaningJobSource = 'uplisting' | 'hostaway' | 'manual' | 'ical';
+export type CleaningJobType = 'cleaning' | 'handyman' | 'lawncare';
 
 export interface Cleaner {
   id: string;
@@ -13,6 +14,7 @@ export interface Cleaner {
   status: 'active' | 'inactive';
   createdAt: string;
   dashboardToken?: string;
+  skills?: CleaningJobType[];
 }
 
 export interface AssignedCleaner {
@@ -87,6 +89,7 @@ export interface CleaningJob {
   payoutSentAt?: string;
   stripeTransferId?: string;
   notes?: string;
+  jobType?: CleaningJobType;
   portalData?: CleaningPortalData;
   source: CleaningJobSource;
   createdAt: string;

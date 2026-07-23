@@ -15,6 +15,7 @@ interface DispatchPayload {
   guestName?: string;
   cleanerPayout: number;
   notes?: string;
+  jobType?: string;
   cleaners: DispatchCleaner[];
 }
 

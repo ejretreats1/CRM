@@ -16,6 +16,7 @@ function rowToCleaner(r: any): Cleaner {
     status: r.status,
     createdAt: r.created_at,
     dashboardToken: r.dashboard_token ?? undefined,
+    skills: (r.skills ?? ['cleaning']) as Cleaner['skills'],
   };
 }
 
@@ -27,6 +28,7 @@ function cleanerToRow(c: Cleaner) {
     phone: c.phone ?? null,
     status: c.status,
     created_at: c.createdAt,
+    skills: c.skills ?? ['cleaning'],
     ...(c.stripeAccountId  !== undefined && { stripe_account_id: c.stripeAccountId }),
     ...(c.dashboardToken   !== undefined && { dashboard_token: c.dashboardToken }),
   };
@@ -138,6 +140,7 @@ function rowToJob(r: any): CleaningJob {
     payoutSentAt: r.payout_sent_at ?? undefined,
     stripeTransferId: r.stripe_transfer_id ?? undefined,
     notes: r.notes ?? undefined,
+    jobType: (r.job_type ?? 'cleaning') as CleaningJob['jobType'],
     portalData: r.portal_data ?? undefined,
     source: r.source,
     createdAt: r.created_at,
@@ -163,6 +166,7 @@ function jobToRow(j: CleaningJob) {
     accepted_at: j.acceptedAt ?? null,
     completed_at: j.completedAt ?? null,
     notes: j.notes ?? null,
+    job_type: j.jobType ?? 'cleaning',
     source: j.source,
     created_at: j.createdAt,
     updated_at: j.updatedAt,

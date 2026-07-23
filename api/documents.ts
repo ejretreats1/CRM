@@ -1092,7 +1092,7 @@ async function cleaningCancellation(body: any, res: VercelResponse) {
 }
 
 async function cleaningDispatch(body: any, res: VercelResponse) {
-  const { jobId, propertyName, checkoutDate, checkinDate, guestName, notes, cleaners, appUrl } = body;
+  const { jobId, propertyName, checkoutDate, checkinDate, guestName, notes, cleaners, appUrl, jobType } = body;
 
   if (!cleaners?.length) return res.status(400).json({ error: 'No cleaners provided.' });
 
@@ -1100,6 +1100,13 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
   const dateLabel = new Date(checkoutDate + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   });
+
+  const jobTypeMeta: Record<string, { emoji: string; label: string; dateLabel: string; intro: string }> = {
+    cleaning:  { emoji: '🧹', label: 'Cleaning Job',  dateLabel: 'Cleaning Date', intro: 'A cleaning job is available for one of your assigned properties. Tap the button below to accept or pass.' },
+    handyman:  { emoji: '🔧', label: 'Handyman Job',  dateLabel: 'Job Date',      intro: 'A handyman job is available. Review the details below and tap the button to accept or pass.' },
+    lawncare:  { emoji: '🌿', label: 'Lawn Care Job', dateLabel: 'Job Date',      intro: 'A lawn care job is available. Review the details below and tap the button to accept or pass.' },
+  };
+  const meta = jobTypeMeta[jobType ?? 'cleaning'] ?? jobTypeMeta['cleaning'];
 
   // Generate a unique token per cleaner in priority order, build dispatch map + order array
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1127,7 +1134,7 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
   // Only email the #1 priority cleaner — if they pass, next cleaner is contacted
   const { cleaner: first, token: firstToken } = cleanerTokens[0];
   const portalLink = `${base}?cleaner=${jobId}:${firstToken}`;
-  const dispatchSubject = `🧹 Cleaning Job Available: ${propertyName} – ${dateLabel}`;
+  const dispatchSubject = `${meta.emoji} ${meta.label} Available: ${propertyName} – ${dateLabel}`;
   try {
     const _dr = await (await getResend()).emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
@@ -1136,13 +1143,13 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
       html: `
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
           <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
-            <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">🧹 Cleaning Job Available</h2>
+            <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">${meta.emoji} ${meta.label} Available</h2>
             <p style="color:#334155;margin:0 0 20px">Hi ${first.name},</p>
-            <p style="color:#334155;margin:0 0 16px">A cleaning job is available for one of your assigned properties. Tap the button below to accept or pass.</p>
+            <p style="color:#334155;margin:0 0 16px">${meta.intro}</p>
             <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
               <table style="width:100%;border-collapse:collapse">
                 <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${propertyName}</td></tr>
-                <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
+                <tr><td style="padding:4px 0;color:#64748b;font-size:14px">${meta.dateLabel}</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
                 ${checkinDate ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Next Check-in</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${new Date(checkinDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'})}</td></tr>` : ''}
                 ${guestName ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Departing Guest</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${guestName}</td></tr>` : ''}
                 ${first.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:18px">$${first.payout}</td></tr>` : ''}
@@ -1155,7 +1162,7 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
               </a>
             </div>
             <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin:0 0 16px">
-              <p style="margin:0;color:#9a3412;font-size:13px">⚠️ <strong>Can't make it?</strong> Please tap the button above and press <strong>Pass</strong> as soon as possible so we can notify the backup cleaner in time.</p>
+              <p style="margin:0;color:#9a3412;font-size:13px">⚠️ <strong>Can't make it?</strong> Please tap the button above and press <strong>Pass</strong> as soon as possible so we can notify the backup in time.</p>
             </div>
             <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">— E&amp;J Retreats</p>
           </div>
