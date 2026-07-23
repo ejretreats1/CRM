@@ -188,11 +188,11 @@ export async function fetchReservations(
         r.check_out.slice(0, 10) >= cutoffStr
       );
       revenueMap.revenue[prop.id] = confirmed60.reduce((s, r) => s + r.total_price, 0);
-      // 30d revenue: trailing 30 only (for dashboard "last 30 days" metric)
+      // 30d revenue: reservations whose check-in date falls within the last 30 days
       const confirmed30 = normalized.filter(r =>
         !CANCELLED_STATUSES.has(r.status) &&
-        r.check_in.slice(0, 10) <= todayStr &&
-        r.check_out.slice(0, 10) >= cutoffStr
+        r.check_in.slice(0, 10) >= cutoffStr &&
+        r.check_in.slice(0, 10) <= todayStr
       );
       revenueMap.revenue30d[prop.id] = confirmed30.reduce((s, r) => s + r.total_price, 0);
       // Occupancy stays trailing-only

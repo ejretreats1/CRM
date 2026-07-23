@@ -158,8 +158,8 @@ export async function fetchHostawayReservations(
     revenueMap.revenue[propId] = confirmed60.reduce((s, r) => s + r.total_price, 0);
     const confirmed30 = resv.filter(r =>
       !CANCELLED_STATUSES.has(r.status) &&
-      r.check_in.slice(0, 10) <= todayStr &&
-      r.check_out.slice(0, 10) >= cutoffStr
+      r.check_in.slice(0, 10) >= cutoffStr &&
+      r.check_in.slice(0, 10) <= todayStr
     );
     revenueMap.revenue30d[propId] = confirmed30.reduce((s, r) => s + r.total_price, 0);
     const bookedNights = resv.filter(r =>
