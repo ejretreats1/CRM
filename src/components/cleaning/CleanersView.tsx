@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard, FileText, Copy, Check, Download, Smartphone, X, Calendar } from 'lucide-react';
-import type { Cleaner } from '../../types/cleaning';
+import type { Cleaner, CleaningJobType } from '../../types/cleaning';
 
 interface Props {
   cleaners: Cleaner[];
@@ -8,8 +8,14 @@ interface Props {
   onDelete: (id: string) => Promise<void>;
 }
 
+const ALL_SKILLS: { value: CleaningJobType; label: string; emoji: string }[] = [
+  { value: 'cleaning',  label: 'Cleaning',  emoji: '🧹' },
+  { value: 'handyman',  label: 'Handyman',  emoji: '🔧' },
+  { value: 'lawncare',  label: 'Lawn Care', emoji: '🌿' },
+];
+
 const EMPTY: Omit<Cleaner, 'id' | 'createdAt'> = {
-  name: '', email: '', phone: '', status: 'active',
+  name: '', email: '', phone: '', status: 'active', skills: ['cleaning'],
 };
 
 export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
@@ -97,7 +103,7 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
     setEditing({ id: '', createdAt: '' } as Cleaner);
   }
   function openEdit(c: Cleaner) {
-    setForm({ name: c.name, email: c.email, phone: c.phone ?? '', status: c.status });
+    setForm({ name: c.name, email: c.email, phone: c.phone ?? '', status: c.status, skills: c.skills ?? ['cleaning'] });
     setEditing(c);
   }
   function closeModal() { setEditing(null); }
@@ -113,6 +119,7 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
         email: form.email.trim(),
         phone: (form.phone ?? '').trim() || undefined,
         status: form.status,
+        skills: (form.skills ?? ['cleaning']).length > 0 ? form.skills : ['cleaning'],
         createdAt: editing?.createdAt || now,
         dashboardToken: editing?.dashboardToken || crypto.randomUUID(),
       };
@@ -299,7 +306,19 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Avatar c={c} size="sm" />
-                      <span className="font-medium text-white">{c.name}</span>
+                      <div>
+                        <span className="font-medium text-white">{c.name}</span>
+                        <div className="flex gap-1 mt-0.5 flex-wrap">
+                          {(c.skills ?? ['cleaning']).map(sk => {
+                            const info = ALL_SKILLS.find(s => s.value === sk);
+                            return info ? (
+                              <span key={sk} className="text-[10px] px-1.5 py-px rounded-full bg-[#162035] border border-[#1e2d45] text-[#3a5070] font-medium">
+                                {info.emoji} {info.label}
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-[#b8d4f0] hidden sm:table-cell">
@@ -361,6 +380,18 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                       </span>
                     )}
                   </div>
+                  {(selected.skills ?? ['cleaning']).length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap mt-2">
+                      {(selected.skills ?? ['cleaning']).map(sk => {
+                        const info = ALL_SKILLS.find(s => s.value === sk);
+                        return info ? (
+                          <span key={sk} className="text-xs px-2 py-0.5 rounded-full bg-[#162035] border border-[#1e3a5a] text-[#b8d4f0] font-medium">
+                            {info.emoji} {info.label}
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
               <button onClick={() => setSelected(null)} className="text-[#3a5070] hover:text-white transition-colors mt-1">
@@ -535,6 +566,32 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-2">Skills</label>
+                <div className="flex gap-2 flex-wrap">
+                  {ALL_SKILLS.map(s => {
+                    const checked = (form.skills ?? ['cleaning']).includes(s.value);
+                    return (
+                      <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => setForm(f => {
+                          const cur = f.skills ?? ['cleaning'];
+                          const next = checked ? cur.filter(x => x !== s.value) : [...cur, s.value];
+                          return { ...f, skills: next.length ? next : [s.value] };
+                        })}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                          checked
+                            ? 'bg-[#1e3a5a] border-[#4a90d9] text-[#b8d4f0]'
+                            : 'bg-[#0f1923] border-[#1e2d45] text-[#3a5070] hover:border-[#3a5070]'
+                        }`}
+                      >
+                        {s.emoji} {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
             <div className="flex gap-3 px-5 pb-5">

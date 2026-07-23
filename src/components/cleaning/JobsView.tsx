@@ -3,7 +3,7 @@ import {
   Plus, Send, CheckCircle, XCircle, Clock, AlertCircle, Home, User, DollarSign, Calendar, CreditCard,
   ChevronDown, ChevronUp, Image, FileText,
 } from 'lucide-react';
-import type { CleaningJob, CleaningPropertyConfig, Cleaner } from '../../types/cleaning';
+import type { CleaningJob, CleaningJobType, CleaningPropertyConfig, Cleaner } from '../../types/cleaning';
 import type { UplistingProperty } from '../../services/uplisting';
 import { dispatchCleaningJob } from '../../services/cleaningApi';
 
@@ -52,12 +52,22 @@ function fmt(dateStr: string) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+const JOB_TYPES: { value: CleaningJobType; label: string; emoji: string; notesPlaceholder: string }[] = [
+  { value: 'cleaning',  label: 'Cleaning',  emoji: '🧹', notesPlaceholder: 'Special instructions, access codes, etc.' },
+  { value: 'handyman',  label: 'Handyman',  emoji: '🔧', notesPlaceholder: 'Describe the work needed (e.g., fix leaky faucet in master bath, replace door hinge…)' },
+  { value: 'lawncare',  label: 'Lawn Care', emoji: '🌿', notesPlaceholder: 'Mowing, trimming, areas to cover, equipment needed, gate code, etc.' },
+];
+
 interface ManualJobForm {
+  jobType: CleaningJobType;
   propertyId: string;
   propertyName: string;
   checkoutDate: string;
   guestName: string;
   notes: string;
+  selectedCleanerId: string;
+  cleanerPayout: string;
+  clientCharge: string;
 }
 
 export default function JobsView({ jobs, configs, cleaners, uplistingProperties, onSyncJobs, onUpdateJob, onCleanupOrphans, autoSyncing }: Props) {
@@ -68,7 +78,8 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
   const [chargeErrors, setChargeErrors] = useState<Record<string, string>>({});
   const [showManual, setShowManual] = useState(false);
   const [manualForm, setManualForm] = useState<ManualJobForm>({
-    propertyId: '', propertyName: '', checkoutDate: '', guestName: '', notes: '',
+    jobType: 'cleaning', propertyId: '', propertyName: '', checkoutDate: '',
+    guestName: '', notes: '', selectedCleanerId: '', cleanerPayout: '', clientCharge: '',
   });
   const [savingManual, setSavingManual] = useState(false);
   const [cleaningUp, setCleaningUp] = useState(false);
@@ -256,6 +267,14 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
       const configForProp = configs.find(c =>
         c.propertyId === manualForm.propertyId || c.propertyName === manualForm.propertyName
       );
+      const selectedCleaner = manualForm.selectedCleanerId
+        ? cleaners.find(c => c.id === manualForm.selectedCleanerId)
+        : undefined;
+      const cleanerPayout = parseFloat(manualForm.cleanerPayout) || 0;
+      const clientCharge  = manualForm.clientCharge !== ''
+        ? parseFloat(manualForm.clientCharge)
+        : (configForProp?.cleaningFee ?? 0);
+
       const job: CleaningJob = {
         id: `cj_manual_${Date.now()}`,
         propertyId: manualForm.propertyId || manualForm.propertyName,
@@ -263,16 +282,36 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
         guestName: manualForm.guestName || undefined,
         checkoutDate: manualForm.checkoutDate,
         status: 'pending',
-        cleaningFee: configForProp?.cleaningFee ?? 0,
-        cleanerPayout: 0, // set per-cleaner when they accept
+        cleaningFee: clientCharge,
+        cleanerPayout,
         notes: manualForm.notes || undefined,
+        jobType: manualForm.jobType,
         source: 'manual',
         createdAt: now,
         updatedAt: now,
       };
       await onSyncJobs([job]);
+
+      // If a cleaner was selected, dispatch immediately
+      if (selectedCleaner) {
+        try {
+          await dispatchCleaningJob({
+            jobId: job.id,
+            propertyName: job.propertyName,
+            checkoutDate: job.checkoutDate,
+            notes: job.notes,
+            cleanerPayout,
+            jobType: manualForm.jobType,
+            cleaners: [{ id: selectedCleaner.id, name: selectedCleaner.name, email: selectedCleaner.email, payout: cleanerPayout }],
+          });
+          await onUpdateJob({ ...job, status: 'dispatched', dispatchedAt: now, updatedAt: now });
+        } catch {
+          // dispatch failure non-fatal — job is created, can retry from list
+        }
+      }
+
       setShowManual(false);
-      setManualForm({ propertyId: '', propertyName: '', checkoutDate: '', guestName: '', notes: '' });
+      setManualForm({ jobType: 'cleaning', propertyId: '', propertyName: '', checkoutDate: '', guestName: '', notes: '', selectedCleanerId: '', cleanerPayout: '', clientCharge: '' });
     } finally {
       setSavingManual(false);
     }
@@ -374,6 +413,11 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                       {job.portalData?.suppliesNotes?.trim() && (
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-[#2a1e00] border-[#f59e0b] text-[#f59e0b]">
                           📦 Supplies Needed
+                        </span>
+                      )}
+                      {job.jobType && job.jobType !== 'cleaning' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-[#1a1a2e] border-[#4a4a8a] text-[#a0a0e0]">
+                          {job.jobType === 'handyman' ? '🔧 Handyman' : '🌿 Lawn Care'}
                         </span>
                       )}
                       {job.source === 'manual' && (
@@ -637,93 +681,184 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
       )}
 
       {/* Manual Job Modal */}
-      {showManual && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
-              <h2 className="font-bold text-white">Add Manual Job</h2>
-              <button onClick={() => setShowManual(false)} className="text-[#3a5070] hover:text-white transition-colors text-xl leading-none">&times;</button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Property *</label>
-                {configs.length > 0 ? (
-                  <select
+      {showManual && (() => {
+        const jobTypeMeta = JOB_TYPES.find(t => t.value === manualForm.jobType)!;
+        const eligibleCleaners = cleaners.filter(
+          c => c.status === 'active' && (c.skills ?? ['cleaning']).includes(manualForm.jobType)
+        );
+        const configForProp = configs.find(c =>
+          c.propertyId === manualForm.propertyId || c.propertyName === manualForm.propertyName
+        );
+        const defaultCharge = manualForm.jobType === 'cleaning' ? (configForProp?.cleaningFee ?? '') : '';
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45]">
+                <h2 className="font-bold text-white">Add Manual Job</h2>
+                <button onClick={() => setShowManual(false)} className="text-[#3a5070] hover:text-white transition-colors text-xl leading-none">&times;</button>
+              </div>
+              <div className="p-5 space-y-4">
+
+                {/* Job type selector */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#3a5070] mb-2">Job Type *</label>
+                  <div className="flex gap-2">
+                    {JOB_TYPES.map(t => (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => setManualForm(f => ({ ...f, jobType: t.value, selectedCleanerId: '', cleanerPayout: '' }))}
+                        className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl border text-xs font-semibold transition-colors ${
+                          manualForm.jobType === t.value
+                            ? 'bg-[#1a3055] border-[#4a90d9] text-white'
+                            : 'bg-[#0f1923] border-[#1e2d45] text-[#3a5070] hover:border-[#4a90d9] hover:text-[#b8d4f0]'
+                        }`}
+                      >
+                        <span className="text-base">{t.emoji}</span>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Property */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Property *</label>
+                  {configs.length > 0 ? (
+                    <select
+                      className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
+                      value={manualForm.propertyId}
+                      onChange={e => {
+                        const config = configs.find(c => c.propertyId === e.target.value);
+                        setManualForm(f => ({ ...f, propertyId: e.target.value, propertyName: config?.propertyName ?? '' }));
+                      }}
+                    >
+                      <option value="">Select enrolled property…</option>
+                      {configs.map(c => <option key={c.id} value={c.propertyId}>{displayName(c.propertyId, c.propertyName, uplistingProperties)}</option>)}
+                      <option value="__custom">Other / custom property</option>
+                    </select>
+                  ) : (
+                    <input
+                      className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                      value={manualForm.propertyName}
+                      onChange={e => setManualForm(f => ({ ...f, propertyName: e.target.value, propertyId: e.target.value }))}
+                      placeholder="Property name or address"
+                    />
+                  )}
+                  {manualForm.propertyId === '__custom' && (
+                    <input
+                      className="w-full mt-2 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                      value={manualForm.propertyName}
+                      onChange={e => setManualForm(f => ({ ...f, propertyName: e.target.value }))}
+                      placeholder="Property name or address"
+                    />
+                  )}
+                </div>
+
+                {/* Job date */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">
+                    {manualForm.jobType === 'cleaning' ? 'Cleaning Date' : 'Job Date'} *
+                  </label>
+                  <input
+                    type="date"
                     className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
-                    value={manualForm.propertyId}
-                    onChange={e => {
-                      const config = configs.find(c => c.propertyId === e.target.value);
-                      setManualForm(f => ({ ...f, propertyId: e.target.value, propertyName: config?.propertyName ?? '' }));
-                    }}
+                    value={manualForm.checkoutDate}
+                    onChange={e => setManualForm(f => ({ ...f, checkoutDate: e.target.value }))}
+                  />
+                </div>
+
+                {/* Guest name — cleaning only */}
+                {manualForm.jobType === 'cleaning' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Guest Name</label>
+                    <input
+                      className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                      value={manualForm.guestName}
+                      onChange={e => setManualForm(f => ({ ...f, guestName: e.target.value }))}
+                      placeholder="Optional"
+                    />
+                  </div>
+                )}
+
+                {/* Cleaner picker */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">
+                    Assign Cleaner {eligibleCleaners.length === 0 && <span className="text-[#e05c5c]">(none with this skill)</span>}
+                  </label>
+                  <select
+                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9] disabled:opacity-40"
+                    value={manualForm.selectedCleanerId}
+                    disabled={eligibleCleaners.length === 0}
+                    onChange={e => setManualForm(f => ({ ...f, selectedCleanerId: e.target.value }))}
                   >
-                    <option value="">Select enrolled property…</option>
-                    {configs.map(c => <option key={c.id} value={c.propertyId}>{displayName(c.propertyId, c.propertyName, uplistingProperties)}</option>)}
-                    <option value="__custom">Other / custom property</option>
+                    <option value="">Select {jobTypeMeta.emoji} {jobTypeMeta.label} worker…</option>
+                    {eligibleCleaners.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
-                ) : (
-                  <input
-                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
-                    value={manualForm.propertyName}
-                    onChange={e => setManualForm(f => ({ ...f, propertyName: e.target.value, propertyId: e.target.value }))}
-                    placeholder="Property name or address"
+                </div>
+
+                {/* Payout + client charge */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Cleaner Payout ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                      value={manualForm.cleanerPayout}
+                      onChange={e => setManualForm(f => ({ ...f, cleanerPayout: e.target.value }))}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">
+                      Client Charge ($){manualForm.jobType === 'cleaning' && configForProp && <span className="text-[#3a5070] font-normal"> · default ${configForProp.cleaningFee}</span>}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                      value={manualForm.clientCharge}
+                      onChange={e => setManualForm(f => ({ ...f, clientCharge: e.target.value }))}
+                      placeholder={String(defaultCharge || '0.00')}
+                    />
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Notes</label>
+                  <textarea
+                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9] resize-none"
+                    rows={3}
+                    value={manualForm.notes}
+                    onChange={e => setManualForm(f => ({ ...f, notes: e.target.value }))}
+                    placeholder={jobTypeMeta.notesPlaceholder}
                   />
-                )}
-                {manualForm.propertyId === '__custom' && (
-                  <input
-                    className="w-full mt-2 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
-                    value={manualForm.propertyName}
-                    onChange={e => setManualForm(f => ({ ...f, propertyName: e.target.value }))}
-                    placeholder="Property name or address"
-                  />
-                )}
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Cleaning Date *</label>
-                <input
-                  type="date"
-                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
-                  value={manualForm.checkoutDate}
-                  onChange={e => setManualForm(f => ({ ...f, checkoutDate: e.target.value }))}
-                />
+
+              <div className="flex gap-3 px-5 pb-5">
+                <button
+                  onClick={() => setShowManual(false)}
+                  className="flex-1 px-4 py-2.5 bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveManual}
+                  disabled={savingManual || !manualForm.checkoutDate || (!manualForm.propertyId && !manualForm.propertyName)}
+                  className="flex-1 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
+                >
+                  {savingManual ? 'Saving…' : manualForm.selectedCleanerId ? 'Create & Dispatch' : 'Create Job'}
+                </button>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Guest Name</label>
-                <input
-                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
-                  value={manualForm.guestName}
-                  onChange={e => setManualForm(f => ({ ...f, guestName: e.target.value }))}
-                  placeholder="Optional"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Notes</label>
-                <textarea
-                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9] resize-none"
-                  rows={2}
-                  value={manualForm.notes}
-                  onChange={e => setManualForm(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="Special instructions, access codes, etc."
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 px-5 pb-5">
-              <button
-                onClick={() => setShowManual(false)}
-                className="flex-1 px-4 py-2.5 bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveManual}
-                disabled={savingManual || !manualForm.checkoutDate || (!manualForm.propertyId && !manualForm.propertyName)}
-                className="flex-1 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
-              >
-                {savingManual ? 'Saving…' : 'Create Job'}
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
