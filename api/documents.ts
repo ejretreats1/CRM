@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 
+export const maxDuration = 60;
+
 // ─── iCal helpers (inlined from _ical.ts to avoid Vercel bundling issues) ─────
 
 interface IcalEvent {
@@ -3488,10 +3490,15 @@ const SCRAPER_SKIP_DOMAINS = [
   'yelp.com','yellowpages.com','whitepages.com','superpages.com','foursquare.com',
 ];
 
+// URL patterns that indicate a contact/about/team page — crawled first
+const CONTACT_PATH_RE = /\/(contact|about|reach|get.in.touch|team|staff|connect|email|hire|people|our.team|meet)[^/]*/i;
+// Resource extensions to skip when following links
+const SKIP_EXT_RE = /\.(jpg|jpeg|png|gif|svg|webp|css|js|pdf|doc|docx|xls|zip|json|ico|woff|woff2|ttf|mp4|mp3|avi|mov|xml)(\?|$)/i;
+
 function isNoiseEmail(email: string): boolean {
   const lower = email.toLowerCase();
-  if (/^(noreply|no-reply|donotreply|bounce|mailer-daemon|postmaster|webmaster|admin|info@wix|support@wix|privacy|legal|security)@/.test(lower)) return true;
-  if (/(wixpress|squarespace|wordpress|godaddy|hostgator|siteground|elementor|mailchimp|sendgrid|amazonaws|cloudfront|akamai|fastly|sentry\.io|hubspot|salesforce|zendesk)/.test(lower)) return true;
+  if (/^(noreply|no-reply|donotreply|bounce|mailer-daemon|postmaster|webmaster|admin|info@wix|support@wix|privacy|legal|security|example|test|sample|user|email|name)@/.test(lower)) return true;
+  if (/(wixpress|squarespace|wordpress|godaddy|hostgator|siteground|elementor|mailchimp|sendgrid|amazonaws|cloudfront|akamai|fastly|sentry\.io|hubspot|salesforce|zendesk|example\.com)/.test(lower)) return true;
   if (/\.(png|jpg|jpeg|gif|svg|webp|css|js|pdf|doc|xml|json|ico|woff|ttf)$/.test(lower)) return true;
   const parts = lower.split('@');
   if (parts.length !== 2) return true;
@@ -3502,6 +3509,187 @@ function isNoiseEmail(email: string): boolean {
 
 function scraperCleanText(s: string) {
   return s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#\d+;/g, '').trim();
+}
+
+// ── Sitemap discovery ─────────────────────────────────────────────────────────
+
+async function parseSitemapXml(xml: string, sameHost: string, out: string[], seen: Set<string>, depth: number): Promise<void> {
+  if (depth > 2 || out.length >= 200) return;
+  // Sitemap index → recurse into child sitemaps
+  if (xml.includes('<sitemapindex')) {
+    for (const m of [...xml.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/g)].slice(0, 8)) {
+      const childUrl = m[1].trim();
+      if (seen.has(childUrl)) continue;
+      seen.add(childUrl);
+      const childXml = await fetchHtml(childUrl, 4000);
+      if (childXml) await parseSitemapXml(childXml, sameHost, out, seen, depth + 1);
+    }
+    return;
+  }
+  // Regular urlset
+  for (const m of xml.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/g)) {
+    const u = m[1].trim();
+    if (seen.has(u)) continue;
+    seen.add(u);
+    try {
+      if (new URL(u).hostname.replace('www.', '').includes(sameHost)) out.push(u);
+    } catch {}
+  }
+}
+
+async function fetchSitemapUrls(origin: string, sameHost: string): Promise<string[]> {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  // 1. Check robots.txt for Sitemap: directive
+  const robots = await fetchHtml(`${origin}/robots.txt`, 3000);
+  if (robots) {
+    for (const m of robots.matchAll(/^sitemap:\s*(.+)$/gim)) {
+      const sitemapUrl = m[1].trim();
+      if (seen.has(sitemapUrl)) continue;
+      seen.add(sitemapUrl);
+      const xml = await fetchHtml(sitemapUrl, 4000);
+      if (xml) await parseSitemapXml(xml, sameHost, out, seen, 0);
+    }
+  }
+  // 2. Fall back to common sitemap paths
+  if (!out.length) {
+    for (const path of ['/sitemap.xml', '/sitemap_index.xml', '/sitemap.xml.gz']) {
+      const url = `${origin}${path}`;
+      if (seen.has(url)) continue;
+      seen.add(url);
+      const xml = await fetchHtml(url, 4000);
+      if (xml) { await parseSitemapXml(xml, sameHost, out, seen, 0); if (out.length) break; }
+    }
+  }
+  return out;
+}
+
+// ── Link extraction ───────────────────────────────────────────────────────────
+
+function findInternalLinks(html: string, origin: string, sameHost: string): string[] {
+  const links: string[] = [];
+  for (const m of html.matchAll(/href=["']([^"']+)["']/gi)) {
+    const href = m[1].trim();
+    if (!href || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:') || href.startsWith('#')) continue;
+    if (SKIP_EXT_RE.test(href)) continue;
+    const full = href.startsWith('http') ? href : href.startsWith('/') ? `${origin}${href}` : null;
+    if (!full) continue;
+    const norm = full.split('#')[0].split('?')[0];
+    try {
+      if (!new URL(norm).hostname.replace('www.', '').includes(sameHost)) continue;
+    } catch { continue; }
+    links.push(norm);
+  }
+  return [...new Set(links)];
+}
+
+// ── BFS domain crawler ────────────────────────────────────────────────────────
+
+async function crawlDomainForEmails(
+  startUrl: string,
+  budgetMs = 20000,
+): Promise<{ emails: string[]; phones: string[]; businessName: string; pagesChecked: number; blocked: boolean }> {
+  const t0 = Date.now();
+  const elapsed = () => Date.now() - t0;
+
+  let base: URL;
+  try { base = new URL(startUrl); } catch { return { emails: [], phones: [], businessName: '', pagesChecked: 0, blocked: false }; }
+  const origin = base.origin;
+  const sameHost = base.hostname.replace('www.', '');
+
+  const visited = new Set<string>();
+  const emails: string[] = [];
+  const phones: string[] = [];
+  let businessName = sameHost;
+  let pagesChecked = 0;
+  let siteBlocked = false;
+
+  type QItem = { url: string; priority: number };
+  const queue: QItem[] = [];
+  const enqueue = (url: string, priority: number) => {
+    const norm = url.split('#')[0].split('?')[0];
+    if (!visited.has(norm) && !queue.some(q => q.url === norm)) {
+      queue.push({ url: norm, priority });
+    }
+  };
+  const dequeue = (): QItem | undefined => {
+    if (!queue.length) return undefined;
+    let best = 0;
+    for (let i = 1; i < queue.length; i++) if (queue[i].priority > queue[best].priority) best = i;
+    return queue.splice(best, 1)[0];
+  };
+
+  // Seed: start URL first, then known contact-path variants
+  enqueue(startUrl, 10);
+  for (const path of ['/contact', '/contact-us', '/about', '/about-us', '/team', '/our-team', '/staff', '/reach-us', '/get-in-touch', '/connect']) {
+    enqueue(`${origin}${path}`, 9);
+  }
+
+  // Discover more URLs from sitemap (run early but cap time)
+  if (elapsed() < budgetMs * 0.25) {
+    const sitemapUrls = await fetchSitemapUrls(origin, sameHost);
+    for (const u of sitemapUrls) {
+      enqueue(u, CONTACT_PATH_RE.test(u) ? 8 : 2);
+    }
+  }
+
+  const PHONE_RE = /(?:\+?1[-.\s]?)?\(?([2-9][0-9]{2})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g;
+
+  while (queue.length > 0 && pagesChecked < 15 && elapsed() < budgetMs - 1500) {
+    const item = dequeue();
+    if (!item) break;
+    const { url } = item;
+    if (visited.has(url)) continue;
+    visited.add(url);
+    pagesChecked++;
+
+    const remaining = budgetMs - elapsed() - 1000;
+    if (remaining < 1000) break;
+    const html = await fetchHtml(url, Math.min(7000, remaining));
+    if (!html) continue;
+
+    if (isCloudflarePage(html)) {
+      if (pagesChecked === 1) siteBlocked = true;
+      continue;
+    }
+
+    // Extract business name from homepage title
+    if (pagesChecked === 1) {
+      const titleM = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const raw = (titleM?.[1] ?? '').replace(/<[^>]+>/g, '').trim();
+      const name = raw.replace(/\s*[-–|·•,]\s*.{0,40}$/, '').replace(/\s+/g, ' ').trim();
+      if (name) businessName = name;
+      // Phones from homepage
+      for (const p of html.match(PHONE_RE) ?? []) {
+        const d = p.replace(/\D/g, '').replace(/^1/, '');
+        if (d.length === 10) {
+          const fmt = `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+          if (!phones.includes(fmt)) phones.push(fmt);
+        }
+      }
+    }
+
+    // Extract emails from this page
+    for (const e of extractEmailsFromHtml(html)) {
+      if (!emails.includes(e)) emails.push(e);
+    }
+    if (emails.length >= 5) break;
+
+    // Discover more same-domain links and enqueue them
+    if (elapsed() < budgetMs - 3000) {
+      for (const link of findInternalLinks(html, origin, sameHost)) {
+        enqueue(link, CONTACT_PATH_RE.test(link) ? 8 : 1);
+      }
+    }
+  }
+
+  return {
+    emails: emails.slice(0, 5),
+    phones: phones.slice(0, 3),
+    businessName,
+    pagesChecked,
+    blocked: siteBlocked && emails.length === 0,
+  };
 }
 
 function scraperAddResult(
@@ -3721,22 +3909,12 @@ async function fetchHtml(url: string, timeoutMs = 9000): Promise<string> {
   } catch { return ''; }
 }
 
-const PLATFORM_DOMAINS = ['guestybookings.com','hospitable.rentals','holidayfuture.com','hostfully.com','airbnb.com','vrbo.com','booking.com','expedia.com'];
-
 function isCloudflarePage(html: string): boolean {
-  return html.length < 50000 && (
+  return html.length < 60000 && (
     /cf-browser-verification|checking your browser|just a moment\.\.\.|enable javascript and cookies/i.test(html) ||
     html.includes('cdn-cgi/challenge-platform') ||
     html.includes('data-cf-settings')
   );
-}
-
-function guessEmailsFromDomain(hostname: string): string[] {
-  const domain = hostname.replace(/^www\./, '');
-  if (PLATFORM_DOMAINS.some(p => domain.endsWith(p))) return [];
-  // Skip very short or numeric-heavy domains that are likely CDNs/infrastructure
-  if (/^\d+\.\d+/.test(domain)) return [];
-  return [`info@${domain}`, `contact@${domain}`, `hello@${domain}`];
 }
 
 function decodeCFEmail(encoded: string): string {
@@ -3786,94 +3964,18 @@ function extractEmailsFromHtml(html: string): string[] {
   return [...new Set(all.filter(e => !isNoiseEmail(e)))].slice(0, 5);
 }
 
-function findContactPageLinks(html: string, origin: string, sameHost: string): string[] {
-  const links: string[] = [];
-  for (const m of html.matchAll(/href=["']([^"'#?]+)["']/gi)) {
-    const href = m[1];
-    const full = href.startsWith('http') ? href : href.startsWith('/') ? origin + href : null;
-    if (!full) continue;
-    if (!full.includes(sameHost)) continue;
-    if (/contact|about|reach|get-in-touch|team|staff/i.test(full)) links.push(full);
-  }
-  return [...new Set(links)].slice(0, 4);
-}
-
 async function scraperScrapeEmails(body: any, res: VercelResponse) {
   const { urls } = body;
   if (!Array.isArray(urls) || !urls.length) return res.status(400).json({ error: 'urls[] required' });
 
-  const PHONE_RE = /(?:\+?1[-.\s]?)?\(?([2-9][0-9]{2})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g;
-
-  const results = await Promise.all(urls.slice(0, 15).map(async (url: string) => {
-    const fallback = { url, businessName: '', emails: [] as string[], phones: [] as string[], found: false, guessed: false, blocked: false };
+  // Process up to 10 domains in parallel; each gets a 22-second crawl budget
+  const results = await Promise.all(urls.slice(0, 10).map(async (url: string) => {
+    const fallback = { url, businessName: '', emails: [] as string[], phones: [] as string[], found: false, blocked: false, pagesChecked: 0 };
     try {
-      const base = new URL(url);
-      fallback.businessName = base.hostname.replace(/^www\./, '');
-
-      // 1. Fetch homepage
-      const homeHtml = await fetchHtml(url);
-      if (!homeHtml) {
-        // Still return guessed emails even if site didn't load
-        const guessed = guessEmailsFromDomain(base.hostname);
-        return { ...fallback, emails: guessed, guessed: guessed.length > 0, error: 'Could not load' };
-      }
-
-      // Detect Cloudflare challenge page
-      const blocked = isCloudflarePage(homeHtml);
-
-      // Business name from <title>
-      const titleM = homeHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-      const rawTitle = (titleM?.[1] ?? '').replace(/<[^>]+>/g, '').trim();
-      fallback.businessName = rawTitle.replace(/\s*[-–|·•|,]\s*.{0,40}$/, '').replace(/\s+/g, ' ').trim() || fallback.businessName;
-
-      // 2. Extract emails from homepage
-      const homeEmails = blocked ? [] : extractEmailsFromHtml(homeHtml);
-
-      // 3. Try contact/about pages unless CF blocked (challenge pages won't have links either)
-      const contactEmails: string[] = [];
-      if (!blocked) {
-        const discoveredLinks = findContactPageLinks(homeHtml, base.origin, base.hostname.replace('www.', ''));
-        const fallbackLinks = [
-          `${base.origin}/contact`,
-          `${base.origin}/contact-us`,
-          `${base.origin}/about`,
-          `${base.origin}/about-us`,
-          `${base.origin}/team`,
-        ];
-        const allContactLinks = [...new Set([...discoveredLinks, ...fallbackLinks])];
-        for (const link of allContactLinks.slice(0, 5)) {
-          if (contactEmails.length >= 5) break;
-          const pageHtml = await fetchHtml(link, 7000);
-          if (!pageHtml || isCloudflarePage(pageHtml)) continue;
-          const pageEmails = extractEmailsFromHtml(pageHtml);
-          pageEmails.forEach(e => { if (!contactEmails.includes(e)) contactEmails.push(e); });
-        }
-      }
-
-      // Merge scraped emails: prefer contact-page hits, then homepage
-      const scrapedEmails = [...new Set([...contactEmails, ...homeEmails])].slice(0, 5);
-
-      // 4. Phone from homepage
-      const rawPhones = blocked ? [] : (homeHtml.match(PHONE_RE) ?? []);
-      const phones = [...new Set(rawPhones.map(p => {
-        const d = p.replace(/\D/g, '').replace(/^1/, '');
-        return d.length === 10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : null;
-      }).filter(Boolean) as string[])].slice(0, 3);
-
-      // 5. If no emails found (blocked or JS-rendered), fall back to educated domain guesses
-      if (scrapedEmails.length > 0) {
-        return { url, businessName: fallback.businessName, emails: scrapedEmails, phones, found: true, guessed: false, blocked };
-      }
-      const guessedEmails = guessEmailsFromDomain(base.hostname);
-      return {
-        url,
-        businessName: fallback.businessName,
-        emails: guessedEmails,
-        phones,
-        found: false,
-        guessed: guessedEmails.length > 0,
-        blocked,
-      };
+      const hostname = new URL(url).hostname.replace(/^www\./, '');
+      fallback.businessName = hostname;
+      const { emails, phones, businessName, pagesChecked, blocked } = await crawlDomainForEmails(url, 22000);
+      return { url, businessName: businessName || hostname, emails, phones, found: emails.length > 0, blocked, pagesChecked };
     } catch (e) {
       return { ...fallback, error: String(e) };
     }
