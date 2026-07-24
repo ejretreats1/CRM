@@ -3671,6 +3671,15 @@ async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
     'realtor':             [`realtors ${cityState}`, `real estate agents ${cityState}`, `real estate team ${cityState}`],
     'short term rental':   [`vacation rental management ${cityState}`, `short term rental management ${cityState}`, `airbnb property manager ${cityState}`],
     'investor':            [`real estate investors ${cityState}`, `property investors ${cityState}`, `real estate investment company ${cityState}`],
+    'direct booking':      [
+      `"powered by hostaway" ${cityState} vacation rental`,
+      `"powered by guesty" ${cityState} vacation rental`,
+      `"powered by uplisting" ${cityState} short term rental`,
+      `"powered by hospitable" ${cityState} vacation rental`,
+      `"powered by lodgify" ${cityState} vacation rental`,
+      `"book direct" short term rental ${cityState} owner`,
+      `self managed vacation rental ${cityState} "book direct"`,
+    ],
   };
   const queries = typeQueries[businessType] ?? [`${businessType} ${cityState}`];
   const maxCount = Math.min(parseInt(count) || 20, 60);
@@ -3699,24 +3708,50 @@ async function fetchHtml(url: string, timeoutMs = 9000): Promise<string> {
   } catch { return ''; }
 }
 
+function decodeCFEmail(encoded: string): string {
+  const key = parseInt(encoded.slice(0, 2), 16);
+  let result = '';
+  for (let i = 2; i < encoded.length; i += 2) {
+    result += String.fromCharCode(parseInt(encoded.slice(i, i + 2), 16) ^ key);
+  }
+  return result;
+}
+
 function extractEmailsFromHtml(html: string): string[] {
   const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,6}/g;
   const MAILTO_RE = /href=["']mailto:([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,6})/gi;
 
-  // 1. mailto: href attributes — most reliable
-  const mailtoEmails = [...html.matchAll(MAILTO_RE)].map(m => m[1].toLowerCase());
-
-  // 2. JSON-LD / schema.org "email" fields
-  const jsonldEmails: string[] = [];
-  for (const block of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
-    const m = block[1].match(/"email"\s*:\s*"([^"@\s]+@[^"@\s]+)"/i);
-    if (m) jsonldEmails.push(m[1].toLowerCase());
+  // 1. Cloudflare email protection (data-cfemail XOR encoding)
+  const cfEmails: string[] = [];
+  for (const m of html.matchAll(/data-cfemail=["']([0-9a-f]{4,})["']/gi)) {
+    try {
+      const decoded = decodeCFEmail(m[1]);
+      if (decoded.includes('@')) cfEmails.push(decoded.toLowerCase());
+    } catch { /* skip malformed */ }
   }
 
-  // 3. General text scan
+  // 2. mailto: href attributes — most reliable
+  const mailtoEmails = [...html.matchAll(MAILTO_RE)].map(m => m[1].toLowerCase());
+
+  // 3. JSON-LD / schema.org "email" fields (all occurrences)
+  const jsonldEmails: string[] = [];
+  for (const block of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    for (const m of block[1].matchAll(/"email"\s*:\s*"([^"@\s]+@[^"@\s]+)"/gi)) {
+      jsonldEmails.push(m[1].toLowerCase());
+    }
+  }
+
+  // 4. Obfuscated [at] / (at) / (dot) patterns
+  const obfuscated: string[] = [];
+  const OBF_RE = /([a-zA-Z0-9._%+\-]{2,})\s*(?:\[at\]|\(at\)|@AT@)\s*([a-zA-Z0-9.\-]+)\s*(?:\[dot\]|\(dot\)|\.)\s*([a-zA-Z]{2,6})/gi;
+  for (const m of html.matchAll(OBF_RE)) {
+    obfuscated.push(`${m[1]}@${m[2]}.${m[3]}`.toLowerCase());
+  }
+
+  // 5. General text scan
   const textEmails = [...html.matchAll(EMAIL_RE)].map(m => m[0].toLowerCase());
 
-  const all = [...mailtoEmails, ...jsonldEmails, ...textEmails];
+  const all = [...cfEmails, ...mailtoEmails, ...jsonldEmails, ...obfuscated, ...textEmails];
   return [...new Set(all.filter(e => !isNoiseEmail(e)))].slice(0, 5);
 }
 
@@ -3753,23 +3788,31 @@ async function scraperScrapeEmails(body: any, res: VercelResponse) {
       const rawTitle = (titleM?.[1] ?? '').replace(/<[^>]+>/g, '').trim();
       fallback.businessName = rawTitle.replace(/\s*[-–|·•|,]\s*.{0,40}$/, '').replace(/\s+/g, ' ').trim() || fallback.businessName;
 
-      // 2. Try emails from homepage first
-      let emails = extractEmailsFromHtml(homeHtml);
+      // 2. Extract emails from homepage
+      const homeEmails = extractEmailsFromHtml(homeHtml);
 
-      // 3. If none, look for a real contact page link in the HTML
-      if (!emails.length) {
-        const contactLinks = [
-          ...findContactPageLinks(homeHtml, base.origin, base.hostname.replace('www.', '')),
-          `${base.origin}/contact`,
-          `${base.origin}/contact-us`,
-          `${base.origin}/about`,
-        ];
-        for (const link of contactLinks.slice(0, 3)) {
-          const html = await fetchHtml(link, 7000);
-          emails = extractEmailsFromHtml(html);
-          if (emails.length) break;
-        }
+      // 3. Always try contact/about pages — homepage may have no email even if contact page does
+      const discoveredLinks = findContactPageLinks(homeHtml, base.origin, base.hostname.replace('www.', ''));
+      const fallbackLinks = [
+        `${base.origin}/contact`,
+        `${base.origin}/contact-us`,
+        `${base.origin}/about`,
+        `${base.origin}/about-us`,
+        `${base.origin}/team`,
+      ];
+      const allContactLinks = [...new Set([...discoveredLinks, ...fallbackLinks])];
+      const contactEmailSets: string[][] = [];
+      for (const link of allContactLinks.slice(0, 5)) {
+        if (contactEmailSets.flat().length >= 5) break;
+        const pageHtml = await fetchHtml(link, 7000);
+        const pageEmails = extractEmailsFromHtml(pageHtml);
+        if (pageEmails.length) contactEmailSets.push(pageEmails);
       }
+      const contactEmails = [...new Set(contactEmailSets.flat())];
+
+      // Merge: prefer contact-page emails (more likely real business contact), then homepage
+      const emailsMerged = [...new Set([...contactEmails, ...homeEmails])];
+      const emails = emailsMerged.slice(0, 5);
 
       // 4. Phone from homepage
       const rawPhones = homeHtml.match(PHONE_RE) ?? [];
