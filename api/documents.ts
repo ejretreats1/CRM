@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 
-export const maxDuration = 60;
 
 // ─── iCal helpers (inlined from _ical.ts to avoid Vercel bundling issues) ─────
 
@@ -4373,13 +4372,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'send')      return await agreementSend(body, res);
     if (action === 'complete')  return await agreementComplete(body, res);
     if (action === 'self-sign') return await agreementSelfSign(body, res);
+  } else if (flow === 'scraper') {
+    if (action === 'scrape-emails') return await scraperScrapeEmails(body, res);
   } else {
     if (action === 'send')     return await sigSend(body, res);
     if (action === 'complete') return await sigComplete(body, res);
-  }
-
-  } else if (flow === 'scraper') {
-    if (action === 'scrape-emails') return await scraperScrapeEmails(body, res);
   }
 
   return res.status(400).json({ error: 'Unknown action.' });
