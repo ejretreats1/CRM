@@ -29,7 +29,7 @@ const BUSINESS_TYPES = [
   { id: 'realtor',             label: 'Realtor / Real Estate', category: 'Realtor / Real Estate Team' as CleaningLeadCategory },
   { id: 'short term rental',   label: 'Short-Term Rental',     category: 'Short-Term Rental' as CleaningLeadCategory },
   { id: 'investor',            label: 'Real Estate Investor',  category: 'Real Estate Investor' as CleaningLeadCategory },
-  { id: 'direct booking',      label: 'Direct Booking Owner',  category: 'Short-Term Rental' as CleaningLeadCategory },
+  { id: 'direct booking',      label: 'Direct Booking Owner',  category: 'Direct Booking Owner' as CleaningLeadCategory },
 ];
 
 const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
