@@ -3702,8 +3702,16 @@ async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
 
 const SCRAPER_FETCH_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+  'Upgrade-Insecure-Requests': '1',
 };
 
 async function fetchHtml(url: string, timeoutMs = 9000): Promise<string> {
@@ -3711,6 +3719,24 @@ async function fetchHtml(url: string, timeoutMs = 9000): Promise<string> {
     const r = await fetch(url, { headers: SCRAPER_FETCH_HEADERS, signal: AbortSignal.timeout(timeoutMs), redirect: 'follow' });
     return r.ok ? await r.text() : '';
   } catch { return ''; }
+}
+
+const PLATFORM_DOMAINS = ['guestybookings.com','hospitable.rentals','holidayfuture.com','hostfully.com','airbnb.com','vrbo.com','booking.com','expedia.com'];
+
+function isCloudflarePage(html: string): boolean {
+  return html.length < 50000 && (
+    /cf-browser-verification|checking your browser|just a moment\.\.\.|enable javascript and cookies/i.test(html) ||
+    html.includes('cdn-cgi/challenge-platform') ||
+    html.includes('data-cf-settings')
+  );
+}
+
+function guessEmailsFromDomain(hostname: string): string[] {
+  const domain = hostname.replace(/^www\./, '');
+  if (PLATFORM_DOMAINS.some(p => domain.endsWith(p))) return [];
+  // Skip very short or numeric-heavy domains that are likely CDNs/infrastructure
+  if (/^\d+\.\d+/.test(domain)) return [];
+  return [`info@${domain}`, `contact@${domain}`, `hello@${domain}`];
 }
 
 function decodeCFEmail(encoded: string): string {
@@ -3779,14 +3805,21 @@ async function scraperScrapeEmails(body: any, res: VercelResponse) {
   const PHONE_RE = /(?:\+?1[-.\s]?)?\(?([2-9][0-9]{2})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g;
 
   const results = await Promise.all(urls.slice(0, 15).map(async (url: string) => {
-    const fallback = { url, businessName: '', emails: [] as string[], phones: [] as string[], found: false };
+    const fallback = { url, businessName: '', emails: [] as string[], phones: [] as string[], found: false, guessed: false, blocked: false };
     try {
       const base = new URL(url);
       fallback.businessName = base.hostname.replace(/^www\./, '');
 
       // 1. Fetch homepage
       const homeHtml = await fetchHtml(url);
-      if (!homeHtml) return { ...fallback, error: 'Could not load' };
+      if (!homeHtml) {
+        // Still return guessed emails even if site didn't load
+        const guessed = guessEmailsFromDomain(base.hostname);
+        return { ...fallback, emails: guessed, guessed: guessed.length > 0, error: 'Could not load' };
+      }
+
+      // Detect Cloudflare challenge page
+      const blocked = isCloudflarePage(homeHtml);
 
       // Business name from <title>
       const titleM = homeHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -3794,39 +3827,53 @@ async function scraperScrapeEmails(body: any, res: VercelResponse) {
       fallback.businessName = rawTitle.replace(/\s*[-–|·•|,]\s*.{0,40}$/, '').replace(/\s+/g, ' ').trim() || fallback.businessName;
 
       // 2. Extract emails from homepage
-      const homeEmails = extractEmailsFromHtml(homeHtml);
+      const homeEmails = blocked ? [] : extractEmailsFromHtml(homeHtml);
 
-      // 3. Always try contact/about pages — homepage may have no email even if contact page does
-      const discoveredLinks = findContactPageLinks(homeHtml, base.origin, base.hostname.replace('www.', ''));
-      const fallbackLinks = [
-        `${base.origin}/contact`,
-        `${base.origin}/contact-us`,
-        `${base.origin}/about`,
-        `${base.origin}/about-us`,
-        `${base.origin}/team`,
-      ];
-      const allContactLinks = [...new Set([...discoveredLinks, ...fallbackLinks])];
-      const contactEmailSets: string[][] = [];
-      for (const link of allContactLinks.slice(0, 5)) {
-        if (contactEmailSets.flat().length >= 5) break;
-        const pageHtml = await fetchHtml(link, 7000);
-        const pageEmails = extractEmailsFromHtml(pageHtml);
-        if (pageEmails.length) contactEmailSets.push(pageEmails);
+      // 3. Try contact/about pages unless CF blocked (challenge pages won't have links either)
+      const contactEmails: string[] = [];
+      if (!blocked) {
+        const discoveredLinks = findContactPageLinks(homeHtml, base.origin, base.hostname.replace('www.', ''));
+        const fallbackLinks = [
+          `${base.origin}/contact`,
+          `${base.origin}/contact-us`,
+          `${base.origin}/about`,
+          `${base.origin}/about-us`,
+          `${base.origin}/team`,
+        ];
+        const allContactLinks = [...new Set([...discoveredLinks, ...fallbackLinks])];
+        for (const link of allContactLinks.slice(0, 5)) {
+          if (contactEmails.length >= 5) break;
+          const pageHtml = await fetchHtml(link, 7000);
+          if (!pageHtml || isCloudflarePage(pageHtml)) continue;
+          const pageEmails = extractEmailsFromHtml(pageHtml);
+          pageEmails.forEach(e => { if (!contactEmails.includes(e)) contactEmails.push(e); });
+        }
       }
-      const contactEmails = [...new Set(contactEmailSets.flat())];
 
-      // Merge: prefer contact-page emails (more likely real business contact), then homepage
-      const emailsMerged = [...new Set([...contactEmails, ...homeEmails])];
-      const emails = emailsMerged.slice(0, 5);
+      // Merge scraped emails: prefer contact-page hits, then homepage
+      const scrapedEmails = [...new Set([...contactEmails, ...homeEmails])].slice(0, 5);
 
       // 4. Phone from homepage
-      const rawPhones = homeHtml.match(PHONE_RE) ?? [];
+      const rawPhones = blocked ? [] : (homeHtml.match(PHONE_RE) ?? []);
       const phones = [...new Set(rawPhones.map(p => {
         const d = p.replace(/\D/g, '').replace(/^1/, '');
         return d.length === 10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : null;
       }).filter(Boolean) as string[])].slice(0, 3);
 
-      return { url, businessName: fallback.businessName, emails, phones, found: emails.length > 0 };
+      // 5. If no emails found (blocked or JS-rendered), fall back to educated domain guesses
+      if (scrapedEmails.length > 0) {
+        return { url, businessName: fallback.businessName, emails: scrapedEmails, phones, found: true, guessed: false, blocked };
+      }
+      const guessedEmails = guessEmailsFromDomain(base.hostname);
+      return {
+        url,
+        businessName: fallback.businessName,
+        emails: guessedEmails,
+        phones,
+        found: false,
+        guessed: guessedEmails.length > 0,
+        blocked,
+      };
     } catch (e) {
       return { ...fallback, error: String(e) };
     }

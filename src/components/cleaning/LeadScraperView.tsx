@@ -18,6 +18,8 @@ interface ScrapedResult {
   emails: string[];
   phones: string[];
   found: boolean;
+  guessed?: boolean;
+  blocked?: boolean;
   error?: string;
   selected: boolean;
 }
@@ -110,7 +112,7 @@ export default function LeadScraperView() {
         if (r.ok && d.results) {
           allResults.push(...(d.results as ScrapedResult[]).map((s: ScrapedResult) => ({
             ...s,
-            selected: s.emails.length > 0,
+            selected: s.emails.length > 0, // select both scraped and guessed
           })));
         } else {
           errors.push(`Batch ${i / batchSize + 1}: ${d.error ?? 'Unknown error'}`);
@@ -168,7 +170,8 @@ export default function LeadScraperView() {
   function toggleAllResults(val: boolean) { setScraped(p => p.map(s => ({ ...s, selected: val && s.emails.length > 0 }))); }
 
   const selectedSiteCount = sites.filter(s => s.selected).length;
-  const foundCount = scraped.filter(s => s.emails.length > 0).length;
+  const foundCount = scraped.filter(s => s.emails.length > 0 && !s.guessed).length;
+  const guessedCount = scraped.filter(s => s.guessed).length;
   const selectedResultCount = scraped.filter(s => s.selected).length;
 
   const inputCls = 'bg-[#162035] border border-[#1e2d45] rounded-xl px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:ring-2 focus:ring-[#4a90d9]';
@@ -329,10 +332,10 @@ export default function LeadScraperView() {
           {/* Stats */}
           <div className="flex gap-3 mb-4">
             {[
-              { label: 'Sites checked',   value: scraped.length,        color: 'text-white' },
-              { label: 'Emails found',    value: foundCount,            color: 'text-[#3dd68c]' },
-              { label: 'No email',        value: scraped.length - foundCount, color: 'text-[#d0954a]' },
-              { label: 'Selected',        value: selectedResultCount,   color: 'text-[#4a90d9]' },
+              { label: 'Sites checked', value: scraped.length,                                     color: 'text-white' },
+              { label: 'Scraped ✓',    value: foundCount,                                          color: 'text-[#3dd68c]' },
+              { label: 'Guessed ~',    value: guessedCount,                                        color: 'text-[#d0954a]' },
+              { label: 'Selected',     value: selectedResultCount,                                 color: 'text-[#4a90d9]' },
             ].map(s => (
               <div key={s.label} className="flex-1 bg-[#1a2335] border border-[#1e2d45] rounded-xl p-3 text-center">
                 <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
@@ -340,6 +343,9 @@ export default function LeadScraperView() {
               </div>
             ))}
           </div>
+          {guessedCount > 0 && (
+            <p className="text-[11px] text-[#d0954a] mb-3">~ Guessed emails are common patterns (info@, contact@) generated from the domain — verify before sending.</p>
+          )}
 
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-[#3a5070]">Only rows with emails are importable</span>
@@ -373,8 +379,8 @@ export default function LeadScraperView() {
                   </div>
                   <div className="flex items-center gap-3 mt-1 flex-wrap">
                     {s.emails.map(e => (
-                      <span key={e} className="flex items-center gap-1 text-xs text-[#3dd68c]">
-                        <Mail size={10} /> {e}
+                      <span key={e} className={`flex items-center gap-1 text-xs ${s.guessed ? 'text-[#d0954a]' : 'text-[#3dd68c]'}`}>
+                        <Mail size={10} /> {s.guessed ? `~${e}` : e}
                       </span>
                     ))}
                     {s.phones.map(p => (
@@ -383,7 +389,9 @@ export default function LeadScraperView() {
                       </span>
                     ))}
                     {s.emails.length === 0 && (
-                      <span className="text-xs text-[#3a5070] italic">No email found</span>
+                      <span className="text-xs text-[#3a5070] italic">
+                        {s.blocked ? 'Blocked by Cloudflare' : 'No email found'}
+                      </span>
                     )}
                   </div>
                 </div>
