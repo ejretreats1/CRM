@@ -209,6 +209,7 @@ export const CLEANING_LEAD_CATEGORIES = [
   'Property Management',
   'Realtor / Real Estate Team',
   'Short-Term Rental',
+  'Direct Booking Owner',
   'Real Estate Investor',
   'Strategic Partner',
   'Residential',

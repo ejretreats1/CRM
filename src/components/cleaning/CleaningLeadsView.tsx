@@ -42,6 +42,7 @@ const CATEGORY_COLORS: Record<CleaningLeadCategory, string> = {
   'Property Management':        'bg-[#1a0e3a] text-[#9b7ae8]',
   'Realtor / Real Estate Team': 'bg-[#0e1e3a] text-[#4a90d9]',
   'Short-Term Rental':          'bg-[#0a2518] text-[#4ab57a]',
+  'Direct Booking Owner':       'bg-[#0a1e2a] text-[#38d4e8]',
   'Real Estate Investor':       'bg-[#2a1a05] text-[#d0954a]',
   'Strategic Partner':          'bg-[#2a0e2a] text-[#d07af5]',
   'Residential':                'bg-[#1e2d45] text-[#b8d4f0]',
