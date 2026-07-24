@@ -200,7 +200,7 @@ function TemplateModal({ template, onClose, onSave }: {
 
 // ─── Send Campaign Modal ──────────────────────────────────────────────────────
 
-const CATEGORIES = ['Property Management', 'Realtor / Real Estate Team', 'Short-Term Rental', 'Real Estate Investor', 'Strategic Partner', 'Residential'];
+const CATEGORIES = ['Property Management', 'Realtor / Real Estate Team', 'Short-Term Rental', 'Direct Booking Owner', 'Real Estate Investor', 'Strategic Partner', 'Residential'];
 
 function SendCampaignModal({ templates, leads, onClose, onSend }: {
   templates: EmailTemplate[];
