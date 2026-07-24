@@ -3591,9 +3591,10 @@ async function crawlDomainForEmails(
 ): Promise<{ emails: string[]; phones: string[]; businessName: string; pagesChecked: number; blocked: boolean }> {
   const t0 = Date.now();
   const elapsed = () => Date.now() - t0;
+  const empty = { emails: [] as string[], phones: [] as string[], businessName: '', pagesChecked: 0, blocked: false };
 
   let base: URL;
-  try { base = new URL(startUrl); } catch { return { emails: [], phones: [], businessName: '', pagesChecked: 0, blocked: false }; }
+  try { base = new URL(startUrl); } catch { return empty; }
   const origin = base.origin;
   const sameHost = base.hostname.replace('www.', '');
 
@@ -3608,9 +3609,7 @@ async function crawlDomainForEmails(
   const queue: QItem[] = [];
   const enqueue = (url: string, priority: number) => {
     const norm = url.split('#')[0].split('?')[0];
-    if (!visited.has(norm) && !queue.some(q => q.url === norm)) {
-      queue.push({ url: norm, priority });
-    }
+    if (!visited.has(norm) && !queue.some(q => q.url === norm)) queue.push({ url: norm, priority });
   };
   const dequeue = (): QItem | undefined => {
     if (!queue.length) return undefined;
@@ -3619,23 +3618,15 @@ async function crawlDomainForEmails(
     return queue.splice(best, 1)[0];
   };
 
-  // Seed: start URL first, then known contact-path variants
+  // Seed with homepage (highest priority) then common contact paths
   enqueue(startUrl, 10);
-  for (const path of ['/contact', '/contact-us', '/about', '/about-us', '/team', '/our-team', '/staff', '/reach-us', '/get-in-touch', '/connect']) {
-    enqueue(`${origin}${path}`, 9);
-  }
-
-  // Discover more URLs from sitemap (run early but cap time)
-  if (elapsed() < budgetMs * 0.25) {
-    const sitemapUrls = await fetchSitemapUrls(origin, sameHost);
-    for (const u of sitemapUrls) {
-      enqueue(u, CONTACT_PATH_RE.test(u) ? 8 : 2);
-    }
+  for (const p of ['/contact', '/contact-us', '/about', '/about-us', '/team', '/our-team', '/staff', '/reach-us', '/get-in-touch']) {
+    enqueue(`${origin}${p}`, 9);
   }
 
   const PHONE_RE = /(?:\+?1[-.\s]?)?\(?([2-9][0-9]{2})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g;
 
-  while (queue.length > 0 && pagesChecked < 15 && elapsed() < budgetMs - 1500) {
+  while (queue.length > 0 && pagesChecked < 10 && elapsed() < budgetMs - 1000) {
     const item = dequeue();
     if (!item) break;
     const { url } = item;
@@ -3643,9 +3634,10 @@ async function crawlDomainForEmails(
     visited.add(url);
     pagesChecked++;
 
-    const remaining = budgetMs - elapsed() - 1000;
-    if (remaining < 1000) break;
-    const html = await fetchHtml(url, Math.min(7000, remaining));
+    const timeLeft = budgetMs - elapsed() - 500;
+    if (timeLeft < 500) break;
+
+    const html = await fetchHtml(url, Math.min(8000, timeLeft));
     if (!html) continue;
 
     if (isCloudflarePage(html)) {
@@ -3653,29 +3645,24 @@ async function crawlDomainForEmails(
       continue;
     }
 
-    // Extract business name from homepage title
+    // Homepage: extract title + phones
     if (pagesChecked === 1) {
       const titleM = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
       const raw = (titleM?.[1] ?? '').replace(/<[^>]+>/g, '').trim();
       const name = raw.replace(/\s*[-–|·•,]\s*.{0,40}$/, '').replace(/\s+/g, ' ').trim();
       if (name) businessName = name;
-      // Phones from homepage
       for (const p of html.match(PHONE_RE) ?? []) {
         const d = p.replace(/\D/g, '').replace(/^1/, '');
-        if (d.length === 10) {
-          const fmt = `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
-          if (!phones.includes(fmt)) phones.push(fmt);
-        }
+        if (d.length === 10) { const fmt = `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`; if (!phones.includes(fmt)) phones.push(fmt); }
       }
     }
 
-    // Extract emails from this page
     for (const e of extractEmailsFromHtml(html)) {
       if (!emails.includes(e)) emails.push(e);
     }
     if (emails.length >= 5) break;
 
-    // Discover more same-domain links and enqueue them
+    // Discover more same-domain links, prioritise contact-like paths
     if (elapsed() < budgetMs - 3000) {
       for (const link of findInternalLinks(html, origin, sameHost)) {
         enqueue(link, CONTACT_PATH_RE.test(link) ? 8 : 1);
@@ -3683,13 +3670,7 @@ async function crawlDomainForEmails(
     }
   }
 
-  return {
-    emails: emails.slice(0, 5),
-    phones: phones.slice(0, 3),
-    businessName,
-    pagesChecked,
-    blocked: siteBlocked && emails.length === 0,
-  };
+  return { emails: emails.slice(0, 5), phones: phones.slice(0, 3), businessName, pagesChecked, blocked: siteBlocked && emails.length === 0 };
 }
 
 function scraperAddResult(
@@ -3964,18 +3945,68 @@ function extractEmailsFromHtml(html: string): string[] {
   return [...new Set(all.filter(e => !isNoiseEmail(e)))].slice(0, 5);
 }
 
+// Use Brave's pre-rendered search index to extract emails from a domain.
+// Brave renders JS when indexing, so this catches emails that direct HTML fetch misses.
+async function scraperEmailsViaBrave(domain: string, apiKey: string): Promise<string[]> {
+  const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,6}/g;
+  const emails: string[] = [];
+  const queries = [`"@${domain}"`, `site:${domain} email contact`];
+  for (const q of queries) {
+    if (emails.length >= 3) break;
+    try {
+      const r = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=10&search_lang=en&country=us`, {
+        headers: { 'Accept': 'application/json', 'Accept-Encoding': 'gzip', 'X-Subscription-Token': apiKey },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!r.ok) continue;
+      const data = await r.json();
+      for (const item of (data?.web?.results ?? []) as any[]) {
+        const text = `${item.title ?? ''} ${item.description ?? ''}`;
+        for (const m of text.matchAll(EMAIL_RE)) {
+          const e = m[0].toLowerCase();
+          // Only keep emails that belong to this domain
+          if (!isNoiseEmail(e) && (e.endsWith(`@${domain}`) || e.endsWith(`.${domain}`)) && !emails.includes(e)) {
+            emails.push(e);
+          }
+        }
+      }
+    } catch { /* network error — skip */ }
+    await new Promise(r => setTimeout(r, 200));
+  }
+  return emails.slice(0, 5);
+}
+
 async function scraperScrapeEmails(body: any, res: VercelResponse) {
   const { urls } = body;
   if (!Array.isArray(urls) || !urls.length) return res.status(400).json({ error: 'urls[] required' });
 
-  // Process up to 10 domains in parallel; each gets a 22-second crawl budget
+  const braveKey = process.env.BRAVE_SEARCH_API_KEY ?? '';
+
   const results = await Promise.all(urls.slice(0, 10).map(async (url: string) => {
     const fallback = { url, businessName: '', emails: [] as string[], phones: [] as string[], found: false, blocked: false, pagesChecked: 0 };
     try {
-      const hostname = new URL(url).hostname.replace(/^www\./, '');
-      fallback.businessName = hostname;
-      const { emails, phones, businessName, pagesChecked, blocked } = await crawlDomainForEmails(url, 22000);
-      return { url, businessName: businessName || hostname, emails, phones, found: emails.length > 0, blocked, pagesChecked };
+      const base = new URL(url);
+      const domain = base.hostname.replace(/^www\./, '');
+      fallback.businessName = domain;
+
+      // Run Brave index search + direct page crawl in parallel
+      const [braveEmails, crawlResult] = await Promise.all([
+        braveKey ? scraperEmailsViaBrave(domain, braveKey) : Promise.resolve([] as string[]),
+        crawlDomainForEmails(url, 20000),
+      ]);
+
+      // Merge: direct crawl wins (freshest), Brave fills gaps
+      const merged = [...new Set([...crawlResult.emails, ...braveEmails])].filter(e => !isNoiseEmail(e)).slice(0, 5);
+
+      return {
+        url,
+        businessName: crawlResult.businessName || domain,
+        emails: merged,
+        phones: crawlResult.phones,
+        found: merged.length > 0,
+        blocked: crawlResult.blocked,
+        pagesChecked: crawlResult.pagesChecked,
+      };
     } catch (e) {
       return { ...fallback, error: String(e) };
     }
