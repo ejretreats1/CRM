@@ -3008,8 +3008,8 @@ async function emailMktSendCampaign(body: any, res: VercelResponse) {
       }
       try {
         const r = await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL ?? 'team@ejretreats.com',
-          reply_to: process.env.RESEND_REPLY_TO ?? 'ejretreats1@gmail.com',
+          from: process.env.RESEND_CAMPAIGN_FROM_EMAIL ?? 'outreach@ejretreats.com',
+          reply_to: process.env.RESEND_CAMPAIGN_REPLY_TO ?? 'ejretreats1@gmail.com',
           to: email,
           subject: subject.replace(/\{First Name\}/g, firstName).replace(/\{name\}/gi, lead.name || '').replace(/\{company\}/gi, lead.company || ''),
           html: htmlBody,
