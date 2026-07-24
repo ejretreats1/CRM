@@ -3511,13 +3511,15 @@ function scraperAddResult(
   seen: Set<string>,
   results: { name: string; url: string; description: string }[],
   maxCount: number,
+  dedupByUrl = false,
 ): boolean {
   if (!rawUrl.startsWith('http')) return false;
   let hostname = '';
   try { hostname = new URL(rawUrl).hostname.replace(/^www\./, ''); } catch { return false; }
   if (SCRAPER_SKIP_DOMAINS.some(d => hostname.includes(d))) return false;
-  if (seen.has(hostname)) return false;
-  seen.add(hostname);
+  const dedupKey = dedupByUrl ? rawUrl : hostname;
+  if (seen.has(dedupKey)) return false;
+  seen.add(dedupKey);
   results.push({ name: title || hostname, url: rawUrl, description: snippet });
   return results.length >= maxCount;
 }
@@ -3630,6 +3632,7 @@ async function scraperSearchBrave(
   seen: Set<string>,
   results: { name: string; url: string; description: string }[],
   maxCount: number,
+  dedupByUrl = false,
 ): Promise<number> {
   try {
     const r = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=20&search_lang=en&country=us`, {
@@ -3647,7 +3650,7 @@ async function scraperSearchBrave(
       if (results.length >= maxCount) break;
       const rawUrl = item.url ?? item.profile?.url;
       if (!rawUrl) continue;
-      scraperAddResult(rawUrl, item.title ?? '', item.description ?? '', seen, results, maxCount);
+      scraperAddResult(rawUrl, item.title ?? '', item.description ?? '', seen, results, maxCount, dedupByUrl);
     }
     return items.length;
   } catch { return 0; }
@@ -3672,13 +3675,14 @@ async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
     'short term rental':   [`vacation rental management ${cityState}`, `short term rental management ${cityState}`, `airbnb property manager ${cityState}`],
     'investor':            [`real estate investors ${cityState}`, `property investors ${cityState}`, `real estate investment company ${cityState}`],
     'direct booking':      [
+      `site:holidayfuture.com ${city}`,
+      `site:hospitable.rentals ${city}`,
+      `site:guestybookings.com ${city}`,
+      `site:hostfully.com ${city}`,
       `"powered by hostaway" ${cityState} vacation rental`,
       `"powered by guesty" ${cityState} vacation rental`,
       `"powered by uplisting" ${cityState} short term rental`,
-      `"powered by hospitable" ${cityState} vacation rental`,
-      `"powered by lodgify" ${cityState} vacation rental`,
       `"book direct" short term rental ${cityState} owner`,
-      `self managed vacation rental ${cityState} "book direct"`,
     ],
   };
   const queries = typeQueries[businessType] ?? [`${businessType} ${cityState}`];
@@ -3686,9 +3690,10 @@ async function scraperFindUrls(req: VercelRequest, res: VercelResponse) {
   const seen = new Set<string>();
   const results: { name: string; url: string; description: string }[] = [];
 
+  const dedupByUrl = businessType === 'direct booking';
   for (const q of queries) {
     if (results.length >= maxCount) break;
-    await scraperSearchBrave(q, braveKey, seen, results, maxCount);
+    await scraperSearchBrave(q, braveKey, seen, results, maxCount, dedupByUrl);
     if (queries.indexOf(q) < queries.length - 1) await new Promise(r => setTimeout(r, 300));
   }
 
