@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Search, Globe, Mail, Phone, CheckSquare, Square, Download, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
-import { bulkUpsertCleaningLeads } from '../../services/cleaningDb';
+import { bulkUpsertCleaningLeads, fetchCleaningLeads } from '../../services/cleaningDb';
 import type { CleaningLead, CleaningLeadCategory } from '../../services/cleaningDb';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -135,26 +135,31 @@ export default function LeadScraperView() {
     if (!toImport.length) return;
     setImporting(true);
     try {
+      const existing = await fetchCleaningLeads();
+      const existingEmails = new Set(existing.map(l => l.email.toLowerCase()));
+
       const category = BUSINESS_TYPES.find(t => t.id === businessType)?.category ?? 'Property Management';
       const now = new Date().toISOString();
-      const leads: CleaningLead[] = toImport.map(s => ({
-        id: `cl_${crypto.randomUUID()}`,
-        name:             s.businessName,
-        email:            s.emails[0] ?? '',
-        phone:            s.phones[0] ?? '',
-        company:          s.businessName,
-        category,
-        source:           'Scraped List' as const,
-        outreachStatus:   'Not Contacted' as const,
-        opportunityStatus:'New' as const,
-        notes:            [
-          s.emails.length > 1 ? `Extra emails: ${s.emails.slice(1).join(', ')}` : '',
-          s.url,
-        ].filter(Boolean).join(' · '),
-        createdAt: now,
-        updatedAt: now,
-      }));
-      await bulkUpsertCleaningLeads(leads);
+      const leads: CleaningLead[] = toImport
+        .filter(s => !existingEmails.has(s.emails[0].toLowerCase()))
+        .map(s => ({
+          id: `cl_${crypto.randomUUID()}`,
+          name:             s.businessName,
+          email:            s.emails[0] ?? '',
+          phone:            s.phones[0] ?? '',
+          company:          s.businessName,
+          category,
+          source:           'Scraped List' as const,
+          outreachStatus:   'Not Contacted' as const,
+          opportunityStatus:'New' as const,
+          notes:            [
+            s.emails.length > 1 ? `Extra emails: ${s.emails.slice(1).join(', ')}` : '',
+            s.url,
+          ].filter(Boolean).join(' · '),
+          createdAt: now,
+          updatedAt: now,
+        }));
+      if (leads.length) await bulkUpsertCleaningLeads(leads);
       setImportResult({ imported: leads.length, skipped: toImport.length - leads.length });
       setStep('done');
     } finally {
@@ -419,6 +424,11 @@ export default function LeadScraperView() {
           <h3 className="text-white font-bold text-lg mb-1">Import complete!</h3>
           <p className="text-[#b8d4f0] text-sm mb-6">
             <span className="text-[#3dd68c] font-semibold">{importResult.imported} lead{importResult.imported !== 1 ? 's' : ''}</span> added to Cleaning Leads
+            {importResult.skipped > 0 && (
+              <span className="block text-[#6b8aad] text-xs mt-1">
+                {importResult.skipped} already existed and were skipped
+              </span>
+            )}
           </p>
           <div className="flex gap-3 justify-center">
             <button onClick={() => { setStep('search'); setSites([]); setScraped([]); setImportResult(null); setCity(''); }}
