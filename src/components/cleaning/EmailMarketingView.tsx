@@ -108,7 +108,6 @@ function TemplateModal({ template, onClose, onSave }: {
 
   const hasUnsubscribe = true; // auto-appended to every send
   const hasBusinessName = /e&j|retreats|cleaning/i.test(body);
-  const hasAddress = /\d{1,5}\s\w+.*fl|florida|miami/i.test(body);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
@@ -172,7 +171,6 @@ function TemplateModal({ template, onClose, onSave }: {
             {[
               { label: 'Business name (E&J Retreats) in email', check: hasBusinessName },
               { label: 'Unsubscribe mechanism included', check: hasUnsubscribe },
-              { label: 'Physical address included', check: hasAddress },
             ].map(item => (
               <div key={item.label} className="flex items-center gap-2">
                 <div className={`w-3.5 h-3.5 rounded-full flex-shrink-0 flex items-center justify-center ${item.check ? 'bg-[#1e4030]' : 'bg-[#3a2000]'}`}>
@@ -339,7 +337,7 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
           {targets.length > 0 && (
             <label className="flex items-start gap-3 cursor-pointer">
               <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} className="mt-0.5 flex-shrink-0" />
-              <span className="text-xs text-[#3a5070]">I confirm these are legitimate B2B prospects, every email includes an unsubscribe link and physical address, and I will honor unsubscribe requests within 10 business days (CAN-SPAM).</span>
+              <span className="text-xs text-[#3a5070]">I confirm these are legitimate B2B prospects, every email includes an unsubscribe link, and I will honor unsubscribe requests within 10 business days (CAN-SPAM).</span>
             </label>
           )}
 
@@ -928,7 +926,7 @@ CREATE POLICY "anon_all" ON email_mkt_unsubscribes FOR ALL USING (true) WITH CHE
         <AlertCircle size={15} className="text-[#4a90d9] flex-shrink-0 mt-0.5" />
         <div className="text-xs text-[#3a5070] space-y-0.5">
           <p className="font-semibold text-[#b8d4f0]">CAN-SPAM compliance (B2B email is legal, just follow these)</p>
-          <p>• Every email must include your <strong>physical mailing address</strong> and an <strong>unsubscribe link</strong></p>
+          <p>• Every email must include an <strong>unsubscribe link</strong></p>
           <p>• Subject line must not be deceptive — no "Re:" tricks</p>
           <p>• Honor unsubscribe requests within <strong>10 business days</strong> — our system tracks these automatically</p>
           <p>• Open tracking is handled by Resend — enable it in your Resend dashboard under Settings → Tracking</p>
