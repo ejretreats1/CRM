@@ -655,6 +655,26 @@ async function handleResendWebhook(body: any, res: VercelResponse) {
     await supabase.from('email_logs').update(updates).eq('id', emailId);
   }
 
+  // Also update campaign stats if this is a campaign email
+  if (type === 'email.opened' || type === 'email.clicked') {
+    const { data: rec } = await supabase
+      .from('email_mkt_recipients')
+      .select('id, campaign_id')
+      .eq('resend_email_id', emailId)
+      .single();
+    if (rec) {
+      if (type === 'email.opened') {
+        await supabase.from('email_mkt_recipients').update({ status: 'opened', opened_at: now }).eq('id', rec.id);
+        const { data: camp } = await supabase.from('email_mkt_campaigns').select('open_count').eq('id', rec.campaign_id).single();
+        if (camp) await supabase.from('email_mkt_campaigns').update({ open_count: (camp.open_count ?? 0) + 1 }).eq('id', rec.campaign_id);
+      } else {
+        await supabase.from('email_mkt_recipients').update({ clicked_at: now }).eq('id', rec.id);
+        const { data: camp } = await supabase.from('email_mkt_campaigns').select('click_count').eq('id', rec.campaign_id).single();
+        if (camp) await supabase.from('email_mkt_campaigns').update({ click_count: (camp.click_count ?? 0) + 1 }).eq('id', rec.campaign_id);
+      }
+    }
+  }
+
   return res.status(200).end();
 }
 
