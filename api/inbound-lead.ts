@@ -30,6 +30,31 @@ async function sendWelcomeSms(phone: string, firstName: string) {
   }
 }
 
+async function sendTeamAlert(name: string, email: string, phone: string, address: string, message: string) {
+  try {
+    const { Resend } = await import('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY!);
+    await resend.emails.send({
+      from: 'E&J Retreats <signatures@ejretreats.com>',
+      to: 'ejretreats1@gmail.com',
+      subject: `‼️ NEW LEAD — ${name}`,
+      html: `<div style="font-family:sans-serif;max-width:560px">
+        <h2 style="color:#ff7a00">New Lead from Website</h2>
+        <table style="border-collapse:collapse;width:100%">
+          <tr><td style="padding:6px 12px;font-weight:bold;background:#f5f5f5">Name</td><td style="padding:6px 12px">${name}</td></tr>
+          <tr><td style="padding:6px 12px;font-weight:bold;background:#f5f5f5">Email</td><td style="padding:6px 12px"><a href="mailto:${email}">${email}</a></td></tr>
+          <tr><td style="padding:6px 12px;font-weight:bold;background:#f5f5f5">Phone</td><td style="padding:6px 12px"><a href="tel:${phone}">${phone}</a></td></tr>
+          <tr><td style="padding:6px 12px;font-weight:bold;background:#f5f5f5">Property</td><td style="padding:6px 12px">${address || '—'}</td></tr>
+          <tr><td style="padding:6px 12px;font-weight:bold;background:#f5f5f5">Message</td><td style="padding:6px 12px">${message || '—'}</td></tr>
+        </table>
+        <p style="margin-top:20px"><a href="https://ej-retreat.vercel.app" style="background:#ff7a00;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Open CRM</a></p>
+      </div>`,
+    });
+  } catch (err) {
+    console.error('[inbound-lead] team alert email failed:', err);
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS — allow any origin so website forms can POST from any domain
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -38,25 +63,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Auth
+  // Auth — optional Bearer key; if INBOUND_LEAD_API_KEY is set the header must match,
+  // but if the env var is not set we accept public submissions (website lead form).
   const apiKey = process.env.INBOUND_LEAD_API_KEY;
-  const authHeader = req.headers['authorization'] ?? '';
-  if (!apiKey || authHeader !== `Bearer ${apiKey}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (apiKey) {
+    const authHeader = req.headers['authorization'] ?? '';
+    if (authHeader !== `Bearer ${apiKey}`) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
   }
 
   const { first_name, last_name, email, phone, property_address, message } = req.body ?? {};
 
-  if (!first_name || !last_name || !email) {
-    return res.status(400).json({ error: 'first_name, last_name, and email are required' });
+  if (!first_name || !email) {
+    return res.status(400).json({ error: 'first_name and email are required' });
   }
+
+  const fullName = last_name?.trim()
+    ? `${first_name.trim()} ${last_name.trim()}`
+    : first_name.trim();
 
   const now = new Date().toISOString();
   const id = randomUUID();
 
   const { error } = await supabase.from('leads').insert({
     id,
-    name: `${first_name.trim()} ${last_name.trim()}`,
+    name: fullName,
     email: email.trim(),
     phone: phone?.trim() ?? '',
     property_address: property_address?.trim() ?? '',
@@ -75,9 +107,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Failed to create lead' });
   }
 
-  if (phone?.trim()) {
-    sendWelcomeSms(phone.trim(), first_name.trim());
-  }
+  // Fire and forget — don't block the response
+  if (phone?.trim()) sendWelcomeSms(phone.trim(), first_name.trim());
+  sendTeamAlert(fullName, email.trim(), phone?.trim() ?? '', property_address?.trim() ?? '', message?.trim() ?? '');
 
   return res.status(201).json({ success: true, id });
 }
