@@ -327,12 +327,10 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
             <p className="text-xs text-[#3a5070] mt-1">Sending all {targets.length} in {Math.ceil(targets.length / batchSize)} batch{Math.ceil(targets.length / batchSize) !== 1 ? 'es' : ''} of {batchSize}</p>
           </div>
 
-          {!subject.includes('unsubscribe') && !body.toLowerCase().includes('unsubscribe') && (body || subject) && (
-            <div className="flex items-start gap-2.5 bg-[#1a1000] border border-[#5a3000] rounded-xl px-4 py-3">
-              <AlertCircle size={14} className="text-[#d0954a] flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-[#d0954a]">Email body missing unsubscribe link — required by CAN-SPAM.</p>
-            </div>
-          )}
+          <div className="flex items-start gap-2.5 bg-[#0a1e10] border border-[#1a4030] rounded-xl px-4 py-3">
+            <span className="text-[#4ab57a] text-xs mt-0.5">✓</span>
+            <p className="text-xs text-[#4ab57a]">Unsubscribe link is automatically added to the footer of every email.</p>
+          </div>
 
           {targets.length > 0 && (
             <label className="flex items-start gap-3 cursor-pointer">
