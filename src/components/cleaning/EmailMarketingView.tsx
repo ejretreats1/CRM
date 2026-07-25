@@ -214,6 +214,7 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
   const [customBody, setCustomBody] = useState('');
   const [category, setCategory] = useState('All Categories');
   const [audience, setAudience] = useState<'all' | 'outreach' | 'scraped'>('all');
+  const [skipContacted, setSkipContacted] = useState(true);
   const [batchSize, setBatchSize] = useState(50);
   const [confirmed, setConfirmed] = useState(false);
   const [sending, setSending] = useState(false);
@@ -231,7 +232,8 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
   const categoryFiltered = category === 'All Categories'
     ? audienceFiltered
     : audienceFiltered.filter(l => l.category === category);
-  const targets = categoryFiltered.filter(l => l.email?.trim());
+  const alreadyContacted = categoryFiltered.filter(l => l.email?.trim() && l.outreachStatus !== 'Not Contacted').length;
+  const targets = categoryFiltered.filter(l => l.email?.trim() && (!skipContacted || l.outreachStatus === 'Not Contacted'));
   const skipped = categoryFiltered.filter(l => !l.email?.trim()).length;
 
   async function handleSend() {
@@ -281,9 +283,14 @@ function SendCampaignModal({ templates, leads, onClose, onSend }: {
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <p className="text-xs text-[#3a5070] mt-1">
-              {targets.length} lead{targets.length !== 1 ? 's' : ''} with emails
+              {targets.length} lead{targets.length !== 1 ? 's' : ''} will be emailed
               {skipped > 0 && <span className="text-[#d0954a] ml-1">· {skipped} missing email skipped</span>}
+              {skipContacted && alreadyContacted > 0 && <span className="text-[#4ab57a] ml-1">· {alreadyContacted} already contacted skipped</span>}
             </p>
+            <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+              <input type="checkbox" checked={skipContacted} onChange={e => setSkipContacted(e.target.checked)} className="flex-shrink-0" />
+              <span className="text-xs text-[#b8d4f0]">Skip leads already contacted</span>
+            </label>
           </div>
 
           <div>

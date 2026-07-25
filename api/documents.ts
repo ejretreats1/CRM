@@ -3026,6 +3026,13 @@ async function emailMktSendCampaign(body: any, res: VercelResponse) {
 
   if (recipients.length > 0) await sb.from('email_mkt_recipients').insert(recipients);
   await sb.from('email_mkt_campaigns').update({ sent_count: sentCount, status: 'sent' }).eq('id', campaignId);
+
+  // Mark successfully sent leads as Contacted so future campaigns skip them by default
+  const sentLeadIds = recipients.filter(r => r.status === 'sent').map(r => r.lead_id).filter(Boolean);
+  if (sentLeadIds.length > 0) {
+    await sb.from('cleaning_leads').update({ outreach_status: 'Contacted', updated_at: new Date().toISOString() }).in('id', sentLeadIds);
+  }
+
   return res.json({ campaignId, sentCount, totalLeads: leads.length });
 }
 
