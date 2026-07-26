@@ -95,8 +95,12 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
   // STR/MTR state
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [strUnitCount, setStrUnitCount] = useState(1);
+  const [strUnits, setStrUnits] = useState<{ label: string; file: File | null }[]>([{ label: 'Main Unit', file: null }]);
+  const [strDragOver, setStrDragOver] = useState<number | null>(null);
   const [ownerRevenue, setOwnerRevenue] = useState('');
   const [ownerNotes, setOwnerNotes] = useState('');
+  const strFileRefs = useRef<(HTMLInputElement | null)[]>([]);
   // Deal state
   const [listingPrice, setListingPrice] = useState('');
   const [unitCount, setUnitCount] = useState(1);
@@ -132,6 +136,19 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
   function acceptFile(f: File) {
     if (f.type !== 'application/pdf') { setError('Please upload a PDF file.'); return; }
     setPdfFile(f);
+    setError('');
+  }
+
+  function handleStrUnitCountChange(count: number) {
+    setStrUnitCount(count);
+    const labels = UNIT_LABELS[count] ?? Array.from({ length: count }, (_, i) => `Unit ${i + 1}`);
+    setStrUnits(labels.map(label => ({ label, file: null })));
+    setPdfFile(null);
+  }
+
+  function acceptStrUnitFile(index: number, f: File) {
+    if (f.type !== 'application/pdf') { setError('Please upload a PDF file.'); return; }
+    setStrUnits(prev => prev.map((u, i) => i === index ? { ...u, file: f } : u));
     setError('');
   }
 
@@ -177,26 +194,44 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
     if (!address.trim()) { setError('Property address is required.'); return; }
-    if (!pdfFile) { setError('Please upload the AirDNA PDF report.'); return; }
+
+    const isMultiUnit = reportType === 'str' && strUnitCount > 1;
+    if (isMultiUnit) {
+      const missingIdx = strUnits.findIndex(u => !u.file);
+      if (missingIdx >= 0) { setError(`Please upload an AirDNA PDF for ${strUnits[missingIdx].label}.`); return; }
+    } else {
+      if (!pdfFile) { setError('Please upload the AirDNA PDF report.'); return; }
+    }
 
     setGenerating(true);
     setError('');
 
     try {
-      const pdfBase64 = await fileToBase64(pdfFile);
       const ownerActualRevenue = ownerRevenue ? parseFloat(ownerRevenue.replace(/[^0-9.]/g, '')) : undefined;
+      const commonFields = {
+        address: address.trim(),
+        reportType,
+        ownerActualRevenue: ownerActualRevenue || undefined,
+        ownerNotes: ownerNotes.trim() || undefined,
+        additionalContext: additionalContext.trim() || undefined,
+      };
+
+      let body: Record<string, unknown>;
+      if (isMultiUnit) {
+        const pdfFiles = await Promise.all(strUnits.map(async u => ({
+          base64: await fileToBase64(u.file!),
+          unitLabel: u.label,
+        })));
+        body = { ...commonFields, pdfFiles };
+      } else {
+        const pdfBase64 = await fileToBase64(pdfFile!);
+        body = { ...commonFields, pdfBase64 };
+      }
 
       const res = await fetch('/api/generate-revenue-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: address.trim(),
-          pdfBase64,
-          reportType,
-          ownerActualRevenue: ownerActualRevenue || undefined,
-          ownerNotes: ownerNotes.trim() || undefined,
-          additionalContext: additionalContext.trim() || undefined,
-        }),
+        body: JSON.stringify(body),
       });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -360,37 +395,114 @@ export default function ReportBuilder({ leads, owners, onReportGenerated, onCanc
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">AirDNA Rentalizer PDF *</label>
-            <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) acceptFile(f); e.target.value = ''; }} />
-            <div
-              onClick={() => !pdfFile && fileRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) acceptFile(f); }}
-              className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
-                pdfFile ? 'border-[#4a90d9] bg-[#162035] cursor-default' :
-                dragOver ? 'border-[#4a90d9] bg-[#162035] cursor-pointer' :
-                'border-[#1e2d45] hover:border-[#4a90d9] hover:bg-[#1e2d45] cursor-pointer'
-              }`}
-            >
-              {pdfFile ? (
-                <div className="flex items-center justify-center gap-2 text-[#4a90d9]">
-                  <FileText size={18} />
-                  <span className="text-sm font-medium">{pdfFile.name}</span>
-                  <button type="button" onClick={e => { e.stopPropagation(); setPdfFile(null); }} className="ml-1 text-[#3a5070] hover:text-[#e05c5c]">
-                    <X size={14} />
+          {/* Unit picker — STR only */}
+          {reportType === 'str' && (
+            <div>
+              <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">Property Type</label>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { value: 1, label: 'Single Family' },
+                  { value: 2, label: 'Duplex' },
+                  { value: 3, label: 'Triplex' },
+                  { value: 4, label: 'Quadplex' },
+                ].map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => handleStrUnitCountChange(value)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                      strUnitCount === value
+                        ? 'bg-[#4a90d9] text-white border-[#4a90d9]'
+                        : 'bg-[#1a2335] text-[#b8d4f0] border-[#1e2d45] hover:border-[#4a90d9]'
+                    }`}
+                  >
+                    {label}
                   </button>
-                </div>
-              ) : (
-                <>
-                  <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-[#6ab0f5]' : 'text-[#3a5070]'}`} />
-                  <p className="text-sm text-[#b8d4f0] font-medium">{dragOver ? 'Drop PDF here' : 'Drag & drop or click to upload'}</p>
-                  <p className="text-xs text-[#3a5070] mt-1">AirDNA Rentalizer PDF export</p>
-                </>
-              )}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* PDF upload — single unit (STR + MTR) or multi-unit */}
+          {(reportType !== 'str' || strUnitCount === 1) ? (
+            <div>
+              <label className="block text-xs font-medium text-[#b8d4f0] mb-1.5">AirDNA Rentalizer PDF *</label>
+              <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) acceptFile(f); e.target.value = ''; }} />
+              <div
+                onClick={() => !pdfFile && fileRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) acceptFile(f); }}
+                className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                  pdfFile ? 'border-[#4a90d9] bg-[#162035] cursor-default' :
+                  dragOver ? 'border-[#4a90d9] bg-[#162035] cursor-pointer' :
+                  'border-[#1e2d45] hover:border-[#4a90d9] hover:bg-[#1e2d45] cursor-pointer'
+                }`}
+              >
+                {pdfFile ? (
+                  <div className="flex items-center justify-center gap-2 text-[#4a90d9]">
+                    <FileText size={18} />
+                    <span className="text-sm font-medium">{pdfFile.name}</span>
+                    <button type="button" onClick={e => { e.stopPropagation(); setPdfFile(null); }} className="ml-1 text-[#3a5070] hover:text-[#e05c5c]">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Upload size={24} className={`mx-auto mb-2 ${dragOver ? 'text-[#6ab0f5]' : 'text-[#3a5070]'}`} />
+                    <p className="text-sm text-[#b8d4f0] font-medium">{dragOver ? 'Drop PDF here' : 'Drag & drop or click to upload'}</p>
+                    <p className="text-xs text-[#3a5070] mt-1">AirDNA Rentalizer PDF export</p>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wider">AirDNA Reports — 1 PDF per unit</p>
+              {strUnits.map((unit, idx) => (
+                <div key={idx} className="bg-[#1e2d45] border border-[#1e2d45] rounded-xl p-4">
+                  <p className="text-sm font-semibold text-[#b8d4f0] mb-3">{unit.label}</p>
+                  <input
+                    ref={el => { strFileRefs.current[idx] = el; }}
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) acceptStrUnitFile(idx, f); e.target.value = ''; }}
+                  />
+                  <div
+                    onClick={() => !unit.file && strFileRefs.current[idx]?.click()}
+                    onDragOver={e => { e.preventDefault(); setStrDragOver(idx); }}
+                    onDragLeave={() => setStrDragOver(null)}
+                    onDrop={e => { e.preventDefault(); setStrDragOver(null); const f = e.dataTransfer.files[0]; if (f) acceptStrUnitFile(idx, f); }}
+                    className={`border-2 border-dashed rounded-lg p-3 text-center transition-colors ${
+                      unit.file ? 'border-[#4a90d9] bg-[#162035] cursor-default' :
+                      strDragOver === idx ? 'border-[#4a90d9] bg-[#162035] cursor-pointer' :
+                      'border-[#1e2d45] hover:border-[#4a90d9] hover:bg-[#1e2d45] cursor-pointer'
+                    }`}
+                  >
+                    {unit.file ? (
+                      <div className="flex items-center justify-center gap-2 text-[#4a90d9]">
+                        <FileText size={14} />
+                        <span className="text-xs font-medium truncate max-w-xs">{unit.file.name}</span>
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setStrUnits(prev => prev.map((u, i) => i === idx ? { ...u, file: null } : u)); }}
+                          className="ml-1 text-[#3a5070] hover:text-[#e05c5c] flex-shrink-0"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 text-[#3a5070]">
+                        <Upload size={14} className={strDragOver === idx ? 'text-[#6ab0f5]' : ''} />
+                        <span className="text-xs">{strDragOver === idx ? 'Drop PDF here' : 'Upload AirDNA PDF for this unit'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="bg-[#1e2d45] rounded-xl p-4 space-y-3">
             <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wider">Owner Comparison (Optional)</p>

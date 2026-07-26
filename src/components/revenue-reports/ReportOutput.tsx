@@ -204,9 +204,48 @@ export function buildReportEmail(address: string, data: ReportData, ownerActualR
         </td>` : ''}
     </tr></table>` : '';
 
+  const isMultiUnitStrEmail = !isMtr && !isDeal && (data.units && data.units.length > 0);
+
+  // ── Multi-unit STR breakdown ────────────────────────────────────────────────
+  const multiStrUnitsHtml = isMultiUnitStrEmail && data.units && data.units.length > 0 ? `
+    <div style="margin-bottom:24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:16px;"><tr>
+        <td width="50%" style="padding:4px;"><div style="background:${BG_INNER};border:1px solid ${BORDER};border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:18px;font-weight:900;color:${ORANGE};">${fmtN(data.combinedAnnualRevenue)}</div>
+          <div style="font-size:10px;font-weight:600;color:${TEXT_GRAY};margin-top:2px;text-transform:uppercase;letter-spacing:1px;">Combined Annual Revenue</div>
+        </div></td>
+        <td width="50%" style="padding:4px;"><div style="background:${BG_INNER};border:1px solid ${BORDER};border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:18px;font-weight:900;color:#fff;">${fmtP(data.combinedOccupancyRate)}</div>
+          <div style="font-size:10px;font-weight:600;color:${TEXT_GRAY};margin-top:2px;text-transform:uppercase;letter-spacing:1px;">Combined Occupancy</div>
+        </div></td>
+      </tr></table>
+      ${sectionTitle('Per-Unit Breakdown')}
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:8px;overflow:hidden;">
+        <tr style="background:${BG_INNER};">
+          ${['Unit','Proj. Annual Rev','Occupancy','ADR','RevPAR'].map(h =>
+            `<td style="padding:8px 12px;font-size:9px;font-weight:700;color:${TEXT_LABEL};text-transform:uppercase;letter-spacing:1px;">${h}</td>`).join('')}
+        </tr>
+        ${data.units.map((u, i) => `
+          <tr style="background:${i % 2 === 0 ? BG_CARD : BG_INNER};">
+            <td style="padding:8px 12px;font-size:12px;color:#fff;font-weight:600;">${u.unitLabel}</td>
+            <td style="padding:8px 12px;font-size:12px;color:${ORANGE};font-weight:700;text-align:right;">${fmtN(u.projectedAnnualRevenue)}</td>
+            <td style="padding:8px 12px;font-size:12px;color:${TEXT_GRAY};text-align:right;">${fmtP(u.occupancyRate)}</td>
+            <td style="padding:8px 12px;font-size:12px;color:${TEXT_GRAY};text-align:right;">${u.adr != null ? `$${Math.round(u.adr)}` : ''}</td>
+            <td style="padding:8px 12px;font-size:12px;color:${TEXT_GRAY};text-align:right;">${(u as { revpar?: number | null }).revpar != null ? `$${Math.round((u as { revpar: number }).revpar)}` : ''}</td>
+          </tr>`).join('')}
+        ${data.units.length > 1 ? `
+          <tr style="background:${BG_INNER};border-top:2px solid ${BORDER};">
+            <td style="padding:8px 12px;font-size:12px;color:${ORANGE};font-weight:700;">Combined</td>
+            <td style="padding:8px 12px;font-size:12px;color:${ORANGE};font-weight:700;text-align:right;">${fmtN(data.combinedAnnualRevenue)}</td>
+            <td style="padding:8px 12px;font-size:12px;color:${TEXT_GRAY};text-align:right;">${fmtP(data.combinedOccupancyRate)}</td>
+            <td colspan="2"></td>
+          </tr>` : ''}
+      </table>
+    </div>` : '';
+
   // ── STR / MTR metric cards ──────────────────────────────────────────────────
   let metricsHtml = '';
-  if (!isMtr && !isDeal && data.extracted) {
+  if (!isMtr && !isDeal && data.extracted && !isMultiUnitStrEmail) {
     metricsHtml = `
       <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
         <tr>
@@ -247,7 +286,9 @@ export function buildReportEmail(address: string, data: ReportData, ownerActualR
 
   // ── Owner vs Market ─────────────────────────────────────────────────────────
   const ownerHtml = ownerActualRevenue != null ? (() => {
-    const projected = !isMtr ? data.extracted?.projectedAnnualRevenue : data.mtrProjected?.annualRevenue;
+    const projected = isMultiUnitStrEmail
+      ? data.combinedAnnualRevenue
+      : !isMtr ? data.extracted?.projectedAnnualRevenue : data.mtrProjected?.annualRevenue;
     if (!projected) return '';
     const gap = projected - ownerActualRevenue;
     const pct = Math.abs(Math.round((gap / projected) * 100));
@@ -498,6 +539,7 @@ export function buildReportEmail(address: string, data: ReportData, ownerActualR
       ${dealMetricsHtml}
       ${dealUnitsHtml}
       ${dealHLCHtml}
+      ${multiStrUnitsHtml}
       ${metricsHtml}
       ${ownerHtml}
       ${scoreHtml}
@@ -683,6 +725,8 @@ function defaultSalesNote(firstName: string, address: string, data: ReportData):
     ? data.combinedAnnualRevenue
     : data.reportType === 'mtr'
     ? data.mtrProjected?.annualRevenue
+    : (data.units && data.units.length > 0)
+    ? data.combinedAnnualRevenue
     : data.extracted?.projectedAnnualRevenue;
   const revLine = rev != null
     ? ` — the market data shows it has potential to generate $${Math.round(rev).toLocaleString()} annually`
@@ -719,9 +763,10 @@ const DEAL_REC: Record<string, { label: string; bg: string }> = {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ReportOutput({ address, data, ownerActualRevenue, onSave, onBack, saving, saved, savedReportId, onRefine, recipientEmail, recipientName, recipientPhone, onMarkContacted, leadId, ownerId }: ReportOutputProps) {
-  const date   = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const isMtr  = data.reportType === 'mtr';
-  const isDeal = data.reportType === 'deal';
+  const date           = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const isMtr          = data.reportType === 'mtr';
+  const isDeal         = data.reportType === 'deal';
+  const isMultiUnitStr = !isMtr && !isDeal && (data.units && data.units.length > 0);
   const [refineOpen, setRefineOpen]         = useState(false);
   const [refineMsg, setRefineMsg]           = useState('');
   const [refining, setRefining]             = useState(false);
@@ -1061,7 +1106,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
 
         <div className="p-6 space-y-7">
 
-          {/* ── STR stat cards ── */}
+          {/* ── STR stat cards (single unit) ── */}
           {!isMtr && !isDeal && data.extracted && (
             <div className="print-section grid grid-cols-2 sm:grid-cols-4 gap-3">
               <StatCard label="Projected Annual"  value={fmt(data.extracted.projectedAnnualRevenue) || '—'} sub="per AirDNA"       valueColor="text-[#FF6600]" />
@@ -1069,6 +1114,51 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
               <StatCard label="Avg Daily Rate"     value={fmt(data.extracted.adr) || '—'}                   sub="comp-based target" valueColor="text-white" />
               <StatCard label="RevPAR"             value={fmt(data.extracted.revpar) || '—'}                sub="submarket data"    valueColor="text-[#22C55E]" />
             </div>
+          )}
+
+          {/* ── Multi-unit STR stat cards + per-unit table ── */}
+          {isMultiUnitStr && data.units && (
+            <>
+              <div className="print-section grid grid-cols-2 gap-3">
+                <StatCard label="Combined Annual Revenue" value={fmt(data.combinedAnnualRevenue) || '—'} sub="all units combined" valueColor="text-[#FF6600]" />
+                <StatCard label="Combined Occupancy"      value={fmtPct(data.combinedOccupancyRate) || '—'} sub="market average"  valueColor="text-white" />
+              </div>
+              <div className="print-section">
+                <SectionLabel>Per-Unit Breakdown</SectionLabel>
+                <div className="bg-[#151a27] border border-[#2a2f3e] rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#2a2f3e]">
+                        {['Unit', 'Proj. Annual Rev', 'Occupancy', 'ADR', 'RevPAR'].map(h => (
+                          <th key={h} className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-[1px] text-[#6B7280]">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2a2f3e]">
+                      {data.units.map((u, i) => (
+                        <tr key={i} className={i % 2 === 0 ? 'bg-[#151a27]' : 'bg-[#1a1f2e]'}>
+                          <td className="px-4 py-2.5 text-white font-semibold">{u.unitLabel}</td>
+                          <td className="px-4 py-2.5 font-bold text-[#FF6600]">{fmt(u.projectedAnnualRevenue) || '—'}</td>
+                          <td className="px-4 py-2.5 text-[#9CA3AF]">{fmtPct(u.occupancyRate) || '—'}</td>
+                          <td className="px-4 py-2.5 text-[#9CA3AF]">{u.adr != null ? `$${Math.round(u.adr)}` : '—'}</td>
+                          <td className="px-4 py-2.5 text-[#9CA3AF]">{(u as { revpar?: number | null }).revpar != null ? `$${Math.round((u as { revpar: number }).revpar)}` : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    {data.units.length > 1 && (
+                      <tfoot>
+                        <tr className="border-t-2 border-[#2a2f3e] bg-[#151a27]">
+                          <td className="px-4 py-2.5 font-bold text-[#FF6600]">Combined</td>
+                          <td className="px-4 py-2.5 font-bold text-[#FF6600]">{fmt(data.combinedAnnualRevenue) || '—'}</td>
+                          <td className="px-4 py-2.5 text-[#9CA3AF]">{fmtPct(data.combinedOccupancyRate) || '—'}</td>
+                          <td className="px-4 py-2.5" colSpan={2}></td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              </div>
+            </>
           )}
 
           {/* ── MTR stat cards ── */}
@@ -1211,8 +1301,8 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
             </div>
           )}
 
-          {/* ── Owner vs Market (STR) ── */}
-          {!isMtr && ownerActualRevenue != null && data.extracted && (
+          {/* ── Owner vs Market (STR single unit) ── */}
+          {!isMtr && !isMultiUnitStr && ownerActualRevenue != null && data.extracted && (
             <div className="print-section bg-[#151a27] border border-[#2a2f3e] rounded-xl p-5 space-y-3">
               <SectionLabel>Owner vs. Market</SectionLabel>
               <div className="flex items-center gap-6 flex-wrap">
@@ -1229,6 +1319,27 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                 </div>
               </div>
               <GapBadge projected={data.extracted.projectedAnnualRevenue} actual={ownerActualRevenue} />
+            </div>
+          )}
+
+          {/* ── Owner vs Market (multi-unit STR) ── */}
+          {isMultiUnitStr && ownerActualRevenue != null && data.combinedAnnualRevenue != null && (
+            <div className="print-section bg-[#151a27] border border-[#2a2f3e] rounded-xl p-5 space-y-3">
+              <SectionLabel>Owner vs. Market</SectionLabel>
+              <div className="flex items-center gap-6 flex-wrap">
+                <div>
+                  <p className="text-[9px] text-[#6B7280] uppercase tracking-wider mb-1">Owner Reported</p>
+                  <p className="text-2xl font-black text-white">{fmt(ownerActualRevenue)}</p>
+                  <p className="text-[10px] text-[#4B5563]">last 12 months</p>
+                </div>
+                <div className="text-[#4B5563] text-2xl font-light">vs</div>
+                <div>
+                  <p className="text-[9px] text-[#6B7280] uppercase tracking-wider mb-1">AirDNA Combined Projected</p>
+                  <p className="text-2xl font-black text-[#FF6600]">{fmt(data.combinedAnnualRevenue)}</p>
+                  <p className="text-[10px] text-[#4B5563]">all units combined</p>
+                </div>
+              </div>
+              <GapBadge projected={data.combinedAnnualRevenue} actual={ownerActualRevenue} />
             </div>
           )}
 
