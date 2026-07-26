@@ -73,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  const { first_name, last_name, email, phone, property_address, message } = req.body ?? {};
+  const { first_name, last_name, email, phone, property_address, message, sms_consent } = req.body ?? {};
 
   if (!first_name || !email) {
     return res.status(400).json({ error: 'first_name and email are required' });
@@ -108,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Fire and forget — don't block the response
-  if (phone?.trim()) sendWelcomeSms(phone.trim(), first_name.trim());
+  if (phone?.trim() && sms_consent) sendWelcomeSms(phone.trim(), first_name.trim());
   sendTeamAlert(fullName, email.trim(), phone?.trim() ?? '', property_address?.trim() ?? '', message?.trim() ?? '');
 
   return res.status(201).json({ success: true, id });
