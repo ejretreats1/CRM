@@ -44,6 +44,7 @@ interface UnitData {
   projectedAnnualRevenue: number | null;
   occupancyRate: number | null;
   adr: number | null;
+  revpar?: number | null;
 }
 
 interface ReportData {
@@ -231,7 +232,7 @@ export function buildReportEmail(address: string, data: ReportData, ownerActualR
             <td style="padding:8px 12px;font-size:12px;color:${ORANGE};font-weight:700;text-align:right;">${fmtN(u.projectedAnnualRevenue)}</td>
             <td style="padding:8px 12px;font-size:12px;color:${TEXT_GRAY};text-align:right;">${fmtP(u.occupancyRate)}</td>
             <td style="padding:8px 12px;font-size:12px;color:${TEXT_GRAY};text-align:right;">${u.adr != null ? `$${Math.round(u.adr)}` : ''}</td>
-            <td style="padding:8px 12px;font-size:12px;color:${TEXT_GRAY};text-align:right;">${(u as { revpar?: number | null }).revpar != null ? `$${Math.round((u as { revpar: number }).revpar)}` : ''}</td>
+            <td style="padding:8px 12px;font-size:12px;color:${TEXT_GRAY};text-align:right;">${u.revpar != null ? `$${Math.round(u.revpar)}` : ''}</td>
           </tr>`).join('')}
         ${data.units.length > 1 ? `
           <tr style="background:${BG_INNER};border-top:2px solid ${BORDER};">
@@ -1141,7 +1142,7 @@ export default function ReportOutput({ address, data, ownerActualRevenue, onSave
                           <td className="px-4 py-2.5 font-bold text-[#FF6600]">{fmt(u.projectedAnnualRevenue) || '—'}</td>
                           <td className="px-4 py-2.5 text-[#9CA3AF]">{fmtPct(u.occupancyRate) || '—'}</td>
                           <td className="px-4 py-2.5 text-[#9CA3AF]">{u.adr != null ? `$${Math.round(u.adr)}` : '—'}</td>
-                          <td className="px-4 py-2.5 text-[#9CA3AF]">{(u as { revpar?: number | null }).revpar != null ? `$${Math.round((u as { revpar: number }).revpar)}` : '—'}</td>
+                          <td className="px-4 py-2.5 text-[#9CA3AF]">{u.revpar != null ? `$${Math.round(u.revpar)}` : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
