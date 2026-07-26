@@ -72,6 +72,31 @@ const MtrReportSchema = z.object({
   opportunityScore: z.number().int().min(1).max(10),
 });
 
+const StrUnitSchema = z.object({
+  unitLabel: z.string(),
+  projectedAnnualRevenue: z.number().nullable(),
+  occupancyRate: OccupancyField,
+  adr: z.number().nullable(),
+  revpar: z.number().nullable(),
+});
+
+const MultiStrReportSchema = z.object({
+  units: z.array(StrUnitSchema),
+  combinedAnnualRevenue: z.number(),
+  combinedOccupancyRate: OccupancyField,
+  monthlySeasonality: z.array(MonthSchema).optional(),
+  comparables: z.array(CompSchema).optional(),
+  reportTitle: z.string(),
+  executiveSummary: z.string(),
+  marketOpportunity: z.string(),
+  performanceGap: z.string().nullable(),
+  recommendations: z.array(z.object({ title: z.string(), description: z.string() })),
+  revenueProjections: z.object({ conservative: z.number(), realistic: z.number(), optimistic: z.number() }),
+  keyFindings: z.array(z.string()),
+  opportunityScore: z.number().int().min(1).max(10),
+  valueAddHighlights: z.array(z.string()),
+});
+
 const UnitSchema = z.object({
   unitLabel: z.string(),
   quantity: z.number().int().min(1),
@@ -150,12 +175,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const body = req.body as {
     address: string;
     reportType?: 'str' | 'mtr' | 'deal' | 'score';
-    // STR/MTR generate
+    // STR/MTR generate (single unit)
     pdfBase64?: string;
     ownerActualRevenue?: number;
     ownerNotes?: string;
     additionalContext?: string;
-    // Deal generate
+    // Multi-unit STR or Deal generate
     pdfFiles?: Array<{ base64: string; unitLabel: string; bedrooms?: number; bathrooms?: number; quantity?: number }>;
     listingPrice?: number;
     zillowDescription?: string;
@@ -328,6 +353,58 @@ Do not use em dashes.`;
         messages: [{ role: 'user', content: scorePrompt }],
       });
       return res.status(200).json({ ...output, reportType: 'score' });
+    }
+
+    // ── MULTI-UNIT STR MODE ───────────────────────────────────────────────────
+    if (reportType === 'str' && body.pdfFiles && body.pdfFiles.length > 1) {
+      const { pdfFiles, ownerActualRevenue, ownerNotes, additionalContext } = body;
+      const unitDescriptions = pdfFiles
+        .map((pf, i) => `  Unit ${i + 1}: ${pf.unitLabel}`)
+        .join('\n');
+      const ownerSection = ownerActualRevenue != null
+        ? `Owner-reported combined revenue (last 12 months): $${ownerActualRevenue.toLocaleString()}${ownerNotes ? `\nOwner context: ${ownerNotes}` : ''}`
+        : 'Owner actual revenue: not provided.';
+      const contextSection = additionalContext?.trim()
+        ? `\nIMPORTANT ADDITIONAL CONTEXT:\n${additionalContext.trim()}\n`
+        : '';
+
+      const prompt = `You are a short-term rental revenue consultant for E&J Retreats. Analyze this multi-unit property.
+
+Property address: ${address}
+${ownerSection}
+${contextSection}
+Units:
+${unitDescriptions}
+
+There are ${pdfFiles.length} AirDNA Rentalizer PDFs attached, one per unit (in order above).
+
+Please:
+1. For each unit, extract: projected annual revenue, occupancy rate, ADR, RevPAR from its PDF.
+2. Compute combinedAnnualRevenue = sum of all units' projectedAnnualRevenue values.
+3. Compute combinedOccupancyRate = average occupancy across units.
+4. Extract monthly seasonality (from the first or most representative PDF).
+5. Extract comparable properties (from the first PDF).
+6. Generate a professional revenue analysis for the combined property.
+7. If owner revenue is provided, include a performance gap analysis.
+8. Write 3–5 specific recommendations. Do not recommend amenities the owner already has.
+9. Write 3–5 valueAddHighlights: specific bullets on what E&J Retreats would do for THIS property. Frame each as "We will..." or "Our team will...".
+10. Assign an opportunity score 1–10 using this exact guide based on gross yield (combinedAnnualRevenue / property value if mentioned, else based on combined ADR×occupancy vs market average): ≥15% = 10, 12–14.9% = 9, 10–11.9% = 8, 8–9.9% = 7, 6–7.9% = 6, 4–5.9% = 5, <4% = 1–4.
+${seasonalityInstructions}
+${globalRules}
+
+Write in a confident, professional tone suitable for presenting to a property owner.`;
+
+      const content: { type: 'file'; data: string; mediaType: 'application/pdf' }[] | { type: 'text'; text: string }[] = [
+        ...pdfFiles.map(pf => ({ type: 'file' as const, data: pf.base64, mediaType: 'application/pdf' as const })),
+        { type: 'text' as const, text: prompt },
+      ];
+
+      const { output } = await generateText({
+        model: gateway('anthropic/claude-sonnet-4-6'),
+        output: Output.object({ schema: MultiStrReportSchema }),
+        messages: [{ role: 'user', content }],
+      });
+      return res.status(200).json({ ...output, reportType: 'str' });
     }
 
     // ── GENERATE MODE (STR / MTR) ────────────────────────────────────────────
