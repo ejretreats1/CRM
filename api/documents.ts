@@ -1339,14 +1339,20 @@ async function cleaningUploadPhoto(body: any, res: VercelResponse) {
   const { data: job } = await getSupabase().from('cleaning_jobs').select('id').eq('id', jobId).single();
   if (!job) return res.status(404).json({ error: 'Job not found' });
 
-  const base64Data = (photoBase64 as string).replace(/^data:image\/\w+;base64,/, '');
+  const base64Data = (photoBase64 as string).replace(/^data:[^;]+;base64,/, '');
   const buffer = Buffer.from(base64Data, 'base64');
 
   const ext = (filename as string | undefined)?.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const CONTENT_TYPES: Record<string, string> = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+    webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
+    mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', avi: 'video/avi',
+  };
+  const contentType = CONTENT_TYPES[ext] ?? 'image/jpeg';
   const path = `${jobId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
   const { error } = await admin.storage.from('cleaning-photos').upload(path, buffer, {
-    contentType: ext === 'png' ? 'image/png' : 'image/jpeg',
+    contentType,
     upsert: true,
   });
   if (error) return res.status(500).json({ error: error.message });

@@ -3,32 +3,68 @@ import { acceptCleaningJob, submitCleaningJob } from '../services/cleaningApi';
 
 async function compressAndUpload(file: File, jobId: string): Promise<string> {
   const MAX_PX = 1600;
-  const QUALITY = 0.78;
+  const QUALITY = 0.82;
+  const isVideo = file.type.startsWith('video/');
 
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_PX / Math.max(bitmap.width, bitmap.height));
-  const w = Math.round(bitmap.width * scale);
-  const h = Math.round(bitmap.height * scale);
+  let base64: string;
 
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, w, h);
-  bitmap.close();
+  if (isVideo) {
+    if (file.size > 100 * 1024 * 1024) throw new Error('Video is too large (max 100 MB). Please trim it first.');
+    base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read video'));
+      reader.readAsDataURL(file);
+    });
+  } else {
+    // Use FileReader + Image element — works on ALL browsers including iOS Safari.
+    // createImageBitmap() is NOT supported on iOS Safari and will silently fail.
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read image'));
+      reader.readAsDataURL(file);
+    });
 
-  const blob = await new Promise<Blob>(resolve =>
-    canvas.toBlob(b => resolve(b!), 'image/jpeg', QUALITY)
-  );
-  const base64 = await new Promise<string>(resolve => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.readAsDataURL(blob);
-  });
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Failed to load image — try a different photo'));
+      image.src = dataUrl;
+    });
 
+    const scale = Math.min(1, MAX_PX / Math.max(img.width, img.height));
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas not supported on this device');
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        b => b ? resolve(b) : reject(new Error('Image compression failed — try again')),
+        'image/jpeg',
+        QUALITY
+      )
+    );
+
+    base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to encode image'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  const ext = isVideo ? (file.type.split('/')[1] || 'mp4') : 'jpg';
   const r = await fetch('/api/documents', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ flow: 'cleaning', action: 'upload-photo', photoBase64: base64, filename: 'photo.jpg', jobId }),
+    body: JSON.stringify({ flow: 'cleaning', action: 'upload-photo', photoBase64: base64, filename: `file.${ext}`, jobId }),
   });
   const d = await r.json();
   if (!r.ok) throw new Error(d.error ?? 'Upload failed');
@@ -637,7 +673,7 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
             <input
               ref={damageMediaRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               multiple
               onChange={handleDamageMediaUpload}
               className="hidden"
