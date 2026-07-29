@@ -17,6 +17,7 @@ function rowToCleaner(r: any): Cleaner {
     createdAt: r.created_at,
     dashboardToken: r.dashboard_token ?? undefined,
     skills: (r.skills ?? ['cleaning']) as Cleaner['skills'],
+    payoutInfo: r.payout_info ?? undefined,
   };
 }
 
@@ -31,6 +32,7 @@ function cleanerToRow(c: Cleaner) {
     skills: c.skills ?? ['cleaning'],
     ...(c.stripeAccountId  !== undefined && { stripe_account_id: c.stripeAccountId }),
     ...(c.dashboardToken   !== undefined && { dashboard_token: c.dashboardToken }),
+    ...(c.payoutInfo       !== undefined && { payout_info: c.payoutInfo }),
   };
 }
 
