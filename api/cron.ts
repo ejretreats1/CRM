@@ -207,12 +207,35 @@ async function autoPayout(job: Record<string, any>): Promise<{ ok: boolean; erro
 
   const { data: cleaner } = await supabase
     .from('cleaners')
-    .select('stripe_account_id, name')
+    .select('stripe_account_id, name, payout_info')
     .eq('id', job.assigned_cleaner_id)
     .single();
 
   if (!cleaner?.stripe_account_id) {
-    return { ok: false, error: 'Cleaner has no Stripe account connected.' };
+    // No Stripe — send actionable manual payment reminder then mark as sent so it doesn't repeat
+    const payoutRow = cleaner?.payout_info
+      ? `<tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Pay via</td><td style="padding:6px 12px;color:#1e40af;font-weight:700">${cleaner.payout_info}</td></tr>`
+      : `<tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Pay via</td><td style="padding:6px 12px;color:#dc2626">⚠️ No payout info on file — update cleaner profile</td></tr>`;
+    await getResend().emails.send({
+      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+      to: 'ejretreats1@gmail.com',
+      subject: `💳 Manual Payout Due — Pay ${cleaner?.name ?? 'cleaner'} $${job.cleaner_payout}`,
+      html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px">
+        <h2 style="color:#dc2626;margin:0 0 12px">Manual Payment Required</h2>
+        <p style="color:#334155;margin:0 0 16px">${cleaner?.name ?? 'A cleaner'} completed a job and needs to be paid manually (no Stripe account connected).</p>
+        <table style="border-collapse:collapse;width:100%;font-size:14px;margin-bottom:16px">
+          <tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Cleaner</td><td style="padding:6px 12px">${cleaner?.name ?? job.assigned_cleaner_id}</td></tr>
+          <tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Amount Due</td><td style="padding:6px 12px;font-size:22px;color:#16a34a;font-weight:700">$${job.cleaner_payout}</td></tr>
+          <tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Property</td><td style="padding:6px 12px">${job.property_name}</td></tr>
+          <tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Job Date</td><td style="padding:6px 12px">${job.checkout_date}</td></tr>
+          ${payoutRow}
+        </table>
+        <p style="color:#94a3b8;font-size:12px">This reminder won't repeat — the job is marked as paid in the system. Send the cleaner their money and you're all set.</p>
+      </div>`,
+    }).catch(() => {});
+    const now = new Date().toISOString();
+    await supabase.from('cleaning_jobs').update({ payout_sent_at: now, updated_at: now }).eq('id', job.id);
+    return { ok: true, payout: Number(job.cleaner_payout) };
   }
 
   const amountCents = Math.round(Number(job.cleaner_payout) * 100);
