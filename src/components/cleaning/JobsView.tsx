@@ -63,6 +63,7 @@ interface ManualJobForm {
   propertyId: string;
   propertyName: string;
   checkoutDate: string;
+  sameDayTurnover: boolean;
   guestName: string;
   notes: string;
   selectedCleanerId: string;
@@ -79,6 +80,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
   const [showManual, setShowManual] = useState(false);
   const [manualForm, setManualForm] = useState<ManualJobForm>({
     jobType: 'cleaning', propertyId: '', propertyName: '', checkoutDate: '',
+    sameDayTurnover: false,
     guestName: '', notes: '', selectedCleanerId: '', cleanerPayout: '', clientCharge: '',
   });
   const [savingManual, setSavingManual] = useState(false);
@@ -281,6 +283,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
         propertyName: manualForm.propertyName,
         guestName: manualForm.guestName || undefined,
         checkoutDate: manualForm.checkoutDate,
+        checkinDate: manualForm.sameDayTurnover ? manualForm.checkoutDate : undefined,
         status: 'pending',
         cleaningFee: clientCharge,
         cleanerPayout,
@@ -311,7 +314,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
       }
 
       setShowManual(false);
-      setManualForm({ jobType: 'cleaning', propertyId: '', propertyName: '', checkoutDate: '', guestName: '', notes: '', selectedCleanerId: '', cleanerPayout: '', clientCharge: '' });
+      setManualForm({ jobType: 'cleaning', propertyId: '', propertyName: '', checkoutDate: '', sameDayTurnover: false, guestName: '', notes: '', selectedCleanerId: '', cleanerPayout: '', clientCharge: '' });
     } finally {
       setSavingManual(false);
     }
@@ -767,6 +770,27 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                     onChange={e => setManualForm(f => ({ ...f, checkoutDate: e.target.value }))}
                   />
                 </div>
+
+                {/* Same-day turnover toggle — cleaning only */}
+                {manualForm.jobType === 'cleaning' && (
+                  <button
+                    type="button"
+                    onClick={() => setManualForm(f => ({ ...f, sameDayTurnover: !f.sameDayTurnover }))}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
+                      manualForm.sameDayTurnover
+                        ? 'bg-[#2a1a05] border-[#d0954a] text-[#d0954a]'
+                        : 'bg-[#0f1923] border-[#1e2d45] text-[#3a5070] hover:border-[#4a90d9] hover:text-[#b8d4f0]'
+                    }`}
+                  >
+                    <div className="text-left">
+                      <p className="text-sm font-semibold">Same-Day Turnover</p>
+                      <p className="text-xs opacity-70 mt-0.5">New guests check in the same day — cleaner must finish before check-in time</p>
+                    </div>
+                    <div className={`w-10 h-5 rounded-full flex items-center transition-colors flex-shrink-0 ml-3 ${manualForm.sameDayTurnover ? 'bg-[#d0954a]' : 'bg-[#1e2d45]'}`}>
+                      <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform mx-0.5 ${manualForm.sameDayTurnover ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </div>
+                  </button>
+                )}
 
                 {/* Guest name — cleaning only */}
                 {manualForm.jobType === 'cleaning' && (
