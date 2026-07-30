@@ -695,15 +695,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // ── Step 2: pay cleaners for jobs charged 2.5+ calendar days ago ─────────
+  // ── Step 2: pay cleaners for jobs completed 2+ business days ago ─────────
   const { data: toPay } = await supabase
     .from('cleaning_jobs')
     .select('*')
-    .lte('charged_at', payoutCutoffTs)
+    .eq('status', 'completed')
+    .not('completed_at', 'is', null)
+    .lte('completed_at', payoutCutoffTs)
     .is('payout_sent_at', null)
-    .not('charged_at', 'is', null)
     .not('assigned_cleaner_id', 'is', null)
-    .not('status', 'in', '("cancelled")')
     .gt('cleaner_payout', 0);
 
   for (const job of toPay ?? []) {
