@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw, ChevronUp, ChevronDown, Download, ImagePlus } from 'lucide-react';
 import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl } from '../../types/cleaning';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
@@ -52,6 +52,102 @@ function displayName(propertyId: string | undefined, propertyName: string, props
 }
 
 const ICAL_PLATFORMS = ['Airbnb', 'VRBO', 'Booking.com', 'Guesty', 'Hostaway', 'Uplisting', 'Direct', 'Other'];
+
+function SubUnitSection({
+  form,
+  setForm,
+  uplistingProperties,
+}: {
+  form: FormState;
+  setForm: Dispatch<SetStateAction<FormState>>;
+  uplistingProperties: UplistingProperty[];
+}) {
+  const [manualId, setManualId] = useState('');
+
+  function addManual() {
+    const id = manualId.trim();
+    if (id && !form.linkedPropertyIds.includes(id)) {
+      setForm(f => ({ ...f, linkedPropertyIds: [...f.linkedPropertyIds, id] }));
+    }
+    setManualId('');
+  }
+
+  const dropdownOptions = uplistingProperties.filter(
+    p => p.id !== form.propertyId && !form.linkedPropertyIds.includes(p.id)
+  );
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1.5">
+        <CalendarDays size={13} className="text-[#d0954a]" />
+        <label className="text-xs font-semibold text-[#3a5070]">
+          Sub-unit Listings <span className="text-[#2a4060] font-normal">(multi-unit only)</span>
+        </label>
+      </div>
+      <p className="text-xs text-[#2a4060] mb-2">
+        For multi-unit properties (e.g. Unit A + Unit B under one listing), add each sub-unit's Uplisting listing ID so their checkouts are picked up automatically.
+      </p>
+
+      {form.linkedPropertyIds.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {form.linkedPropertyIds.map(id => {
+            const p = uplistingProperties.find(x => x.id === id);
+            return (
+              <span key={id} className="flex items-center gap-1.5 text-[10px] font-semibold bg-[#2a1a05] border border-[#4a3010] text-[#d0954a] px-2 py-1 rounded-full">
+                {p?.nickname || p?.name || id}
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, linkedPropertyIds: f.linkedPropertyIds.filter(x => x !== id) }))}
+                  className="text-[#d0954a] hover:text-[#e05c5c] leading-none"
+                >×</button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {dropdownOptions.length > 0 && (
+        <select
+          className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#d0954a] mb-2"
+          value=""
+          onChange={e => {
+            const id = e.target.value;
+            if (id && !form.linkedPropertyIds.includes(id)) {
+              setForm(f => ({ ...f, linkedPropertyIds: [...f.linkedPropertyIds, id] }));
+            }
+          }}
+        >
+          <option value="">+ Add from Uplisting list…</option>
+          {dropdownOptions.map(p => (
+            <option key={p.id} value={p.id}>{p.nickname || p.name}</option>
+          ))}
+        </select>
+      )}
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={manualId}
+          onChange={e => setManualId(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addManual(); } }}
+          placeholder="Paste Uplisting listing ID (e.g. abc123)"
+          className="flex-1 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 text-xs text-white placeholder-[#3a5070] focus:outline-none focus:border-[#d0954a]"
+        />
+        <button
+          type="button"
+          onClick={addManual}
+          disabled={!manualId.trim()}
+          className="px-3 py-2 text-xs font-semibold bg-[#d0954a] text-[#0a0f1a] rounded-lg disabled:opacity-40 hover:bg-[#e0a55a] transition-colors"
+        >
+          Add
+        </button>
+      </div>
+      <p className="text-[10px] text-[#3a5070] mt-1">
+        Find the listing ID in your Uplisting dashboard URL when viewing a unit (e.g. uplisting.io/properties/<strong>abc123</strong>).
+      </p>
+    </div>
+  );
+}
 
 export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete, onSyncIcal, onSyncAllIcal, uplistingApiKey }: Props) {
   // --- Edit modal state ---
@@ -953,51 +1049,11 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
               </div>
 
               {/* Sub-unit listings (multi-unit) */}
-              {uplistingProperties.filter(p => p.id !== form.propertyId).length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <CalendarDays size={13} className="text-[#d0954a]" />
-                    <label className="text-xs font-semibold text-[#3a5070]">Sub-unit Listings <span className="text-[#2a4060] font-normal">(multi-unit only)</span></label>
-                  </div>
-                  <p className="text-xs text-[#2a4060] mb-2">
-                    For multi-unit properties (e.g. Unit A + Unit B under one listing), select each sub-unit here so their checkouts are picked up automatically.
-                  </p>
-                  {form.linkedPropertyIds.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {form.linkedPropertyIds.map(id => {
-                        const p = uplistingProperties.find(x => x.id === id);
-                        return (
-                          <span key={id} className="flex items-center gap-1.5 text-[10px] font-semibold bg-[#2a1a05] border border-[#4a3010] text-[#d0954a] px-2 py-1 rounded-full">
-                            {p?.nickname || p?.name || id}
-                            <button
-                              type="button"
-                              onClick={() => setForm(f => ({ ...f, linkedPropertyIds: f.linkedPropertyIds.filter(x => x !== id) }))}
-                              className="text-[#d0954a] hover:text-[#e05c5c] leading-none"
-                            >×</button>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <select
-                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#d0954a]"
-                    value=""
-                    onChange={e => {
-                      const id = e.target.value;
-                      if (id && !form.linkedPropertyIds.includes(id)) {
-                        setForm(f => ({ ...f, linkedPropertyIds: [...f.linkedPropertyIds, id] }));
-                      }
-                    }}
-                  >
-                    <option value="">+ Add sub-unit listing…</option>
-                    {uplistingProperties
-                      .filter(p => p.id !== form.propertyId && !form.linkedPropertyIds.includes(p.id))
-                      .map(p => (
-                        <option key={p.id} value={p.id}>{p.nickname || p.name}</option>
-                      ))}
-                  </select>
-                </div>
-              )}
+              <SubUnitSection
+                form={form}
+                setForm={setForm}
+                uplistingProperties={uplistingProperties}
+              />
 
               {/* Per-cleaner payout */}
               <div>
