@@ -26,6 +26,7 @@ export interface IcalUrl {
   platform: string;
   url: string;
   lastSyncedAt?: string;
+  unitName?: string;
 }
 
 export interface CleaningPropertyConfig {

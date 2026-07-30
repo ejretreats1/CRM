@@ -12,6 +12,7 @@ export interface IcalUrl {
   platform: string;
   url: string;
   lastSyncedAt?: string;
+  unitName?: string;
 }
 
 function parseIcalDate(val: string): string {
@@ -122,12 +123,15 @@ export async function syncPropertyIcal(supabase: any, config: {
 
         const jobId = `ical_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const guestName = (ev.summary && ev.summary !== 'Reserved' && !isBlock(ev.summary)) ? ev.summary : null;
+        const jobPropertyName = entry.unitName
+          ? `${config.property_name} — ${entry.unitName}`
+          : config.property_name;
 
         await supabase.from('cleaning_jobs').insert({
           id: jobId,
           reservation_id: ev.uid,
           property_id: config.property_id,
-          property_name: config.property_name,
+          property_name: jobPropertyName,
           guest_name: guestName,
           checkout_date: ev.end,
           checkin_date: (ev.start && ev.start !== ev.end) ? ev.start : null,
