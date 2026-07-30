@@ -15,7 +15,6 @@ export interface Cleaner {
   createdAt: string;
   dashboardToken?: string;
   skills?: CleaningJobType[];
-  payoutInfo?: string;
 }
 
 export interface AssignedCleaner {

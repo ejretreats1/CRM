@@ -15,7 +15,7 @@ const ALL_SKILLS: { value: CleaningJobType; label: string; emoji: string }[] = [
 ];
 
 const EMPTY: Omit<Cleaner, 'id' | 'createdAt'> = {
-  name: '', email: '', phone: '', status: 'active', skills: ['cleaning'], payoutInfo: '',
+  name: '', email: '', phone: '', status: 'active', skills: ['cleaning'],
 };
 
 export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
@@ -103,7 +103,7 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
     setEditing({ id: '', createdAt: '' } as Cleaner);
   }
   function openEdit(c: Cleaner) {
-    setForm({ name: c.name, email: c.email, phone: c.phone ?? '', status: c.status, skills: c.skills ?? ['cleaning'], payoutInfo: c.payoutInfo ?? '' });
+    setForm({ name: c.name, email: c.email, phone: c.phone ?? '', status: c.status, skills: c.skills ?? ['cleaning'] });
     setEditing(c);
   }
   function closeModal() { setEditing(null); }
@@ -122,7 +122,6 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
         skills: (form.skills ?? ['cleaning']).length > 0 ? form.skills : ['cleaning'],
         createdAt: editing?.createdAt || now,
         dashboardToken: editing?.dashboardToken || crypto.randomUUID(),
-        payoutInfo: (form.payoutInfo ?? '').trim() || undefined,
       };
       await onSave(cleaner);
       closeModal();
@@ -555,15 +554,6 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                   value={form.phone}
                   onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                   placeholder="(555) 000-0000"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Payout Info <span className="text-[#3a5070] font-normal opacity-70">(Venmo/Zelle for non-Stripe)</span></label>
-                <input
-                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
-                  value={form.payoutInfo ?? ''}
-                  onChange={e => setForm(f => ({ ...f, payoutInfo: e.target.value }))}
-                  placeholder="e.g. Venmo @jane-smith or Zelle 813-555-1234"
                 />
               </div>
               <div>
