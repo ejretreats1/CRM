@@ -86,22 +86,48 @@ export async function fetchProperties(apiKey: string): Promise<UplistingProperty
   const included: any[] = data?.included ?? [];
   const base = list.map(p => normalizeProperty(p, included));
 
-  // List endpoint has no photos — fetch individual details in parallel to get them
+  // List endpoint has no photos — fetch individual details + extract sub-units for multi-unit listings
   const enriched = await Promise.all(base.map(async prop => {
     try {
       const detail = await apiFetch(`properties/${prop.id}`, apiKey);
       const d = detail?.property ?? detail?.data ?? detail;
-      if (!d) return prop;
+      if (!d) return [prop];
       const da = d.attributes ?? d;
-      const photo_url = extractPhotoUrl(da, d, detail?.included ?? []);
-      console.log('[Uplisting] detail keys for', prop.id, Object.keys(da).join(', '));
-      return photo_url ? { ...prop, photo_url } : prop;
+      const detailIncluded: any[] = detail?.included ?? [];
+      const photo_url = extractPhotoUrl(da, d, detailIncluded);
+      console.log('[Uplisting] detail keys for', prop.id, Object.keys(da).join(', '), '| relationships:', Object.keys(d.relationships ?? {}).join(', '));
+      const enrichedProp: UplistingProperty = photo_url ? { ...prop, photo_url } : prop;
+
+      // Extract sub-unit listings from multi-unit properties.
+      // Uplisting may nest sub-units in `units`, `listings`, `sub_listings`,
+      // or via JSON:API relationships.units / relationships.listings.
+      const subUnitArrays: any[] = [
+        ...(Array.isArray(da.units)         ? da.units         : []),
+        ...(Array.isArray(da.sub_units)      ? da.sub_units      : []),
+        ...(Array.isArray(da.listings)       ? da.listings       : []),
+        ...(Array.isArray(da.sub_listings)   ? da.sub_listings   : []),
+      ];
+      const relRefs: any[] = [
+        ...((d.relationships?.units?.data   as any[]) ?? []),
+        ...((d.relationships?.listings?.data as any[]) ?? []),
+      ];
+      const relUnits = relRefs
+        .map((ref: any) => detailIncluded.find((i: any) => i.id === ref.id))
+        .filter(Boolean);
+      const allSubData = [...subUnitArrays, ...relUnits];
+      const subUnits: UplistingProperty[] = allSubData
+        .map(u => normalizeProperty(u, detailIncluded))
+        .filter(u => u.id && u.id !== prop.id);
+
+      return subUnits.length > 0 ? [enrichedProp, ...subUnits] : [enrichedProp];
     } catch {
-      return prop;
+      return [prop];
     }
   }));
 
-  return enriched;
+  // Flatten, deduplicating by ID
+  const seen = new Set<string>();
+  return enriched.flat().filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; });
 }
 
 export async function fetchPropertyAllPhotos(apiKey: string, propertyId: string): Promise<string[]> {
