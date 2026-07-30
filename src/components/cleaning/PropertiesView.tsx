@@ -32,15 +32,18 @@ interface FormState {
   icalUrls: IcalUrl[];
   icalUrlInput: string;
   icalPlatform: string;
+  icalUnitName: string;
   laundromatAddress: string;
+  linkedPropertyIds: string[];
 }
 
 const EMPTY: FormState = {
   propertyId: '', propertyName: '', cleaningFee: '', feeAutoFilled: false, assignedCleaners: [],
   doorCode: '', address: '', checkoutTime: '', checkinTime: '',
   photoUrl: '', stagingPhotoUrls: [], stagingUrlInput: '',
-  icalUrls: [], icalUrlInput: '', icalPlatform: 'Airbnb',
+  icalUrls: [], icalUrlInput: '', icalPlatform: 'Airbnb', icalUnitName: '',
   laundromatAddress: '',
+  linkedPropertyIds: [],
 };
 
 function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
@@ -48,7 +51,7 @@ function displayName(propertyId: string | undefined, propertyName: string, props
   return p?.nickname || p?.name || propertyName;
 }
 
-const ICAL_PLATFORMS = ['Airbnb', 'VRBO', 'Booking.com', 'Guesty', 'Hostaway', 'Direct', 'Other'];
+const ICAL_PLATFORMS = ['Airbnb', 'VRBO', 'Booking.com', 'Guesty', 'Hostaway', 'Uplisting', 'Direct', 'Other'];
 
 export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete, onSyncIcal, onSyncAllIcal, uplistingApiKey }: Props) {
   // --- Edit modal state ---
@@ -184,7 +187,9 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       icalUrls: [...(config.icalUrls ?? [])],
       icalUrlInput: '',
       icalPlatform: 'Airbnb',
+      icalUnitName: '',
       laundromatAddress: config.laundromatAddress ?? '',
+      linkedPropertyIds: [...(config.linkedPropertyIds ?? [])],
     });
     setEditing(config);
   }
@@ -220,7 +225,9 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
     const raw = form.icalUrlInput.trim();
     if (!raw) return;
     const url = raw.replace(/^webcal:\/\//i, 'https://');
-    setForm(f => ({ ...f, icalUrls: [...f.icalUrls, { platform: f.icalPlatform, url }], icalUrlInput: '' }));
+    const entry: IcalUrl = { platform: form.icalPlatform, url };
+    if (form.icalUnitName.trim()) entry.unitName = form.icalUnitName.trim();
+    setForm(f => ({ ...f, icalUrls: [...f.icalUrls, entry], icalUrlInput: '', icalUnitName: '' }));
   }
 
   function onPropertySelect(pid: string) {
@@ -307,6 +314,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         stagingPhotoUrls: form.stagingPhotoUrls.filter(Boolean),
         icalUrls: form.icalUrls,
         laundromatAddress: form.laundromatAddress.trim() || undefined,
+        linkedPropertyIds: form.linkedPropertyIds.length > 0 ? form.linkedPropertyIds : undefined,
       };
       await onSave(config);
       setEditing(null);
@@ -890,13 +898,16 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                   <label className="text-xs font-semibold text-[#3a5070]">Calendar Sync (iCal)</label>
                 </div>
                 <p className="text-xs text-[#2a4060] mb-2">
-                  Paste Airbnb / VRBO iCal export URLs to auto-create cleaning jobs from guest checkouts. Jobs sync daily at 11am and on-demand via "Sync Now."
+                  Paste iCal export URLs to auto-create cleaning jobs from guest checkouts. For multi-unit properties, add one URL per unit and fill in the Unit Name. Jobs sync daily at 11am and on-demand via "Sync Now."
                 </p>
                 {form.icalUrls.length > 0 && (
                   <div className="space-y-1.5 mb-2">
                     {form.icalUrls.map((u, i) => (
                       <div key={i} className="flex items-center gap-2 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2">
                         <span className="text-[10px] font-bold text-[#4a90d9] w-20 flex-shrink-0">{u.platform}</span>
+                        {u.unitName && (
+                          <span className="text-[10px] font-semibold text-[#d0954a] bg-[#2a1a05] px-1.5 py-0.5 rounded flex-shrink-0">{u.unitName}</span>
+                        )}
                         <span className="text-[10px] text-[#3a5070] truncate flex-1 font-mono">{u.url}</span>
                         {u.lastSyncedAt && (
                           <span className="text-[10px] text-[#2a4060] flex-shrink-0 whitespace-nowrap">
@@ -912,7 +923,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                     ))}
                   </div>
                 )}
-                <div className="flex gap-2">
+                <div className="flex gap-2 mb-1.5">
                   <select
                     className="bg-[#0f1923] border border-[#1e2d45] rounded-lg px-2 py-2 text-xs text-white focus:outline-none focus:border-[#4a90d9] flex-shrink-0"
                     value={form.icalPlatform}
@@ -920,6 +931,12 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                   >
                     {ICAL_PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
+                  <input
+                    className="w-28 flex-shrink-0 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 text-xs text-white placeholder-[#3a5070] focus:outline-none focus:border-[#d0954a]"
+                    value={form.icalUnitName}
+                    onChange={e => setForm(f => ({ ...f, icalUnitName: e.target.value }))}
+                    placeholder="Unit name"
+                  />
                   <input
                     className="flex-1 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 text-xs text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
                     value={form.icalUrlInput}
@@ -934,6 +951,53 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                   >Add</button>
                 </div>
               </div>
+
+              {/* Sub-unit listings (multi-unit) */}
+              {uplistingProperties.filter(p => p.id !== form.propertyId).length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <CalendarDays size={13} className="text-[#d0954a]" />
+                    <label className="text-xs font-semibold text-[#3a5070]">Sub-unit Listings <span className="text-[#2a4060] font-normal">(multi-unit only)</span></label>
+                  </div>
+                  <p className="text-xs text-[#2a4060] mb-2">
+                    For multi-unit properties (e.g. Unit A + Unit B under one listing), select each sub-unit here so their checkouts are picked up automatically.
+                  </p>
+                  {form.linkedPropertyIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {form.linkedPropertyIds.map(id => {
+                        const p = uplistingProperties.find(x => x.id === id);
+                        return (
+                          <span key={id} className="flex items-center gap-1.5 text-[10px] font-semibold bg-[#2a1a05] border border-[#4a3010] text-[#d0954a] px-2 py-1 rounded-full">
+                            {p?.nickname || p?.name || id}
+                            <button
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, linkedPropertyIds: f.linkedPropertyIds.filter(x => x !== id) }))}
+                              className="text-[#d0954a] hover:text-[#e05c5c] leading-none"
+                            >×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <select
+                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#d0954a]"
+                    value=""
+                    onChange={e => {
+                      const id = e.target.value;
+                      if (id && !form.linkedPropertyIds.includes(id)) {
+                        setForm(f => ({ ...f, linkedPropertyIds: [...f.linkedPropertyIds, id] }));
+                      }
+                    }}
+                  >
+                    <option value="">+ Add sub-unit listing…</option>
+                    {uplistingProperties
+                      .filter(p => p.id !== form.propertyId && !form.linkedPropertyIds.includes(p.id))
+                      .map(p => (
+                        <option key={p.id} value={p.id}>{p.nickname || p.name}</option>
+                      ))}
+                  </select>
+                </div>
+              )}
 
               {/* Per-cleaner payout */}
               <div>

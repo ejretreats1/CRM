@@ -27,6 +27,7 @@ export interface IcalUrl {
   platform: string;
   url: string;
   lastSyncedAt?: string;
+  unitName?: string;
 }
 
 export interface CleaningPropertyConfig {
@@ -49,6 +50,7 @@ export interface CleaningPropertyConfig {
   stagingPhotoUrls?: string[];
   icalUrls?: IcalUrl[];
   laundromatAddress?: string;
+  linkedPropertyIds?: string[];
 }
 
 export interface CleaningPortalData {

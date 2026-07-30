@@ -1018,7 +1018,12 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
     autoSyncRef.current = true;
     setAutoSyncing(true);
     try {
-      const configMap = new Map(configs.map(c => [c.propertyId, c]));
+      // Build configMap including sub-unit IDs for multi-unit listings
+      const configMap = new Map<string, CleaningPropertyConfig>();
+      for (const c of configs) {
+        configMap.set(c.propertyId, c);
+        for (const subId of c.linkedPropertyIds ?? []) configMap.set(subId, c);
+      }
       const existingReservationIds = new Set(jobs.map(j => j.reservationId).filter(Boolean));
 
       const today = new Date();
@@ -1038,11 +1043,17 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
       const now = new Date().toISOString();
       const newJobs: CleaningJob[] = relevant.map(r => {
         const config = configMap.get(r.listing_id)!;
+        // For sub-unit reservations, suffix property name with the sub-unit's Uplisting name
+        let propertyName = config.propertyName;
+        if (r.listing_id !== config.propertyId) {
+          const subProp = uplistingProperties.find(p => p.id === r.listing_id);
+          if (subProp) propertyName = `${config.propertyName} — ${subProp.nickname || subProp.name}`;
+        }
         return {
           id: `cj_${Date.now()}_${r.id}`,
           reservationId: r.id,
           propertyId: r.listing_id,
-          propertyName: config.propertyName,
+          propertyName,
           guestName: r.guest_name || undefined,
           checkoutDate: r.check_out,
           checkinDate: undefined,
