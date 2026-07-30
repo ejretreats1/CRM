@@ -34,6 +34,7 @@ interface FormState {
   icalPlatform: string;
   icalUnitName: string;
   laundromatAddress: string;
+  linkedPropertyIds: string[];
 }
 
 const EMPTY: FormState = {
@@ -42,6 +43,7 @@ const EMPTY: FormState = {
   photoUrl: '', stagingPhotoUrls: [], stagingUrlInput: '',
   icalUrls: [], icalUrlInput: '', icalPlatform: 'Airbnb', icalUnitName: '',
   laundromatAddress: '',
+  linkedPropertyIds: [],
 };
 
 function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
@@ -187,6 +189,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       icalPlatform: 'Airbnb',
       icalUnitName: '',
       laundromatAddress: config.laundromatAddress ?? '',
+      linkedPropertyIds: [...(config.linkedPropertyIds ?? [])],
     });
     setEditing(config);
   }
@@ -311,6 +314,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         stagingPhotoUrls: form.stagingPhotoUrls.filter(Boolean),
         icalUrls: form.icalUrls,
         laundromatAddress: form.laundromatAddress.trim() || undefined,
+        linkedPropertyIds: form.linkedPropertyIds.length > 0 ? form.linkedPropertyIds : undefined,
       };
       await onSave(config);
       setEditing(null);
@@ -947,6 +951,53 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                   >Add</button>
                 </div>
               </div>
+
+              {/* Sub-unit listings (multi-unit) */}
+              {uplistingProperties.filter(p => p.id !== form.propertyId).length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <CalendarDays size={13} className="text-[#d0954a]" />
+                    <label className="text-xs font-semibold text-[#3a5070]">Sub-unit Listings <span className="text-[#2a4060] font-normal">(multi-unit only)</span></label>
+                  </div>
+                  <p className="text-xs text-[#2a4060] mb-2">
+                    For multi-unit properties (e.g. Unit A + Unit B under one listing), select each sub-unit here so their checkouts are picked up automatically.
+                  </p>
+                  {form.linkedPropertyIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {form.linkedPropertyIds.map(id => {
+                        const p = uplistingProperties.find(x => x.id === id);
+                        return (
+                          <span key={id} className="flex items-center gap-1.5 text-[10px] font-semibold bg-[#2a1a05] border border-[#4a3010] text-[#d0954a] px-2 py-1 rounded-full">
+                            {p?.nickname || p?.name || id}
+                            <button
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, linkedPropertyIds: f.linkedPropertyIds.filter(x => x !== id) }))}
+                              className="text-[#d0954a] hover:text-[#e05c5c] leading-none"
+                            >×</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <select
+                    className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#d0954a]"
+                    value=""
+                    onChange={e => {
+                      const id = e.target.value;
+                      if (id && !form.linkedPropertyIds.includes(id)) {
+                        setForm(f => ({ ...f, linkedPropertyIds: [...f.linkedPropertyIds, id] }));
+                      }
+                    }}
+                  >
+                    <option value="">+ Add sub-unit listing…</option>
+                    {uplistingProperties
+                      .filter(p => p.id !== form.propertyId && !form.linkedPropertyIds.includes(p.id))
+                      .map(p => (
+                        <option key={p.id} value={p.id}>{p.nickname || p.name}</option>
+                      ))}
+                  </select>
+                </div>
+              )}
 
               {/* Per-cleaner payout */}
               <div>
