@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Briefcase, Users, CreditCard,
   CheckCircle, TrendingUp, DollarSign, Sparkles, AlertCircle, RefreshCw,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, Trash2,
 } from 'lucide-react';
 import type { View } from '../../types';
 import type { CleaningJob, Cleaner, CleaningPropertyConfig } from '../../types/cleaning';
@@ -397,13 +397,14 @@ function ManualPayoutPanel({ cleaners, onRefresh }: { cleaners: Cleaner[]; onRef
 }
 
 function CleaningPayments({
-  jobs, cleaners, configs, uplistingProperties, onRetryCharge, expenses, onSaveExpense, onDeleteExpense, onRefresh,
+  jobs, cleaners, configs, uplistingProperties, onRetryCharge, onDeleteJob, expenses, onSaveExpense, onDeleteExpense, onRefresh,
 }: {
   jobs: CleaningJob[];
   cleaners: Cleaner[];
   configs: CleaningPropertyConfig[];
   uplistingProperties: UplistingProperty[];
   onRetryCharge: (job: CleaningJob) => Promise<void>;
+  onDeleteJob: (id: string) => Promise<void>;
   expenses: CleaningExpense[];
   onSaveExpense: (e: CleaningExpense) => Promise<void>;
   onDeleteExpense: (id: string) => Promise<void>;
@@ -412,6 +413,7 @@ function CleaningPayments({
   const [filter, setFilter] = useState<PaymentFilter>('all');
   const [retrying, setRetrying] = useState<string | null>(null);
   const [retryErrors, setRetryErrors] = useState<Record<string, string>>({});
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [sendingPayout, setSendingPayout] = useState<string | null>(null);
   const [payoutErrors, setPayoutErrors] = useState<Record<string, string>>({});
   const filterRef = useRef<HTMLDivElement>(null);
@@ -685,16 +687,32 @@ function CleaningPayments({
                         </td>
                       )}
                       <td className="px-4 py-3 text-right">
-                        {!job.chargedAt && job.propertyName !== 'Manual Payout' && (
-                          <button
-                            onClick={() => handleRetry(job)}
-                            disabled={retrying === job.id}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50 ml-auto"
-                          >
-                            <CreditCard size={11} />
-                            {retrying === job.id ? 'Retrying…' : 'Retry'}
-                          </button>
-                        )}
+                        <div className="flex items-center gap-1.5 justify-end">
+                          {!job.chargedAt && job.propertyName !== 'Manual Payout' && (
+                            <button
+                              onClick={() => handleRetry(job)}
+                              disabled={retrying === job.id || deletingJobId === job.id}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50"
+                            >
+                              <CreditCard size={11} />
+                              {retrying === job.id ? 'Retrying…' : 'Retry'}
+                            </button>
+                          )}
+                          {filter === 'not_charged' && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm('Delete this job? This cannot be undone.')) return;
+                                setDeletingJobId(job.id);
+                                try { await onDeleteJob(job.id); } finally { setDeletingJobId(null); }
+                              }}
+                              disabled={deletingJobId === job.id || retrying === job.id}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#1a0e0e] border border-[#3a1a1a] text-[#e05c5c] text-xs font-semibold rounded-lg hover:bg-[#240e0e] transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 size={11} />
+                              {deletingJobId === job.id ? '…' : 'Delete'}
+                            </button>
+                          )}
+                        </div>
                         {retryErrors[job.id] && (
                           <p className="text-xs text-[#e05c5c] mt-1 max-w-[160px]">{retryErrors[job.id]}</p>
                         )}
@@ -1237,7 +1255,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
             />
           )}
           {active === 'cleaning-payments' && (
-            <CleaningPayments jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} expenses={expenses} onSaveExpense={handleSaveExpense} onDeleteExpense={handleDeleteExpense} onRefresh={loadAll} />
+            <CleaningPayments jobs={jobs} cleaners={cleaners} configs={configs} uplistingProperties={uplistingProperties} onRetryCharge={handleRetryCharge} onDeleteJob={handleDeleteJob} expenses={expenses} onSaveExpense={handleSaveExpense} onDeleteExpense={handleDeleteExpense} onRefresh={loadAll} />
           )}
           {active === 'cleaning-leads' && (
             <CleaningLeadsView leads={leads} onSave={handleSaveLead} onBulkSave={handleBulkSaveLead} onDelete={handleDeleteLead} />
