@@ -2223,7 +2223,7 @@ async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
   const supabase = getSupabase();
   const { data: job } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
   if (!job) return res.status(404).json({ error: 'Job not found.' });
-  if (job.status !== 'completed') return res.status(400).json({ error: 'Job must be completed before charging.' });
+  if (job.status === 'cancelled') return res.status(400).json({ error: 'Cannot charge a cancelled job.' });
   if (job.charged_at) return res.status(400).json({ error: 'This job has already been charged.' });
 
   const result = await doChargeAndPayout(job);
