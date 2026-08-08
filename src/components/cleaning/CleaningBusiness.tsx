@@ -597,10 +597,10 @@ function CleaningPayments({
                   </>
                 ) : (
                   <>
-                    <th className="text-left px-4 py-3 hidden lg:table-cell">Cleaner</th>
+                    <th className="text-left px-4 py-3 hidden md:table-cell">Cleaner</th>
                     <th className="text-right px-4 py-3">Fee</th>
-                    <th className="text-right px-4 py-3 hidden md:table-cell">Payout</th>
-                    <th className="text-right px-4 py-3 hidden lg:table-cell">Net</th>
+                    <th className="text-right px-4 py-3 hidden lg:table-cell">Payout</th>
+                    <th className="text-right px-4 py-3 hidden xl:table-cell">Net</th>
                     <th className="text-left px-4 py-3">Charge</th>
                     {filter !== 'charged' && <th className="text-left px-4 py-3 hidden sm:table-cell">Payout</th>}
                     <th className="text-right px-4 py-3">Action</th>
@@ -668,12 +668,12 @@ function CleaningPayments({
                     </>
                   ) : (
                     <>
-                      <td className="px-4 py-3 text-[#b8d4f0] hidden lg:table-cell">
+                      <td className="px-4 py-3 text-[#b8d4f0] hidden md:table-cell">
                         {job.assignedCleanerName || cleaners.find(c => c.id === job.assignedCleanerId)?.name || <span className="text-[#3a5070]">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right text-[#5ce0a0] font-semibold">${job.cleaningFee}</td>
-                      <td className="px-4 py-3 text-right text-[#d07af5] hidden md:table-cell">${job.cleanerPayout}</td>
-                      <td className="px-4 py-3 text-right text-[#d0954a] font-semibold hidden lg:table-cell">${job.cleaningFee - job.cleanerPayout}</td>
+                      <td className="px-4 py-3 text-right text-[#d07af5] hidden lg:table-cell">${job.cleanerPayout}</td>
+                      <td className="px-4 py-3 text-right text-[#d0954a] font-semibold hidden xl:table-cell">${job.cleaningFee - job.cleanerPayout}</td>
                       <td className="px-4 py-3">
                         {job.propertyName === 'Manual Payout' ? (
                           <span className="text-xs text-[#3a5070]">—</span>
