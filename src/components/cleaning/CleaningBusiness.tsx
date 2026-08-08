@@ -1262,6 +1262,7 @@ CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true)
           {active === 'cleaning-cleaners' && (
             <CleanersView
               cleaners={cleaners}
+              jobs={jobs}
               onSave={handleSaveCleaner}
               onDelete={handleDeleteCleaner}
             />
