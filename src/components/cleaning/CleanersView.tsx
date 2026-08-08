@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard, FileText, Copy, Check, Download, Smartphone, X, Calendar } from 'lucide-react';
-import type { Cleaner, CleaningJobType } from '../../types/cleaning';
+import type { Cleaner, CleaningJob, CleaningJobType } from '../../types/cleaning';
 
 interface Props {
   cleaners: Cleaner[];
+  jobs: CleaningJob[];
   onSave: (c: Cleaner) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
@@ -18,7 +19,16 @@ const EMPTY: Omit<Cleaner, 'id' | 'createdAt'> = {
   name: '', email: '', phone: '', status: 'active', skills: ['cleaning'], payoutInfo: '',
 };
 
-export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
+const STATUS_COLOR: Record<string, string> = {
+  pending:     'text-[#d0954a]',
+  dispatched:  'text-[#4a90d9]',
+  accepted:    'text-[#4a90d9]',
+  in_progress: 'text-[#5ce0a0]',
+  completed:   'text-[#5ce0a0]',
+  cancelled:   'text-[#3a5070]',
+};
+
+export default function CleanersView({ cleaners, jobs, onSave, onDelete }: Props) {
   const [editing, setEditing] = useState<Cleaner | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const [saving, setSaving] = useState(false);
@@ -419,6 +429,58 @@ export default function CleanersView({ cleaners, onSave, onDelete }: Props) {
                 </div>
               )}
             </div>
+
+            {/* Job history */}
+            {(() => {
+              const cleanerJobs = jobs
+                .filter(j => j.assignedCleanerId === selected.id)
+                .sort((a, b) => b.checkoutDate.localeCompare(a.checkoutDate));
+              const totalEarned = cleanerJobs.filter(j => j.payoutSentAt).reduce((s, j) => s + j.cleanerPayout, 0);
+              const pendingPayout = cleanerJobs.filter(j => j.status === 'completed' && !j.payoutSentAt).reduce((s, j) => s + j.cleanerPayout, 0);
+              return (
+                <div className="px-6 pb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs text-[#3a5070] font-semibold uppercase tracking-wider">
+                      Jobs ({cleanerJobs.length})
+                    </p>
+                    {cleanerJobs.length > 0 && (
+                      <div className="flex gap-3 text-xs">
+                        {pendingPayout > 0 && (
+                          <span className="text-[#d0954a]">Pending: <strong>${pendingPayout}</strong></span>
+                        )}
+                        <span className="text-[#5ce0a0]">Paid out: <strong>${totalEarned}</strong></span>
+                      </div>
+                    )}
+                  </div>
+                  {cleanerJobs.length === 0 ? (
+                    <p className="text-xs text-[#3a5070] italic">No jobs accepted yet.</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                      {cleanerJobs.map(job => (
+                        <div key={job.id} className="flex items-center justify-between gap-2 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-white truncate">{job.propertyName}</p>
+                            <p className="text-[10px] text-[#3a5070]">
+                              {new Date(job.checkoutDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className={`text-[10px] font-semibold capitalize ${STATUS_COLOR[job.status] ?? 'text-[#3a5070]'}`}>
+                              {job.status.replace('_', ' ')}
+                            </span>
+                            {job.cleanerPayout > 0 && (
+                              <span className={`text-[10px] font-bold ${job.payoutSentAt ? 'text-[#5ce0a0]' : 'text-[#d07af5]'}`}>
+                                ${job.cleanerPayout}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Action buttons */}
             <div className="px-6 pb-6">
