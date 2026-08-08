@@ -584,11 +584,13 @@ function CleaningPayments({
                 <th className="text-left px-4 py-3 hidden sm:table-cell">Date</th>
                 {filter === 'payout_sent' ? (
                   <>
+                    <th className="text-left px-4 py-3 hidden md:table-cell">Cleaner</th>
                     <th className="text-right px-4 py-3">Payout</th>
                     <th className="text-left px-4 py-3">Status</th>
                   </>
                 ) : filter === 'awaiting_payout' ? (
                   <>
+                    <th className="text-left px-4 py-3 hidden md:table-cell">Cleaner</th>
                     <th className="text-right px-4 py-3">Payout</th>
                     <th className="text-left px-4 py-3">Payout Date</th>
                     <th className="text-right px-4 py-3">Action</th>
@@ -615,6 +617,9 @@ function CleaningPayments({
 
                   {filter === 'payout_sent' ? (
                     <>
+                      <td className="px-4 py-3 text-[#b8d4f0] hidden md:table-cell">
+                        {job.assignedCleanerName || cleaners.find(c => c.id === job.assignedCleanerId)?.name || <span className="text-[#3a5070]">—</span>}
+                      </td>
                       <td className="px-4 py-3 text-right text-[#d07af5] font-semibold">${job.cleanerPayout}</td>
                       <td className="px-4 py-3">
                         {job.payoutSentAt ? (
@@ -628,6 +633,9 @@ function CleaningPayments({
                     </>
                   ) : filter === 'awaiting_payout' ? (
                     <>
+                      <td className="px-4 py-3 text-[#b8d4f0] hidden md:table-cell">
+                        {job.assignedCleanerName || cleaners.find(c => c.id === job.assignedCleanerId)?.name || <span className="text-[#3a5070]">—</span>}
+                      </td>
                       <td className="px-4 py-3 text-right text-[#d07af5] font-semibold">${job.cleanerPayout}</td>
                       <td className="px-4 py-3">
                         {job.chargedAt ? (() => {
