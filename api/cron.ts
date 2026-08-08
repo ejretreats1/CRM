@@ -183,6 +183,8 @@ async function autoCharge(job: Record<string, any>): Promise<{ ok: boolean; erro
   const { error: dbErr } = await supabase.from('cleaning_jobs').update({
     charged_at: now,
     stripe_charge_id: paymentIntent.id,
+    status: 'completed',
+    completed_at: now,
     updated_at: now,
   }).eq('id', job.id);
   if (dbErr) {
@@ -677,7 +679,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     payoutFailed: [] as { jobId: string; property: string; error: string }[],
   };
 
-  // ── Step 1: charge clients whose checkout is today ────────────────────────
+  // ── Step 0: backfill — mark already-charged accepted/in_progress jobs as completed ─
+  // Handles jobs that were charged before this auto-complete logic was added
+  await supabase
+    .from('cleaning_jobs')
+    .update({ status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .in('status', ['accepted', 'in_progress'])
+    .not('charged_at', 'is', null)
+    .lt('checkout_date', today);
+
+  // ── Step 1a: charge clients whose checkout is today ───────────────────────
   const { data: toCharge } = await supabase
     .from('cleaning_jobs')
     .select('*')
@@ -685,7 +696,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .in('status', ['accepted', 'in_progress', 'completed'])
     .is('charged_at', null);
 
+
   for (const job of toCharge ?? []) {
+    results.chargesAttempted++;
+    const r = await autoCharge(job);
+    if (r.ok) {
+      results.chargesSucceeded++;
+    } else {
+      results.chargeFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown' });
+    }
+  }
+
+  // ── Step 1b: charge past-due jobs (checkout date already passed, charge missed) ─
+  const { data: pastDue } = await supabase
+    .from('cleaning_jobs')
+    .select('*')
+    .in('status', ['accepted', 'in_progress'])
+    .lt('checkout_date', today)
+    .is('charged_at', null);
+
+  for (const job of pastDue ?? []) {
     results.chargesAttempted++;
     const r = await autoCharge(job);
     if (r.ok) {
