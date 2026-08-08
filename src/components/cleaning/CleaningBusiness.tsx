@@ -427,7 +427,11 @@ function CleaningPayments({
   const [expSaving, setExpSaving] = useState(false);
   const [deletingExpId, setDeletingExpId] = useState<string | null>(null);
 
-  const completed = jobs.filter(j => j.status === 'completed');
+  // Payment-eligible: completed status, OR accepted/in_progress with checkout already passed
+  const completed = jobs.filter(j =>
+    j.status === 'completed' ||
+    (['accepted', 'in_progress'].includes(j.status) && j.checkoutDate <= today)
+  );
   const totalCharged = completed.filter(j => j.chargedAt).reduce((s, j) => s + j.cleaningFee, 0);
   const totalPayouts = completed.filter(j => j.payoutSentAt).reduce((s, j) => s + j.cleanerPayout, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
