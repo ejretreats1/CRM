@@ -48,6 +48,11 @@ function fmtCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 function addBusinessDays(dateStr: string, n: number): string {
   const d = new Date(dateStr + 'T12:00:00');
   let added = 0;
@@ -628,8 +633,11 @@ function CleaningPayments({
                       <td className="px-4 py-3 text-right text-[#d07af5] font-semibold">${job.cleanerPayout}</td>
                       <td className="px-4 py-3">
                         {job.payoutSentAt ? (
-                          <span className="flex items-center gap-1 text-xs text-[#d07af5] font-medium">
-                            <CheckCircle size={11} /> Sent
+                          <span className="flex flex-col gap-0.5">
+                            <span className="flex items-center gap-1 text-xs text-[#d07af5] font-medium">
+                              <CheckCircle size={11} /> Sent
+                            </span>
+                            <span className="text-xs text-[#3a5070]">{fmtDate(job.payoutSentAt)}</span>
                           </span>
                         ) : (
                           <span className="text-xs text-[#3a5070]">Pending</span>
@@ -682,8 +690,11 @@ function CleaningPayments({
                         {job.propertyName === 'Manual Payout' ? (
                           <span className="text-xs text-[#3a5070]">—</span>
                         ) : job.chargedAt ? (
-                          <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
-                            <CheckCircle size={11} /> Charged
+                          <span className="flex flex-col gap-0.5">
+                            <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium">
+                              <CheckCircle size={11} /> Charged
+                            </span>
+                            <span className="text-xs text-[#3a5070]">{fmtDate(job.chargedAt)}</span>
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 text-xs text-[#e05c5c] font-medium">
@@ -694,8 +705,11 @@ function CleaningPayments({
                       {filter !== 'charged' && (
                         <td className="px-4 py-3 hidden sm:table-cell">
                           {job.payoutSentAt ? (
-                            <span className="flex items-center gap-1 text-xs text-[#d07af5] font-medium">
-                              <CheckCircle size={11} /> Sent
+                            <span className="flex flex-col gap-0.5">
+                              <span className="flex items-center gap-1 text-xs text-[#d07af5] font-medium">
+                                <CheckCircle size={11} /> Sent
+                              </span>
+                              <span className="text-xs text-[#3a5070]">{fmtDate(job.payoutSentAt)}</span>
                             </span>
                           ) : (
                             <span className="text-xs text-[#3a5070]">—</span>
