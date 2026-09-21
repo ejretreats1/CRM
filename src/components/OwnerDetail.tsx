@@ -171,6 +171,15 @@ export default function OwnerDetail({
   const [oLink, setOLink] = useState<string | null>(null);
   const [oLinkCopied, setOLinkCopied] = useState(false);
 
+  // Submissions store one entry per property. Older submissions kept a single
+  // property's fields flat on the form itself — fall back to that shape.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const onboardingProperties: Record<string, any>[] = useMemo(() => {
+    if (!onboardingData) return [];
+    const entries = Array.isArray(onboardingData.properties) ? onboardingData.properties : [];
+    return entries.length ? entries : [onboardingData];
+  }, [onboardingData]);
+
   const ownerOutreach = outreach.filter(e => e.ownerId === owner.id);
   const { totalRevenue, avgOccupancy } = useMemo(() => {
     const activeProps = owner.properties.filter(p => p.status === 'active');
@@ -804,20 +813,7 @@ export default function OwnerDetail({
               <OField label="Monthly Costs"  value={onboardingData.monthlyCosts} />
             </OSection>
 
-            <OSection title="Property Details">
-              <OField label="Address"        value={onboardingData.propertyAddress} />
-              <OField label="Type"           value={onboardingData.propertyType} />
-              <OField label="Bedrooms"       value={onboardingData.bedrooms} />
-              <OField label="Bathrooms"      value={onboardingData.bathrooms} />
-              <OField label="Bed Sizes"      value={onboardingData.bedSizes} />
-              <OField label="Door Codes"     value={onboardingData.doorCodes} credential />
-              <OField label="Max Guests"     value={onboardingData.maxGuests} />
-            </OSection>
-
-            <OSection title="Listing Platforms">
-              <OField label="Active Platforms"    value={onboardingData.platforms} />
-              <OField label="Listing Links"       value={onboardingData.listingLinks} />
-              <OField label="Average Rating"      value={onboardingData.averageRatings} />
+            <OSection title="Listing Accounts">
               <OField label="Account Preference"  value={onboardingData.accountPreference} />
               <OField label="Airbnb Login"        value={onboardingData.airbnbLogin}    credential />
               <OField label="VRBO Login"          value={onboardingData.vrboLogin}      credential />
@@ -826,20 +822,40 @@ export default function OwnerDetail({
               <OField label="Bank Account Info"   value={onboardingData.bankInfo}       credential />
             </OSection>
 
-            <OSection title="Property Access">
-              <OField label="Entry Type"    value={onboardingData.entryType} />
-              <OField label="Lock Code"     value={onboardingData.lockCode}      credential />
-              <OField label="WiFi Network"  value={onboardingData.wifiName} />
-              <OField label="WiFi Password" value={onboardingData.wifiPassword}  credential />
-            </OSection>
-
-            <OSection title="Features & Amenities">
-              <OField label="Amenities"         value={onboardingData.amenities} />
-              <OField label="Other Amenities"   value={onboardingData.otherAmenities} />
-            </OSection>
+            {onboardingProperties.map((p, i) => (
+              <OSection
+                key={i}
+                title={
+                  onboardingProperties.length > 1
+                    ? `Property ${i + 1}${p.propertyAddress ? ` — ${p.propertyAddress}` : ''}`
+                    : 'Property Details'
+                }
+              >
+                <OField label="Address"        value={p.propertyAddress} />
+                <OField label="Type"           value={p.propertyType} />
+                <OField label="Bedrooms"       value={p.bedrooms} />
+                <OField label="Bathrooms"      value={p.bathrooms} />
+                <OField label="Bed Sizes"      value={p.bedSizes} />
+                <OField label="Door Codes"     value={p.doorCodes} credential />
+                <OField label="Max Guests"     value={p.maxGuests} />
+                <OField label="Active Platforms" value={p.platforms} />
+                <OField label="Listing Links"  value={p.listingLinks} />
+                <OField label="Average Rating" value={p.averageRatings} />
+                <OField label="Entry Type"     value={p.entryType} />
+                <OField label="Lock Code"      value={p.lockCode}      credential />
+                <OField label="WiFi Network"   value={p.wifiName} />
+                <OField label="WiFi Password"  value={p.wifiPassword}  credential />
+                <OField label="Amenities"      value={p.amenities} />
+                <OField label="Other Amenities" value={p.otherAmenities} />
+                <OField label="Stocked Supplies" value={p.stockedSupplies} />
+                <OField label="Blackout Dates" value={p.blackoutDates} />
+                <OField label="Pets Allowed"   value={p.petsAllowed} />
+                <OField label="House Rules"    value={p.houseRules} />
+                <OField label="Pro Photos"     value={p.professionalPhotos} />
+              </OSection>
+            ))}
 
             <OSection title="Supplies & Maintenance">
-              <OField label="Stocked Supplies"    value={onboardingData.stockedSupplies} />
               <OField label="Supply Ordering"     value={onboardingData.supplyOrdering} />
               <OField label="Preferred Cleaner"   value={onboardingData.preferredCleaner} />
               <OField label="Cleaner Contact"     value={onboardingData.cleanerContact} credential />
@@ -850,14 +866,10 @@ export default function OwnerDetail({
             <OSection title="Pricing & Preferences">
               <OField label="Pricing Tool"    value={onboardingData.pricingTool} />
               <OField label="PriceLabs"       value={onboardingData.priceLabs} />
-              <OField label="Blackout Dates"  value={onboardingData.blackoutDates} />
               <OField label="PMS Software"    value={onboardingData.pms} />
-              <OField label="Pets Allowed"    value={onboardingData.petsAllowed} />
-              <OField label="House Rules"     value={onboardingData.houseRules} />
             </OSection>
 
             <OSection title="Final Notes">
-              <OField label="Pro Photos"      value={onboardingData.professionalPhotos} />
               <OField label="Additional Info" value={onboardingData.additionalInfo} />
               <OField label="Questions"       value={onboardingData.questions} />
             </OSection>
