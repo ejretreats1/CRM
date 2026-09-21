@@ -742,15 +742,7 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
 
   const now = new Date().toISOString();
   const notes = buildOnboardingNotes(formData);
-
-  const propInfo = {
-    doorCode:        formData.lockCode       || undefined,
-    wifiNetwork:     formData.wifiName       || undefined,
-    wifiPassword:    formData.wifiPassword   || undefined,
-    petPolicy:       formData.petsAllowed === 'Yes' ? 'Pets allowed ($75 fee)' : formData.petsAllowed === 'No' ? 'No pets' : undefined,
-    houseRulesNotes: formData.houseRules     || undefined,
-    generalNotes:    formData.otherAmenities || undefined,
-  };
+  const entries = onboardingProperties(formData);
 
   if (request.owner_id) {
     // ── Existing client: update notes, don't create a new owner ──────────────
@@ -760,36 +752,40 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
       .eq('id', request.owner_id);
     if (updateErr) return res.status(500).json({ error: updateErr.message });
 
-    // Update existing property's property_info if the address matches, otherwise add new
-    if (formData.propertyAddress?.trim()) {
+    // Update each submitted property whose address matches an existing one,
+    // otherwise add it as a new property for this owner.
+    if (entries.length) {
       const { data: existingProps } = await supabase
         .from('properties')
         .select('id, address')
         .eq('owner_id', request.owner_id);
-      const match = existingProps?.find(p =>
-        p.address?.toLowerCase().trim() === formData.propertyAddress.toLowerCase().trim()
-      );
-      if (match) {
-        await supabase.from('properties').update({
-          type:        formData.propertyType || undefined,
-          bedrooms:    parseInt(formData.bedrooms)  || undefined,
-          bathrooms:   parseFloat(formData.bathrooms) || undefined,
-          max_guests:  parseInt(formData.maxGuests) || undefined,
-          platforms:   formData.platforms?.length ? formData.platforms : undefined,
-          property_info: propInfo,
-        }).eq('id', match.id);
-      } else {
-        await supabase.from('properties').insert({
-          id: `prop_${Date.now()}`, owner_id: request.owner_id,
-          address: formData.propertyAddress, city: '', state: '',
-          type: formData.propertyType || '',
-          bedrooms: parseInt(formData.bedrooms) || 0,
-          bathrooms: parseFloat(formData.bathrooms) || 0,
-          max_guests: parseInt(formData.maxGuests) || 0,
-          monthly_revenue: 0, occupancy_rate: 0,
-          platforms: formData.platforms ?? [], status: 'onboarding', joined_at: now,
-          property_info: propInfo,
-        });
+      for (const [i, entry] of entries.entries()) {
+        const address = String(entry.propertyAddress).trim();
+        const match = existingProps?.find(p =>
+          p.address?.toLowerCase().trim() === address.toLowerCase()
+        );
+        if (match) {
+          await supabase.from('properties').update({
+            type:        entry.propertyType || undefined,
+            bedrooms:    parseInt(entry.bedrooms)  || undefined,
+            bathrooms:   parseFloat(entry.bathrooms) || undefined,
+            max_guests:  parseInt(entry.maxGuests) || undefined,
+            platforms:   entry.platforms?.length ? entry.platforms : undefined,
+            property_info: onboardingPropertyInfo(entry),
+          }).eq('id', match.id);
+        } else {
+          await supabase.from('properties').insert({
+            id: `prop_${Date.now()}_${i}`, owner_id: request.owner_id,
+            address, city: '', state: '',
+            type: entry.propertyType || '',
+            bedrooms: parseInt(entry.bedrooms) || 0,
+            bathrooms: parseFloat(entry.bathrooms) || 0,
+            max_guests: parseInt(entry.maxGuests) || 0,
+            monthly_revenue: 0, occupancy_rate: 0,
+            platforms: entry.platforms ?? [], status: 'onboarding', joined_at: now,
+            property_info: onboardingPropertyInfo(entry),
+          });
+        }
       }
     }
 
@@ -800,7 +796,7 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
     return res.status(200).json({ success: true });
   }
 
-  // ── New client: create owner + property ────────────────────────────────────
+  // ── New client: create owner + every property they listed ─────────────────
   const ownerId = `owner_${Date.now()}`;
   const portalToken = randomUUID();
 
@@ -810,18 +806,18 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
   });
   if (ownerErr) return res.status(500).json({ error: ownerErr.message });
 
-  if (formData.propertyAddress?.trim()) {
-    await supabase.from('properties').insert({
-      id: `prop_${Date.now()}`, owner_id: ownerId,
-      address: formData.propertyAddress, city: '', state: '',
-      type: formData.propertyType || '',
-      bedrooms: parseInt(formData.bedrooms) || 0,
-      bathrooms: parseFloat(formData.bathrooms) || 0,
-      max_guests: parseInt(formData.maxGuests) || 0,
+  if (entries.length) {
+    await supabase.from('properties').insert(entries.map((entry, i) => ({
+      id: `prop_${Date.now()}_${i}`, owner_id: ownerId,
+      address: String(entry.propertyAddress).trim(), city: '', state: '',
+      type: entry.propertyType || '',
+      bedrooms: parseInt(entry.bedrooms) || 0,
+      bathrooms: parseFloat(entry.bathrooms) || 0,
+      max_guests: parseInt(entry.maxGuests) || 0,
       monthly_revenue: 0, occupancy_rate: 0,
-      platforms: formData.platforms ?? [], status: 'onboarding', joined_at: now,
-      property_info: propInfo,
-    });
+      platforms: entry.platforms ?? [], status: 'onboarding', joined_at: now,
+      property_info: onboardingPropertyInfo(entry),
+    })));
   }
 
   await supabase.from('onboarding_requests').update({
@@ -831,29 +827,67 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
   return res.status(200).json({ success: true });
 }
 
+/*
+ * The onboarding form collects one entry per property. Older submissions stored
+ * the single property's fields flat on the form itself, so fall back to that
+ * shape. Entries without an address are dropped, as are duplicate addresses.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function onboardingProperties(f: any): any[] {
+  const raw: any[] = Array.isArray(f?.properties) && f.properties.length ? f.properties : [f];
+  const seen = new Set<string>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return raw.filter((p: any) => {
+    const address = typeof p?.propertyAddress === 'string' ? p.propertyAddress.trim().toLowerCase() : '';
+    if (!address || seen.has(address)) return false;
+    seen.add(address);
+    return true;
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function onboardingPropertyInfo(p: any) {
+  return {
+    doorCode:        p.lockCode       || undefined,
+    wifiNetwork:     p.wifiName       || undefined,
+    wifiPassword:    p.wifiPassword   || undefined,
+    petPolicy:       p.petsAllowed === 'Yes' ? 'Pets allowed ($75 fee)' : p.petsAllowed === 'No' ? 'No pets' : undefined,
+    houseRulesNotes: p.houseRules     || undefined,
+    generalNotes:    p.otherAmenities || undefined,
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildOnboardingNotes(f: any): string {
   const lines: string[] = ['=== ONBOARDING FORM SUBMISSION ==='];
   const add = (label: string, val: unknown) => { if (val) lines.push(`${label}: ${val}`); };
-  add('Monthly costs', f.monthlyCosts); add('Property type', f.propertyType);
-  add('Bedrooms', f.bedrooms); add('Bathrooms', f.bathrooms); add('Bed sizes', f.bedSizes);
-  add('Max guests', f.maxGuests); add('Door codes', f.doorCodes);
-  if (f.platforms?.length) lines.push(`Platforms: ${f.platforms.join(', ')}`);
-  add('Listing links', f.listingLinks); add('Airbnb login', f.airbnbLogin);
-  add('VRBO login', f.vrboLogin); add('Booking.com login', f.bookingLogin);
-  add('Stripe login', f.stripeLogin); add('Average ratings', f.averageRatings);
+  add('Monthly costs', f.monthlyCosts);
+  add('Airbnb login', f.airbnbLogin); add('VRBO login', f.vrboLogin);
+  add('Booking.com login', f.bookingLogin); add('Stripe login', f.stripeLogin);
   add('Account preference', f.accountPreference); add('Bank info', f.bankInfo);
-  add('Entry type', f.entryType); add('Lock code', f.lockCode);
-  if (f.wifiName) lines.push(`WiFi: ${f.wifiName} / ${f.wifiPassword ?? ''}`);
-  if (f.amenities?.length) lines.push(`Amenities: ${f.amenities.join(', ')}`);
-  add('Other amenities', f.otherAmenities); add('Stocked supplies', f.stockedSupplies);
   add('Supply ordering', f.supplyOrdering); add('Preferred cleaner', f.preferredCleaner);
   add('Cleaner contact', f.cleanerContact); add('Preferred handyman', f.preferredHandyman);
   add('Handyman contact', f.handymanContact); add('Pricing tool', f.pricingTool);
-  add('PriceLabs', f.priceLabs); add('Blackout dates', f.blackoutDates); add('PMS', f.pms);
-  add('Pets allowed', f.petsAllowed); add('House rules', f.houseRules);
-  add('Professional photos', f.professionalPhotos); add('Additional info', f.additionalInfo);
-  add('Questions', f.questions);
+  add('PriceLabs', f.priceLabs); add('PMS', f.pms);
+  add('Additional info', f.additionalInfo); add('Questions', f.questions);
+
+  const entries = onboardingProperties(f);
+  if (entries.length > 1) lines.push(`Properties submitted: ${entries.length}`);
+  entries.forEach((p, i) => {
+    lines.push('', `--- PROPERTY ${i + 1}: ${String(p.propertyAddress).trim()} ---`);
+    add('Property type', p.propertyType);
+    add('Bedrooms', p.bedrooms); add('Bathrooms', p.bathrooms); add('Bed sizes', p.bedSizes);
+    add('Max guests', p.maxGuests); add('Door codes', p.doorCodes);
+    if (p.platforms?.length) lines.push(`Platforms: ${p.platforms.join(', ')}`);
+    add('Listing links', p.listingLinks); add('Average ratings', p.averageRatings);
+    add('Entry type', p.entryType); add('Lock code', p.lockCode);
+    if (p.wifiName) lines.push(`WiFi: ${p.wifiName} / ${p.wifiPassword ?? ''}`);
+    if (p.amenities?.length) lines.push(`Amenities: ${p.amenities.join(', ')}`);
+    add('Other amenities', p.otherAmenities); add('Stocked supplies', p.stockedSupplies);
+    add('Blackout dates', p.blackoutDates);
+    add('Pets allowed', p.petsAllowed); add('House rules', p.houseRules);
+    add('Professional photos', p.professionalPhotos);
+  });
   return lines.join('\n');
 }
 
