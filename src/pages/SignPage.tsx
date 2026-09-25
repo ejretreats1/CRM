@@ -1,7 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
+// Legacy build: signers open this page in whatever browser they have, and the
+// modern pdf.js build relies on very recent JS features (e.g. Map.getOrInsertComputed).
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import SignatureCanvas from 'react-signature-canvas';
 import { fetchSignatureRequestByToken } from '../services/signatures';
 import type { SignatureRequest } from '../types';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
+  import.meta.url,
+).href;
 
 interface SignPageProps {
   token: string;
@@ -163,14 +171,9 @@ export default function SignPage({ token }: SignPageProps) {
               Open in new tab
             </a>
           </div>
-          <iframe
-            src={sigReq?.documentUrl}
-            className="w-full h-[45vh] sm:h-[55vh] max-h-[500px]"
-            title="Document to sign"
-          />
-          <p className="px-5 py-2 border-t border-[#1e2d45] text-xs text-[#3a5070]">
-            Scroll past the document to sign below.
-          </p>
+          {/* Rendered inline (not in an iframe) so the browser's PDF viewer
+              can't capture wheel / trackpad / touch scrolling from the page. */}
+          {sigReq?.documentUrl && <InlinePdf url={sigReq.documentUrl} />}
         </div>
 
         {/* Signature pad */}
@@ -215,6 +218,98 @@ export default function SignPage({ token }: SignPageProps) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Renders every page of a PDF as stacked canvases in normal page flow, so
+ * wheel / trackpad / touch scrolling always moves the page itself.
+ * Falls back to an <iframe> if pdf.js can't load the document.
+ */
+function InlinePdf({ url }: { url: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [doc, setDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  // Load the document.
+  useEffect(() => {
+    let cancelled = false;
+    const task = pdfjsLib.getDocument(url);
+    task.promise
+      .then(d => { if (cancelled) d.destroy(); else setDoc(d); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => {
+      cancelled = true;
+      task.destroy().catch(() => { /* ignore */ });
+    };
+  }, [url]);
+
+  // Render all pages into the canvases; re-render on resize.
+  useEffect(() => {
+    if (!doc) return;
+    let cancelled = false;
+    let tasks: pdfjsLib.RenderTask[] = [];
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const renderAll = async () => {
+      const container = containerRef.current;
+      if (!container) return;
+      tasks.forEach(t => { try { t.cancel(); } catch { /* ignore */ } });
+      tasks = [];
+      const cssWidth = Math.min(container.clientWidth || 700, 900);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const canvases = Array.from(container.querySelectorAll<HTMLCanvasElement>('canvas'));
+      for (let i = 0; i < doc.numPages && !cancelled; i++) {
+        const canvas = canvases[i];
+        if (!canvas) continue;
+        const page = await doc.getPage(i + 1);
+        if (cancelled) return;
+        const base = page.getViewport({ scale: 1 });
+        const vp = page.getViewport({ scale: (cssWidth / base.width) * dpr });
+        canvas.width = Math.floor(vp.width);
+        canvas.height = Math.floor(vp.height);
+        canvas.style.width = `${cssWidth}px`;
+        canvas.style.height = `${Math.floor(vp.height / dpr)}px`;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) continue;
+        const task = page.render({ canvas, canvasContext: ctx, viewport: vp });
+        tasks.push(task);
+        try { await task.promise; } catch { /* cancelled */ }
+      }
+    };
+
+    renderAll();
+    const onResize = () => { clearTimeout(timer); timer = setTimeout(renderAll, 150); };
+    window.addEventListener('resize', onResize);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      window.removeEventListener('resize', onResize);
+      tasks.forEach(t => { try { t.cancel(); } catch { /* ignore */ } });
+    };
+  }, [doc]);
+
+  if (failed) {
+    return (
+      <iframe
+        src={url}
+        className="w-full h-[45vh] sm:h-[55vh] max-h-[500px]"
+        title="Document to sign"
+      />
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="bg-[#0f1623] p-3 sm:p-4 space-y-3">
+      {!doc && <p className="text-center text-xs text-[#3a5070] py-10">Loading document...</p>}
+      {doc && Array.from({ length: doc.numPages }, (_, i) => (
+        <canvas
+          key={i}
+          className="block mx-auto max-w-full bg-white rounded shadow-md"
+          aria-label={`Page ${i + 1} of ${doc.numPages}`}
+        />
+      ))}
     </div>
   );
 }
