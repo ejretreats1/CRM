@@ -15,6 +15,28 @@ export default function SignPage({ token }: SignPageProps) {
   const [errorMsg, setErrorMsg] = useState('');
   const [signedUrl, setSignedUrl] = useState('');
   const sigCanvasRef = useRef<SignatureCanvas>(null);
+  const signatureSectionRef = useRef<HTMLDivElement>(null);
+
+  // The global CSS sets overflow-x:hidden / max-width on html+body (and
+  // overscroll-behavior-y:none on body) for the CRM dashboard. On public pages
+  // with no Layout wrapper that combination blocks normal page scrolling on
+  // some devices — override it for the lifetime of this page.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    html.style.overflowX = 'visible';
+    html.style.maxWidth = '';
+    body.style.overflowX = 'visible';
+    body.style.maxWidth = '';
+    body.style.overscrollBehaviorY = 'auto';
+    return () => {
+      html.style.overflowX = '';
+      html.style.maxWidth = '';
+      body.style.overflowX = '';
+      body.style.maxWidth = '';
+      body.style.overscrollBehaviorY = '';
+    };
+  }, []);
 
   useEffect(() => {
     fetchSignatureRequestByToken(token).then(req => {
@@ -119,6 +141,13 @@ export default function SignPage({ token }: SignPageProps) {
           </div>
           <h1 className="text-2xl font-bold text-white">Sign Document</h1>
           <p className="text-[#b8d4f0] text-sm mt-1">E&amp;J Retreats — {sigReq?.documentName}</p>
+          <button
+            type="button"
+            onClick={() => signatureSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="mt-3 text-xs text-[#4a90d9] hover:underline"
+          >
+            Skip to signature ↓
+          </button>
         </div>
 
         {/* PDF Preview */}
@@ -136,14 +165,16 @@ export default function SignPage({ token }: SignPageProps) {
           </div>
           <iframe
             src={sigReq?.documentUrl}
-            className="w-full"
-            style={{ height: '500px' }}
+            className="w-full h-[45vh] sm:h-[55vh] max-h-[500px]"
             title="Document to sign"
           />
+          <p className="px-5 py-2 border-t border-[#1e2d45] text-xs text-[#3a5070]">
+            Scroll past the document to sign below.
+          </p>
         </div>
 
         {/* Signature pad */}
-        <div className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5">
+        <div ref={signatureSectionRef} className="bg-[#1a2335] rounded-xl border border-[#1e2d45] p-5 scroll-mt-6">
           <div className="flex items-center justify-between mb-3">
             <label className="text-sm font-medium text-[#b8d4f0]">Your Signature *</label>
             <button
