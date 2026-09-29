@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Home, ChevronLeft, ChevronRight, Phone, Mail,
   Users, Bed, Calendar, ExternalLink, Edit2, Check, X, Wrench,
@@ -184,7 +184,9 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
   // submission for the owner, matched to this property by address).
   const [onboardingEntry, setOnboardingEntry] = useState<OnboardingEntry | null>(null);
   const [onboardingLoaded, setOnboardingLoaded] = useState(false);
-  const [applyingInfo, setApplyingInfo] = useState(false);
+  // Property ids whose Property Info has already been auto-filled this session,
+  // so the sync runs once per property rather than on every re-render.
+  const autoAppliedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     let cancelled = false;
     setOnboardingLoaded(false);
@@ -196,20 +198,26 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
       .order('submitted_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (cancelled) return;
-        setOnboardingEntry(findOnboardingEntry(data?.form_data, [property.address]));
+        const entry = findOnboardingEntry(data?.form_data, [property.address]);
+        setOnboardingEntry(entry);
         setOnboardingLoaded(true);
+
+        // Auto-apply: fill any blank Property Info fields from the form.
+        // Existing values are never overwritten, so E&J's edits stick.
+        if (entry && onUpdateProperty && !autoAppliedRef.current.has(property.id)) {
+          autoAppliedRef.current.add(property.id);
+          const current = property.propertyInfo ?? {};
+          const merged = propertyInfoFromEntry(entry, current);
+          if (JSON.stringify(merged) !== JSON.stringify(current)) {
+            try { await onUpdateProperty({ ...property, propertyInfo: merged }); } catch { /* shown on next load */ }
+          }
+        }
       });
     return () => { cancelled = true; };
-  }, [owner.id, property.address]);
-
-  async function applyOnboardingToInfo() {
-    if (!onboardingEntry || !onUpdateProperty) return;
-    setApplyingInfo(true);
-    try { await savePropertyInfo(propertyInfoFromEntry(onboardingEntry, property.propertyInfo ?? {})); }
-    finally { setApplyingInfo(false); }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owner.id, property.id, property.address]);
 
   async function saveDetails() {
     if (!onUpdateProperty) return;
@@ -1014,20 +1022,8 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
         </div>
       )}
 
-      {/* Onboarding form answers for this property */}
+      {/* Onboarding form answers for this property (auto-synced into Property Info above) */}
       <div className="mt-5">
-        {onboardingEntry && onUpdateProperty && (
-          <div className="flex justify-end mb-2">
-            <button
-              onClick={applyOnboardingToInfo}
-              disabled={applyingInfo}
-              title="Copy codes, WiFi, check-in/out, trash and calendar links from the form into Property Info (only fills blanks)"
-              className="text-xs font-medium text-[#4a90d9] border border-[#1e3a5a] hover:bg-[#162035] px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {applyingInfo ? 'Applying…' : 'Apply form answers to Property Info'}
-            </button>
-          </div>
-        )}
         <OnboardingAnswers
           entry={onboardingEntry}
           info={onboardingEntry ? null : property.propertyInfo}
