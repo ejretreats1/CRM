@@ -17,6 +17,7 @@ import { fetchOwnerDriveLinks, saveOwnerDriveLink, deleteOwnerDriveLink } from '
 import type { OwnerDriveLink } from '../services/ownerDriveLinks';
 import { fetchRevenueReportsByOwner } from '../services/revenueReports';
 import { generateOwnerPortalToken } from '../services/db';
+import { addressesMatch, isListingLinkedPropertyId } from '../services/addressMatch';
 import OwnerRevenueReport from './OwnerRevenueReport';
 import ReportViewerModal from './modals/ReportViewerModal';
 import SignatureRequestModal from './modals/SignatureRequestModal';
@@ -36,7 +37,7 @@ interface OwnerDetailProps {
   uplistingApiKey?: string;
   hostawayAccountId?: string;
   hostawaySecret?: string;
-  onImportProperties: (properties: Property[]) => Promise<void>;
+  onImportProperties: (properties: Property[], replaces?: Record<string, string>) => Promise<void>;
   reservations?: UplistingReservation[];
   onUpdateOwner: (owner: Owner) => Promise<void>;
   onNavigateToProperty?: (ownerId: string, propertyId: string) => void;
@@ -162,6 +163,8 @@ export default function OwnerDetail({
   const [importError, setImportError] = useState('');
   const [importProps, setImportProps] = useState<UplistingProperty[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // listing id → id of an existing manual property it should replace ('' = create new)
+  const [mergeTargets, setMergeTargets] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -311,6 +314,18 @@ export default function OwnerDetail({
       }
       setImportProps(props);
       setSelectedIds(new Set());
+      // Pre-select an existing manual property (e.g. from the onboarding form)
+      // whose address matches the listing, so importing merges instead of duplicating.
+      const manual = owner.properties.filter(p => !isListingLinkedPropertyId(p.id));
+      const defaults: Record<string, string> = {};
+      const taken = new Set<string>();
+      for (const u of props) {
+        const match = manual.find(m => !taken.has(m.id) && (
+          addressesMatch(m.address, u.address) || addressesMatch(m.address, u.nickname) || addressesMatch(m.address, u.name)
+        ));
+        if (match) { defaults[u.id] = match.id; taken.add(match.id); }
+      }
+      setMergeTargets(defaults);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Failed to fetch properties');
     } finally {
@@ -322,24 +337,34 @@ export default function OwnerDetail({
     const toImport = importProps.filter(p => selectedIds.has(p.id));
     if (!toImport.length) return;
     const now = new Date().toISOString();
-    const properties: Property[] = toImport.map(u => ({
-      id: `p_${Date.now()}_${u.id}`,
-      address: u.address || u.nickname || u.name,
-      city:    u.city  ?? '',
-      state:   u.state ?? '',
-      type:    u.property_type || 'Cabin',
-      bedrooms:     u.bedrooms,
-      bathrooms:    u.bathrooms,
-      maxGuests:    u.max_guests,
-      monthlyRevenue: 0,
-      occupancyRate:  0,
-      platforms: [...new Set((u.channels ?? []).map(c => CHANNEL_MAP[c] ?? c))],
-      status:   'active' as PropertyStatus,
-      joinedAt: now,
-    }));
+    const replaces: Record<string, string> = {};
+    const properties: Property[] = toImport.map(u => {
+      const id = `p_${Date.now()}_${u.id}`;
+      const existing = mergeTargets[u.id] ? owner.properties.find(p => p.id === mergeTargets[u.id]) : undefined;
+      if (existing) replaces[id] = existing.id;
+      const platforms = [...new Set((u.channels ?? []).map(c => CHANNEL_MAP[c] ?? c))];
+      return {
+        id,
+        address: u.address || existing?.address || u.nickname || u.name,
+        city:    u.city  || existing?.city  || '',
+        state:   u.state || existing?.state || '',
+        type:    u.property_type || existing?.type || 'Cabin',
+        bedrooms:     u.bedrooms  || existing?.bedrooms  || 0,
+        bathrooms:    u.bathrooms || existing?.bathrooms || 0,
+        maxGuests:    u.max_guests || existing?.maxGuests || 0,
+        monthlyRevenue: existing?.monthlyRevenue ?? 0,
+        occupancyRate:  existing?.occupancyRate ?? 0,
+        platforms: platforms.length ? platforms : (existing?.platforms ?? []),
+        status:   'active' as PropertyStatus,
+        joinedAt: existing?.joinedAt ?? now,
+        photoUrl: existing?.photoUrl,
+        // Keep everything the owner told us on the onboarding form.
+        propertyInfo: existing?.propertyInfo,
+      };
+    });
     setImporting(true);
     try {
-      await onImportProperties(properties);
+      await onImportProperties(properties, replaces);
       setImportOpen(false);
     } catch {
       setImportError('Import failed. Please try again.');
@@ -372,6 +397,8 @@ export default function OwnerDetail({
   }
 
   const importSourceLabel = importSource === 'hostaway' ? 'Hostaway' : 'Uplisting';
+  // Properties not yet tied to a listing (e.g. created by the onboarding form) — merge candidates.
+  const manualProperties = owner.properties.filter(p => !isListingLinkedPropertyId(p.id));
 
   return (
     <>
@@ -951,24 +978,44 @@ export default function OwnerDetail({
               <div className="space-y-2">
                 <p className="text-xs text-[#b8d4f0] mb-3">{importProps.length} propert{importProps.length === 1 ? 'y' : 'ies'} found — select to import:</p>
                 {importProps.map(p => (
-                  <label key={p.id} className="flex items-start gap-3 p-3 rounded-lg border border-[#243550] hover:border-indigo-300 cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(p.id)}
-                      onChange={e => setSelectedIds(prev => {
-                        const next = new Set(prev);
-                        e.target.checked ? next.add(p.id) : next.delete(p.id);
-                        return next;
-                      })}
-                      className="mt-0.5 accent-indigo-600"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-white truncate">{p.nickname || p.name}</div>
-                      {p.nickname && p.name && p.nickname !== p.name && <div className="text-xs text-[#3a5070] truncate">{p.name}</div>}
-                      {p.address && <div className="text-xs text-[#b8d4f0] mt-0.5 truncate">{p.address}{p.city ? `, ${p.city}` : ''}{p.state ? `, ${p.state}` : ''}</div>}
-                      <div className="text-xs text-[#3a5070] mt-1">{p.bedrooms}bd · {p.bathrooms}ba · max {p.max_guests}</div>
-                    </div>
-                  </label>
+                  <div key={p.id} className="rounded-lg border border-[#243550] hover:border-indigo-300 transition-colors">
+                    <label className="flex items-start gap-3 p-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(p.id)}
+                        onChange={e => setSelectedIds(prev => {
+                          const next = new Set(prev);
+                          e.target.checked ? next.add(p.id) : next.delete(p.id);
+                          return next;
+                        })}
+                        className="mt-0.5 accent-indigo-600"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-white truncate">{p.nickname || p.name}</div>
+                        {p.nickname && p.name && p.nickname !== p.name && <div className="text-xs text-[#3a5070] truncate">{p.name}</div>}
+                        {p.address && <div className="text-xs text-[#b8d4f0] mt-0.5 truncate">{p.address}{p.city ? `, ${p.city}` : ''}{p.state ? `, ${p.state}` : ''}</div>}
+                        <div className="text-xs text-[#3a5070] mt-1">{p.bedrooms}bd · {p.bathrooms}ba · max {p.max_guests}</div>
+                      </div>
+                    </label>
+                    {selectedIds.has(p.id) && manualProperties.length > 0 && (
+                      <div className="px-3 pb-3 pl-9">
+                        <label className="block text-[10px] font-semibold text-[#3a5070] mb-1">Same as an existing property?</label>
+                        <select
+                          value={mergeTargets[p.id] ?? ''}
+                          onChange={e => setMergeTargets(prev => ({ ...prev, [p.id]: e.target.value }))}
+                          className="w-full bg-[#0f1923] border border-[#243550] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-400"
+                        >
+                          <option value="">No — add as a new property</option>
+                          {manualProperties.map(m => (
+                            <option key={m.id} value={m.id}>Yes — merge into "{m.address}"</option>
+                          ))}
+                        </select>
+                        {mergeTargets[p.id] && (
+                          <p className="text-[10px] text-[#5ce0a0] mt-1">Links this listing to the existing property instead of creating a duplicate. Onboarding details are kept.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
