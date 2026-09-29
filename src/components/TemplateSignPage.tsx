@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import SignatureCanvas from 'react-signature-canvas';
+import SignaturePad from './SignaturePad';
+import type { SignaturePadHandle } from './SignaturePad';
 import { ChevronLeft, ChevronRight, CheckCircle, Pen, X, Play, FileSignature } from 'lucide-react';
 import type { AgreementField, AgreementTemplate } from '../services/rentalAgreements';
 import { fetchTemplateByShareToken } from '../services/rentalAgreements';
@@ -29,7 +30,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
 // ─── Signature modal ──────────────────────────────────────────────────────────
 
 function SigModal({ field, onSave, onClose }: { field: AgreementField; onSave: (d: string) => void; onClose: () => void }) {
-  const padRef = useRef<SignatureCanvas | null>(null);
+  const padRef = useRef<SignaturePadHandle | null>(null);
   function save() {
     if (padRef.current && !padRef.current.isEmpty())
       onSave(padRef.current.getTrimmedCanvas().toDataURL('image/png'));
@@ -45,7 +46,7 @@ function SigModal({ field, onSave, onClose }: { field: AgreementField; onSave: (
         <button onClick={onClose} className="text-[#3a5070] hover:text-white p-2 transition-colors"><X size={22} /></button>
       </div>
       <div className="bg-white mx-4 mt-4 rounded-2xl overflow-hidden flex-shrink-0" style={{ height: '55vh', touchAction: 'none' }}>
-        <SignatureCanvas ref={padRef} canvasProps={{ style: { width: '100%', height: '100%', display: 'block' } }} penColor="#1a2335" backgroundColor="rgba(255,255,255,1)" />
+        <SignaturePad ref={padRef} style={{ height: '100%' }} penColor="#1a2335" backgroundColor="rgba(255,255,255,1)" />
       </div>
       <div className="flex-1" />
       <div className="px-4 pb-10 pt-4 flex gap-3 flex-shrink-0">

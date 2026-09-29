@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 // Legacy build: signers open this page in whatever browser they have, and the
 // modern pdf.js build relies on very recent JS features (e.g. Map.getOrInsertComputed).
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import SignatureCanvas from 'react-signature-canvas';
+import SignaturePad from '../components/SignaturePad';
+import type { SignaturePadHandle } from '../components/SignaturePad';
 import { fetchSignatureRequestByToken } from '../services/signatures';
 import type { SignatureRequest } from '../types';
 
@@ -22,7 +23,7 @@ export default function SignPage({ token }: SignPageProps) {
   const [status, setStatus] = useState<Status>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const [signedUrl, setSignedUrl] = useState('');
-  const sigCanvasRef = useRef<SignatureCanvas>(null);
+  const sigCanvasRef = useRef<SignaturePadHandle>(null);
   const signatureSectionRef = useRef<HTMLDivElement>(null);
 
   // The global CSS sets overflow-x:hidden / max-width on html+body (and
@@ -189,13 +190,11 @@ export default function SignPage({ token }: SignPageProps) {
             </button>
           </div>
           <div className="border-2 border-dashed border-[#1e2d45] rounded-lg overflow-hidden bg-[#1e2d45]">
-            <SignatureCanvas
+            <SignaturePad
               ref={sigCanvasRef}
               penColor="#1e293b"
-              canvasProps={{
-                className: 'w-full',
-                style: { height: '160px', display: 'block', width: '100%' },
-              }}
+              className="w-full"
+              style={{ height: '160px' }}
             />
           </div>
           <p className="text-xs text-[#3a5070] mt-2">Draw your signature above using your mouse or finger.</p>
