@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import SignatureCanvas from 'react-signature-canvas';
+import SignaturePad from './SignaturePad';
+import type { SignaturePadHandle } from './SignaturePad';
 
 type PageState = 'loading' | 'error' | 'form' | 'done';
 
@@ -46,7 +47,7 @@ export default function CleanerOnboardingPage({ token }: { token: string }) {
   const [sigEmpty, setSigEmpty] = useState(true);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sigRef = useRef<any>(null);
+  const sigRef = useRef<SignaturePadHandle | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -393,12 +394,10 @@ export default function CleanerOnboardingPage({ token }: { token: string }) {
               <div>
                 <p className="text-xs text-gray-500 mb-2 font-medium">Draw your signature below:</p>
                 <div className="relative bg-white rounded-xl border-2 border-blue-300 overflow-hidden">
-                  <SignatureCanvas
+                  <SignaturePad
                     ref={sigRef}
-                    canvasProps={{
-                      className: 'w-full',
-                      style: { height: '130px', display: 'block' },
-                    }}
+                    className="w-full"
+                    style={{ height: '130px' }}
                     backgroundColor="white"
                     onEnd={() => setSigEmpty(false)}
                   />

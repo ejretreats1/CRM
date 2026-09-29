@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import SignatureCanvas from 'react-signature-canvas';
+import SignaturePad from './SignaturePad';
+import type { SignaturePadHandle } from './SignaturePad';
 import { ChevronLeft, ChevronRight, CheckCircle, Pen, X, Play } from 'lucide-react';
 import type { AgreementField, AgreementSubmission, AgreementTemplate } from '../services/rentalAgreements';
 import { fetchSubmissionByToken } from '../services/rentalAgreements';
@@ -35,7 +36,7 @@ interface SigModalProps {
 }
 
 function SigModal({ field, onSave, onClose }: SigModalProps) {
-  const padRef = useRef<SignatureCanvas | null>(null);
+  const padRef = useRef<SignaturePadHandle | null>(null);
 
   function save() {
     if (padRef.current && !padRef.current.isEmpty()) {
@@ -59,9 +60,9 @@ function SigModal({ field, onSave, onClose }: SigModalProps) {
         className="bg-white mx-4 mt-4 rounded-2xl overflow-hidden flex-shrink-0"
         style={{ height: '55vh', touchAction: 'none' }}
       >
-        <SignatureCanvas
+        <SignaturePad
           ref={padRef}
-          canvasProps={{ style: { width: '100%', height: '100%', display: 'block' } }}
+          style={{ height: '100%' }}
           penColor="#1a2335"
           backgroundColor="rgba(255,255,255,1)"
         />
