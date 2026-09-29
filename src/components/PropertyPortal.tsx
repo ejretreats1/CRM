@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ArrowLeft, Home, ChevronLeft, ChevronRight, Phone, Mail,
   Users, Bed, Calendar, ExternalLink, Edit2, Check, X, Wrench,
@@ -8,6 +8,10 @@ import type { Owner, Property, PropertyInfo, PropertyStatus } from '../types';
 import type { UplistingReservation, UplistingProperty } from '../services/uplisting';
 import { CANCELLED_STATUSES } from '../services/uplisting';
 import PropertyInfoPanel from './PropertyInfoPanel';
+import OnboardingAnswers from './OnboardingAnswers';
+import { supabase } from '../services/supabase';
+import { findOnboardingEntry, propertyInfoFromEntry } from '../services/onboardingMatch';
+import type { OnboardingEntry } from '../services/onboardingMatch';
 import RentalAgreementBuilderModal from './modals/RentalAgreementBuilderModal';
 
 interface PropertyPortalProps {
@@ -174,6 +178,37 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
   async function savePropertyInfo(info: PropertyInfo) {
     if (!onUpdateProperty) return;
     await onUpdateProperty({ ...property, propertyInfo: info });
+  }
+
+  // The client's onboarding-form answers for this property (latest completed
+  // submission for the owner, matched to this property by address).
+  const [onboardingEntry, setOnboardingEntry] = useState<OnboardingEntry | null>(null);
+  const [onboardingLoaded, setOnboardingLoaded] = useState(false);
+  const [applyingInfo, setApplyingInfo] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setOnboardingLoaded(false);
+    supabase
+      .from('onboarding_requests')
+      .select('form_data')
+      .eq('owner_id', owner.id)
+      .eq('status', 'completed')
+      .order('submitted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setOnboardingEntry(findOnboardingEntry(data?.form_data, [property.address]));
+        setOnboardingLoaded(true);
+      });
+    return () => { cancelled = true; };
+  }, [owner.id, property.address]);
+
+  async function applyOnboardingToInfo() {
+    if (!onboardingEntry || !onUpdateProperty) return;
+    setApplyingInfo(true);
+    try { await savePropertyInfo(propertyInfoFromEntry(onboardingEntry, property.propertyInfo ?? {})); }
+    finally { setApplyingInfo(false); }
   }
 
   async function saveDetails() {
@@ -978,6 +1013,28 @@ export default function PropertyPortal({ owner, property, reservations, uplistin
           />
         </div>
       )}
+
+      {/* Onboarding form answers for this property */}
+      <div className="mt-5">
+        {onboardingEntry && onUpdateProperty && (
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={applyOnboardingToInfo}
+              disabled={applyingInfo}
+              title="Copy codes, WiFi, check-in/out, trash and calendar links from the form into Property Info (only fills blanks)"
+              className="text-xs font-medium text-[#4a90d9] border border-[#1e3a5a] hover:bg-[#162035] px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {applyingInfo ? 'Applying…' : 'Apply form answers to Property Info'}
+            </button>
+          </div>
+        )}
+        <OnboardingAnswers
+          entry={onboardingEntry}
+          info={onboardingEntry ? null : property.propertyInfo}
+          title={onboardingEntry ? `Onboarding Form Answers — ${onboardingEntry.propertyAddress ?? property.address}` : 'Onboarding Form Answers'}
+          emptyMessage={onboardingLoaded ? 'The client has not submitted an onboarding form for this property yet. Send one from the owner\'s Onboarding tab.' : 'Loading…'}
+        />
+      </div>
 
       {/* Rental Agreements */}
       <div className="mt-5 bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5">
