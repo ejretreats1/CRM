@@ -3,13 +3,19 @@ import { CheckCircle2, ChevronRight, ChevronLeft, AlertCircle, Loader2, Copy, Ch
 
 // Fields collected once per property — owners with several properties fill these
 // out for each one they add.
+interface IcalLink { platform: string; url: string }
+
 interface PropertyEntry {
   propertyAddress: string; propertyType: string; bedrooms: string; bathrooms: string;
   bedSizes: string; doorCodes: string; maxGuests: string;
   platforms: string[]; listingLinks: string; averageRatings: string;
-  entryType: string; lockCode: string; wifiName: string; wifiPassword: string;
+  icalLinks: IcalLink[]; icalPlatform: string; icalUrlInput: string;
+  entryType: string; lockCode: string; gateCode: string; garageCode: string; parkingNotes: string;
+  wifiName: string; wifiPassword: string;
+  checkInTime: string; checkOutTime: string; checkInInstructions: string;
   amenities: string[]; otherAmenities: string;
-  stockedSupplies: string;
+  stockedSupplies: string; suppliesLocation: string;
+  trashPickupDays: string; trashBinLocation: string; thermostatNotes: string;
   blackoutDates: string; petsAllowed: string; houseRules: string;
   professionalPhotos: string;
 }
@@ -30,9 +36,13 @@ interface FormData {
 const BLANK_PROPERTY: PropertyEntry = {
   propertyAddress: '', propertyType: '', bedrooms: '', bathrooms: '', bedSizes: '', doorCodes: '', maxGuests: '',
   platforms: [], listingLinks: '', averageRatings: '',
-  entryType: '', lockCode: '', wifiName: '', wifiPassword: '',
+  icalLinks: [], icalPlatform: 'Airbnb', icalUrlInput: '',
+  entryType: '', lockCode: '', gateCode: '', garageCode: '', parkingNotes: '',
+  wifiName: '', wifiPassword: '',
+  checkInTime: '4:00 PM', checkOutTime: '11:00 AM', checkInInstructions: '',
   amenities: [], otherAmenities: '',
-  stockedSupplies: '',
+  stockedSupplies: '', suppliesLocation: '',
+  trashPickupDays: '', trashBinLocation: '', thermostatNotes: '',
   blackoutDates: '', petsAllowed: '', houseRules: '',
   professionalPhotos: '',
 };
@@ -62,15 +72,16 @@ const STEPS = [
 // Which per-property fields a "Same as Property 1" button copies on each step.
 const STEP_COPY_FIELDS: Record<number, (keyof PropertyEntry)[]> = {
   1: ['propertyType', 'bedrooms', 'bathrooms', 'bedSizes', 'doorCodes', 'maxGuests'],
-  2: ['platforms', 'listingLinks', 'averageRatings'],
-  3: ['entryType', 'lockCode', 'wifiName', 'wifiPassword'],
+  2: ['platforms', 'listingLinks', 'averageRatings', 'icalLinks'],
+  3: ['entryType', 'lockCode', 'gateCode', 'garageCode', 'parkingNotes', 'wifiName', 'wifiPassword', 'checkInTime', 'checkOutTime', 'checkInInstructions'],
   4: ['amenities', 'otherAmenities'],
-  5: ['stockedSupplies'],
+  5: ['stockedSupplies', 'suppliesLocation', 'trashPickupDays', 'trashBinLocation', 'thermostatNotes'],
   6: ['blackoutDates', 'petsAllowed', 'houseRules'],
   7: ['professionalPhotos'],
 };
 
 const PLATFORMS  = ['Airbnb', 'VRBO', 'Booking.com', 'Google', 'Direct Booking Website', 'Not listed on any platform'];
+const ICAL_PLATFORMS = ['Airbnb', 'VRBO', 'Booking.com', 'Guesty', 'Hostaway', 'Uplisting', 'Direct', 'Other'];
 const AMENITIES  = ['Washer/Dryer', 'Dishwasher', 'Air Conditioning', 'Heating', 'Pool', 'Hot Tub', 'Fireplace', 'Balcony/Patio', 'Free Parking'];
 
 // ─── Tiny field components ────────────────────────────────────────────────────
@@ -249,6 +260,18 @@ export default function OnboardingPage({ token }: { token: string }) {
     setForm(prev => ({
       ...prev,
       properties: prev.properties.length > 1 ? prev.properties.filter((_, i) => i !== index) : prev.properties,
+    }));
+  }
+
+  function addIcalLink(index: number) {
+    setForm(prev => ({
+      ...prev,
+      properties: prev.properties.map((p, i) => {
+        if (i !== index) return p;
+        const url = p.icalUrlInput.trim();
+        if (!url) return p;
+        return { ...p, icalLinks: [...p.icalLinks, { platform: p.icalPlatform, url }], icalUrlInput: '' };
+      }),
     }));
   }
 
@@ -537,6 +560,52 @@ export default function OnboardingPage({ token }: { token: string }) {
                   <Label hint="Type N/A if not applicable">Average rating out of 5 stars?</Label>
                   <Input placeholder="e.g. 4.85 stars" value={property.averageRatings} onChange={e => setProp(i, 'averageRatings', e.target.value)} />
                 </SectionCard>
+                <SectionCard>
+                  <Label hint="Airbnb: Calendar → Availability → Connect to another website → Export. VRBO: Calendar → Import/Export. One link per platform (or per unit).">
+                    Booking calendar links (iCal)
+                  </Label>
+                  <p className="text-xs text-[#3a5070] mb-2">These let us sync your bookings so turnovers and cleanings are scheduled automatically.</p>
+                  {property.icalLinks.length > 0 && (
+                    <ul className="space-y-1.5 mb-2">
+                      {property.icalLinks.map((l, j) => (
+                        <li key={j} className="flex items-center gap-2 bg-[#0d1623] border border-[#1e2d45] rounded-lg px-3 py-2">
+                          <span className="text-[10px] font-bold text-[#4a90d9] w-20 flex-shrink-0">{l.platform}</span>
+                          <span className="text-[11px] text-[#b8d4f0] truncate flex-1 font-mono">{l.url}</span>
+                          <button
+                            type="button"
+                            onClick={() => setProp(i, 'icalLinks', property.icalLinks.filter((_, k) => k !== j))}
+                            aria-label="Remove calendar link"
+                            className="text-[#3a5070] hover:text-[#e05c5c] text-lg leading-none flex-shrink-0"
+                          >×</button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select
+                      value={property.icalPlatform}
+                      onChange={e => setProp(i, 'icalPlatform', e.target.value)}
+                      className="bg-[#0d1623] border border-[#1e2d45] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9] sm:w-32 flex-shrink-0"
+                    >
+                      {ICAL_PLATFORMS.map(x => <option key={x} value={x}>{x}</option>)}
+                    </select>
+                    <Input
+                      className="flex-1"
+                      placeholder="https://www.airbnb.com/calendar/ical/…"
+                      value={property.icalUrlInput}
+                      onChange={e => setProp(i, 'icalUrlInput', e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addIcalLink(i); } }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addIcalLink(i)}
+                      disabled={!property.icalUrlInput.trim()}
+                      className="px-4 py-2.5 bg-[#1e2d45] border border-[#2a4060] text-[#4a90d9] text-sm font-semibold rounded-xl hover:bg-[#2a3d55] disabled:opacity-50 transition-colors whitespace-nowrap"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </SectionCard>
               </>
             ))}
 
@@ -599,6 +668,20 @@ export default function OnboardingPage({ token }: { token: string }) {
               <Label>Door / Lock Code</Label>
               <Input placeholder="e.g. 4321" value={property.lockCode} onChange={e => setProp(i, 'lockCode', e.target.value)} />
             </SectionCard>
+            <div className="grid grid-cols-2 gap-3">
+              <SectionCard>
+                <Label hint="If any">Gate Code</Label>
+                <Input placeholder="e.g. #5555" value={property.gateCode} onChange={e => setProp(i, 'gateCode', e.target.value)} />
+              </SectionCard>
+              <SectionCard>
+                <Label hint="If any">Garage Code</Label>
+                <Input placeholder="e.g. 2468" value={property.garageCode} onChange={e => setProp(i, 'garageCode', e.target.value)} />
+              </SectionCard>
+            </div>
+            <SectionCard>
+              <Label>Parking &amp; Entry Instructions</Label>
+              <Textarea placeholder={"e.g. Park in spot #12. Lockbox is left of the front door. Side gate sticks — lift and push."} rows={3} value={property.parkingNotes} onChange={e => setProp(i, 'parkingNotes', e.target.value)} />
+            </SectionCard>
             <SectionCard>
               <Label>WiFi Network Name</Label>
               <Input placeholder="e.g. HomeNetwork_5G" value={property.wifiName} onChange={e => setProp(i, 'wifiName', e.target.value)} />
@@ -606,6 +689,20 @@ export default function OnboardingPage({ token }: { token: string }) {
             <SectionCard>
               <Label>WiFi Password</Label>
               <Input placeholder="WiFi password" value={property.wifiPassword} onChange={e => setProp(i, 'wifiPassword', e.target.value)} />
+            </SectionCard>
+            <div className="grid grid-cols-2 gap-3">
+              <SectionCard>
+                <Label>Guest Check-in Time</Label>
+                <Input placeholder="4:00 PM" value={property.checkInTime} onChange={e => setProp(i, 'checkInTime', e.target.value)} />
+              </SectionCard>
+              <SectionCard>
+                <Label>Guest Check-out Time</Label>
+                <Input placeholder="11:00 AM" value={property.checkOutTime} onChange={e => setProp(i, 'checkOutTime', e.target.value)} />
+              </SectionCard>
+            </div>
+            <SectionCard>
+              <Label hint="Anything guests need to know to get in">Check-in Instructions</Label>
+              <Textarea placeholder={"e.g. Enter code then press ✓. Turn the deadbolt twice to lock when leaving."} rows={3} value={property.checkInInstructions} onChange={e => setProp(i, 'checkInInstructions', e.target.value)} />
             </SectionCard>
           </>
         ));
@@ -630,12 +727,32 @@ export default function OnboardingPage({ token }: { token: string }) {
         return (
           <div className="space-y-6">
             {eachProperty((property, i) => (
-              <SectionCard>
-                <Label>Is the property stocked with linens, towels, and basic supplies?</Label>
-                <div className="mt-2">
-                  <Radio options={['Yes, fully stocked', 'Partially stocked', 'No, not stocked']} value={property.stockedSupplies} onChange={v => setProp(i, 'stockedSupplies', v)} />
+              <>
+                <SectionCard>
+                  <Label>Is the property stocked with linens, towels, and basic supplies?</Label>
+                  <div className="mt-2">
+                    <Radio options={['Yes, fully stocked', 'Partially stocked', 'No, not stocked']} value={property.stockedSupplies} onChange={v => setProp(i, 'stockedSupplies', v)} />
+                  </div>
+                </SectionCard>
+                <SectionCard>
+                  <Label>Where are cleaning supplies &amp; spare linens kept?</Label>
+                  <Textarea placeholder={"e.g. Hall closet next to the bathroom. Extra sheets in the owner's closet (code 2468)."} rows={2} value={property.suppliesLocation} onChange={e => setProp(i, 'suppliesLocation', e.target.value)} />
+                </SectionCard>
+                <div className="grid grid-cols-2 gap-3">
+                  <SectionCard>
+                    <Label>Trash Pickup Day(s)</Label>
+                    <Input placeholder="e.g. Tuesday & Friday" value={property.trashPickupDays} onChange={e => setProp(i, 'trashPickupDays', e.target.value)} />
+                  </SectionCard>
+                  <SectionCard>
+                    <Label>Trash Bin Location</Label>
+                    <Input placeholder="e.g. Side of the garage" value={property.trashBinLocation} onChange={e => setProp(i, 'trashBinLocation', e.target.value)} />
+                  </SectionCard>
                 </div>
-              </SectionCard>
+                <SectionCard>
+                  <Label hint="Preferred settings, quirks, where the thermostat is">Thermostat / HVAC Notes</Label>
+                  <Textarea placeholder={"e.g. Nest in the hallway. Set to 74 between guests. AC filter is in the attic."} rows={2} value={property.thermostatNotes} onChange={e => setProp(i, 'thermostatNotes', e.target.value)} />
+                </SectionCard>
+              </>
             ))}
 
             <div className="space-y-4">

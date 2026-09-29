@@ -868,10 +868,26 @@ function onboardingProperties(f: any): any[] {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function onboardingPropertyInfo(p: any) {
+  const icalLinks = Array.isArray(p.icalLinks)
+    ? p.icalLinks
+        .filter((l: any) => l && typeof l.url === 'string' && l.url.trim())
+        .map((l: any) => ({ platform: String(l.platform || 'Other'), url: String(l.url).trim() }))
+    : [];
   return {
     doorCode:        p.lockCode       || undefined,
+    gateCode:        p.gateCode       || undefined,
+    garageCode:      p.garageCode     || undefined,
+    parkingNotes:    p.parkingNotes   || undefined,
     wifiNetwork:     p.wifiName       || undefined,
     wifiPassword:    p.wifiPassword   || undefined,
+    checkInTime:     p.checkInTime    || undefined,
+    checkOutTime:    p.checkOutTime   || undefined,
+    checkInInstructions: p.checkInInstructions || undefined,
+    thermostatNotes: p.thermostatNotes || undefined,
+    trashPickupDays: p.trashPickupDays || undefined,
+    trashBinLocation: p.trashBinLocation || undefined,
+    suppliesLocation: p.suppliesLocation || undefined,
+    icalLinks:       icalLinks.length ? icalLinks : undefined,
     petPolicy:       p.petsAllowed === 'Yes' ? 'Pets allowed ($75 fee)' : p.petsAllowed === 'No' ? 'No pets' : undefined,
     houseRulesNotes: p.houseRules     || undefined,
     generalNotes:    p.otherAmenities || undefined,
@@ -901,7 +917,14 @@ function buildOnboardingNotes(f: any): string {
     add('Max guests', p.maxGuests); add('Door codes', p.doorCodes);
     if (p.platforms?.length) lines.push(`Platforms: ${p.platforms.join(', ')}`);
     add('Listing links', p.listingLinks); add('Average ratings', p.averageRatings);
+    if (Array.isArray(p.icalLinks) && p.icalLinks.length) {
+      lines.push(`iCal links: ${p.icalLinks.map((l: any) => `${l.platform}: ${l.url}`).join(' | ')}`);
+    }
     add('Entry type', p.entryType); add('Lock code', p.lockCode);
+    add('Gate code', p.gateCode); add('Garage code', p.garageCode); add('Parking / entry', p.parkingNotes);
+    add('Check-in time', p.checkInTime); add('Check-out time', p.checkOutTime); add('Check-in instructions', p.checkInInstructions);
+    add('Supplies location', p.suppliesLocation); add('Trash pickup', p.trashPickupDays); add('Trash bins', p.trashBinLocation);
+    add('Thermostat', p.thermostatNotes);
     if (p.wifiName) lines.push(`WiFi: ${p.wifiName} / ${p.wifiPassword ?? ''}`);
     if (p.amenities?.length) lines.push(`Amenities: ${p.amenities.join(', ')}`);
     add('Other amenities', p.otherAmenities); add('Stocked supplies', p.stockedSupplies);
