@@ -93,6 +93,20 @@ export async function upsertProperty(ownerId: string, property: Property): Promi
   if (error) throw error;
 }
 
+/**
+ * Save `property` and remove `oldPropertyId` (a manually-created record that
+ * describes the same place), re-pointing anything keyed by the old id.
+ */
+export async function replaceProperty(ownerId: string, property: Property, oldPropertyId: string): Promise<void> {
+  await upsertProperty(ownerId, property);
+  // Rental agreement templates are keyed by property id — carry them over.
+  await supabase.from('rental_agreement_templates')
+    .update({ property_id: property.id })
+    .eq('property_id', oldPropertyId);
+  const { error } = await supabase.from('properties').delete().eq('id', oldPropertyId);
+  if (error) throw error;
+}
+
 export async function deleteProperty(propertyId: string): Promise<void> {
   const { error } = await supabase.from('properties').delete().eq('id', propertyId);
   if (error) throw error;

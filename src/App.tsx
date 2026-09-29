@@ -44,7 +44,7 @@ import { useScrollAnimation } from './hooks/useScrollAnimation';
 import {
   fetchLeads, upsertLead, deleteLead,
   fetchOwners, upsertOwner, deleteOwner, archiveOwner,
-  upsertProperty, deleteProperty,
+  upsertProperty, deleteProperty, replaceProperty,
   fetchOutreach, upsertOutreach, deleteOutreach,
 } from './services/db';
 import { fetchContacts } from './services/contacts';
@@ -411,15 +411,21 @@ export default function App() {
       o.id === ownerId ? { ...o, properties: o.properties.filter(p => p.id !== propertyId) } : o
     ));
   };
-  const importPropertiesHandler = async (ownerId: string, properties: Property[]) => {
+  // `replaces` maps an imported property id → the id of an existing manual
+  // property (e.g. created by the onboarding form) that it supersedes.
+  const importPropertiesHandler = async (ownerId: string, properties: Property[], replaces: Record<string, string> = {}) => {
     for (const property of properties) {
-      await upsertProperty(ownerId, property);
+      const oldId = replaces[property.id];
+      if (oldId) await replaceProperty(ownerId, property, oldId);
+      else await upsertProperty(ownerId, property);
     }
+    const replacedIds = new Set(Object.values(replaces));
     setOwners(prev => prev.map(o => {
       if (o.id !== ownerId) return o;
-      const existingIds = new Set(o.properties.map(p => p.id));
+      const kept = o.properties.filter(p => !replacedIds.has(p.id));
+      const existingIds = new Set(kept.map(p => p.id));
       const newProps = properties.filter(p => !existingIds.has(p.id));
-      return { ...o, properties: [...o.properties, ...newProps] };
+      return { ...o, properties: [...kept, ...newProps] };
     }));
   };
 
@@ -645,7 +651,7 @@ export default function App() {
           uplistingApiKey={uplistingApiKey || undefined}
           hostawayAccountId={hostawayAccountId || undefined}
           hostawaySecret={hostawaySecret || undefined}
-          onImportProperties={(properties) => importPropertiesHandler(selectedOwner.id, properties)}
+          onImportProperties={(properties, replaces) => importPropertiesHandler(selectedOwner.id, properties, replaces)}
           reservations={allReservations}
           onUpdateOwner={updateOwnerHandler}
           onNavigateToProperty={(ownerId, propertyId) => navigate('property-portal', `${ownerId}::${propertyId}`)}

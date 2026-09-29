@@ -697,6 +697,29 @@ async function handleResendWebhook(body: any, res: VercelResponse) {
  *     for all to anon using (true) with check (true);
  */
 
+// Loose address equality (same house number + street name, ignoring punctuation
+// and St/Street-style suffix differences). Mirrors src/services/addressMatch.ts.
+const ADDR_SUFFIXES: Record<string, string> = {
+  street: 'st', avenue: 'ave', av: 'ave', boulevard: 'blvd', drive: 'dr', road: 'rd', lane: 'ln',
+  court: 'ct', circle: 'cir', place: 'pl', terrace: 'ter', trail: 'trl', parkway: 'pkwy', highway: 'hwy',
+  north: 'n', south: 's', east: 'e', west: 'w',
+};
+function normalizeAddress(raw: string | null | undefined): string {
+  if (!raw) return '';
+  return (raw.split(',')[0] ?? raw).toLowerCase().replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/).filter(Boolean).map(w => ADDR_SUFFIXES[w] ?? w).join(' ');
+}
+function addressesMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  const na = normalizeAddress(a), nb = normalizeAddress(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const [numA, ...restA] = na.split(' ');
+  const [numB, ...restB] = nb.split(' ');
+  if (!/^\d/.test(numA) || numA !== numB) return false;
+  const sa = restA.slice(0, 2).join(' '), sb = restB.slice(0, 2).join(' ');
+  return !!sa && (sa === sb || sa.startsWith(sb) || sb.startsWith(sa));
+}
+
 async function onboardingGet(token: string, res: VercelResponse) {
   const supabase = getSupabase();
   const { data, error } = await supabase
@@ -761,9 +784,7 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
         .eq('owner_id', request.owner_id);
       for (const [i, entry] of entries.entries()) {
         const address = String(entry.propertyAddress).trim();
-        const match = existingProps?.find(p =>
-          p.address?.toLowerCase().trim() === address.toLowerCase()
-        );
+        const match = existingProps?.find(p => addressesMatch(p.address, address));
         if (match) {
           await supabase.from('properties').update({
             type:        entry.propertyType || undefined,
