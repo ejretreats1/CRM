@@ -1,8 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Building2, Loader, Calendar, TrendingUp, Home, Users, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { Building2, Loader, Calendar, TrendingUp, Home, Users, ChevronLeft, ChevronRight, AlertCircle, X, Info } from 'lucide-react';
+import OnboardingAnswers from './OnboardingAnswers';
+import type { PropertyInfo } from '../types';
+import type { OnboardingEntry } from '../services/onboardingMatch';
 
 interface PortalOwner { id: string; name: string; email: string; phone: string; notes?: string; }
-interface PortalProperty { id: string; name?: string; address: string; bedrooms: number; bathrooms: number; property_type?: string; listing_ids?: string[]; }
+interface PortalProperty { id: string; name?: string; address: string; bedrooms: number; bathrooms: number; property_type?: string; listing_ids?: string[]; onboarding?: OnboardingEntry | null; property_info?: PropertyInfo | null; }
 
 /** Listing ids a portal property is tied to (API-provided, else parsed from a p_<ts>_<id> id). */
 function propertyListingIds(prop: PortalProperty): string[] {
@@ -123,6 +126,7 @@ export default function OwnerPortalPage({ token }: { token: string }) {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming');
   const [selectedProperty, setSelectedProperty] = useState<string | null>(null);
+  const [detailProperty, setDetailProperty] = useState<PortalProperty | null>(null);
 
   useEffect(() => {
     document.documentElement.style.overflowX = 'visible';
@@ -325,7 +329,13 @@ export default function OwnerPortalPage({ token }: { token: string }) {
 
                 return (
                   <div key={prop.id} className="bg-[#1a2335] rounded-2xl border border-[#243550] overflow-hidden">
-                    <div className="p-4 border-b border-[#243550]">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setDetailProperty(prop)}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailProperty(prop); } }}
+                      className="p-4 border-b border-[#243550] cursor-pointer hover:bg-[#1e2a40] transition-colors"
+                    >
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-xl bg-[#243550] flex items-center justify-center flex-shrink-0">
                           <Home size={18} className="text-[#4a90d9]" />
@@ -335,6 +345,7 @@ export default function OwnerPortalPage({ token }: { token: string }) {
                           <p className="text-xs text-[#b8d4f0] truncate mt-0.5">{prop.address}</p>
                           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                             <span className="text-xs bg-[#243550] text-[#b8d4f0] px-2 py-0.5 rounded-full">{prop.bedrooms}BR</span>
+                            <span className="text-xs text-[#4a90d9] flex items-center gap-1"><Info size={11} /> Details</span>
                             {current
                               ? <span className="text-xs bg-[#2a1515] text-[#e05c5c] border border-[#5a2020] px-2 py-0.5 rounded-full">Occupied</span>
                               : upcoming.length > 0
@@ -367,6 +378,33 @@ export default function OwnerPortalPage({ token }: { token: string }) {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Property details (from the onboarding form) */}
+        {detailProperty && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4" onClick={() => setDetailProperty(null)}>
+            <div
+              className="bg-[#0f1623] border border-[#243550] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[92vh] flex flex-col shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[#243550] flex-shrink-0">
+                <div className="min-w-0">
+                  <p className="font-semibold text-white truncate">{detailProperty.name || detailProperty.address}</p>
+                  <p className="text-xs text-[#b8d4f0] truncate mt-0.5">{detailProperty.address}</p>
+                  <p className="text-[11px] text-[#3a5070] mt-1">What you told us on your onboarding form. Contact E&amp;J Retreats to update anything.</p>
+                </div>
+                <button onClick={() => setDetailProperty(null)} aria-label="Close" className="text-[#3a5070] hover:text-white flex-shrink-0"><X size={18} /></button>
+              </div>
+              <div className="overflow-y-auto p-4">
+                <OnboardingAnswers
+                  entry={detailProperty.onboarding}
+                  info={detailProperty.property_info}
+                  title="Property Details"
+                  emptyMessage="We don't have onboarding details for this property yet."
+                />
+              </div>
             </div>
           </div>
         )}

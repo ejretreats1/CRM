@@ -272,7 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: propRows } = await supabaseAdmin
       .from('properties')
-      .select('id, address, city, state, type, bedrooms, bathrooms, linked_listing_ids')
+      .select('id, address, city, state, type, bedrooms, bathrooms, linked_listing_ids, property_info')
       .eq('owner_id', ownerRow.id);
 
     const { data: settings } = await supabaseAdmin
@@ -291,7 +291,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const embedded = embeddedListingId(p.id);
       if (embedded) ids.add(embedded);
       for (const id of (Array.isArray(p.linked_listing_ids) ? p.linked_listing_ids : [])) if (id) ids.add(String(id));
-      return { ...p, listingIds: [...ids] };
+      return { ...p, listingIds: [...ids], altAddresses: [] as string[] };
     });
 
     // Collapse duplicates: a property the owner typed on the onboarding form
@@ -312,6 +312,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const m of manual) {
       const twin = properties.find(p => p.listingIds.length > 0 && addressesMatch(p.address, m.address));
       if (twin) {
+        if (m.address) twin.altAddresses.push(m.address);
+        if (m.property_info && !twin.property_info) twin.property_info = m.property_info;
         twin.address   = twin.address   || m.address;
         twin.city      = twin.city      || m.city;
         twin.state     = twin.state     || m.state;
@@ -322,6 +324,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       if (properties.some(p => p.listingIds.length === 0 && addressesMatch(p.address, m.address))) continue;
       properties.push(m);
+    }
+
+    // Latest completed onboarding form for this owner — each property gets the
+    // entry whose address matches it, so the portal can show what the client
+    // told us about that specific property.
+    const { data: onboardingRow } = await supabaseAdmin
+      .from('onboarding_requests')
+      .select('form_data')
+      .eq('owner_id', ownerRow.id)
+      .eq('status', 'completed')
+      .order('submitted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const formData: any = onboardingRow?.form_data ?? null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const entries: any[] = formData
+      ? (Array.isArray(formData.properties) && formData.properties.length ? formData.properties : (formData.propertyAddress ? [formData] : []))
+      : [];
+    for (const p of properties) {
+      const known = [p.address, ...p.altAddresses].filter(Boolean);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const match = entries.find((e: any) => known.some(a => addressesMatch(e?.propertyAddress, a)));
+      p.onboarding = match ?? (entries.length === 1 && properties.length === 1 ? entries[0] : null);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -382,6 +408,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       bedrooms: p.bedrooms,
       bathrooms: p.bathrooms,
       listing_ids: p.listingIds,
+      onboarding: p.onboarding ?? null,
+      property_info: p.property_info ?? null,
     }));
 
     return res.status(200).json({ owner: ownerRow, properties: mappedProperties, reservations });
