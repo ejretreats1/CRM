@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Cleaner, CleaningPropertyConfig, CleaningJob } from '../types/cleaning';
+import type { Cleaner, CleaningPropertyConfig, CleaningJob, CleaningEnrollmentLink } from '../types/cleaning';
 
 // ── Cleaners ──────────────────────────────────────────────────────────────────
 
@@ -77,6 +77,8 @@ function rowToConfig(r: any): CleaningPropertyConfig {
     icalUrls: r.ical_urls ?? [],
     laundromatAddress: r.laundromat_address ?? undefined,
     linkedPropertyIds: r.linked_property_ids ?? undefined,
+    clientPhone: r.client_phone ?? undefined,
+    clientNotes: r.client_notes ?? undefined,
   };
 }
 
@@ -97,6 +99,8 @@ function configToRow(c: CleaningPropertyConfig) {
     ical_urls: c.icalUrls ?? [],
     laundromat_address: c.laundromatAddress ?? null,
     linked_property_ids: c.linkedPropertyIds ?? null,
+    ...(c.clientPhone !== undefined && { client_phone: c.clientPhone || null }),
+    client_notes: c.clientNotes?.trim() || null,
   };
 }
 
@@ -116,6 +120,38 @@ export async function upsertPropertyConfig(c: CleaningPropertyConfig): Promise<v
 
 export async function deletePropertyConfig(id: string): Promise<void> {
   const { error } = await supabase.from('cleaning_property_configs').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ── Client enrollment links ───────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToEnrollmentLink(r: any): CleaningEnrollmentLink {
+  return {
+    id: r.id,
+    token: r.token,
+    clientName: r.client_name ?? undefined,
+    clientEmail: r.client_email ?? '',
+    clientPhone: r.client_phone ?? undefined,
+    status: r.status === 'submitted' ? 'submitted' : 'pending',
+    propertyConfigIds: r.property_config_ids ?? [],
+    createdAt: r.created_at,
+    expiresAt: r.expires_at ?? undefined,
+    submittedAt: r.submitted_at ?? undefined,
+  };
+}
+
+export async function fetchEnrollmentLinks(): Promise<CleaningEnrollmentLink[]> {
+  const { data, error } = await supabase
+    .from('cleaning_property_enrollments')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToEnrollmentLink);
+}
+
+export async function deleteEnrollmentLink(id: string): Promise<void> {
+  const { error } = await supabase.from('cleaning_property_enrollments').delete().eq('id', id);
   if (error) throw error;
 }
 

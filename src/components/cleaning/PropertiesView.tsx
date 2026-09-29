@@ -1,6 +1,7 @@
-import { useState, type Dispatch, type SetStateAction } from 'react';
-import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw, ChevronUp, ChevronDown, Download, ImagePlus } from 'lucide-react';
-import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl } from '../../types/cleaning';
+import { useState, useEffect, type Dispatch, type SetStateAction } from 'react';
+import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw, ChevronUp, ChevronDown, Download, ImagePlus, Link2, AlertTriangle } from 'lucide-react';
+import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl, CleaningEnrollmentLink } from '../../types/cleaning';
+import { fetchEnrollmentLinks, deleteEnrollmentLink } from '../../services/cleaningDb';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 import { fetchPropertyAllPhotos } from '../../services/uplisting';
 
@@ -35,6 +36,7 @@ interface FormState {
   icalUnitName: string;
   laundromatAddress: string;
   linkedPropertyIds: string[];
+  clientNotes: string;
 }
 
 const EMPTY: FormState = {
@@ -44,6 +46,7 @@ const EMPTY: FormState = {
   icalUrls: [], icalUrlInput: '', icalPlatform: 'Airbnb', icalUnitName: '',
   laundromatAddress: '',
   linkedPropertyIds: [],
+  clientNotes: '',
 };
 
 function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
@@ -186,6 +189,94 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   const [batchCopied, setBatchCopied] = useState(false);
   const [batchEmailSent, setBatchEmailSent] = useState(false);
 
+  // --- Client enrollment link state (client fills in property details themselves) ---
+  const [enrollModalOpen, setEnrollModalOpen] = useState(false);
+  const [enrollName, setEnrollName] = useState('');
+  const [enrollEmail, setEnrollEmail] = useState('');
+  const [enrollSending, setEnrollSending] = useState(false);
+  const [enrollLink, setEnrollLink] = useState<string | null>(null);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
+  const [enrollCopied, setEnrollCopied] = useState(false);
+  const [enrollEmailSent, setEnrollEmailSent] = useState(false);
+  const [enrollLinks, setEnrollLinks] = useState<CleaningEnrollmentLink[]>([]);
+  const [enrollLinksLoading, setEnrollLinksLoading] = useState(false);
+
+  useEffect(() => {
+    if (!enrollModalOpen) return;
+    setEnrollLinksLoading(true);
+    fetchEnrollmentLinks()
+      .then(setEnrollLinks)
+      .catch(() => setEnrollLinks([]))
+      .finally(() => setEnrollLinksLoading(false));
+  }, [enrollModalOpen]);
+
+  function openEnrollModal() {
+    setEnrollName('');
+    setEnrollEmail('');
+    setEnrollLink(null);
+    setEnrollError(null);
+    setEnrollCopied(false);
+    setEnrollEmailSent(false);
+    setEnrollModalOpen(true);
+  }
+
+  function enrollLinkUrl(token: string) {
+    return `${window.location.origin}?cleaning-enroll=${token}`;
+  }
+
+  async function handleEnrollAction(copyOnly: boolean) {
+    if (!enrollEmail.trim()) return;
+    setEnrollSending(true);
+    setEnrollError(null);
+    setEnrollCopied(false);
+    setEnrollEmailSent(false);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flow: 'cleaning-enroll',
+          action: 'create-link',
+          clientName: enrollName.trim() || null,
+          clientEmail: enrollEmail.trim(),
+          copyOnly,
+          appUrl: window.location.origin,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Failed.');
+      const link: string = d.link;
+      setEnrollLink(link);
+      if (copyOnly) {
+        try { await navigator.clipboard.writeText(link); } catch {}
+        setEnrollCopied(true);
+      } else if (d.emailError) {
+        setEnrollError(d.emailError);
+      } else {
+        setEnrollEmailSent(true);
+      }
+      fetchEnrollmentLinks().then(setEnrollLinks).catch(() => {});
+    } catch (e: unknown) {
+      setEnrollError(e instanceof Error ? e.message : 'Failed.');
+    } finally {
+      setEnrollSending(false);
+    }
+  }
+
+  async function copyText(text: string) {
+    try { await navigator.clipboard.writeText(text); setEnrollCopied(true); } catch {}
+  }
+
+  async function handleDeleteEnrollLink(id: string) {
+    if (!confirm('Delete this enrollment link? The client will no longer be able to use it.')) return;
+    try {
+      await deleteEnrollmentLink(id);
+      setEnrollLinks(prev => prev.filter(l => l.id !== id));
+    } catch (e: unknown) {
+      setEnrollError(e instanceof Error ? e.message : 'Delete failed.');
+    }
+  }
+
   const activeCleaners = cleaners.filter(c => c.status === 'active');
   const enrolledIds = new Set(configs.map(c => c.propertyId));
   const unenrolled = uplistingProperties.filter(p => !enrolledIds.has(p.id));
@@ -286,6 +377,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       icalUnitName: '',
       laundromatAddress: config.laundromatAddress ?? '',
       linkedPropertyIds: [...(config.linkedPropertyIds ?? [])],
+      clientNotes: config.clientNotes ?? '',
     });
     setEditing(config);
   }
@@ -411,6 +503,13 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         icalUrls: form.icalUrls,
         laundromatAddress: form.laundromatAddress.trim() || undefined,
         linkedPropertyIds: form.linkedPropertyIds.length > 0 ? form.linkedPropertyIds : undefined,
+        clientPhone: existing?.clientPhone,
+        clientNotes: form.clientNotes.trim() || undefined,
+        clientName: existing?.clientName,
+        clientEmail: existing?.clientEmail,
+        onboardedAt: existing?.onboardedAt,
+        stripeCustomerId: existing?.stripeCustomerId,
+        stripePaymentMethodId: existing?.stripePaymentMethodId,
       };
       await onSave(config);
       setEditing(null);
@@ -460,6 +559,14 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
               {syncingAll ? 'Syncing All…' : 'Sync All iCal'}
             </button>
           )}
+          <button
+            onClick={openEnrollModal}
+            title="Send a client a link to fill in their own property details"
+            className="flex items-center gap-2 px-4 py-2 bg-[#0e1e3a] border border-[#1e3a5a] hover:bg-[#162035] text-[#4a90d9] text-sm font-semibold rounded-xl transition-colors"
+          >
+            <Link2 size={15} />
+            Client Enroll Link
+          </button>
           <button
             onClick={openAdd}
             className="flex items-center gap-2 px-4 py-2 bg-[#4a90d9] hover:bg-[#5aa0e9] text-white text-sm font-semibold rounded-xl transition-colors"
@@ -548,7 +655,13 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                         <div className="flex items-center gap-1.5">
                           <DollarSign size={13} className="text-[#5ce0a0]" />
                           <span className="text-xs text-[#3a5070]">Client charge:</span>
-                          <span className="text-xs font-semibold text-white">${c.cleaningFee}</span>
+                          {c.cleaningFee > 0 ? (
+                            <span className="text-xs font-semibold text-white">${c.cleaningFee}</span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-xs font-semibold text-[#d0954a]">
+                              <AlertTriangle size={11} /> Fee not set
+                            </span>
+                          )}
                         </div>
                         {profit !== null && (
                           <div className="flex items-center gap-1.5">
@@ -743,6 +856,144 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         </div>
       )}
 
+      {/* Client Enrollment Link Modal */}
+      {enrollModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d45] flex-shrink-0">
+              <div>
+                <h2 className="font-bold text-white">Client Enrollment Link</h2>
+                <p className="text-xs text-[#3a5070] mt-0.5">Client fills in address, door code, iCal links, times &amp; notes. No pricing is shown.</p>
+              </div>
+              <button onClick={() => setEnrollModalOpen(false)} className="text-[#3a5070] hover:text-white text-xl leading-none">&times;</button>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto">
+              <div>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-1">Client Name</label>
+                <input
+                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                  value={enrollName}
+                  onChange={e => setEnrollName(e.target.value)}
+                  placeholder="Jane Smith"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-1">Client Email *</label>
+                <input
+                  type="email"
+                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                  value={enrollEmail}
+                  onChange={e => setEnrollEmail(e.target.value)}
+                  placeholder="owner@example.com"
+                />
+              </div>
+
+              {enrollError && (
+                <p className="text-xs text-[#e05c5c] bg-[#2a0e0e] border border-[#5a1a1a] rounded-lg px-3 py-2">{enrollError}</p>
+              )}
+
+              {(enrollCopied || enrollEmailSent) && enrollLink && (
+                <div className="bg-[#0a2518] border border-[#1e4030] rounded-lg px-3 py-2.5 space-y-1.5">
+                  {enrollCopied && (
+                    <p className="text-xs font-semibold text-[#5ce0a0] flex items-center gap-1.5">
+                      <Check size={12} /> Link copied to clipboard
+                    </p>
+                  )}
+                  {enrollEmailSent && (
+                    <p className="text-xs font-semibold text-[#5ce0a0] flex items-center gap-1.5">
+                      <Check size={12} /> Email sent to {enrollEmail}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <p className="text-xs text-[#3a5070] truncate flex-1 font-mono">{enrollLink}</p>
+                    <button
+                      onClick={() => copyText(enrollLink)}
+                      title="Copy link"
+                      className="p-1 rounded text-[#3a5070] hover:text-[#5ce0a0] flex-shrink-0 transition-colors"
+                    >
+                      <Copy size={13} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => handleEnrollAction(true)}
+                  disabled={enrollSending || !enrollEmail.trim()}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] text-sm font-semibold rounded-xl hover:bg-[#1e2d45] disabled:opacity-50 transition-colors"
+                >
+                  <Copy size={14} />
+                  Copy Link
+                </button>
+                <button
+                  onClick={() => handleEnrollAction(false)}
+                  disabled={enrollSending || !enrollEmail.trim()}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] disabled:opacity-50 transition-colors"
+                >
+                  <Mail size={14} />
+                  {enrollEmailSent ? 'Resend' : 'Send Email'}
+                </button>
+              </div>
+
+              <p className="text-xs text-[#2a4060]">
+                When the client submits, their properties appear in this list with <span className="text-[#d0954a]">Fee not set</span>. Open each one to set the cleaning fee and assign cleaners, then send the payment-setup onboarding link.
+              </p>
+
+              {/* Previously created links */}
+              <div className="border-t border-[#1e2d45] pt-4">
+                <p className="text-xs font-semibold text-[#3a5070] mb-2">Sent links</p>
+                {enrollLinksLoading ? (
+                  <p className="text-xs text-[#3a5070]">Loading…</p>
+                ) : enrollLinks.length === 0 ? (
+                  <p className="text-xs text-[#3a5070]">No enrollment links yet.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {enrollLinks.map(l => {
+                      const expired = l.status === 'pending' && !!l.expiresAt && new Date(l.expiresAt) < new Date();
+                      return (
+                        <div key={l.id} className="flex items-center gap-2 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-white truncate">{l.clientName || l.clientEmail}</p>
+                            <p className="text-[10px] text-[#3a5070] truncate">
+                              {l.clientName ? `${l.clientEmail} · ` : ''}
+                              {new Date(l.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 ${
+                            l.status === 'submitted'
+                              ? 'bg-[#0a2518] text-[#5ce0a0]'
+                              : expired ? 'bg-[#2a0e0e] text-[#e05c5c]' : 'bg-[#2a1a05] text-[#d0954a]'
+                          }`}>
+                            {l.status === 'submitted' ? `Submitted (${l.propertyConfigIds.length})` : expired ? 'Expired' : 'Pending'}
+                          </span>
+                          {l.status === 'pending' && !expired && (
+                            <button
+                              onClick={() => copyText(enrollLinkUrl(l.token))}
+                              title="Copy link"
+                              className="p-1 rounded text-[#3a5070] hover:text-[#5ce0a0] flex-shrink-0 transition-colors"
+                            >
+                              <Copy size={13} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteEnrollLink(l.id)}
+                            title="Delete link"
+                            className="p-1 rounded text-[#3a5070] hover:text-[#e05c5c] flex-shrink-0 transition-colors"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add/Edit Modal */}
       {editing !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -898,6 +1149,18 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                     placeholder="3:00 PM"
                   />
                 </div>
+              </div>
+
+              {/* Client-supplied notes (from the enrollment form) */}
+              <div>
+                <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Client Notes</label>
+                <textarea
+                  className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9] min-h-[90px]"
+                  value={form.clientNotes}
+                  onChange={e => setForm(f => ({ ...f, clientNotes: e.target.value }))}
+                  placeholder="WiFi, parking, supplies location, trash day, special instructions…"
+                />
+                <p className="text-xs text-[#2a4060] mt-1">Filled in automatically when a client submits the enrollment form. Editable here.</p>
               </div>
 
               {/* Staging / listing photos */}
