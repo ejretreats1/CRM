@@ -780,19 +780,24 @@ async function onboardingSubmit(body: any, res: VercelResponse) {
     if (entries.length) {
       const { data: existingProps } = await supabase
         .from('properties')
-        .select('id, address')
+        .select('id, address, property_info')
         .eq('owner_id', request.owner_id);
       for (const [i, entry] of entries.entries()) {
         const address = String(entry.propertyAddress).trim();
         const match = existingProps?.find(p => addressesMatch(p.address, address));
         if (match) {
+          // Layer the form's answers over the existing Property Info so notes
+          // E&J added by hand (alarm codes, quirks, …) are kept.
+          const fromForm = Object.fromEntries(
+            Object.entries(onboardingPropertyInfo(entry)).filter(([, v]) => v !== undefined)
+          );
           await supabase.from('properties').update({
             type:        entry.propertyType || undefined,
             bedrooms:    parseInt(entry.bedrooms)  || undefined,
             bathrooms:   parseFloat(entry.bathrooms) || undefined,
             max_guests:  parseInt(entry.maxGuests) || undefined,
             platforms:   entry.platforms?.length ? entry.platforms : undefined,
-            property_info: onboardingPropertyInfo(entry),
+            property_info: { ...((match as any).property_info ?? {}), ...fromForm },
           }).eq('id', match.id);
         } else {
           await supabase.from('properties').insert({
