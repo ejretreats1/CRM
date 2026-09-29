@@ -411,6 +411,36 @@ export default function App() {
       o.id === ownerId ? { ...o, properties: o.properties.filter(p => p.id !== propertyId) } : o
     ));
   };
+  // Fold a manual (onboarding-form) property into the listing-linked record
+  // for the same place: keep the listing record's id, fill its blanks from the
+  // manual one, then delete the manual record.
+  const mergePropertiesHandler = async (ownerId: string, manualId: string, listingId: string) => {
+    const owner = owners.find(o => o.id === ownerId);
+    const manual = owner?.properties.find(p => p.id === manualId);
+    const listing = owner?.properties.find(p => p.id === listingId);
+    if (!owner || !manual || !listing) return;
+    const merged: Property = {
+      ...listing,
+      address:   listing.address   || manual.address,
+      city:      listing.city      || manual.city,
+      state:     listing.state     || manual.state,
+      type:      listing.type      || manual.type,
+      bedrooms:  listing.bedrooms  || manual.bedrooms,
+      bathrooms: listing.bathrooms || manual.bathrooms,
+      maxGuests: listing.maxGuests || manual.maxGuests,
+      platforms: listing.platforms.length ? listing.platforms : manual.platforms,
+      photoUrl:  listing.photoUrl  || manual.photoUrl,
+      joinedAt:  manual.joinedAt < listing.joinedAt ? manual.joinedAt : listing.joinedAt,
+      propertyInfo: { ...(manual.propertyInfo ?? {}), ...(listing.propertyInfo ?? {}) },
+    };
+    await replaceProperty(ownerId, merged, manualId);
+    setOwners(prev => prev.map(o =>
+      o.id === ownerId
+        ? { ...o, properties: o.properties.filter(p => p.id !== manualId).map(p => (p.id === listingId ? merged : p)) }
+        : o
+    ));
+  };
+
   // `replaces` maps an imported property id → the id of an existing manual
   // property (e.g. created by the onboarding form) that it supersedes.
   const importPropertiesHandler = async (ownerId: string, properties: Property[], replaces: Record<string, string> = {}) => {
@@ -652,6 +682,7 @@ export default function App() {
           hostawayAccountId={hostawayAccountId || undefined}
           hostawaySecret={hostawaySecret || undefined}
           onImportProperties={(properties, replaces) => importPropertiesHandler(selectedOwner.id, properties, replaces)}
+          onMergeProperties={(manualId, listingId) => mergePropertiesHandler(selectedOwner.id, manualId, listingId)}
           reservations={allReservations}
           onUpdateOwner={updateOwnerHandler}
           onNavigateToProperty={(ownerId, propertyId) => navigate('property-portal', `${ownerId}::${propertyId}`)}

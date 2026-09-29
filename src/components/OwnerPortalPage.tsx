@@ -2,7 +2,14 @@ import { useEffect, useState, useMemo } from 'react';
 import { Building2, Loader, Calendar, TrendingUp, Home, Users, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
 
 interface PortalOwner { id: string; name: string; email: string; phone: string; notes?: string; }
-interface PortalProperty { id: string; name?: string; address: string; bedrooms: number; bathrooms: number; property_type?: string; }
+interface PortalProperty { id: string; name?: string; address: string; bedrooms: number; bathrooms: number; property_type?: string; listing_ids?: string[]; }
+
+/** Listing ids a portal property is tied to (API-provided, else parsed from a p_<ts>_<id> id). */
+function propertyListingIds(prop: PortalProperty): string[] {
+  if (prop.listing_ids?.length) return prop.listing_ids;
+  const parts = prop.id.split('_');
+  return parts[0] === 'p' && parts.length >= 3 ? [parts.slice(2).join('_')] : [];
+}
 interface PortalReservation {
   id: string; listing_id: string; guest_name: string; guest_email?: string;
   check_in: string; check_out: string; total_price: number;
@@ -29,12 +36,13 @@ function channelBadge(channel?: string) {
 }
 
 // ── Mini calendar for one property ────────────────────────────────────────────
-function MiniCalendar({ reservations, uplistingId }: { reservations: PortalReservation[]; uplistingId: string | null }) {
+function MiniCalendar({ reservations, uplistingId, listingIds }: { reservations: PortalReservation[]; uplistingId: string | null; listingIds?: string[] }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
 
-  const propRes = uplistingId ? reservations.filter(r => r.listing_id === uplistingId && r.status !== 'cancelled') : [];
+  const ids = new Set(listingIds?.length ? listingIds : uplistingId ? [uplistingId] : []);
+  const propRes = ids.size ? reservations.filter(r => ids.has(r.listing_id) && r.status !== 'cancelled') : [];
 
   function dayStatus(dateStr: string) {
     for (const r of propRes) {
@@ -181,8 +189,9 @@ export default function OwnerPortalPage({ token }: { token: string }) {
     const todayStr = toDateStr(new Date());
     let list = data.reservations.filter(r => r.status !== 'cancelled');
     if (selectedProperty) {
-      const upId = selectedProperty.split('_').slice(2).join('_');
-      list = list.filter(r => r.listing_id === upId);
+      const prop = data.properties.find(p => p.id === selectedProperty);
+      const ids = new Set(prop ? propertyListingIds(prop) : []);
+      list = list.filter(r => ids.has(r.listing_id));
     }
     if (filter === 'upcoming') list = list.filter(r => r.check_out > todayStr);
     else if (filter === 'past') list = list.filter(r => r.check_out <= todayStr);
@@ -285,8 +294,9 @@ export default function OwnerPortalPage({ token }: { token: string }) {
             <h2 className="text-sm font-bold text-white mb-3">Your Properties</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {data.properties.map(prop => {
-                const upId = prop.id.split('_').slice(2).join('_');
-                const propRes = data.reservations.filter(r => r.listing_id === upId && r.status !== 'cancelled');
+                const listingIds = propertyListingIds(prop);
+                const upId = listingIds[0] ?? null;
+                const propRes = data.reservations.filter(r => listingIds.includes(r.listing_id) && r.status !== 'cancelled');
                 const now = new Date();
                 const todayStr = toDateStr(now);
                 const upcoming = propRes.filter(r => r.check_in > todayStr);
@@ -352,7 +362,7 @@ export default function OwnerPortalPage({ token }: { token: string }) {
                       </div>
                     </div>
                     <div className="p-4">
-                      <MiniCalendar reservations={data.reservations} uplistingId={upId || null} />
+                      <MiniCalendar reservations={data.reservations} uplistingId={upId || null} listingIds={listingIds} />
                     </div>
                   </div>
                 );

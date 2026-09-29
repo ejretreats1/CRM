@@ -68,6 +68,33 @@ function parseICal(ical: string) {
 
 // ── Main handler ──────────────────────────────────────────────
 
+// ── Address matching (mirrors src/services/addressMatch.ts) ─────────────────
+const ADDR_SUFFIXES: Record<string, string> = {
+  street: 'st', avenue: 'ave', av: 'ave', boulevard: 'blvd', drive: 'dr', road: 'rd', lane: 'ln',
+  court: 'ct', circle: 'cir', place: 'pl', terrace: 'ter', trail: 'trl', parkway: 'pkwy', highway: 'hwy',
+  north: 'n', south: 's', east: 'e', west: 'w',
+};
+function normalizeAddress(raw: string | null | undefined): string {
+  if (!raw) return '';
+  return (raw.split(',')[0] ?? raw).toLowerCase().replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/).filter(Boolean).map(w => ADDR_SUFFIXES[w] ?? w).join(' ');
+}
+function addressesMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  const na = normalizeAddress(a), nb = normalizeAddress(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const [numA, ...restA] = na.split(' ');
+  const [numB, ...restB] = nb.split(' ');
+  if (!/^\d/.test(numA) || numA !== numB) return false;
+  const sa = restA.slice(0, 2).join(' '), sb = restB.slice(0, 2).join(' ');
+  return !!sa && (sa === sb || sa.startsWith(sb) || sb.startsWith(sa));
+}
+/** Listing id embedded in a p_<ts>_<listingId> property id, if any. */
+function embeddedListingId(propertyId: string): string | null {
+  const parts = propertyId.split('_');
+  return parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
@@ -245,7 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: propRows } = await supabaseAdmin
       .from('properties')
-      .select('id, address, city, state, type, bedrooms, bathrooms')
+      .select('id, address, city, state, type, bedrooms, bathrooms, linked_listing_ids')
       .eq('owner_id', ownerRow.id);
 
     const { data: settings } = await supabaseAdmin
@@ -255,17 +282,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .maybeSingle();
 
     const uplistingKey = settings?.uplisting_api_key ?? '';
-    const properties = propRows ?? [];
+
+    // Every listing id a property is tied to: the one embedded in its id plus
+    // any linked in the CRM's "Link listing" field.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const withListings = ((propRows ?? []) as any[]).map((p: any) => {
+      const ids = new Set<string>();
+      const embedded = embeddedListingId(p.id);
+      if (embedded) ids.add(embedded);
+      for (const id of (Array.isArray(p.linked_listing_ids) ? p.linked_listing_ids : [])) if (id) ids.add(String(id));
+      return { ...p, listingIds: [...ids] };
+    });
+
+    // Collapse duplicates: a property the owner typed on the onboarding form
+    // and the same property imported from Uplisting/Hostaway should show once.
+    // Prefer the record that has listings (it carries the bookings), and fill
+    // any blanks on it from the manual record.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const properties: any[] = [];
+    const seenListing = new Set<string>();
+    const linked = withListings.filter(p => p.listingIds.length > 0);
+    const manual = withListings.filter(p => p.listingIds.length === 0);
+    for (const p of linked) {
+      const key = p.listingIds.slice().sort().join('|');
+      if (seenListing.has(key)) continue;
+      seenListing.add(key);
+      properties.push(p);
+    }
+    for (const m of manual) {
+      const twin = properties.find(p => p.listingIds.length > 0 && addressesMatch(p.address, m.address));
+      if (twin) {
+        twin.address   = twin.address   || m.address;
+        twin.city      = twin.city      || m.city;
+        twin.state     = twin.state     || m.state;
+        twin.type      = twin.type      || m.type;
+        twin.bedrooms  = twin.bedrooms  || m.bedrooms;
+        twin.bathrooms = twin.bathrooms || m.bathrooms;
+        continue;
+      }
+      if (properties.some(p => p.listingIds.length === 0 && addressesMatch(p.address, m.address))) continue;
+      properties.push(m);
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let reservations: any[] = [];
 
     if (uplistingKey) {
-      const uplistingIds = properties
-        .map((p: { id: string }) => {
-          const parts = p.id.split('_');
-          return parts[0] === 'p' && parts.length >= 3 ? parts.slice(2).join('_') : null;
-        })
-        .filter(Boolean) as string[];
+      const uplistingIds = [...new Set(properties.flatMap(p => p.listingIds as string[]))];
 
       if (uplistingIds.length > 0) {
         const from = new Date(); from.setMonth(from.getMonth() - 12);
@@ -318,6 +381,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       property_type: p.type,
       bedrooms: p.bedrooms,
       bathrooms: p.bathrooms,
+      listing_ids: p.listingIds,
     }));
 
     return res.status(200).json({ owner: ownerRow, properties: mappedProperties, reservations });
