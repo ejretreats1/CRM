@@ -868,13 +868,24 @@ export default function OwnerDetail({
                 <OField label="Active Platforms" value={p.platforms} />
                 <OField label="Listing Links"  value={p.listingLinks} />
                 <OField label="Average Rating" value={p.averageRatings} />
+                <OField label="iCal Links"     value={Array.isArray(p.icalLinks) ? p.icalLinks.map((l: { platform: string; url: string }) => `${l.platform}: ${l.url}`) : undefined} />
                 <OField label="Entry Type"     value={p.entryType} />
                 <OField label="Lock Code"      value={p.lockCode}      credential />
+                <OField label="Gate Code"      value={p.gateCode}      credential />
+                <OField label="Garage Code"    value={p.garageCode}    credential />
+                <OField label="Parking / Entry" value={p.parkingNotes} />
                 <OField label="WiFi Network"   value={p.wifiName} />
                 <OField label="WiFi Password"  value={p.wifiPassword}  credential />
+                <OField label="Check-in Time"  value={p.checkInTime} />
+                <OField label="Check-out Time" value={p.checkOutTime} />
+                <OField label="Check-in Instructions" value={p.checkInInstructions} />
                 <OField label="Amenities"      value={p.amenities} />
                 <OField label="Other Amenities" value={p.otherAmenities} />
                 <OField label="Stocked Supplies" value={p.stockedSupplies} />
+                <OField label="Supplies Location" value={p.suppliesLocation} />
+                <OField label="Trash Pickup"   value={p.trashPickupDays} />
+                <OField label="Trash Bins"     value={p.trashBinLocation} />
+                <OField label="Thermostat"     value={p.thermostatNotes} />
                 <OField label="Blackout Dates" value={p.blackoutDates} />
                 <OField label="Pets Allowed"   value={p.petsAllowed} />
                 <OField label="House Rules"    value={p.houseRules} />

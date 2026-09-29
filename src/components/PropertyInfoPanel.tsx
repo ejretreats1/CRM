@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit2, Check, X, Eye, EyeOff, Wifi, Key, Clock, Zap, Trash2, ScrollText, Wrench, FileText } from 'lucide-react';
+import { Edit2, Check, X, Eye, EyeOff, Wifi, Key, Clock, Zap, Trash2, ScrollText, Wrench, FileText, Package, CalendarDays } from 'lucide-react';
 import type { PropertyInfo } from '../types';
 
 interface Props {
@@ -54,6 +54,10 @@ const SECTIONS: Section[] = [
       { key: 'alarmCode', label: 'Alarm code' },
       { key: 'alarmCompany', label: 'Alarm company' },
     ],
+  },
+  {
+    id: 'supplies', label: 'Supplies', icon: Package, color: 'text-[#d0954a]',
+    fields: [{ key: 'suppliesLocation', label: 'Where supplies & linens are kept', multiline: true }],
   },
   {
     id: 'trash', label: 'Trash & Recycling', icon: Trash2, color: 'text-[#5ce0a0]',
@@ -121,7 +125,8 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
     s.fields.some(f => info[f.key])
   );
 
-  const hasAnyInfo = populatedSections.length > 0;
+  const icalLinks = info.icalLinks ?? [];
+  const hasAnyInfo = populatedSections.length > 0 || icalLinks.length > 0;
 
   return (
     <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
@@ -211,6 +216,22 @@ export default function PropertyInfoPanel({ info, onSave }: Props) {
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
+          {icalLinks.length > 0 && (
+            <div className="px-5 py-4">
+              <div className="flex items-center gap-1.5 mb-3">
+                <CalendarDays size={13} className="text-[#4a90d9]" />
+                <p className="text-xs font-semibold text-[#b8d4f0] uppercase tracking-wide">Booking Calendars (iCal)</p>
+              </div>
+              <div className="space-y-1.5">
+                {icalLinks.map((l, i) => (
+                  <div key={i} className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] font-bold text-[#4a90d9] w-20 flex-shrink-0">{l.platform}</span>
+                    <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#b8d4f0] font-mono truncate hover:underline">{l.url}</a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {populatedSections.map(section => {
             const Icon = section.icon;
             const populated = section.fields.filter(f => info[f.key]);

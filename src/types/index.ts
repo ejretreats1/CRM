@@ -63,6 +63,9 @@ export interface PropertyInfo {
   houseRulesNotes?: string;
   applianceNotes?: string;
   generalNotes?: string;
+  suppliesLocation?: string;
+  /** Booking calendar (iCal) export links, one per platform / unit */
+  icalLinks?: { platform: string; url: string }[];
   onboardingChecklist?: Record<string, boolean>;
   onboardingCustomItems?: { id: string; label: string }[];
 }
