@@ -51,6 +51,23 @@ export interface CleaningPropertyConfig {
   icalUrls?: IcalUrl[];
   laundromatAddress?: string;
   linkedPropertyIds?: string[];
+  clientPhone?: string;
+  /** Free-form details the client supplied at enrollment (wifi, trash, supplies, parking…) */
+  clientNotes?: string;
+}
+
+/** A link sent to a client so they can enroll their own property details. */
+export interface CleaningEnrollmentLink {
+  id: string;
+  token: string;
+  clientName?: string;
+  clientEmail: string;
+  clientPhone?: string;
+  status: 'pending' | 'submitted';
+  propertyConfigIds: string[];
+  createdAt: string;
+  expiresAt?: string;
+  submittedAt?: string;
 }
 
 export interface CleaningPortalData {

@@ -2183,6 +2183,221 @@ async function cleaningClientConfirm(body: any, res: VercelResponse) {
   return res.status(200).json({ success: true });
 }
 
+// ── CLEANING CLIENT PROPERTY ENROLLMENT (client fills in property details) ────
+// The client never sees or sets the cleaning fee — it's set in the CRM after submit.
+
+const ENROLL_ICAL = z.object({
+  platform: z.string().trim().max(40).default('Other'),
+  url: z.string().trim().url().max(2000),
+  unitName: z.string().trim().max(80).optional(),
+});
+
+const ENROLL_PROPERTY = z.object({
+  propertyName:      z.string().trim().min(1, 'Property name is required').max(120),
+  address:           z.string().trim().min(1, 'Address is required').max(300),
+  bedrooms:          z.string().trim().max(10).optional(),
+  bathrooms:         z.string().trim().max(10).optional(),
+  doorCode:          z.string().trim().min(1, 'Door / lock code is required').max(60),
+  entryInstructions: z.string().trim().max(1000).optional(),
+  checkoutTime:      z.string().trim().max(30).optional(),
+  checkinTime:       z.string().trim().max(30).optional(),
+  icalUrls:          z.array(ENROLL_ICAL).max(20).default([]),
+  laundryOffsite:    z.boolean().default(false),
+  laundromatAddress: z.string().trim().max(300).optional(),
+  wifiName:          z.string().trim().max(120).optional(),
+  wifiPassword:      z.string().trim().max(120).optional(),
+  suppliesLocation:  z.string().trim().max(1000).optional(),
+  trashInstructions: z.string().trim().max(1000).optional(),
+  notes:             z.string().trim().max(2000).optional(),
+});
+
+const ENROLL_SUBMIT = z.object({
+  token: z.string().min(1),
+  client: z.object({
+    name:  z.string().trim().min(1, 'Your name is required').max(120),
+    email: z.string().trim().email('A valid email is required').max(200),
+    phone: z.string().trim().max(40).optional(),
+  }),
+  properties: z.array(ENROLL_PROPERTY).min(1, 'Add at least one property').max(25),
+});
+
+type EnrollProperty = z.infer<typeof ENROLL_PROPERTY>;
+
+function enrollmentNotes(p: EnrollProperty): string | null {
+  const lines: string[] = [];
+  if (p.bedrooms || p.bathrooms) lines.push(`Size: ${p.bedrooms ? `${p.bedrooms} bed` : ''}${p.bedrooms && p.bathrooms ? ' / ' : ''}${p.bathrooms ? `${p.bathrooms} bath` : ''}`);
+  if (p.entryInstructions) lines.push(`Entry / parking: ${p.entryInstructions}`);
+  if (p.wifiName || p.wifiPassword) lines.push(`WiFi: ${p.wifiName ?? ''}${p.wifiPassword ? ` / ${p.wifiPassword}` : ''}`);
+  if (p.suppliesLocation) lines.push(`Supplies: ${p.suppliesLocation}`);
+  if (p.trashInstructions) lines.push(`Trash: ${p.trashInstructions}`);
+  if (p.notes) lines.push(`Notes: ${p.notes}`);
+  return lines.length ? lines.join('\n') : null;
+}
+
+async function cleaningEnrollGet(token: string, res: VercelResponse) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('cleaning_property_enrollments')
+    .select('id, client_name, client_email, client_phone, status, expires_at, submitted_at')
+    .eq('token', token)
+    .single();
+  if (error || !data) return res.status(404).json({ error: 'Invalid or expired link.' });
+  if (data.status !== 'submitted' && data.expires_at && new Date(data.expires_at) < new Date()) {
+    return res.status(410).json({ error: 'This enrollment link has expired. Please contact E&J Retreats for a new one.' });
+  }
+  return res.status(200).json({
+    id: data.id,
+    clientName: data.client_name,
+    clientEmail: data.client_email,
+    clientPhone: data.client_phone,
+    status: data.status,
+    submittedAt: data.submitted_at,
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningEnrollCreateLink(body: any, res: VercelResponse) {
+  try {
+    const { clientName, clientEmail, clientPhone, appUrl, copyOnly } = body;
+    if (!clientEmail || typeof clientEmail !== 'string') {
+      return res.status(400).json({ error: 'clientEmail is required.' });
+    }
+
+    const supabase = getSupabase();
+    const id = randomUUID();
+    const token = randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { error } = await supabase.from('cleaning_property_enrollments').insert({
+      id, token,
+      client_name: clientName ?? null,
+      client_email: clientEmail,
+      client_phone: clientPhone ?? null,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      expires_at: expiresAt,
+    });
+    if (error) return res.status(500).json({ error: error.message });
+
+    const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+    const link = `${base}?cleaning-enroll=${token}`;
+
+    if (copyOnly) return res.status(200).json({ id, token, link });
+
+    try {
+      const subject = 'E&J Retreats Cleaning — tell us about your property';
+      const sent = await (await getResend()).emails.send({
+        from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+        to: clientEmail,
+        subject,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+            <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+              <h2 style="color:#1e40af;margin:0 0 16px">🏠 Property Enrollment</h2>
+              <p style="color:#334155">Hi ${clientName ?? 'there'},</p>
+              <p style="color:#334155">Welcome to E&amp;J Retreats' cleaning service! To get your property set up, please fill out a short form with the details our cleaners need:</p>
+              <ul style="color:#334155;font-size:14px;line-height:1.8">
+                <li>Property address and door / lock code</li>
+                <li>Guest check-in and check-out times</li>
+                <li>Booking calendar (iCal) links so cleanings schedule automatically</li>
+                <li>Laundry, supplies, trash and any special instructions</li>
+              </ul>
+              <p style="color:#334155">You can enroll more than one property in the same form.</p>
+              <p style="margin:28px 0;text-align:center">
+                <a href="${link}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
+                  Enroll My Property
+                </a>
+              </p>
+              <p style="color:#94a3b8;font-size:12px;text-align:center">Link expires in 30 days.&nbsp;&mdash;&nbsp;E&amp;J Retreats</p>
+            </div>
+          </div>
+        `,
+      });
+      if (sent?.id) await logEmail(sent.id, 'cleaning-enroll', clientEmail, subject, id, clientName ?? undefined);
+    } catch (emailErr) {
+      console.error('Resend email failed:', emailErr);
+      return res.status(200).json({ id, token, link, emailError: 'Email could not be sent, but link was created.' });
+    }
+
+    return res.status(200).json({ id, token, link });
+  } catch (err) {
+    console.error('cleaningEnrollCreateLink error:', err);
+    if (!res.headersSent) return res.status(500).json({ error: 'An unexpected error occurred.' });
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningEnrollSubmit(body: any, res: VercelResponse) {
+  const parsed = ENROLL_SUBMIT.safeParse(body);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return res.status(400).json({ error: first?.message ?? 'Please check the form and try again.' });
+  }
+  const { token, client, properties } = parsed.data;
+
+  const supabase = getSupabase();
+  const { data: record } = await supabase.from('cleaning_property_enrollments').select('*').eq('token', token).single();
+  if (!record) return res.status(404).json({ error: 'Invalid link.' });
+  if (record.status === 'submitted') return res.status(409).json({ error: 'This form has already been submitted.' });
+  if (record.expires_at && new Date(record.expires_at) < new Date()) return res.status(410).json({ error: 'This link has expired.' });
+
+  const now = new Date().toISOString();
+  const createdIds: string[] = [];
+
+  for (let i = 0; i < properties.length; i++) {
+    const p = properties[i];
+    const id = `cpc_${Date.now()}_${i}`;
+    const row = {
+      id,
+      property_id: `enroll_${randomUUID().slice(0, 8)}`,
+      property_name: p.propertyName,
+      cleaning_fee: 0,                    // set by E&J in the CRM — never collected from the client
+      assigned_cleaners: [],
+      enrolled_at: now,
+      client_name: client.name,
+      client_email: client.email,
+      client_phone: client.phone ?? null,
+      address: p.address,
+      door_code: p.doorCode,
+      checkout_time: p.checkoutTime || null,
+      checkin_time: p.checkinTime || null,
+      ical_urls: p.icalUrls.map(u => ({ platform: u.platform || 'Other', url: u.url, ...(u.unitName ? { unitName: u.unitName } : {}) })),
+      laundromat_address: p.laundryOffsite ? (p.laundromatAddress || 'Off-site (address not provided)') : null,
+      client_notes: enrollmentNotes(p),
+    };
+    const { error } = await supabase.from('cleaning_property_configs').insert(row);
+    if (error) {
+      console.error('enrollment insert failed:', error);
+      return res.status(500).json({ error: `Could not save property "${p.propertyName}": ${error.message}` });
+    }
+    createdIds.push(id);
+  }
+
+  await supabase.from('cleaning_property_enrollments').update({
+    status: 'submitted',
+    submitted_at: now,
+    client_name: client.name,
+    client_email: client.email,
+    client_phone: client.phone ?? null,
+    submission: { client, properties },
+    property_config_ids: createdIds,
+  }).eq('token', token);
+
+  const summary = properties.map(p => `<li><strong>${p.propertyName}</strong> — ${p.address}</li>`).join('');
+  await (await getResend()).emails.send({
+    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
+    to: 'ejretreats1@gmail.com',
+    subject: `🏠 Property enrollment submitted: ${client.name} (${properties.length} propert${properties.length === 1 ? 'y' : 'ies'})`,
+    html: `<div style="font-family:sans-serif;padding:24px">
+      <p><strong>${client.name}</strong> (${client.email}${client.phone ? `, ${client.phone}` : ''}) submitted property details:</p>
+      <ul>${summary}</ul>
+      <p>The propert${properties.length === 1 ? 'y is' : 'ies are'} now in the Cleaning → Properties tab. <strong>Set the cleaning fee and assign cleaners</strong>, then send the payment setup link.</p>
+    </div>`,
+  }).catch(() => {});
+
+  return res.status(200).json({ success: true, propertyConfigIds: createdIds });
+}
+
 // ── CLEANING CHARGE & PAYOUT ──────────────────────────────────────────────────
 
 interface ChargeResult {
@@ -4314,6 +4529,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.query.flow === 'onboarding' && token) return await onboardingGet(token, res);
     if (req.query.flow === 'cleaning' && token) return await cleaningGet(token, res);
     if (req.query.flow === 'cleaning-client' && token) return await cleaningClientGet(token, res);
+    if (req.query.flow === 'cleaning-enroll' && token) return await cleaningEnrollGet(token, res);
     if (req.query.flow === 'cleaner-onboard' && token) return await cleanerOnboardGet(token, res);
     if (req.query.flow === 'cleaner-connect' && req.query.combined) return await cleanerConnectVerify(req.query.combined as string, res);
     if (req.query.flow === 'cleaner-dashboard' && req.query.cleanerId) return await cleanerDashboardGet(req.query.cleanerId as string, res);
@@ -4407,6 +4623,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'send-onboarding') return await cleaningClientSend(body, res);
     if (action === 'setup-intent')    return await cleaningClientSetupIntent(body, res);
     if (action === 'confirm')         return await cleaningClientConfirm(body, res);
+  } else if (flow === 'cleaning-enroll') {
+    if (action === 'create-link') return await cleaningEnrollCreateLink(body, res);
+    if (action === 'submit')      return await cleaningEnrollSubmit(body, res);
   } else if (flow === 'content') {
     if (action === 'generate') return await contentGenerate(body, res);
   } else if (flow === 'email-mkt') {
