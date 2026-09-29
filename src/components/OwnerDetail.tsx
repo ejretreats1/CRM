@@ -38,6 +38,8 @@ interface OwnerDetailProps {
   hostawayAccountId?: string;
   hostawaySecret?: string;
   onImportProperties: (properties: Property[], replaces?: Record<string, string>) => Promise<void>;
+  /** Fold a manually-created property into the listing-linked record for the same place. */
+  onMergeProperties?: (manualPropertyId: string, listingPropertyId: string) => Promise<void>;
   reservations?: UplistingReservation[];
   onUpdateOwner: (owner: Owner) => Promise<void>;
   onNavigateToProperty?: (ownerId: string, propertyId: string) => void;
@@ -130,7 +132,7 @@ function OSection({ title, children }: { title: string; children: React.ReactNod
 }
 
 export default function OwnerDetail({
-  owner, outreach, onBack, onEdit, onAddProperty, onEditProperty, onDeleteProperty, onAddOutreach, onUpdateOwner,
+  owner, outreach, onBack, onEdit, onAddProperty, onEditProperty, onDeleteProperty, onAddOutreach, onUpdateOwner, onMergeProperties,
   uplistingApiKey, hostawayAccountId, hostawaySecret,
   onImportProperties, reservations = [], onNavigateToProperty,
 }: OwnerDetailProps) {
@@ -399,6 +401,26 @@ export default function OwnerDetail({
   const importSourceLabel = importSource === 'hostaway' ? 'Hostaway' : 'Uplisting';
   // Properties not yet tied to a listing (e.g. created by the onboarding form) — merge candidates.
   const manualProperties = owner.properties.filter(p => !isListingLinkedPropertyId(p.id));
+  // Manual property id → listing-linked property at the same address (a duplicate pair).
+  const duplicateOf = useMemo(() => {
+    const map: Record<string, Property> = {};
+    const linked = owner.properties.filter(p => isListingLinkedPropertyId(p.id) || (p.linkedListingIds?.length ?? 0) > 0);
+    for (const m of owner.properties) {
+      if (isListingLinkedPropertyId(m.id) || (m.linkedListingIds?.length ?? 0) > 0) continue;
+      const twin = linked.find(l => addressesMatch(l.address, m.address));
+      if (twin) map[m.id] = twin;
+    }
+    return map;
+  }, [owner.properties]);
+  const [mergingId, setMergingId] = useState<string | null>(null);
+
+  async function mergeDuplicate(manualId: string, listingId: string) {
+    if (!onMergeProperties) return;
+    if (!confirm('Merge this into the Uplisting-linked property? Onboarding details are kept and the duplicate is removed.')) return;
+    setMergingId(manualId);
+    try { await onMergeProperties(manualId, listingId); }
+    finally { setMergingId(null); }
+  }
 
   return (
     <>
@@ -550,7 +572,24 @@ export default function OwnerDetail({
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-medium text-white">{property.address}, {property.city}, {property.state}</h3>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${style.badge}`}>{style.label}</span>
+                      {duplicateOf[property.id] && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#2a1a05] text-[#d0954a]">Duplicate</span>
+                      )}
                     </div>
+                    {duplicateOf[property.id] && (
+                      <div className="mt-2 flex items-center gap-2 flex-wrap bg-[#2a1a05] border border-[#5a3a10] rounded-lg px-3 py-2 text-xs text-[#d0954a]">
+                        <span>Same address as the listing-linked property "{duplicateOf[property.id].address}". The client portal shows them as one.</span>
+                        {onMergeProperties && (
+                          <button
+                            onClick={e => { e.stopPropagation(); mergeDuplicate(property.id, duplicateOf[property.id].id); }}
+                            disabled={mergingId === property.id}
+                            className="ml-auto px-2.5 py-1 rounded-md bg-[#d0954a] text-[#1a1000] font-semibold hover:bg-[#e0a55a] disabled:opacity-50 transition-colors"
+                          >
+                            {mergingId === property.id ? 'Merging…' : 'Merge into listing'}
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-4 mt-2 text-sm text-[#b8d4f0]">
                       <span>{property.type}</span>
                       <span>{property.bedrooms}bd / {property.bathrooms}ba</span>
