@@ -27,9 +27,64 @@ export interface UplistingProperty {
 
 /** "123 Ocean Dr, Miami, FL 33101" from whatever parts the PMS gave us. */
 export function formatPropertyAddress(p: Pick<UplistingProperty, 'address' | 'city' | 'state' | 'zip'>): string {
-  const street = (p.address ?? '').trim();
-  const cityState = [p.city?.trim(), [p.state?.trim(), p.zip?.trim()].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const street = str(p.address);
+  const cityState = [str(p.city), [str(p.state), str(p.zip)].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  // If the street already contains the city (full formatted address), don't repeat it.
+  if (street && cityState && street.toLowerCase().includes((str(p.city) || '\u0000').toLowerCase())) return street;
   return [street, cityState].filter(Boolean).join(', ');
+}
+
+function str(v: unknown): string { return typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : ''; }
+
+export interface AddressParts { address: string; city: string; state: string; zip: string }
+
+/**
+ * Uplisting has shipped the address in several shapes over time — a plain
+ * string, separate fields, or a nested `address` / `location` object. Read all
+ * of them so the enroll form is pre-filled whichever one this account gets.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function extractAddressParts(a: any): AddressParts {
+  const nested = (a?.address && typeof a.address === 'object') ? a.address : (a?.location && typeof a.location === 'object') ? a.location : null;
+  const src = nested ?? a ?? {};
+  const line1 = str(src.street) || str(src.street_address) || str(src.address_line_1) || str(src.address_line1) || str(src.address1) || str(src.line1) || str(src.line_1) || str(src.address_1);
+  const line2 = str(src.street2) || str(src.address_line_2) || str(src.address_line2) || str(src.address2) || str(src.line2) || str(src.line_2) || str(src.unit) || str(src.apartment);
+  const plain = nested ? '' : (str(a?.address) || str(a?.full_address) || str(a?.formatted_address) || str(a?.display_address));
+  const streetFull = [line1, line2].filter(Boolean).join(', ');
+  return {
+    address: plain || streetFull || str(nested?.full_address) || str(nested?.formatted) || str(nested?.formatted_address) || '',
+    city: str(src.city) || str(src.town) || str(src.locality) || str(a?.city) || '',
+    state: str(src.state) || str(src.region) || str(src.province) || str(src.state_code) || str(src.administrative_area) || str(a?.state) || str(a?.region) || '',
+    zip: str(src.zip) || str(src.zip_code) || str(src.zipcode) || str(src.postcode) || str(src.postal_code) || str(a?.zip) || str(a?.zip_code) || str(a?.postcode) || str(a?.postal_code) || '',
+  };
+}
+
+export interface UplistingPropertyDetails extends AddressParts {
+  bedrooms?: number;
+  bathrooms?: number;
+  check_in_time?: string;
+  check_out_time?: string;
+  photo_url?: string;
+}
+
+/** The single-listing endpoint carries fields the list endpoint often omits (address, times). */
+export async function fetchPropertyDetails(apiKey: string, propertyId: string): Promise<UplistingPropertyDetails | null> {
+  try {
+    const detail = await apiFetch(`properties/${propertyId}`, apiKey);
+    const d = detail?.property ?? detail?.data ?? detail;
+    if (!d) return null;
+    const a = d.attributes ?? d;
+    return {
+      ...extractAddressParts(a),
+      bedrooms: a.bedrooms != null ? Number(a.bedrooms) : undefined,
+      bathrooms: a.bathrooms != null ? Number(a.bathrooms) : undefined,
+      check_in_time:  formatPmsTime(a.check_in_time ?? a.checkin_time ?? a.default_check_in_time ?? a.check_in ?? a.arrival_time),
+      check_out_time: formatPmsTime(a.check_out_time ?? a.checkout_time ?? a.default_check_out_time ?? a.check_out ?? a.departure_time),
+      photo_url: extractPhotoUrl(a, d, detail?.included ?? []) || undefined,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Normalise "16:00" / "16:00:00" to "4:00 PM"; leave anything else as-is. */
@@ -305,9 +360,7 @@ function normalizeProperty(p: any, included: any[] = []): UplistingProperty {
     id,
     name: a.name ?? a.title ?? a.listing_name ?? '',
     nickname: a.nickname ?? '',
-    address: a.address ?? a.street ?? '',
-    city: a.city ?? '',
-    state: a.state ?? a.region ?? '',
+    ...extractAddressParts(a),
     bedrooms: Number(a.bedrooms ?? a.bedroom_count ?? 0),
     bathrooms: Number(a.bathrooms ?? a.bathroom_count ?? 0),
     max_guests: Number(a.maximum_capacity ?? a.max_guests ?? a.guest_capacity ?? 0),
@@ -316,7 +369,6 @@ function normalizeProperty(p: any, included: any[] = []): UplistingProperty {
     status: a.status ?? 'active',
     time_zone: a.time_zone ?? '',
     photo_url,
-    zip: a.zip ?? a.zip_code ?? a.postcode ?? a.postal_code ?? '',
     check_in_time:  formatPmsTime(a.check_in_time ?? a.checkin_time ?? a.default_check_in_time ?? a.check_in ?? a.arrival_time),
     check_out_time: formatPmsTime(a.check_out_time ?? a.checkout_time ?? a.default_check_out_time ?? a.check_out ?? a.departure_time),
   };

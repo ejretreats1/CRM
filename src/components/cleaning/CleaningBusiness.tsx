@@ -660,8 +660,10 @@ function CleaningPayments({
                           </span>
                         ) : job.payoutStatus === 'processing' ? (
                           <span className="text-xs text-[#4a90d9]">Sending…</span>
+                        ) : job.chargedAt ? (
+                          <span className="text-xs text-[#d0954a]">Client charged — payout queued for the next billing run (or click Send payout)</span>
                         ) : (
-                          <span className="text-xs text-[#5ce0a0]">Sends automatically with the charge</span>
+                          <span className="text-xs text-[#5ce0a0]" title="The cleaner is paid via Stripe at the same moment the client's card is charged, which happens when the cleaner submits their report.">Pays automatically when the client is charged</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">

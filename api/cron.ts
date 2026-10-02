@@ -184,6 +184,7 @@ async function runBookingSync(res: VercelResponse) {
     const tick = await dispatchTick(supabase, resend);
     summary.dispatch = tick;
     errors.push(...tick.errors);
+    errors.push(...tick.blocked.map(b => `Jobs waiting, not dispatched — ${b}`));
   } catch (e) {
     errors.push(`dispatch: ${e instanceof Error ? e.message : String(e)}`);
   }

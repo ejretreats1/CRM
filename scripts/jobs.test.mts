@@ -42,7 +42,7 @@ try { unlinkSync(jobsBundle); unlinkSync(icalBundle); unlinkSync(smsBundle); } c
 
 const ADMIN = process.env.ADMIN_EMAIL ?? 'ejretreats1@gmail.com';
 const TODAY = '2026-10-02';
-const config = { id: 'cpc1', property_id: 'p1', property_name: 'Beach House', cleaning_fee: 150, linked_property_ids: ['p1b'], assigned_cleaners: [{ id: 'c1', payout: 90 }, { id: 'c2', payout: 85 }, { id: 'c3', payout: 80 }] };
+const config = { id: 'cpc1', property_id: 'p1', property_name: 'Beach House', cleaning_fee: 150, stripe_payment_method_id: 'pm_1', linked_property_ids: ['p1b'], assigned_cleaners: [{ id: 'c1', payout: 90 }, { id: 'c2', payout: 85 }, { id: 'c3', payout: 80 }] };
 const cleaners = [
   { id: 'c1', name: 'Pat', email: 'pat@x.com', status: 'active' },
   { id: 'c2', name: 'Sam', email: 'sam@x.com', status: 'active' },
@@ -146,8 +146,11 @@ const freshJob = (over: Row = {}) => ({ id: 'j1', property_id: 'p1', property_na
 // ── hourly tick ──
 { const now = new Date('2026-10-02T15:00:00Z');
   const db = new FakeDb({
-    cleaning_property_configs: [config], cleaners,
+    cleaning_property_configs: [config, { id: 'cpc2', property_id: 'nocard', property_name: 'No Card Villa', cleaning_fee: 100, assigned_cleaners: [{ id: 'c1', payout: 50 }] }, { id: 'cpc3', property_id: 'nofee', property_name: 'Free Villa', cleaning_fee: 0, stripe_payment_method_id: 'pm_2', assigned_cleaners: [{ id: 'c1', payout: 50 }] }], cleaners,
     cleaning_jobs: [
+      freshJob({ id: 'blocked-card', property_id: 'nocard', checkout_date: '2026-10-06', same_day: false }),
+      freshJob({ id: 'blocked-card2', property_id: 'nocard', checkout_date: '2026-10-07', same_day: false }),
+      freshJob({ id: 'blocked-fee', property_id: 'nofee', checkout_date: '2026-10-06', same_day: false, cleaning_fee: 0 }),
       freshJob({ id: 'in-window', checkout_date: '2026-10-10', same_day: false }),
       freshJob({ id: 'far', checkout_date: '2026-11-20', same_day: false }),
       freshJob({ id: 'far-same-day', checkout_date: '2026-11-21', same_day: true }),
@@ -164,6 +167,7 @@ const freshJob = (over: Row = {}) => ({ id: 'j1', property_id: 'p1', property_na
   const by = (id: string) => db.tables.cleaning_jobs.find(j => j.id === id)!;
   results.tickDispatchesInWindow = by('in-window').status === 'dispatched' && by('sub-unit').status === 'dispatched' && by('far-same-day').status === 'dispatched';
   results.tickLeavesFarAndOrphans = by('far').status === 'pending' && by('no-config').status === 'pending' && by('yesterday').status === 'pending' && t.dispatched === 3;
+  results.tickBlocksUnbillable = by('blocked-card').status === 'pending' && by('blocked-card2').status === 'pending' && by('blocked-fee').status === 'pending' && t.blocked.length === 2 && /No Card Villa: no card/.test(t.blocked[0]) && /Free Villa: cleaning fee not set/.test(t.blocked[1]);
   results.tickEscalatesOnlyOverdue = by('waiting-ok').dispatch_index === 0 && by('waiting-late').dispatch_index === 1 && by('urgent-late').dispatch_index === 1 && t.escalated === 2;
   results.tickUrgentAlertOnce = !!by('tomorrow-unassigned').escalation_notified_at && !!by('urgent-late').escalation_notified_at && t.urgentAlerts === 2 && rs.to(ADMIN).filter(m => /Tomorrow's clean unassigned/.test(m.subject)).length === 2;
   const t2 = await dispatchTick(db, rs, new Date('2026-10-02T15:30:00Z'));

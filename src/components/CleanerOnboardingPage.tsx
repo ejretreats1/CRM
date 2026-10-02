@@ -45,6 +45,7 @@ export default function CleanerOnboardingPage({ token }: { token: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [sigEmpty, setSigEmpty] = useState(true);
+  const [nextLink, setNextLink] = useState<string | null>(null);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sigRef = useRef<SignaturePadHandle | null>(null);
@@ -94,6 +95,7 @@ export default function CleanerOnboardingPage({ token }: { token: string }) {
       });
       const d = await r.json();
       if (!r.ok) { setSubmitError(d.error ?? 'Submission failed.'); return; }
+      if (d.nextLink) setNextLink(d.nextLink);
       setPageState('done');
     } catch {
       setSubmitError('Network error. Please try again.');
@@ -149,8 +151,15 @@ export default function CleanerOnboardingPage({ token }: { token: string }) {
             <div className="text-5xl mb-4">✅</div>
             <h2 className="text-xl font-bold text-gray-800 mb-2">Agreement Signed</h2>
             <p className="text-gray-500 text-sm">
-              You're all set, {prefill.cleanerName ?? name}. A copy of the signed agreement has been sent to your email.
+              Thanks, {prefill.cleanerName ?? name}. A copy of the signed agreement has been sent to your email.
             </p>
+            {nextLink && (
+              <div className="mt-6 text-left bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-sm font-semibold text-blue-900 mb-1">One more step: set up payouts</p>
+                <p className="text-xs text-blue-800 mb-3">Connect your bank through Stripe so you're paid automatically after each job. Takes about 3 minutes.</p>
+                <a href={nextLink} className="block text-center bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl text-sm">Set up payouts →</a>
+              </div>
+            )}
           </div>
         </div>
       </div>

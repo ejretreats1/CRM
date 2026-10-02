@@ -11,7 +11,8 @@ export interface Cleaner {
   stripeAccountId?: string;
   stripeConnectStatus?: 'pending' | 'active';
   agreementSignedAt?: string;
-  status: 'active' | 'inactive';
+  /** pending = onboarding (agreement and/or Stripe payouts not done yet); never dispatched */
+  status: 'active' | 'inactive' | 'pending';
   createdAt: string;
   dashboardToken?: string;
   skills?: CleaningJobType[];

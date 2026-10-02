@@ -96,6 +96,7 @@ export default function CleaningPropertyEnrollPage({ token }: { token: string })
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [properties, setProperties] = useState<PropertyForm[]>([emptyProperty()]);
+  const [nextLink, setNextLink] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/documents?flow=cleaning-enroll&token=${encodeURIComponent(token)}`)
@@ -170,6 +171,7 @@ export default function CleaningPropertyEnrollPage({ token }: { token: string })
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? 'Submission failed.');
+      if (d.nextLink) setNextLink(d.nextLink);
       setPageState('done');
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Submission failed. Please try again.');
@@ -209,8 +211,11 @@ export default function CleaningPropertyEnrollPage({ token }: { token: string })
             <div className="text-5xl mb-4">✅</div>
             <h2 className="text-xl font-bold text-gray-800 mb-2">Thank you!</h2>
             <p className="text-gray-500 text-sm">
-              We've received your property details. E&amp;J Retreats will review them and follow up with the next step to activate your cleaning service.
+              We've received your property details.{nextLink ? ' Last step: add a card so cleanings can be billed automatically after each completed clean.' : ' E&J Retreats will review them and follow up with the next step to activate your cleaning service.'}
             </p>
+            {nextLink && (
+              <a href={nextLink} className="mt-5 block bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl text-sm">Add payment method →</a>
+            )}
           </div>
         </div>
       </Shell>

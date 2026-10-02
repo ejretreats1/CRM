@@ -27,11 +27,13 @@ interface OnboardingData {
   clientName: string | null;
   clientEmail: string | null;
   status: string;
+  /** Per-property cleaning fee as currently set in the CRM (0 = not set yet) */
+  properties?: { id: string; name: string; fee: number }[];
 }
 
 type PageState = 'loading' | 'error' | 'form' | 'payment' | 'done';
 
-function CardForm({ token, onSuccess }: { token: string; onSuccess: () => void }) {
+function CardForm({ token, fees, onSuccess }: { token: string; fees: { name: string; fee: number }[]; onSuccess: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const [agreed, setAgreed] = useState(false);
@@ -57,7 +59,7 @@ function CardForm({ token, onSuccess }: { token: string; onSuccess: () => void }
         const r = await fetch('/api/documents', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ flow: 'cleaning-client', action: 'confirm', token, setupIntentId: setupIntent.id }),
+          body: JSON.stringify({ flow: 'cleaning-client', action: 'confirm', token, setupIntentId: setupIntent.id, consent: { agreedAt: new Date().toISOString(), feesShown: fees, userAgent: navigator.userAgent } }),
         });
         const d = await r.json();
         if (!r.ok) { setCardError(d.error ?? 'Confirmation failed.'); return; }
@@ -133,8 +135,24 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
         const r = await fetch(`/api/documents?flow=cleaning-client&token=${encodeURIComponent(token)}`);
         const d = await r.json();
         if (!r.ok) { setErrorMsg(d.error ?? 'Could not load onboarding link.'); setPageState('error'); return; }
-        if (d.status === 'completed') { setPageState('done'); return; }
         setData(d);
+        if (d.status === 'completed') { setPageState('done'); return; }
+        // Back from a bank authentication (3-D Secure) redirect: finish the confirmation here.
+        const qs = new URLSearchParams(window.location.search);
+        const returnedIntent = qs.get('setup_intent');
+        if (returnedIntent) {
+          if (qs.get('redirect_status') === 'succeeded') {
+            const rc = await fetch('/api/documents', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ flow: 'cleaning-client', action: 'confirm', token, setupIntentId: returnedIntent, consent: { agreedAt: new Date().toISOString(), feesShown: d.properties ?? [], userAgent: navigator.userAgent } }),
+            });
+            if (rc.ok) { setPageState('done'); return; }
+            const dc = await rc.json().catch(() => ({}));
+            setErrorMsg(dc.error ?? 'Your bank approved the card but we could not finish saving it. Please try again.');
+          } else {
+            setErrorMsg('Card authentication was not completed. Please try again.');
+          }
+        }
         // Fetch setup intent
         const r2 = await fetch('/api/documents', {
           method: 'POST',
@@ -263,6 +281,28 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
           </ul>
         </div>
 
+        {/* What will be charged */}
+        {data?.properties?.length ? (
+          <div className="bg-white rounded-2xl border shadow-sm p-5 mb-5">
+            <h2 className="font-semibold text-gray-800 mb-1">Your cleaning fee</h2>
+            <p className="text-xs text-gray-500 mb-3">Charged to your card after each completed turnover clean, never before.</p>
+            <ul className="divide-y">
+              {data.properties.map(p => (
+                <li key={p.id} className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-gray-700">{p.name}</span>
+                  {p.fee > 0
+                    ? <span className="font-semibold text-gray-900">${p.fee.toFixed(2)} / clean</span>
+                    : <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">Confirmed by E&amp;J before your first clean</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {errorMsg && pageState === 'form' && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3 mb-5">{errorMsg}</div>
+        )}
+
         {clientSecret && stripePromise && (
           <Elements
             stripe={stripePromise}
@@ -274,7 +314,7 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
               },
             }}
           >
-            <CardForm token={token} onSuccess={() => setPageState('done')} />
+            <CardForm token={token} fees={(data?.properties ?? []).map(p => ({ name: p.name, fee: p.fee }))} onSuccess={() => setPageState('done')} />
           </Elements>
         )}
       </div>

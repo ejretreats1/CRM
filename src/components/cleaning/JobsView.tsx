@@ -184,6 +184,9 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
       alert('No cleaners assigned to this property. Go to Properties tab to assign cleaners.');
       return;
     }
+    const fee = job.cleaningFee > 0 ? job.cleaningFee : config.cleaningFee;
+    const blockers = [!config.stripePaymentMethodId && 'the client has no card on file', fee <= 0 && 'no cleaning fee is set'].filter(Boolean);
+    if (blockers.length && !confirm(`Heads up: ${blockers.join(' and ')} for ${config.propertyName}, so this job can't be billed yet. Dispatch anyway?`)) return;
     // Build list: cleaner profile + their negotiated payout for this property
     const assignedCleaners = config.assignedCleaners
       .map(ac => {

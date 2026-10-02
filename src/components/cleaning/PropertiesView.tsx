@@ -3,7 +3,7 @@ import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, 
 import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl, CleaningEnrollmentLink } from '../../types/cleaning';
 import { fetchEnrollmentLinks, deleteEnrollmentLink } from '../../services/cleaningDb';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
-import { fetchPropertyAllPhotos, formatPropertyAddress } from '../../services/uplisting';
+import { fetchPropertyAllPhotos, fetchPropertyDetails, formatPropertyAddress } from '../../services/uplisting';
 import { downloadApiFile } from '../../services/apiFile';
 
 interface Props {
@@ -447,6 +447,24 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       checkoutTime: prop?.check_out_time || f.checkoutTime,
       detailsAutoFilled: !!prop && !!(fullAddress || prop.check_in_time || prop.check_out_time || prop.bedrooms),
     }));
+    // The list endpoint doesn't always include the address — ask for the single listing.
+    if (prop && uplistingApiKey && (!fullAddress || !prop.check_in_time || !prop.check_out_time)) {
+      fetchPropertyDetails(uplistingApiKey, pid).then(det => {
+        if (!det) return;
+        const detAddress = formatPropertyAddress(det);
+        setForm(f => {
+          if (f.propertyId !== pid) return f; // admin picked another listing meanwhile
+          return {
+            ...f,
+            address: f.address || detAddress,
+            checkinTime: f.checkinTime || det.check_in_time || '',
+            checkoutTime: f.checkoutTime || det.check_out_time || '',
+            photoUrl: f.photoUrl || det.photo_url || '',
+            detailsAutoFilled: f.detailsAutoFilled || !!(detAddress || det.check_in_time || det.check_out_time),
+          };
+        });
+      }).catch(() => {});
+    }
   }
 
   function isAssigned(cleanerId: string) {
@@ -678,6 +696,12 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                             </span>
                           )}
                         </div>
+                        {!c.stripePaymentMethodId && (
+                          <div className="flex items-center gap-1.5" title="Jobs for this property are not auto-dispatched until the client saves a card. Select it and send the payment-setup link.">
+                            <AlertTriangle size={13} className="text-[#d0954a]" />
+                            <span className="text-xs font-semibold text-[#d0954a]">No card on file — not auto-dispatched</span>
+                          </div>
+                        )}
                         {profit !== null && (
                           <div className="flex items-center gap-1.5">
                             <DollarSign size={13} className="text-[#d0954a]" />
@@ -1039,7 +1063,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                       </select>
                       {form.detailsAutoFilled && (
                         <p className="mt-1.5 flex items-center gap-1 text-[10px] font-semibold text-[#5ce0a0]">
-                          <Zap size={9} /> Name, address, photo and check-in/out times filled from the listing — review below.
+                          <Zap size={9} /> Filled from the listing: {['name', form.address && 'address', form.photoUrl && 'photo', (form.checkinTime || form.checkoutTime) && 'check-in/out times'].filter(Boolean).join(', ')}{!form.address && ' — no address on the Uplisting listing, please type it'} — review below.
                         </p>
                       )}
                       <button
