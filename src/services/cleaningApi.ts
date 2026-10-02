@@ -16,10 +16,12 @@ interface DispatchPayload {
   cleanerPayout: number;
   notes?: string;
   jobType?: string;
+  /** Clear the current assignment and offer the job to the roster again */
+  redispatch?: boolean;
   cleaners: DispatchCleaner[];
 }
 
-export async function dispatchCleaningJob(payload: DispatchPayload): Promise<{ sent: number }> {
+export async function dispatchCleaningJob(payload: DispatchPayload): Promise<{ sent: number; warning?: string }> {
   const r = await fetch(BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -32,7 +34,7 @@ export async function dispatchCleaningJob(payload: DispatchPayload): Promise<{ s
   });
   const d = await r.json();
   if (!r.ok) throw new Error(d.error ?? 'Dispatch failed');
-  return d as { sent: number };
+  return d as { sent: number; warning?: string };
 }
 
 export async function acceptCleaningJob(jobId: string, token: string): Promise<void> {
@@ -63,4 +65,16 @@ export async function submitCleaningJob(
   });
   const d = await r.json();
   if (!r.ok) throw new Error(d.error ?? 'Submit failed');
+}
+
+/** Run the booking sync (iCal + Uplisting → jobs) and offer new jobs, server side. */
+export async function syncCleaningJobsNow(): Promise<{ created: number; updated: number; cancelled: number; dispatched: number; errors: string[] }> {
+  const r = await fetch(BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ flow: 'cleaning', action: 'sync-now' }),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error ?? 'Sync failed');
+  return d;
 }

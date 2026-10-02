@@ -95,7 +95,13 @@ export interface CleaningJob {
   propertyName: string;
   guestName?: string;
   checkoutDate: string;
+  /** Next guest's check-in (server-computed from the booking calendar) */
   checkinDate?: string;
+  /** Uplisting sub-listing / iCal unit the booking belongs to, for multi-unit properties */
+  unitId?: string;
+  /** Next guest arrives the same day the clean happens */
+  sameDay?: boolean;
+  rescheduleCount?: number;
   status: CleaningJobStatus;
   assignedCleanerId?: string;
   assignedCleanerName?: string;

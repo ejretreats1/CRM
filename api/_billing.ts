@@ -76,7 +76,10 @@ async function loadJob(db: Db, jobId: string): Promise<JobRow | null> {
 
 async function loadConfig(db: Db, propertyId: string): Promise<JobRow | null> {
   const { data } = await db.from('cleaning_property_configs').select('*').eq('property_id', propertyId).maybeSingle();
-  return data ?? null;
+  if (data) return data;
+  // Jobs created for an Uplisting sub-unit carry the sub-listing id; the card and fee live on the parent.
+  const { data: parent } = await db.from('cleaning_property_configs').select('*').contains('linked_property_ids', [propertyId]).maybeSingle();
+  return parent ?? null;
 }
 
 /** The fee to bill: the job's own fee, else the property fee for rows created before fees were copied. */
