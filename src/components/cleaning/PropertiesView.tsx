@@ -4,6 +4,7 @@ import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl, Cleanin
 import { fetchEnrollmentLinks, deleteEnrollmentLink } from '../../services/cleaningDb';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 import { fetchPropertyAllPhotos, formatPropertyAddress } from '../../services/uplisting';
+import { downloadApiFile } from '../../services/apiFile';
 
 interface Props {
   configs: CleaningPropertyConfig[];
@@ -174,10 +175,15 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   // PDF download state
   const [downloadingConfigId, setDownloadingConfigId] = useState<string | null>(null);
 
-  function downloadEnrollment(configId: string) {
+  async function downloadEnrollment(configId: string) {
     setDownloadingConfigId(configId);
-    window.open(`/api/documents?flow=client-enrollment-pdf&propertyConfigId=${encodeURIComponent(configId)}`, '_blank');
-    setTimeout(() => setDownloadingConfigId(null), 1500);
+    try {
+      await downloadApiFile(`/api/documents?flow=client-enrollment-pdf&propertyConfigId=${encodeURIComponent(configId)}`, 'client-enrollment.pdf');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Download failed.');
+    } finally {
+      setDownloadingConfigId(null);
+    }
   }
 
   // --- Batch onboarding state ---

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { acceptCleaningJob, submitCleaningJob } from '../services/cleaningApi';
 
-async function compressAndUpload(file: File, jobId: string): Promise<string> {
+async function compressAndUpload(file: File, jobId: string, combined: string): Promise<string> {
   const MAX_PX = 1600;
   const QUALITY = 0.82;
   const isVideo = file.type.startsWith('video/');
@@ -64,7 +64,7 @@ async function compressAndUpload(file: File, jobId: string): Promise<string> {
   const r = await fetch('/api/documents', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ flow: 'cleaning', action: 'upload-photo', photoBase64: base64, filename: `file.${ext}`, jobId }),
+    body: JSON.stringify({ flow: 'cleaning', action: 'upload-photo', photoBase64: base64, filename: `file.${ext}`, jobId, combined }),
   });
   const d = await r.json();
   if (!r.ok) throw new Error(d.error ?? 'Upload failed');
@@ -219,7 +219,7 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
     setUploadingPhoto(true);
     try {
       for (const file of files) {
-        const url = await compressAndUpload(file, jobId);
+        const url = await compressAndUpload(file, jobId, combined);
         setPhotos(prev => [...prev, url]);
       }
     } catch (e: unknown) {
@@ -236,7 +236,7 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
     setUploadingDamageMedia(true);
     try {
       for (const file of files) {
-        const url = await compressAndUpload(file, jobId);
+        const url = await compressAndUpload(file, jobId, combined);
         setDamageMedia(prev => [...prev, url]);
       }
     } catch (e: unknown) {

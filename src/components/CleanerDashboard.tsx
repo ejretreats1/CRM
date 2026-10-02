@@ -58,10 +58,12 @@ function fmtShort(dateStr: string) {
 
 // ── Job Detail Modal ──────────────────────────────────────────────────────────
 function JobDetailModal({
-  job, cleanerId, onClose, onAccepted, onPassed,
+  job, cleanerId, combined, onClose, onAccepted, onPassed,
 }: {
   job: DashJob;
   cleanerId: string;
+  /** Full portal link value (slug:cleanerId:token) — proves this cleaner may act on the job. */
+  combined: string;
   onClose: () => void;
   onAccepted?: (jobId: string) => void;
   onPassed?: (jobId: string) => void;
@@ -80,7 +82,7 @@ function JobDetailModal({
       const r = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ flow: 'cleaner', action: 'dashboard-decline', jobId: job.id, cleanerId }),
+        body: JSON.stringify({ flow: 'cleaner', action: 'dashboard-decline', jobId: job.id, cleanerId, combined }),
       });
       const d = await r.json();
       if (!r.ok) { alert(d.error ?? 'Failed to pass. Please try again.'); return; }
@@ -100,7 +102,7 @@ function JobDetailModal({
       const r = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ flow: 'cleaner', action: 'dashboard-accept', jobId: job.id, cleanerId }),
+        body: JSON.stringify({ flow: 'cleaner', action: 'dashboard-accept', jobId: job.id, cleanerId, combined }),
       });
       const d = await r.json();
       if (!r.ok) { setAcceptError(d.error ?? 'Failed to accept.'); return; }
@@ -468,6 +470,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
         <JobDetailModal
           job={selectedJob}
           cleanerId={cleanerId}
+          combined={combined}
           onClose={() => setSelectedJob(null)}
           onAccepted={handleAccepted}
           onPassed={handlePassed}

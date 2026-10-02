@@ -1160,14 +1160,14 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
     );
   }
 
-  const SQL_SETUP = `-- Run in Supabase SQL Editor:
+  const SQL_SETUP = `-- Run in Supabase SQL Editor (then see SECURITY_SETUP.md for Clerk ↔ Supabase auth):
 CREATE TABLE IF NOT EXISTS cleaners (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, phone TEXT,
   stripe_account_id TEXT, status TEXT NOT NULL DEFAULT 'active',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE cleaners ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "anon_all" ON cleaners FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "authenticated_all" ON cleaners FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS cleaning_property_configs (
   id TEXT PRIMARY KEY, property_id TEXT NOT NULL UNIQUE,
@@ -1176,7 +1176,7 @@ CREATE TABLE IF NOT EXISTS cleaning_property_configs (
   enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE cleaning_property_configs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "anon_all" ON cleaning_property_configs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "authenticated_all" ON cleaning_property_configs FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 CREATE TABLE IF NOT EXISTS cleaning_jobs (
   id TEXT PRIMARY KEY, reservation_id TEXT, property_id TEXT NOT NULL,
@@ -1190,7 +1190,7 @@ CREATE TABLE IF NOT EXISTS cleaning_jobs (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE cleaning_jobs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "anon_all" ON cleaning_jobs FOR ALL USING (true) WITH CHECK (true);`;
+CREATE POLICY "authenticated_all" ON cleaning_jobs FOR ALL TO authenticated USING (true) WITH CHECK (true);`;
 
   if (dbError === 'SETUP_NEEDED') {
     return (

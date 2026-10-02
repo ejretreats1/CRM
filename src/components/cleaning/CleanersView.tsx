@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { downloadApiFile } from '../../services/apiFile';
 import { Plus, Edit2, Trash2, User, Phone, Mail, CheckCircle, XCircle, Link2, Send, CreditCard, LayoutDashboard, FileText, Copy, Check, Download, Smartphone, X, Calendar } from 'lucide-react';
 import type { Cleaner, CleaningJob, CleaningJobType } from '../../types/cleaning';
 
@@ -94,7 +95,7 @@ export default function CleanersView({ cleaners, jobs, onSave, onDelete }: Props
   async function downloadAgreement(cleanerId: string) {
     setDownloadingId(cleanerId);
     try {
-      window.open(`/api/documents?flow=cleaner-agreement-pdf&cleanerId=${encodeURIComponent(cleanerId)}`, '_blank');
+      await downloadApiFile(`/api/documents?flow=cleaner-agreement-pdf&cleanerId=${encodeURIComponent(cleanerId)}`, 'cleaner-agreement.pdf');
     } finally {
       setDownloadingId(null);
     }
