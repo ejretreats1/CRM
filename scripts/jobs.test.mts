@@ -27,15 +27,18 @@ class FakeDb {
     return q;
   }
 }
-class FakeResend { sent: any[] = []; emails = { send: async (m: any) => { this.sent.push(m); return { data: { id: `em_${this.sent.length}` }, error: null }; } }; to(addr: string) { return this.sent.filter(m => m.to === addr); } }
+class FakeResend { sent: any[] = []; failFor = new Set<string>(); emails = { send: async (m: any) => { if (this.failFor.has(m.to)) return { data: null, error: { message: 'Invalid `to` address' } }; this.sent.push(m); return { data: { id: `em_${this.sent.length}` }, error: null }; } }; to(addr: string) { return this.sent.filter(m => m.to === addr); } }
 
 const jobsBundle = process.cwd() + '/_jobs.test-bundle.mjs';
 const icalBundle = process.cwd() + '/_ical.test-bundle.mjs';
+const smsBundle = process.cwd() + '/_sms.test-bundle.mjs';
 execSync(`npx esbuild api/_jobs.ts --bundle --platform=node --format=esm --packages=external --log-level=error --outfile=${jobsBundle}`, { stdio: 'inherit' });
+execSync(`npx esbuild api/_sms.ts --bundle --platform=node --format=esm --packages=external --log-level=error --outfile=${smsBundle}`, { stdio: 'inherit' });
 execSync(`npx esbuild api/_ical.ts --bundle --platform=node --format=esm --packages=external --log-level=error --outfile=${icalBundle}`, { stdio: 'inherit' });
 const { reconcileJobs, withNextCheckIn, dispatchJob, advanceDispatch, dispatchTick, resolveRoster } = await import(jobsBundle);
 const { parseIcal, isBlock, syncPropertyIcal } = await import(icalBundle);
-try { unlinkSync(jobsBundle); unlinkSync(icalBundle); } catch { /* ignore */ }
+const { sendMorningReminders, normalizePhone } = await import(smsBundle);
+try { unlinkSync(jobsBundle); unlinkSync(icalBundle); unlinkSync(smsBundle); } catch { /* ignore */ }
 
 const ADMIN = process.env.ADMIN_EMAIL ?? 'ejretreats1@gmail.com';
 const TODAY = '2026-10-02';
@@ -166,6 +169,37 @@ const freshJob = (over: Row = {}) => ({ id: 'j1', property_id: 'p1', property_na
   const t2 = await dispatchTick(db, rs, new Date('2026-10-02T15:30:00Z'));
   results.tickIdempotent = t2.dispatched === 0 && t2.escalated === 0 && t2.urgentAlerts === 0;
 }
+
+// ── offer email failure is visible, cascade continues ──
+{ const db = new FakeDb({ cleaning_jobs: [freshJob()] }); const rs = new FakeResend(); rs.failFor.add('pat@x.com');
+  const d = await dispatchJob(db, rs, db.tables.cleaning_jobs[0], resolveRoster(config, cleaners)); const job = db.tables.cleaning_jobs[0];
+  results.failedOfferFlagged = d.ok && /email to Pat failed/.test(d.error ?? '') && job.status === 'dispatched' && /Pat: Invalid/.test(job.dispatch_email_error) && rs.to(ADMIN).some(m => /offer email failed/i.test(m.subject));
+  const a = await advanceDispatch(db, rs, { ...job }, 'no_response');
+  results.failedOfferClearedOnNext = a.next?.id === 'c2' && job.dispatch_email_error === null && rs.to('sam@x.com').length === 1; }
+
+// ── morning SMS ──
+{ const now = new Date('2026-10-02T11:00:00Z');
+  const db = new FakeDb({
+    cleaners: [{ id: 'c1', name: 'Pat Lee', phone: '(555) 123-4567', dashboard_token: 'tok' }, { id: 'c2', name: 'Sam', phone: null }],
+    cleaning_property_configs: [{ ...config, door_code: '4321', checkout_time: '11:00 AM', checkin_time: '4:00 PM' }],
+    cleaning_jobs: [
+      freshJob({ id: 'a', status: 'accepted', checkout_date: '2026-10-02', assigned_cleaner_id: 'c1', same_day: true }),
+      freshJob({ id: 'b', status: 'in_progress', checkout_date: '2026-10-02', assigned_cleaner_id: 'c1', same_day: false, property_id: 'p1b', property_name: 'Beach House — Unit B', checkin_date: '2026-10-05' }),
+      freshJob({ id: 'nophone', status: 'accepted', checkout_date: '2026-10-02', assigned_cleaner_id: 'c2' }),
+      freshJob({ id: 'tomorrow', status: 'accepted', checkout_date: '2026-10-03', assigned_cleaner_id: 'c1' }),
+      freshJob({ id: 'unassigned', status: 'dispatched', checkout_date: '2026-10-02' }),
+    ],
+  });
+  const texts: { to: string; body: string }[] = [];
+  const r = await sendMorningReminders(db, async (to: string, body: string) => { texts.push({ to, body }); return 'SM1'; }, now);
+  const by = (id: string) => db.tables.cleaning_jobs.find(j => j.id === id)!;
+  results.phoneNormalised = normalizePhone('(555) 123-4567') === '+15551234567' && normalizePhone('1-555-123-4567') === '+15551234567' && normalizePhone('12345') === null;
+  results.oneTextPerCleaner = r.sent === 1 && texts.length === 1 && texts[0].to === '+15551234567' && /Good morning Pat!/.test(texts[0].body) && /Beach House — Unit B/.test(texts[0].body) && /SAME-DAY/.test(texts[0].body) && /door 4321/.test(texts[0].body) && /cleaner-dashboard=Pat-Lee:c1:tok/.test(texts[0].body);
+  results.smsStampsOnlyToday = !!by('a').morning_sms_sent_at && !!by('b').morning_sms_sent_at && !by('tomorrow').morning_sms_sent_at && !by('unassigned').morning_sms_sent_at && !by('nophone').morning_sms_sent_at && r.skipped === 1;
+  const r2 = await sendMorningReminders(db, async () => 'SM2', now);
+  results.smsIdempotent = r2.sent === 0 && texts.length === 1;
+  const r3 = await sendMorningReminders(new FakeDb({ cleaners: [{ id: 'c1', name: 'Pat', phone: '5551234567' }], cleaning_property_configs: [], cleaning_jobs: [freshJob({ id: 'x', status: 'accepted', checkout_date: '2026-10-02', assigned_cleaner_id: 'c1' })] }), async () => null, now);
+  results.smsSkipsWhenTwilioMissing = r3.sent === 0 && r3.skipped === 1; }
 
 const failed = Object.entries(results).filter(([, v]) => !v).map(([k]) => k);
 console.log(`${Object.keys(results).length - failed.length}/${Object.keys(results).length} job lifecycle checks passed${failed.length ? ' — FAILED: ' + failed.join(', ') : ''}`);

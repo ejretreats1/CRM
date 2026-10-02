@@ -336,12 +336,29 @@ export async function dispatchJob(db: Db, resend: Resend, job: Row, roster: Rost
   if (!updated?.length) return { ok: false, error: 'Job is no longer pending.' };
 
   const first = roster[0];
-  try {
-    await sendJobOfferEmail(resend, { to: first.email, name: first.name, job, payout: first.payout, portalLink: `${APP_URL}?cleaner=${job.id}:${dispatchOrder[0]}` });
-  } catch (e) {
-    return { ok: true, error: `Dispatched, but the email to ${first.name} failed: ${e instanceof Error ? e.message : String(e)}` };
-  }
+  const emailError = await offerByEmail(db, resend, job, first, dispatchOrder[0]);
+  if (emailError) return { ok: true, error: `Dispatched, but the email to ${first.name} failed: ${emailError}` };
   return { ok: true };
+}
+
+/**
+ * Email the offer to one cleaner and record the outcome on the job, so a
+ * bounced/failed offer is visible in the Jobs tab and to the admin instead of
+ * silently stalling the cascade. Returns the error message, or null on success.
+ */
+async function offerByEmail(db: Db, resend: Resend, job: Row, cleaner: RosterCleaner, token: string): Promise<string | null> {
+  if (!cleaner.email) return 'no email on file';
+  try {
+    await sendJobOfferEmail(resend, { to: cleaner.email, name: cleaner.name, job, payout: cleaner.payout, portalLink: `${APP_URL}?cleaner=${job.id}:${token}` });
+    await db.from('cleaning_jobs').update({ dispatch_email_error: null }).eq('id', job.id);
+    return null;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await db.from('cleaning_jobs').update({ dispatch_email_error: `${cleaner.name}: ${msg}` }).eq('id', job.id);
+    await adminAlert(resend, `⚠️ Job offer email failed: ${job.property_name} – ${dateLabel(job.checkout_date)}`,
+      `<p>The offer email to <strong>${escapeHtml(cleaner.name)}</strong> (${escapeHtml(cleaner.email)}) failed: ${escapeHtml(msg)}.</p><p>They can still see the job in their Cleaner Portal; otherwise call or text them, or re-dispatch from the Jobs tab.</p>`);
+    return msg;
+  }
 }
 
 /**
@@ -376,9 +393,7 @@ export async function advanceDispatch(db: Db, resend: Resend, job: Row, reason: 
   if (!upd?.length) return { next: null, exhausted: false, error: 'Job changed under us.' };
 
   const next: RosterCleaner = { id: nextInfo.cleanerId, name: nextInfo.cleanerName, email: nextInfo.cleanerEmail ?? '', payout: Number(nextInfo.payout ?? 0) };
-  if (next.email) {
-    try { await sendJobOfferEmail(resend, { to: next.email, name: next.name, job, payout: next.payout, portalLink: `${APP_URL}?cleaner=${job.id}:${nextToken}` }); } catch { /* reported by tick later */ }
-  }
+  await offerByEmail(db, resend, job, next, nextToken);
   await adminAlert(resend, `${reason === 'passed' ? '👋' : '⏭️'} ${escapeHtml(current?.cleanerName ?? 'A cleaner')} ${reason === 'passed' ? 'passed' : "didn't respond"}: ${job.property_name} – ${label}`,
     `<p>${escapeHtml(next.name)} has been offered the job next (#${nextIndex + 1} of ${order.length}).</p>`);
   return { next, exhausted: false };

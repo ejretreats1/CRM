@@ -498,6 +498,14 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                       )}
                     </div>
 
+                    {job.status === 'dispatched' && job.dispatchEmailError && (
+                      <div className="flex items-center gap-1.5 text-xs text-[#e05c5c]">
+                        <span>✉️ Offer email failed — {job.dispatchEmailError}. Text/call them or re-dispatch.</span>
+                      </div>
+                    )}
+                    {job.status === 'completed' && job.receiptSentAt && (
+                      <div className="text-xs text-[#3a5070]">📧 Client emailed {new Date(job.receiptSentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                    )}
                     {/* Charge status row */}
                     {job.chargedAt && (
                       <div className="flex items-center gap-3 flex-wrap">

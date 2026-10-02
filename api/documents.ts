@@ -8,7 +8,7 @@ import { chargeJob, payoutJob, markPayoutPaid } from './_billing';
 
 import { syncPropertyIcal } from './_ical';
 import { dispatchJob, advanceDispatch, syncUplistingJobs, dispatchTick, type RosterCleaner } from './_jobs';
-import { sendCleanerPortalEmail, sendJobCancelledEmail } from './_emails';
+import { sendCleanerPortalEmail, sendJobCancelledEmail, sendClientReceiptEmail, emailId } from './_emails';
 
 let _resend: any = null;
 async function getResend() {
@@ -117,7 +117,7 @@ async function sigSend(body: any, res: VercelResponse) {
   });
 
   if (emailError) return res.status(500).json({ error: 'Document saved but email failed to send.' });
-  if (emailData?.id) await logEmail(emailData.id, 'signing', sentToEmail, sigSubject, id, ownerName);
+  if (emailId(emailData)) await logEmail(emailId(emailData)!, 'signing', sentToEmail, sigSubject, id, ownerName);
   return res.status(200).json({ id, token });
 }
 
@@ -283,7 +283,7 @@ async function agreementSend(body: any, res: VercelResponse) {
       </div>
     `,
   });
-  if (agEmailData?.id) await logEmail(agEmailData.id, 'agreement', guestEmail, agSubject, id, guestName);
+  if (emailId(agEmailData)) await logEmail(emailId(agEmailData)!, 'agreement', guestEmail, agSubject, id, guestName);
 
   return res.status(200).json({ id, token });
 }
@@ -1216,7 +1216,7 @@ async function cleaningAccept(body: any, res: VercelResponse) {
     subject: _acceptSubj,
     html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${cleanerInfo.cleanerName}</strong> accepted the cleaning job for <strong>${row.property_name}</strong> on ${new Date(row.checkout_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}.</p></div>`,
   }).catch(() => null);
-  if (_acr?.id) await logEmail(_acr.id, 'cleaning-accept', ADMIN_EMAIL, _acceptSubj, jobId, 'Admin');
+  if (emailId(_acr)) await logEmail(emailId(_acr)!, 'cleaning-accept', ADMIN_EMAIL, _acceptSubj, jobId, 'Admin');
 
   return res.status(200).json({ success: true });
 }
@@ -1274,6 +1274,33 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
   const hasDamage = !!(damageNotes?.trim() || damageMediaArr.length > 0);
   const hasSuppliesNeeded = !!suppliesNotes?.trim();
 
+  // Tell the client the turnover is done (once). If the card was charged this
+  // doubles as the receipt; otherwise the Stripe webhook won't send a second one
+  // because receipt_sent_at is set here.
+  let clientNotified = false;
+  if (!row.receipt_sent_at) {
+    let config = (await supabase.from('cleaning_property_configs').select('*').eq('property_id', row.property_id).maybeSingle()).data;
+    if (!config) config = (await supabase.from('cleaning_property_configs').select('*').contains('linked_property_ids', [row.property_id]).maybeSingle()).data;
+    if (config?.client_email) {
+      const paymentNote = charge.ok ? null
+        : charge.willRetryAt ? 'Your card on file could not be charged yet; we will retry automatically.'
+        : charge.reason === 'already_charged' ? null
+        : 'We will follow up separately about payment.';
+      try {
+        const sent = await sendClientReceiptEmail(await getResend(), {
+          to: config.client_email, clientName: config.client_name, propertyName: row.property_name, checkoutDate: row.checkout_date,
+          amount: charge.ok && !charge.skipped ? Number(charge.amount ?? row.cleaning_fee) : 0,
+          photos: photos ?? [], checklistDone, checklistTotal, paymentNote,
+        });
+        await supabase.from('cleaning_jobs').update({ receipt_sent_at: now }).eq('id', jobId);
+        if (sent.id) await logEmail(sent.id, 'cleaning-client-complete', config.client_email, sent.subject, jobId, config.client_name ?? undefined);
+        clientNotified = true;
+      } catch (e) {
+        console.error('Client clean-complete email failed:', e);
+      }
+    }
+  }
+
   const _submitSubj = `${charge.ok ? '✅' : '⚠️'} Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`;
   const _sr = await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
@@ -1288,7 +1315,8 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
            ${suppliesNotes ? `📦 Supplies needed: ${escapeHtml(suppliesNotes)}<br>` : ''}
            ${damageNotes ? `⚠️ Damage notes: ${escapeHtml(damageNotes)}<br>` : ''}
            ${damageMediaArr.length ? `📸 Damage photos/videos: ${damageMediaArr.length}<br>` : ''}
-           ${paymentLine}
+           ${paymentLine}<br>
+           ${clientNotified ? '📧 Client emailed: clean complete' + (charge.ok ? ' + receipt' : '') : '📧 Client not emailed (no client email on the property)'}
         </p>
         <p><a href="${crmUrl}" style="color:#0f766e">→ View in CRM (Jobs tab)</a></p>
         ${photoCount > 0 ? `<div><p style="font-weight:bold;margin-bottom:4px">Cleaning Photos</p>${(photos as string[]).map((url: string) => `<img src="${url}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;margin:4px" />`).join('')}</div>` : ''}
@@ -1296,7 +1324,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
       </div>
     `,
   }).catch(() => null);
-  if (_sr?.id) await logEmail(_sr.id, 'cleaning-submit', ADMIN_EMAIL, _submitSubj, jobId, 'Admin');
+  if (emailId(_sr)) await logEmail(emailId(_sr)!, 'cleaning-submit', ADMIN_EMAIL, _submitSubj, jobId, 'Admin');
 
   // Send a separate urgent damage alert if cleaner reported damage
   if (hasDamage) {
@@ -1339,7 +1367,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
         </div>
       `,
     }).catch(() => null);
-    if (_dr?.id) await logEmail(_dr.id, 'cleaning-damage-alert', ADMIN_EMAIL, _dmgSubj, jobId, 'Admin');
+    if (emailId(_dr)) await logEmail(emailId(_dr)!, 'cleaning-damage-alert', ADMIN_EMAIL, _dmgSubj, jobId, 'Admin');
   }
 
   if (hasSuppliesNeeded) {
@@ -1369,7 +1397,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
         </div>
       `,
     }).catch(() => null);
-    if (_sr2?.id) await logEmail(_sr2.id, 'cleaning-supplies-alert', ADMIN_EMAIL, _supSubj, jobId, 'Admin');
+    if (emailId(_sr2)) await logEmail(emailId(_sr2)!, 'cleaning-supplies-alert', ADMIN_EMAIL, _supSubj, jobId, 'Admin');
   }
 
   return res.status(200).json({ success: true });
@@ -1445,7 +1473,7 @@ async function cleanerSendPortalLink(body: any, res: VercelResponse) {
       </div>
     `,
   });
-  if (_plr?.id) await logEmail(_plr.id, 'cleaning-portal', cleaner.email, portalSubject, cleanerId, cleaner.name);
+  if (emailId(_plr)) await logEmail(emailId(_plr)!, 'cleaning-portal', cleaner.email, portalSubject, cleanerId, cleaner.name);
 
   return res.status(200).json({ ok: true });
 }
@@ -1611,7 +1639,7 @@ async function cleanerConnectSend(body: any, res: VercelResponse) {
           </div>
         `,
       }).catch(() => null);
-      if (_ser?.id) await logEmail(_ser.id, 'cleaning-stripe', cleaner.email, stripeEmailSubj, cleanerId, cleaner.name);
+      if (emailId(_ser)) await logEmail(emailId(_ser)!, 'cleaning-stripe', cleaner.email, stripeEmailSubj, cleanerId, cleaner.name);
     }
 
     return res.status(200).json({ link });
@@ -1686,7 +1714,7 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
       subject: _stripeAdminSubj,
       html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${cleaner.name}</strong> has connected their Stripe account (${cleaner.stripe_account_id}) and is ready to receive payouts.</p></div>`,
     }).catch(() => null);
-    if (_sar?.id) await logEmail(_sar.id, 'cleaning-stripe', ADMIN_EMAIL, _stripeAdminSubj, cleanerId, 'Admin');
+    if (emailId(_sar)) await logEmail(emailId(_sar)!, 'cleaning-stripe', ADMIN_EMAIL, _stripeAdminSubj, cleanerId, 'Admin');
   }
 
   return res.status(200).json({
@@ -1802,7 +1830,7 @@ async function cleaningClientSend(body: any, res: VercelResponse) {
           </div>
         `,
       });
-      if (_cor?.id) await logEmail(_cor.id, 'cleaning-client', clientEmail, clientOnboardSubj, id, clientName ?? undefined);
+      if (emailId(_cor)) await logEmail(emailId(_cor)!, 'cleaning-client', clientEmail, clientOnboardSubj, id, clientName ?? undefined);
     } catch (emailErr) {
       console.error('Resend email failed:', emailErr);
       // Still return the link even if email fails
@@ -2035,7 +2063,7 @@ async function cleaningEnrollCreateLink(body: any, res: VercelResponse) {
           </div>
         `,
       });
-      if (sent?.id) await logEmail(sent.id, 'cleaning-enroll', clientEmail, subject, id, clientName ?? undefined);
+      if (emailId(sent)) await logEmail(emailId(sent)!, 'cleaning-enroll', clientEmail, subject, id, clientName ?? undefined);
     } catch (emailErr) {
       console.error('Resend email failed:', emailErr);
       return res.status(200).json({ id, token, link, emailError: 'Email could not be sent, but link was created.' });
@@ -2523,7 +2551,7 @@ async function cleanerOnboardSend(body: any, res: VercelResponse) {
           </div>
         `,
       });
-      if (_osr?.id) await logEmail(_osr.id, 'cleaning-onboard', cleanerEmail.trim(), agrmtSubj, id, cleanerName?.trim() ?? undefined);
+      if (emailId(_osr)) await logEmail(emailId(_osr)!, 'cleaning-onboard', cleanerEmail.trim(), agrmtSubj, id, cleanerName?.trim() ?? undefined);
     } catch {}
   }
 
@@ -2594,7 +2622,7 @@ async function cleanerOnboardComplete(body: any, res: VercelResponse) {
         </div>
       `,
     });
-    if (_scr?.id) await logEmail(_scr.id, 'cleaning-onboard', email.trim(), signedCopySubj, row.id, name.trim());
+    if (emailId(_scr)) await logEmail(emailId(_scr)!, 'cleaning-onboard', email.trim(), signedCopySubj, row.id, name.trim());
   } catch {}
 
   // Notify admin
@@ -2621,7 +2649,7 @@ async function cleanerOnboardComplete(body: any, res: VercelResponse) {
         </div>
       `,
     });
-    if (_adr?.id) await logEmail(_adr.id, 'cleaning-onboard', ADMIN_EMAIL, adminSignedSubj, row.id, 'Admin');
+    if (emailId(_adr)) await logEmail(emailId(_adr)!, 'cleaning-onboard', ADMIN_EMAIL, adminSignedSubj, row.id, 'Admin');
   } catch {}
 
   return res.status(200).json({ ok: true });
