@@ -5,6 +5,7 @@ import { Resend } from 'resend';
 import Stripe from 'stripe';
 import { syncPropertyIcal } from './_ical';
 import { syncUplistingJobs, dispatchTick } from './_jobs';
+import { sendMorningReminders, sendSms } from './_sms';
 import { chargeJob, payoutJob, findChargeableJobs, findPayableJobs } from './_billing';
 
 export const config = { maxDuration: 60 };
@@ -185,6 +186,15 @@ async function runBookingSync(res: VercelResponse) {
     errors.push(...tick.errors);
   } catch (e) {
     errors.push(`dispatch: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // 4. Morning-of text to cleaners with a clean today (this cron runs ≈7am Eastern)
+  try {
+    const sms = await sendMorningReminders(supabase, sendSms);
+    summary.morningSms = sms;
+    errors.push(...sms.errors.map(e => `SMS ${e}`));
+  } catch (e) {
+    errors.push(`SMS: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   if (errors.length) {
@@ -483,6 +493,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.query.job === 'dispatch-tick')  return runDispatchTick(res);
   if (req.query.job === 'campaign-send')  return runCampaignSend(res);
 
+  try {
+    return await runBilling(res);
+  } catch (e) {
+    // Never fail silently: the admin hears about a crashed billing run.
+    const msg = e instanceof Error ? (e.stack ?? e.message) : String(e);
+    await getResend().emails.send({
+      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>', to: ADMIN_EMAIL,
+      subject: '🚨 Cleaning billing cron crashed',
+      html: `<div style="font-family:sans-serif;padding:24px"><p>The daily charge/payout run threw before finishing. Charges and payouts will be retried on the next run.</p><pre style="font-size:12px;color:#64748b;white-space:pre-wrap">${escapeHtml(msg)}</pre></div>`,
+    }).catch(() => {});
+    return res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+async function runBilling(res: VercelResponse) {
   const supabase = getSupabase();
   const stripe = getStripe();
   const today = new Date().toISOString().slice(0, 10);
@@ -499,27 +524,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     manualPayoutsDue: [] as { jobId: string; property: string; cleaner: string; amount: number; date: string }[],
     awaitingReport: [] as { jobId: string; property: string; cleaner: string; date: string }[],
     gaveUp: [] as { jobId: string; property: string; error: string }[],
+    errors: [] as string[],
   };
 
   // ── Step 1: charge completed jobs that have a submitted report ────────────
   // (first attempts, plus failed ones whose retry time has come)
   for (const job of await findChargeableJobs(supabase)) {
-    if (Date.now() - startedAt > BUDGET_MS) break;
+    if (Date.now() - startedAt > BUDGET_MS) { results.errors.push('Ran out of time before charging every job; the rest run tomorrow.'); break; }
     results.chargesAttempted++;
-    const r = await chargeJob(supabase, stripe, job.id, { trigger: 'cron' });
-    if (r.ok && !r.skipped) results.chargesSucceeded++;
-    else if (!r.ok && !r.skipped) results.chargeFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown', retry: r.willRetryAt ?? null });
+    try {
+      const r = await chargeJob(supabase, stripe, job.id, { trigger: 'cron' });
+      if (r.ok && !r.skipped) results.chargesSucceeded++;
+      else if (!r.ok && !r.skipped) results.chargeFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown', retry: r.willRetryAt ?? null });
+    } catch (e) {
+      results.chargeFailed.push({ jobId: job.id, property: job.property_name, error: `crashed: ${e instanceof Error ? e.message : String(e)}`, retry: null });
+    }
   }
 
   // ── Step 2: pay cleaners for charged jobs ─────────────────────────────────
   // Payouts normally go out with the charge; this catches cleaners who
   // connected Stripe later and transfers that failed.
   for (const job of await findPayableJobs(supabase)) {
-    if (Date.now() - startedAt > BUDGET_MS) break;
-    const r = await payoutJob(supabase, stripe, job.id);
-    if (r.status === 'sent') { results.payoutsAttempted++; results.payoutsSucceeded++; }
-    else if (r.status === 'failed') { results.payoutsAttempted++; results.payoutFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown' }); }
-    else if (r.status === 'manual_due') results.manualPayoutsDue.push({ jobId: job.id, property: job.property_name, cleaner: job.assigned_cleaner_name ?? job.assigned_cleaner_id, amount: Number(job.cleaner_payout), date: job.checkout_date });
+    if (Date.now() - startedAt > BUDGET_MS) { results.errors.push('Ran out of time before paying every cleaner; the rest run tomorrow.'); break; }
+    try {
+      const r = await payoutJob(supabase, stripe, job.id);
+      if (r.status === 'sent') { results.payoutsAttempted++; results.payoutsSucceeded++; }
+      else if (r.status === 'failed') { results.payoutsAttempted++; results.payoutFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown' }); }
+      else if (r.status === 'manual_due') results.manualPayoutsDue.push({ jobId: job.id, property: job.property_name, cleaner: job.assigned_cleaner_name ?? job.assigned_cleaner_id, amount: Number(job.cleaner_payout), date: job.checkout_date });
+    } catch (e) {
+      results.payoutsAttempted++;
+      results.payoutFailed.push({ jobId: job.id, property: job.property_name, error: `crashed: ${e instanceof Error ? e.message : String(e)}` });
+    }
   }
 
   // ── Step 3: things a human needs to look at ───────────────────────────────
@@ -544,9 +579,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Daily summary ─────────────────────────────────────────────────────────
   const attention = results.chargeFailed.length + results.payoutFailed.length + results.manualPayoutsDue.length + results.awaitingReport.length + results.gaveUp.length;
-  const total = results.chargesAttempted + results.payoutsAttempted + attention;
+  const total = results.chargesAttempted + results.payoutsAttempted + attention + results.errors.length;
   if (total > 0) {
-    const hasErrors = results.chargeFailed.length > 0 || results.payoutFailed.length > 0 || results.gaveUp.length > 0;
+    const hasErrors = results.chargeFailed.length > 0 || results.payoutFailed.length > 0 || results.gaveUp.length > 0 || results.errors.length > 0;
     const subject = hasErrors
       ? `⚠️ Cleaning billing ran with errors — ${today}`
       : attention > 0
@@ -576,9 +611,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 <td style="padding:8px;color:${results.payoutFailed.length > 0 ? '#dc2626' : '#94a3b8'}">${results.payoutFailed.length} failed</td>
               </tr>
             </table>
-            ${section('Charges failed (will retry automatically)', '#dc2626', results.chargeFailed.map(e => row([e.property, e.error, e.retry ? `retry ${e.retry.slice(0, 10)}` : 'no more retries'])))}
-            ${section('Charges given up — fix the card or charge manually', '#dc2626', results.gaveUp.map(e => row([e.property, e.error])))}
-            ${section('Payouts failed', '#dc2626', results.payoutFailed.map(e => row([e.property, e.error])))}
+            ${section('Run problems', '#dc2626', results.errors.map(e => row([escapeHtml(e)])))}
+            ${section('Charges failed (will retry automatically)', '#dc2626', results.chargeFailed.map(e => row([escapeHtml(e.property), escapeHtml(e.error), e.retry ? `retry ${e.retry.slice(0, 10)}` : 'no more retries'])))}
+            ${section('Charges given up — fix the card or charge manually', '#dc2626', results.gaveUp.map(e => row([escapeHtml(e.property), escapeHtml(e.error)])))}
+            ${section('Payouts failed', '#dc2626', results.payoutFailed.map(e => row([escapeHtml(e.property), escapeHtml(e.error)])))}
             ${section('Manual payouts due — pay the cleaner, then click “Mark paid” in the CRM', '#b45309', results.manualPayoutsDue.map(m => row([m.cleaner, `$${m.amount}`, m.property, m.date])))}
             ${section('Past checkout, no cleaning report yet (not charged)', '#b45309', results.awaitingReport.map(a => row([a.property, a.cleaner, a.date])))}
             <p style="color:#94a3b8;font-size:12px;margin-top:16px">Clients are charged only after the cleaner submits their report. Payouts go out with the charge via Stripe Connect.</p>

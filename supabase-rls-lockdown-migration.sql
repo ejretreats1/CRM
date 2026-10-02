@@ -47,9 +47,16 @@ begin
 end $$;
 
 -- Helpful indexes / guards that the lockdown review called for
-create unique index if not exists cleaning_jobs_property_reservation_uniq
-  on public.cleaning_jobs (property_id, reservation_id)
-  where reservation_id is not null;
+-- One job per booking. If you already have duplicate jobs this part is skipped
+-- with a notice instead of rolling back the lockdown above — run
+-- supabase-cleaning-jobs-dedupe.sql, which removes the extras and creates the index.
+do $$ begin
+  create unique index if not exists cleaning_jobs_property_reservation_uniq
+    on public.cleaning_jobs (property_id, reservation_id)
+    where reservation_id is not null;
+exception when unique_violation then
+  raise notice 'cleaning_jobs has duplicate (property_id, reservation_id) rows — run supabase-cleaning-jobs-dedupe.sql';
+end $$;
 
 -- Verify: should list exactly one policy ("authenticated_all") per table above
 -- select tablename, policyname, roles from pg_policies where schemaname='public'

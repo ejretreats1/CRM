@@ -15,6 +15,14 @@ export function emailIdOrThrow(result: any): string | undefined {
   return result?.data?.id ?? result?.id;
 }
 
+/** Same, but returns null (and logs) instead of throwing — for fire-and-forget sends. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function emailId(result: any): string | null {
+  if (!result) return null;
+  if (result.error) { console.error('[resend]', result.error.message ?? result.error); return null; }
+  return result.data?.id ?? result.id ?? null;
+}
+
 export function cleanerPortalUrl(cleaner: Row, dashToken: string): string {
   const nameSlug = String(cleaner.name ?? '').trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
   return `${APP_URL}/cleaner?cleaner-dashboard=${nameSlug}:${cleaner.id}:${dashToken}`;
@@ -80,11 +88,16 @@ export async function sendCleanerPortalEmail(resend: Resend, cleaner: Row, dashT
 
 /** Receipt to the client after a cleaning is charged, with the cleaner's photos. */
 export async function sendClientReceiptEmail(resend: Resend, opts: {
-  to: string; clientName?: string | null; propertyName: string; checkoutDate: string; amount: number; photos?: string[]; checklistDone?: number; checklistTotal?: number;
+  to: string; clientName?: string | null; propertyName: string; checkoutDate: string;
+  /** Amount charged to the card on file; omit / 0 when nothing was charged (yet) */
+  amount?: number | null; photos?: string[]; checklistDone?: number; checklistTotal?: number;
+  /** Shown when the charge didn't happen, e.g. "Your card will be charged once the payment retries succeed." */
+  paymentNote?: string | null;
 }) {
   const dateLabel = new Date(opts.checkoutDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   const photos = (opts.photos ?? []).filter(u => /^https?:\/\//.test(u)).slice(0, 8);
-  const subject = `Cleaning complete at ${opts.propertyName} — $${opts.amount.toFixed(2)} charged`;
+  const amount = Number(opts.amount ?? 0);
+  const subject = amount > 0 ? `Cleaning complete at ${opts.propertyName} — $${amount.toFixed(2)} charged` : `Cleaning complete at ${opts.propertyName}`;
   const result = await resend.emails.send({
     from: CLEANING_FROM,
     to: opts.to,
@@ -99,8 +112,9 @@ export async function sendClientReceiptEmail(resend: Resend, opts: {
             <tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Property</td><td style="padding:6px 12px">${escapeHtml(opts.propertyName)}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Checkout</td><td style="padding:6px 12px">${dateLabel}</td></tr>
             ${opts.checklistTotal ? `<tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Checklist</td><td style="padding:6px 12px">${opts.checklistDone ?? 0} / ${opts.checklistTotal} items completed</td></tr>` : ''}
-            <tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Charged to card on file</td><td style="padding:6px 12px;font-size:18px;font-weight:700;color:#16a34a">$${opts.amount.toFixed(2)}</td></tr>
+            ${amount > 0 ? `<tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Charged to card on file</td><td style="padding:6px 12px;font-size:18px;font-weight:700;color:#16a34a">$${amount.toFixed(2)}</td></tr>` : ''}
           </table>
+          ${opts.paymentNote ? `<p style="color:#64748b;font-size:13px">${escapeHtml(opts.paymentNote)}</p>` : ''}
           ${photos.length ? `<p style="font-weight:600;color:#334155;margin:16px 0 6px">Photos from your cleaner</p><div>${photos.map(u => `<img src="${u}" style="width:120px;height:90px;object-fit:cover;border-radius:6px;margin:4px" />`).join('')}</div>` : ''}
           <p style="color:#64748b;font-size:13px;margin-top:20px">Not happy with something? Reply to this email within 24 hours and we'll arrange a free re-clean or credit.</p>
           <p style="color:#94a3b8;font-size:12px;margin:16px 0 0">— E&amp;J Retreats Cleaning</p>

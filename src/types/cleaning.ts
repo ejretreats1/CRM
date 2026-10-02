@@ -124,6 +124,10 @@ export interface CleaningJob {
   payoutError?: string;
   payoutMethod?: string;
   payoutReference?: string;
+  /** The offer email to the current cleaner failed (server-set) */
+  dispatchEmailError?: string;
+  morningSmsSentAt?: string;
+  receiptSentAt?: string;
   notes?: string;
   jobType?: CleaningJobType;
   portalData?: CleaningPortalData;
