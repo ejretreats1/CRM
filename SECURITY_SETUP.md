@@ -74,3 +74,12 @@ client a receipt with the cleaner's photos, emails a card-update link when a cha
 declined (once per 3 days) and retries the charge automatically once a new card is saved,
 marks cleaners Stripe-active and releases waiting payouts when they finish Connect, and
 alerts you on reversed transfers, disputes and refunds.
+
+## 6. Hourly dispatch tick (cleaner escalation)
+
+Jobs are offered to one cleaner at a time. If the current cleaner has not answered after 4 hours (1 hour when checkout is within 48 hours) the next cleaner is offered, and the day before checkout you get one alert for anything still unassigned. That check runs:
+
+- at 11:00 UTC inside the daily booking sync, and 23:00 UTC (`/api/cron?job=dispatch-tick`) — Vercel Hobby plans only allow daily cron schedules;
+- **hourly from GitHub Actions** (`.github/workflows/dispatch-tick.yml`). For that to work add a repository secret: GitHub → repo **Settings → Secrets and variables → Actions → New repository secret**, name `CRON_SECRET`, value = the same `CRON_SECRET` you set in Vercel. Until the secret exists the workflow does nothing.
+
+On Vercel **Pro**, you can instead change the `dispatch-tick` schedule in `vercel.json` to `"15 * * * *"` and delete the workflow file.

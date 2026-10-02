@@ -13,6 +13,6 @@
     { "path": "/api/cron?job=ical-sync",     "schedule": "0 11 * * *" },
     { "path": "/api/cron",                   "schedule": "0 17 * * *" },
     { "path": "/api/cron?job=campaign-send", "schedule": "0 13 * * *" },
-    { "path": "/api/cron?job=dispatch-tick", "schedule": "15 * * * *" }
+    { "path": "/api/cron?job=dispatch-tick", "schedule": "0 23 * * *" }
   ]
 }
