@@ -53,29 +53,6 @@ function fmtDate(iso: string | null | undefined): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function addBusinessDays(dateStr: string, n: number): string {
-  const d = new Date(dateStr + 'T12:00:00');
-  let added = 0;
-  const sign = n >= 0 ? 1 : -1;
-  while (added < Math.abs(n)) {
-    d.setDate(d.getDate() + sign);
-    if (d.getDay() !== 0 && d.getDay() !== 6) added++;
-  }
-  return d.toISOString().slice(0, 10);
-}
-
-// Returns the date a payout will actually go out — 2 biz days after charge,
-// or the next business day from today if that date has already passed.
-function getPayoutDate(chargedAt: string): string {
-  const scheduled = addBusinessDays(chargedAt.slice(0, 10), 2);
-  const today = new Date().toISOString().slice(0, 10);
-  if (scheduled >= today) return scheduled;
-  // Scheduled date passed — find next business day (today if it's a weekday)
-  const d = new Date(today + 'T12:00:00');
-  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
 function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expenses }: { jobs: CleaningJob[]; cleaners: Cleaner[]; configs: CleaningPropertyConfig[]; uplistingProperties: UplistingProperty[]; expenses: CleaningExpense[] }) {
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0,0,0,0);
@@ -209,7 +186,7 @@ function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyCo
       const r = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ flow: 'cleaning', action: 'manual-charge', propertyId, amount: Number(amount), description }),
+        body: JSON.stringify({ flow: 'cleaning', action: 'manual-charge', propertyId, amount: Number(amount), description, requestId: crypto.randomUUID() }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? 'Charge failed.');
@@ -313,7 +290,7 @@ function ManualPayoutPanel({ cleaners, onRefresh }: { cleaners: Cleaner[]; onRef
       const r = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ flow: 'cleaning', action: 'manual-payout', cleanerId, amount: Number(amount), note }),
+        body: JSON.stringify({ flow: 'cleaning', action: 'manual-payout', cleanerId, amount: Number(amount), note, requestId: crypto.randomUUID() }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? 'Payout failed.');
@@ -512,6 +489,29 @@ function CleaningPayments({
     }
   }
 
+  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+  async function handleMarkPaid(job: CleaningJob) {
+    const method = prompt(`How did you pay ${job.assignedCleanerName ?? 'the cleaner'} the $${job.cleanerPayout}? (Zelle, Venmo, cash, check…)`, 'Zelle');
+    if (method === null) return;
+    const reference = prompt('Reference / confirmation (optional):', '') ?? '';
+    setMarkingPaid(job.id);
+    setPayoutErrors(prev => { const next = { ...prev }; delete next[job.id]; return next; });
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'mark-payout-paid', jobId: job.id, method, reference }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Could not record payout.');
+      await onRefresh();
+    } catch (e) {
+      setPayoutErrors(prev => ({ ...prev, [job.id]: e instanceof Error ? e.message : 'Failed.' }));
+    } finally {
+      setMarkingPaid(null);
+    }
+  }
+
   async function handleSendPayout(job: CleaningJob) {
     setSendingPayout(job.id);
     setPayoutErrors(prev => { const next = { ...prev }; delete next[job.id]; return next; });
@@ -601,7 +601,7 @@ function CleaningPayments({
                   <>
                     <th className="text-left px-4 py-3 hidden md:table-cell">Cleaner</th>
                     <th className="text-right px-4 py-3">Payout</th>
-                    <th className="text-left px-4 py-3">Payout Date</th>
+                    <th className="text-left px-4 py-3">Status</th>
                     <th className="text-right px-4 py-3">Action</th>
                   </>
                 ) : (
@@ -651,28 +651,39 @@ function CleaningPayments({
                       </td>
                       <td className="px-4 py-3 text-right text-[#d07af5] font-semibold">${job.cleanerPayout}</td>
                       <td className="px-4 py-3">
-                        {job.chargedAt ? (() => {
-                          const payoutDate = getPayoutDate(job.chargedAt);
-                          const today = new Date().toISOString().slice(0, 10);
-                          const isToday = payoutDate === today;
-                          return (
-                            <span className={`text-xs font-medium ${isToday ? 'text-[#5ce0a0]' : 'text-[#d0954a]'}`}>
-                              {isToday ? 'Today' : new Date(payoutDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </span>
-                          );
-                        })() : (
-                          <span className="text-xs text-[#3a5070]">—</span>
+                        {job.payoutStatus === 'manual_due' ? (
+                          <span className="flex items-center gap-1 text-xs text-[#d0954a] font-medium"><AlertCircle size={11} /> Pay manually — no Stripe account</span>
+                        ) : job.payoutStatus === 'failed' ? (
+                          <span className="flex flex-col gap-0.5">
+                            <span className="flex items-center gap-1 text-xs text-[#e05c5c] font-medium"><AlertCircle size={11} /> Transfer failed</span>
+                            <span className="text-xs text-[#3a5070] max-w-[220px] truncate" title={job.payoutError}>{job.payoutError}</span>
+                          </span>
+                        ) : job.payoutStatus === 'processing' ? (
+                          <span className="text-xs text-[#4a90d9]">Sending…</span>
+                        ) : (
+                          <span className="text-xs text-[#5ce0a0]">Sends automatically with the charge</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => handleSendPayout(job)}
-                          disabled={sendingPayout === job.id}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0a2518] border border-[#1a4a2e] text-[#5ce0a0] text-xs font-semibold rounded-lg hover:bg-[#0d3020] transition-colors disabled:opacity-50 ml-auto"
-                        >
-                          <CreditCard size={11} />
-                          {sendingPayout === job.id ? 'Sending…' : 'Send Now'}
-                        </button>
+                        {job.payoutStatus === 'manual_due' ? (
+                          <button
+                            onClick={() => handleMarkPaid(job)}
+                            disabled={markingPaid === job.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50 ml-auto"
+                          >
+                            <CheckCircle size={11} />
+                            {markingPaid === job.id ? 'Saving…' : 'Mark paid'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleSendPayout(job)}
+                            disabled={sendingPayout === job.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0a2518] border border-[#1a4a2e] text-[#5ce0a0] text-xs font-semibold rounded-lg hover:bg-[#0d3020] transition-colors disabled:opacity-50 ml-auto"
+                          >
+                            <CreditCard size={11} />
+                            {sendingPayout === job.id ? 'Sending…' : job.payoutStatus === 'failed' ? 'Retry transfer' : 'Send Now'}
+                          </button>
+                        )}
                         {payoutErrors[job.id] && (
                           <p className="text-xs text-[#e05c5c] mt-1 max-w-[160px]">{payoutErrors[job.id]}</p>
                         )}
@@ -696,6 +707,15 @@ function CleaningPayments({
                             </span>
                             <span className="text-xs text-[#3a5070]">{fmtDate(job.chargedAt)}</span>
                           </span>
+                        ) : job.chargeStatus === 'failed' ? (
+                          <span className="flex flex-col gap-0.5">
+                            <span className="flex items-center gap-1 text-xs text-[#e05c5c] font-medium"><AlertCircle size={11} /> Charge failed</span>
+                            <span className="text-xs text-[#3a5070] max-w-[220px] truncate" title={job.lastChargeError}>{job.lastChargeError}{job.nextChargeAttemptAt ? ` · retries ${fmtDate(job.nextChargeAttemptAt)}` : ''}</span>
+                          </span>
+                        ) : job.status === 'completed' && !job.portalData ? (
+                          <span className="flex items-center gap-1 text-xs text-[#d0954a] font-medium" title="Clients are charged once the cleaner submits their report">
+                            <AlertCircle size={11} /> Awaiting report
+                          </span>
                         ) : (
                           <span className="flex items-center gap-1 text-xs text-[#e05c5c] font-medium">
                             <AlertCircle size={11} /> Not charged
@@ -707,10 +727,14 @@ function CleaningPayments({
                           {job.payoutSentAt ? (
                             <span className="flex flex-col gap-0.5">
                               <span className="flex items-center gap-1 text-xs text-[#d07af5] font-medium">
-                                <CheckCircle size={11} /> Sent
+                                <CheckCircle size={11} /> {job.payoutStatus === 'sent_manual' ? `Paid${job.payoutMethod ? ` · ${job.payoutMethod}` : ''}` : 'Sent'}
                               </span>
                               <span className="text-xs text-[#3a5070]">{fmtDate(job.payoutSentAt)}</span>
                             </span>
+                          ) : job.payoutStatus === 'manual_due' ? (
+                            <span className="text-xs text-[#d0954a] font-medium">Pay manually</span>
+                          ) : job.payoutStatus === 'failed' ? (
+                            <span className="text-xs text-[#e05c5c] font-medium">Failed</span>
                           ) : (
                             <span className="text-xs text-[#3a5070]">—</span>
                           )}

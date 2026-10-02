@@ -108,6 +108,16 @@ export interface CleaningJob {
   stripeChargeId?: string;
   payoutSentAt?: string;
   stripeTransferId?: string;
+  /** processing | charged | failed — set by the server billing flow */
+  chargeStatus?: 'processing' | 'charged' | 'failed';
+  chargeAttempts?: number;
+  lastChargeError?: string;
+  nextChargeAttemptAt?: string;
+  /** processing | sent | sent_manual | manual_due | failed */
+  payoutStatus?: 'processing' | 'sent' | 'sent_manual' | 'manual_due' | 'failed';
+  payoutError?: string;
+  payoutMethod?: string;
+  payoutReference?: string;
   notes?: string;
   jobType?: CleaningJobType;
   portalData?: CleaningPortalData;

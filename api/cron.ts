@@ -5,11 +5,13 @@ import { Resend } from 'resend';
 import Stripe from 'stripe';
 import { randomUUID } from 'crypto';
 import { syncPropertyIcal } from './_ical';
+import { chargeJob, payoutJob, findChargeableJobs, findPayableJobs } from './_billing';
 
 export const config = { maxDuration: 60 };
 
 function getSupabase() {
-  return createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY!;
+  return createClient(process.env.VITE_SUPABASE_URL!, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 function getSupabaseAdmin() {
   return createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -126,148 +128,6 @@ function addBusinessDays(dateStr: string, n: number): string {
     if (day !== 0 && day !== 6) remaining--;
   }
   return d.toISOString().slice(0, 10);
-}
-
-// ── AUTO-CHARGE ───────────────────────────────────────────────────────────────
-// Charges the client for jobs whose checkout date is today.
-// Does NOT transfer to the cleaner yet — that happens 2 business days later.
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function autoCharge(job: Record<string, any>): Promise<{ ok: boolean; error?: string; fee?: number }> {
-  const supabase = getSupabase();
-
-  const { data: config } = await supabase
-    .from('cleaning_property_configs')
-    .select('stripe_customer_id,stripe_payment_method_id,cleaning_fee')
-    .eq('property_id', job.property_id)
-    .maybeSingle();
-
-  if (!config?.stripe_customer_id || !config?.stripe_payment_method_id) {
-    return { ok: false, error: 'No payment method on file.' };
-  }
-
-  const stripe = getStripe();
-  const amountCents = Math.round(Number(config.cleaning_fee) * 100);
-
-  if (amountCents === 0) {
-    return { ok: false, error: 'Cleaning fee is $0 — skipping charge.' };
-  }
-
-  // Re-fetch job to guard against cancellation between query and charge
-  const { data: freshJob } = await supabase.from('cleaning_jobs').select('status,charged_at').eq('id', job.id).single();
-  if (!freshJob || freshJob.status === 'cancelled') {
-    return { ok: false, error: 'Job cancelled before charge could be processed.' };
-  }
-  if (freshJob.charged_at) {
-    return { ok: false, error: 'Already charged (race condition avoided).' };
-  }
-
-  let paymentIntent;
-  try {
-    paymentIntent = await stripe.paymentIntents.create({
-      amount: amountCents,
-      currency: 'usd',
-      customer: config.stripe_customer_id,
-      payment_method: config.stripe_payment_method_id,
-      confirm: true,
-      off_session: true,
-      description: `Cleaning: ${job.property_name} — ${job.checkout_date}`,
-      metadata: { job_id: job.id, property_id: job.property_id },
-      // No transfer_data — we keep funds in platform balance until payout day
-    }, { idempotencyKey: `charge_${job.id}_${Date.now()}` });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Stripe charge failed.';
-    return { ok: false, error: msg };
-  }
-
-  const now = new Date().toISOString();
-  const { error: dbErr } = await supabase.from('cleaning_jobs').update({
-    charged_at: now,
-    stripe_charge_id: paymentIntent.id,
-    status: 'completed',
-    completed_at: now,
-    updated_at: now,
-  }).eq('id', job.id);
-  if (dbErr) {
-    return { ok: false, error: `Charged but DB update failed: ${dbErr.message}` };
-  }
-
-  return { ok: true, fee: Number(config.cleaning_fee) };
-}
-
-// ── AUTO-PAYOUT ───────────────────────────────────────────────────────────────
-// Transfers to the cleaner's connected Stripe account for jobs charged
-// exactly 2 business days ago (funds now available in platform balance).
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function autoPayout(job: Record<string, any>): Promise<{ ok: boolean; error?: string; payout?: number }> {
-  if (!job.assigned_cleaner_id || Number(job.cleaner_payout) <= 0) {
-    return { ok: false, error: 'No cleaner assigned or payout is $0.' };
-  }
-
-  const supabase = getSupabase();
-  const stripe = getStripe();
-
-  const { data: cleaner } = await supabase
-    .from('cleaners')
-    .select('stripe_account_id, name, payout_info')
-    .eq('id', job.assigned_cleaner_id)
-    .single();
-
-  if (!cleaner?.stripe_account_id) {
-    // No Stripe — send actionable manual payment reminder then mark as sent so it doesn't repeat
-    const payoutRow = cleaner?.payout_info
-      ? `<tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Pay via</td><td style="padding:6px 12px;color:#1e40af;font-weight:700">${cleaner.payout_info}</td></tr>`
-      : `<tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Pay via</td><td style="padding:6px 12px;color:#dc2626">⚠️ No payout info on file — update cleaner profile</td></tr>`;
-    await getResend().emails.send({
-      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-      to: ADMIN_EMAIL,
-      subject: `💳 Manual Payout Due — Pay ${cleaner?.name ?? 'cleaner'} $${job.cleaner_payout}`,
-      html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px">
-        <h2 style="color:#dc2626;margin:0 0 12px">Manual Payment Required</h2>
-        <p style="color:#334155;margin:0 0 16px">${cleaner?.name ?? 'A cleaner'} completed a job and needs to be paid manually (no Stripe account connected).</p>
-        <table style="border-collapse:collapse;width:100%;font-size:14px;margin-bottom:16px">
-          <tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Cleaner</td><td style="padding:6px 12px">${cleaner?.name ?? job.assigned_cleaner_id}</td></tr>
-          <tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Amount Due</td><td style="padding:6px 12px;font-size:22px;color:#16a34a;font-weight:700">$${job.cleaner_payout}</td></tr>
-          <tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Property</td><td style="padding:6px 12px">${job.property_name}</td></tr>
-          <tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Job Date</td><td style="padding:6px 12px">${job.checkout_date}</td></tr>
-          ${payoutRow}
-        </table>
-        <p style="color:#94a3b8;font-size:12px">This reminder won't repeat — the job is marked as paid in the system. Send the cleaner their money and you're all set.</p>
-      </div>`,
-    }).catch(() => {});
-    const now = new Date().toISOString();
-    await supabase.from('cleaning_jobs').update({ payout_sent_at: now, updated_at: now }).eq('id', job.id);
-    return { ok: true, payout: Number(job.cleaner_payout) };
-  }
-
-  const amountCents = Math.round(Number(job.cleaner_payout) * 100);
-
-  let transfer;
-  try {
-    transfer = await stripe.transfers.create({
-      amount: amountCents,
-      currency: 'usd',
-      destination: cleaner.stripe_account_id,
-      description: `Payout: ${job.property_name} — ${job.checkout_date}`,
-      metadata: { job_id: job.id, cleaner_id: job.assigned_cleaner_id },
-    }, { idempotencyKey: `payout_${job.id}` });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Stripe transfer failed.';
-    return { ok: false, error: msg };
-  }
-
-  const now = new Date().toISOString();
-  const { error: dbErr } = await supabase.from('cleaning_jobs').update({
-    payout_sent_at: now,
-    stripe_transfer_id: transfer.id,
-    updated_at: now,
-  }).eq('id', job.id);
-  if (dbErr) {
-    return { ok: false, error: `Transfer sent but DB update failed: ${dbErr.message}` };
-  }
-
-  return { ok: true, payout: Number(job.cleaner_payout) };
 }
 
 // ── HANDLER ───────────────────────────────────────────────────────────────────
@@ -665,113 +525,87 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.query.job === 'campaign-send')  return runCampaignSend(res);
 
   const supabase = getSupabase();
+  const stripe = getStripe();
   const today = new Date().toISOString().slice(0, 10);
-  const twoBizDaysAgo = addBusinessDays(today, -2);
-
-  // Any job charged on or before the end of 2 business days ago qualifies.
-  // Using end-of-day prevents the cutoff from landing before the charge
-  // timestamp (the charge cron also runs at 17:00 UTC so a time-based
-  // cutoff of "now - 2h" was always earlier than charged_at).
-  const payoutCutoffTs = twoBizDaysAgo + 'T23:59:59.999Z';
+  const startedAt = Date.now();
+  const BUDGET_MS = 45_000; // leave headroom under the 60s function limit
 
   const results = {
     chargesAttempted: 0,
     chargesSucceeded: 0,
-    chargeFailed: [] as { jobId: string; property: string; error: string }[],
+    chargeFailed: [] as { jobId: string; property: string; error: string; retry: string | null }[],
     payoutsAttempted: 0,
     payoutsSucceeded: 0,
     payoutFailed: [] as { jobId: string; property: string; error: string }[],
+    manualPayoutsDue: [] as { jobId: string; property: string; cleaner: string; amount: number; date: string }[],
+    awaitingReport: [] as { jobId: string; property: string; cleaner: string; date: string }[],
+    gaveUp: [] as { jobId: string; property: string; error: string }[],
   };
 
-  // ── Step 0: backfill — mark already-charged accepted/in_progress jobs as completed ─
-  // Handles jobs that were charged before this auto-complete logic was added
-  await supabase
-    .from('cleaning_jobs')
-    .update({ status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .in('status', ['accepted', 'in_progress'])
-    .not('charged_at', 'is', null)
-    .lt('checkout_date', today);
-
-  // ── Step 1a: charge clients whose checkout is today ───────────────────────
-  const { data: toCharge } = await supabase
-    .from('cleaning_jobs')
-    .select('*')
-    .eq('checkout_date', today)
-    .in('status', ['accepted', 'in_progress', 'completed'])
-    .is('charged_at', null);
-
-
-  for (const job of toCharge ?? []) {
+  // ── Step 1: charge completed jobs that have a submitted report ────────────
+  // (first attempts, plus failed ones whose retry time has come)
+  for (const job of await findChargeableJobs(supabase)) {
+    if (Date.now() - startedAt > BUDGET_MS) break;
     results.chargesAttempted++;
-    const r = await autoCharge(job);
-    if (r.ok) {
-      results.chargesSucceeded++;
-    } else {
-      results.chargeFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown' });
-    }
+    const r = await chargeJob(supabase, stripe, job.id, { trigger: 'cron' });
+    if (r.ok && !r.skipped) results.chargesSucceeded++;
+    else if (!r.ok && !r.skipped) results.chargeFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown', retry: r.willRetryAt ?? null });
   }
 
-  // ── Step 1b: charge past-due jobs (checkout date already passed, charge missed) ─
-  const { data: pastDue } = await supabase
+  // ── Step 2: pay cleaners for charged jobs ─────────────────────────────────
+  // Payouts normally go out with the charge; this catches cleaners who
+  // connected Stripe later and transfers that failed.
+  for (const job of await findPayableJobs(supabase)) {
+    if (Date.now() - startedAt > BUDGET_MS) break;
+    const r = await payoutJob(supabase, stripe, job.id);
+    if (r.status === 'sent') { results.payoutsAttempted++; results.payoutsSucceeded++; }
+    else if (r.status === 'failed') { results.payoutsAttempted++; results.payoutFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown' }); }
+    else if (r.status === 'manual_due') results.manualPayoutsDue.push({ jobId: job.id, property: job.property_name, cleaner: job.assigned_cleaner_name ?? job.assigned_cleaner_id, amount: Number(job.cleaner_payout), date: job.checkout_date });
+  }
+
+  // ── Step 3: things a human needs to look at ───────────────────────────────
+  const { data: noReport } = await supabase
     .from('cleaning_jobs')
-    .select('*')
+    .select('id, property_name, assigned_cleaner_name, checkout_date')
     .in('status', ['accepted', 'in_progress'])
     .lt('checkout_date', today)
-    .is('charged_at', null);
+    .is('charged_at', null)
+    .order('checkout_date', { ascending: true })
+    .limit(50);
+  results.awaitingReport = (noReport ?? []).map((j: any) => ({ jobId: j.id, property: j.property_name, cleaner: j.assigned_cleaner_name ?? '—', date: j.checkout_date }));
 
-  for (const job of pastDue ?? []) {
-    results.chargesAttempted++;
-    const r = await autoCharge(job);
-    if (r.ok) {
-      results.chargesSucceeded++;
-    } else {
-      results.chargeFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown' });
-    }
-  }
-
-  // ── Step 2: pay cleaners for jobs completed 2+ business days ago ─────────
-  const { data: toPay } = await supabase
+  const { data: exhausted } = await supabase
     .from('cleaning_jobs')
-    .select('*')
-    .eq('status', 'completed')
-    .not('completed_at', 'is', null)
-    .lte('completed_at', payoutCutoffTs)
-    .is('payout_sent_at', null)
-    .not('assigned_cleaner_id', 'is', null)
-    .gt('cleaner_payout', 0);
+    .select('id, property_name, last_charge_error')
+    .eq('charge_status', 'failed')
+    .is('next_charge_attempt_at', null)
+    .is('charged_at', null)
+    .limit(50);
+  results.gaveUp = (exhausted ?? []).map((j: any) => ({ jobId: j.id, property: j.property_name, error: j.last_charge_error ?? 'unknown' }));
 
-  for (const job of toPay ?? []) {
-    results.payoutsAttempted++;
-    const r = await autoPayout(job);
-    if (r.ok) {
-      results.payoutsSucceeded++;
-    } else {
-      results.payoutFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown' });
-    }
-  }
-
-  // ── Notify admin if anything happened ────────────────────────────────────
-  const total = results.chargesAttempted + results.payoutsAttempted;
+  // ── Daily summary ─────────────────────────────────────────────────────────
+  const attention = results.chargeFailed.length + results.payoutFailed.length + results.manualPayoutsDue.length + results.awaitingReport.length + results.gaveUp.length;
+  const total = results.chargesAttempted + results.payoutsAttempted + attention;
   if (total > 0) {
-    const hasErrors = results.chargeFailed.length > 0 || results.payoutFailed.length > 0;
+    const hasErrors = results.chargeFailed.length > 0 || results.payoutFailed.length > 0 || results.gaveUp.length > 0;
     const subject = hasErrors
-      ? `⚠️ Cleaning automation ran with errors — ${today}`
-      : `✅ Cleaning automation complete — ${today}`;
-
-    const errorRows = [
-      ...results.chargeFailed.map(e => `<tr><td style="padding:4px 8px;color:#ef4444">Charge failed</td><td style="padding:4px 8px">${e.property}</td><td style="padding:4px 8px;color:#94a3b8">${e.error}</td></tr>`),
-      ...results.payoutFailed.map(e => `<tr><td style="padding:4px 8px;color:#ef4444">Payout failed</td><td style="padding:4px 8px">${e.property}</td><td style="padding:4px 8px;color:#94a3b8">${e.error}</td></tr>`),
-    ].join('');
-
+      ? `⚠️ Cleaning billing ran with errors — ${today}`
+      : attention > 0
+        ? `🧹 Cleaning billing — ${attention} item${attention === 1 ? '' : 's'} need attention — ${today}`
+        : `✅ Cleaning billing complete — ${today}`;
+    const row = (cells: string[]) => `<tr>${cells.map(c => `<td style="padding:4px 8px;border-bottom:1px solid #f1f5f9">${c}</td>`).join('')}</tr>`;
+    const section = (title: string, color: string, rows: string[]) => rows.length
+      ? `<h3 style="margin:16px 0 6px;color:${color};font-size:14px">${title}</h3><table style="width:100%;border-collapse:collapse;font-size:13px">${rows.join('')}</table>`
+      : '';
     await getResend().emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
       to: ADMIN_EMAIL,
       subject,
       html: `
-        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f8fafc">
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
           <div style="background:white;border-radius:12px;padding:24px;border:1px solid #e2e8f0">
-            <h2 style="margin:0 0 16px;color:#1e293b">🧹 Daily Cleaning Automation — ${today}</h2>
-            <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+            <h2 style="margin:0 0 16px;color:#1e293b">🧹 Daily Cleaning Billing — ${today}</h2>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
               <tr style="background:#f1f5f9">
                 <td style="padding:8px;font-weight:600;color:#334155">Charges</td>
                 <td style="padding:8px;color:#16a34a">${results.chargesSucceeded} succeeded</td>
@@ -779,15 +613,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               </tr>
               <tr>
                 <td style="padding:8px;font-weight:600;color:#334155">Payouts</td>
-                <td style="padding:8px;color:#16a34a">${results.payoutsSucceeded} succeeded</td>
+                <td style="padding:8px;color:#16a34a">${results.payoutsSucceeded} sent</td>
                 <td style="padding:8px;color:${results.payoutFailed.length > 0 ? '#dc2626' : '#94a3b8'}">${results.payoutFailed.length} failed</td>
               </tr>
             </table>
-            ${errorRows ? `
-            <h3 style="margin:16px 0 8px;color:#dc2626;font-size:14px">Errors to investigate:</h3>
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              ${errorRows}
-            </table>` : ''}
+            ${section('Charges failed (will retry automatically)', '#dc2626', results.chargeFailed.map(e => row([e.property, e.error, e.retry ? `retry ${e.retry.slice(0, 10)}` : 'no more retries'])))}
+            ${section('Charges given up — fix the card or charge manually', '#dc2626', results.gaveUp.map(e => row([e.property, e.error])))}
+            ${section('Payouts failed', '#dc2626', results.payoutFailed.map(e => row([e.property, e.error])))}
+            ${section('Manual payouts due — pay the cleaner, then click “Mark paid” in the CRM', '#b45309', results.manualPayoutsDue.map(m => row([m.cleaner, `$${m.amount}`, m.property, m.date])))}
+            ${section('Past checkout, no cleaning report yet (not charged)', '#b45309', results.awaitingReport.map(a => row([a.property, a.cleaner, a.date])))}
+            <p style="color:#94a3b8;font-size:12px;margin-top:16px">Clients are charged only after the cleaner submits their report. Payouts go out with the charge via Stripe Connect.</p>
           </div>
         </div>
       `,

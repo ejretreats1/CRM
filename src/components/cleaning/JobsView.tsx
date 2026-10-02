@@ -481,10 +481,26 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                           <CreditCard size={12} />
                           <span>Charged {new Date(job.chargedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                         </div>
-                        {job.payoutSentAt && (
-                          <span className="text-xs text-[#d07af5]">· Payout sent</span>
-                        )}
+                        {job.payoutSentAt ? (
+                          <span className="text-xs text-[#d07af5]">· Payout {job.payoutStatus === 'sent_manual' ? `paid${job.payoutMethod ? ` via ${job.payoutMethod}` : ''}` : 'sent'}</span>
+                        ) : job.payoutStatus === 'manual_due' ? (
+                          <span className="text-xs text-[#d0954a]">· Cleaner payout due — pay manually (Payments tab)</span>
+                        ) : job.payoutStatus === 'failed' ? (
+                          <span className="text-xs text-[#e05c5c]">· Payout failed: {job.payoutError}</span>
+                        ) : null}
                       </div>
+                    )}
+                    {!job.chargedAt && job.chargeStatus === 'failed' && (
+                      <div className="flex items-center gap-1.5 text-xs text-[#e05c5c]">
+                        <CreditCard size={12} />
+                        <span>
+                          Charge failed{job.chargeAttempts ? ` (attempt ${job.chargeAttempts})` : ''}: {job.lastChargeError}
+                          {job.nextChargeAttemptAt ? ` · retries ${new Date(job.nextChargeAttemptAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ' · no more automatic retries'}
+                        </span>
+                      </div>
+                    )}
+                    {job.status === 'completed' && !job.chargedAt && !job.portalData && job.chargeStatus !== 'failed' && (
+                      <div className="text-xs text-[#d0954a]">Waiting for the cleaner's report before charging</div>
                     )}
 
                     {job.notes && (

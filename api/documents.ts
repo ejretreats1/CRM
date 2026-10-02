@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { requireAdmin, APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth';
+import { chargeJob, payoutJob, markPayoutPaid } from './_billing';
 
 
 // ─── iCal helpers (inlined from _ical.ts to avoid Vercel bundling issues) ─────
@@ -1000,7 +1001,7 @@ async function cleaningGet(combined: string, res: VercelResponse) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function manualClientCharge(body: any, res: VercelResponse) {
-  const { propertyId, amount, description } = body;
+  const { propertyId, amount, description, requestId } = body;
   if (!propertyId || !amount || Number(amount) <= 0)
     return res.status(400).json({ error: 'propertyId and a positive amount are required.' });
 
@@ -1026,10 +1027,10 @@ async function manualClientCharge(body: any, res: VercelResponse) {
       off_session: true,
       description: description?.trim() || `Manual charge — ${config.property_name}`,
       metadata: { property_id: propertyId, type: 'manual_charge' },
-    }, { idempotencyKey: `manual_charge_${propertyId}_${Date.now()}` });
+    }, { idempotencyKey: `manual_charge_${requestId || randomUUID()}` });
 
     const now = new Date().toISOString();
-    const jobId = `cj_manual_${Date.now()}`;
+    const jobId = `cj_manual_${randomUUID().slice(0, 8)}`;
     await supabase.from('cleaning_jobs').insert({
       id: jobId,
       property_id: propertyId,
@@ -1040,6 +1041,7 @@ async function manualClientCharge(body: any, res: VercelResponse) {
       cleaner_payout: 0,
       charged_at: now,
       stripe_charge_id: paymentIntent.id,
+      charge_status: 'charged',
       notes: description?.trim() || 'Manual charge',
       source: 'manual',
       created_at: now,
@@ -1053,7 +1055,7 @@ async function manualClientCharge(body: any, res: VercelResponse) {
 }
 
 async function manualCleanerPayout(body: any, res: VercelResponse) {
-  const { cleanerId, amount, note } = body;
+  const { cleanerId, amount, note, requestId } = body;
   if (!cleanerId || !amount || Number(amount) <= 0)
     return res.status(400).json({ error: 'cleanerId and a positive amount are required.' });
 
@@ -1071,10 +1073,11 @@ async function manualCleanerPayout(body: any, res: VercelResponse) {
       currency: 'usd',
       destination: cleaner.stripe_account_id,
       description: note?.trim() || `Manual payout to ${cleaner.name}`,
-    });
+      metadata: { type: 'manual_payout', cleaner_id: cleanerId },
+    }, { idempotencyKey: `manual_payout_${requestId || randomUUID()}` });
 
     const now = new Date().toISOString();
-    const jobId = `cj_manual_payout_${Date.now()}`;
+    const jobId = `cj_manual_payout_${randomUUID().slice(0, 8)}`;
     await supabase.from('cleaning_jobs').insert({
       id: jobId,
       property_id: `manual_payout_${cleanerId}`,
@@ -1087,6 +1090,7 @@ async function manualCleanerPayout(body: any, res: VercelResponse) {
       assigned_cleaner_name: cleaner.name,
       payout_sent_at: now,
       stripe_transfer_id: transfer.id,
+      payout_status: 'sent',
       notes: note?.trim() || `Manual payout to ${cleaner.name}`,
       source: 'manual',
       created_at: now,
@@ -1102,48 +1106,22 @@ async function manualCleanerPayout(body: any, res: VercelResponse) {
 async function sendJobPayout(body: any, res: VercelResponse) {
   const { jobId } = body;
   if (!jobId) return res.status(400).json({ error: 'jobId required.' });
+  const outcome = await payoutJob(getSupabase(), await getStripe(), jobId, { manual: true });
+  if (outcome.status === 'sent') return res.json({ transferId: outcome.transferId, jobId, amount: outcome.amount, warning: outcome.error ?? null });
+  if (outcome.status === 'already_sent') return res.status(400).json({ error: 'Payout already sent.' });
+  if (outcome.status === 'manual_due') return res.status(409).json({ error: 'This cleaner has no active Stripe account yet — pay them directly and use “Mark paid”.', manualDue: true });
+  if (outcome.status === 'failed') return res.status(502).json({ error: outcome.error ?? 'Stripe transfer failed.' });
+  return res.status(400).json({ error: outcome.error ?? `Payout not possible (${outcome.reason ?? 'skipped'}).` });
+}
 
-  const supabase = getSupabase();
-  const { data: job } = await supabase
-    .from('cleaning_jobs')
-    .select('id, property_name, checkout_date, assigned_cleaner_id, cleaner_payout, payout_sent_at')
-    .eq('id', jobId)
-    .single();
-  if (!job) return res.status(404).json({ error: 'Job not found.' });
-  if (job.payout_sent_at) return res.status(400).json({ error: 'Payout already sent.' });
-  if (!job.assigned_cleaner_id) return res.status(400).json({ error: 'No cleaner assigned to this job.' });
-  if (Number(job.cleaner_payout) <= 0) return res.status(400).json({ error: 'Cleaner payout is $0.' });
-
-  const { data: cleaner } = await supabase
-    .from('cleaners').select('name, stripe_account_id').eq('id', job.assigned_cleaner_id).single();
-  if (!cleaner) return res.status(404).json({ error: 'Cleaner not found.' });
-  if (!cleaner.stripe_account_id)
-    return res.status(400).json({ error: `${cleaner.name} has not connected their Stripe account yet.` });
-
-  const stripe = await getStripe();
-  const amountCents = Math.round(Number(job.cleaner_payout) * 100);
-  let transfer;
-  try {
-    transfer = await stripe.transfers.create({
-      amount: amountCents,
-      currency: 'usd',
-      destination: cleaner.stripe_account_id,
-      description: `Payout: ${job.property_name} — ${job.checkout_date}`,
-      metadata: { job_id: job.id, cleaner_id: job.assigned_cleaner_id },
-    }, { idempotencyKey: `payout_${job.id}` });
-  } catch (e: any) {
-    return res.status(500).json({ error: e.message ?? 'Stripe transfer failed.' });
-  }
-
-  const now = new Date().toISOString();
-  const { error: dbErr } = await supabase.from('cleaning_jobs').update({
-    payout_sent_at: now,
-    stripe_transfer_id: transfer.id,
-    updated_at: now,
-  }).eq('id', job.id);
-  if (dbErr) return res.status(500).json({ error: `Transfer sent but DB update failed: ${dbErr.message}` });
-
-  return res.json({ transferId: transfer.id, jobId: job.id, amount: Number(job.cleaner_payout), cleanerName: cleaner.name });
+// Admin recorded a payout made outside Stripe (Zelle, Venmo, cash…).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningMarkPayoutPaid(body: any, res: VercelResponse) {
+  const { jobId, method, reference, paidAt } = body;
+  if (!jobId) return res.status(400).json({ error: 'jobId required.' });
+  const r = await markPayoutPaid(getSupabase(), jobId, { method, reference, paidAt });
+  if (!r.ok) return res.status(400).json({ error: r.error });
+  return res.json({ success: true });
 }
 
 async function cleaningCancellation(body: any, res: VercelResponse) {
@@ -1547,18 +1525,9 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
     portal_data: portalData,
   }).eq('id', jobId);
 
-  // Auto-charge client only if cron hasn't already done so — prevents double-charge
-  const paymentResult = row.charged_at
-    ? { charged: true as const, payoutSent: !!row.payout_sent_at }
-    : await doChargeAndPayout({ ...row, assigned_cleaner_id: row.assigned_cleaner_id ?? cleanerInfo.cleanerId, cleaner_payout: cleanerInfo.payout ?? 0 })
-        .catch(e => ({ charged: false as const, payoutSent: false, error: (e as Error).message ?? 'Unexpected error' }));
-
-  // Look up cleaner's Stripe Connect status for the notification email
-  const cleanerIdForLookup = row.assigned_cleaner_id ?? cleanerInfo.cleanerId;
-  const { data: cleanerRow } = cleanerIdForLookup
-    ? await supabase.from('cleaners').select('stripe_account_id').eq('id', cleanerIdForLookup).single()
-    : { data: null };
-  const cleanerHasStripe = !!cleanerRow?.stripe_account_id;
+  // Charge the client now that the report is in (idempotent; also pays the cleaner).
+  const charge = await chargeJob(supabase, await getStripe(), jobId, { trigger: 'submit' })
+    .catch(e => ({ ok: false as const, error: (e as Error).message ?? 'Unexpected error' } as Awaited<ReturnType<typeof chargeJob>>));
 
   const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const photoCount = (photos ?? []).length;
@@ -1566,14 +1535,21 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
   const checklistDone = Object.values(checklist as Record<string, boolean>).filter(Boolean).length;
   const checklistTotal = Object.keys(checklist as Record<string, boolean>).length;
 
-  const paymentLine = paymentResult.charged
-    ? `💳 <strong>$${(paymentResult as any).cleaningFee ?? row.cleaning_fee} charged</strong> to client automatically${paymentResult.payoutSent ? ` · Payout already sent to cleaner ✓` : cleanerHasStripe ? ` · Cleaner payout will be sent automatically in 2 business days via Stripe Connect` : ` · Cleaner has no Stripe Connect account — pay manually`}`
-    : `⚠️ <strong>Auto-charge failed:</strong> ${(paymentResult as any).error ?? 'No payment method on file'} — use the CRM to retry`;
+  const payoutNote = charge.payout?.status === 'sent'
+    ? 'Payout sent to cleaner via Stripe ✓'
+    : charge.payout?.status === 'manual_due'
+      ? 'Cleaner has no active Stripe account — pay them directly, then click “Mark paid” in the CRM'
+      : charge.payout?.status === 'failed'
+        ? `Payout failed: ${escapeHtml(charge.payout.error ?? '')}`
+        : '';
+  const paymentLine = charge.ok
+    ? `💳 <strong>$${charge.amount ?? row.cleaning_fee} charged</strong> to client automatically${payoutNote ? ` · ${payoutNote}` : ''}`
+    : `⚠️ <strong>Auto-charge failed:</strong> ${escapeHtml(charge.error ?? 'unknown error')}${charge.willRetryAt ? ' — will retry automatically' : ' — retry from the CRM'}`;
 
   const hasDamage = !!(damageNotes?.trim() || damageMediaArr.length > 0);
   const hasSuppliesNeeded = !!suppliesNotes?.trim();
 
-  const _submitSubj = `${paymentResult.charged ? '✅' : '⚠️'} Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`;
+  const _submitSubj = `${charge.ok ? '✅' : '⚠️'} Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`;
   const _sr = await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: ADMIN_EMAIL,
@@ -2471,84 +2447,17 @@ async function cleaningEnrollSubmit(body: any, res: VercelResponse) {
 
 // ── CLEANING CHARGE & PAYOUT ──────────────────────────────────────────────────
 
-interface ChargeResult {
-  charged: boolean;
-  payoutSent: boolean;
-  error?: string;
-  paymentIntentId?: string;
-  cleaningFee?: number;
-  cleanerPayout?: number;
-  cleanerStripeId?: string | null;
-}
-
-// Shared helper — called automatically on submit and manually as a retry
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function doChargeAndPayout(job: Record<string, any>): Promise<ChargeResult> {
-  const supabase = getSupabase();
-
-  const { data: config } = await supabase
-    .from('cleaning_property_configs')
-    .select('*')
-    .eq('property_id', job.property_id)
-    .maybeSingle();
-
-  if (!config?.stripe_customer_id || !config?.stripe_payment_method_id) {
-    return { charged: false, payoutSent: false, error: 'No payment method on file — client onboarding not complete.' };
-  }
-
-  const stripe = await getStripe();
-  const amountCents = Math.round(Number(config.cleaning_fee) * 100);
-
-  let paymentIntent;
-  try {
-    paymentIntent = await stripe.paymentIntents.create({
-      amount: amountCents,
-      currency: 'usd',
-      customer: config.stripe_customer_id,
-      payment_method: config.stripe_payment_method_id,
-      confirm: true,
-      off_session: true,
-      description: `Cleaning: ${job.property_name} — ${job.checkout_date}`,
-      metadata: { job_id: job.id, property_id: job.property_id },
-      // No transfer_data — cleaner payout is sent 2 business days later by the cron job
-    }, { idempotencyKey: `charge_${job.id}` });
-  } catch (err: unknown) {
-    const msg = (err instanceof Error ? err.message : (err as { message?: string })?.message) ?? 'Payment failed.';
-    return { charged: false, payoutSent: false, error: msg };
-  }
-
-  const now = new Date().toISOString();
-
-  await supabase.from('cleaning_jobs').update({
-    charged_at: now,
-    stripe_charge_id: paymentIntent.id,
-    updated_at: now,
-  }).eq('id', job.id);
-
-  return {
-    charged: true,
-    payoutSent: false,
-    paymentIntentId: paymentIntent.id,
-    cleaningFee: Number(config.cleaning_fee),
-    cleanerPayout: Number(job.cleaner_payout),
-  };
-}
-
 // Manual retry endpoint — guards against double-charging
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
   const { jobId } = body;
   if (!jobId) return res.status(400).json({ error: 'jobId required.' });
-
-  const supabase = getSupabase();
-  const { data: job } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
-  if (!job) return res.status(404).json({ error: 'Job not found.' });
-  if (job.status === 'cancelled') return res.status(400).json({ error: 'Cannot charge a cancelled job.' });
-  if (job.charged_at) return res.status(400).json({ error: 'This job has already been charged.' });
-
-  const result = await doChargeAndPayout(job);
-  if (!result.charged) return res.status(402).json({ error: result.error ?? 'Charge failed.' });
-  return res.status(200).json(result);
+  // Admin-triggered: may charge a completed job even if the cleaner's report is missing.
+  const outcome = await chargeJob(getSupabase(), await getStripe(), jobId, { trigger: 'manual', allowWithoutReport: true });
+  if (outcome.skipped && outcome.reason === 'already_charged') return res.status(400).json({ error: 'This job has already been charged.' });
+  if (outcome.skipped) return res.status(400).json({ error: outcome.error ?? 'Job cannot be charged right now.' });
+  if (!outcome.ok) return res.status(402).json({ error: outcome.error ?? 'Charge failed.', willRetryAt: outcome.willRetryAt ?? null });
+  return res.status(200).json({ charged: true, paymentIntentId: outcome.paymentIntentId, amount: outcome.amount, payout: outcome.payout ?? null, warning: outcome.error ?? null });
 }
 
 // ── CONTENT STUDIO ───────────────────────────────────────────────────────────
@@ -4689,6 +4598,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'manual-charge')     return await manualClientCharge(body, res);
     if (action === 'manual-payout')     return await manualCleanerPayout(body, res);
     if (action === 'send-job-payout')   return await sendJobPayout(body, res);
+    if (action === 'mark-payout-paid')  return await cleaningMarkPayoutPaid(body, res);
     if (action === 'upload-photo')      return await cleaningUploadPhoto(body, res);
     if (action === 'dispatch')          return await cleaningDispatch(body, res);
     if (action === 'accept')            return await cleaningAccept(body, res);
