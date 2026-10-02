@@ -19,6 +19,29 @@ export interface UplistingProperty {
   status?: string;
   time_zone?: string;
   photo_url?: string;
+  zip?: string;
+  /** Default guest check-in / check-out times as the PMS reports them (e.g. "16:00" or "4:00 PM") */
+  check_in_time?: string;
+  check_out_time?: string;
+}
+
+/** "123 Ocean Dr, Miami, FL 33101" from whatever parts the PMS gave us. */
+export function formatPropertyAddress(p: Pick<UplistingProperty, 'address' | 'city' | 'state' | 'zip'>): string {
+  const street = (p.address ?? '').trim();
+  const cityState = [p.city?.trim(), [p.state?.trim(), p.zip?.trim()].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  return [street, cityState].filter(Boolean).join(', ');
+}
+
+/** Normalise "16:00" / "16:00:00" to "4:00 PM"; leave anything else as-is. */
+export function formatPmsTime(raw: unknown): string | undefined {
+  if (raw === null || raw === undefined || raw === '') return undefined;
+  const str = String(raw).trim();
+  const m = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!m) return str;
+  const h24 = Number(m[1]);
+  if (h24 > 23) return str;
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${m[2]} ${h24 < 12 ? 'AM' : 'PM'}`;
 }
 
 export interface UplistingUpsell {
@@ -293,6 +316,9 @@ function normalizeProperty(p: any, included: any[] = []): UplistingProperty {
     status: a.status ?? 'active',
     time_zone: a.time_zone ?? '',
     photo_url,
+    zip: a.zip ?? a.zip_code ?? a.postcode ?? a.postal_code ?? '',
+    check_in_time:  formatPmsTime(a.check_in_time ?? a.checkin_time ?? a.default_check_in_time ?? a.check_in ?? a.arrival_time),
+    check_out_time: formatPmsTime(a.check_out_time ?? a.checkout_time ?? a.default_check_out_time ?? a.check_out ?? a.departure_time),
   };
 }
 
