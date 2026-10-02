@@ -1,0 +1,29 @@
+# Hourly cleaning dispatch tick.
+#
+# Vercel Hobby plans only allow daily cron schedules, so the hourly "offer the
+# job to the next cleaner if nobody answered" pass is triggered from here.
+# Add a repository secret named CRON_SECRET (same value as the Vercel env var);
+# until it exists this workflow exits without doing anything.
+# On Vercel Pro you can instead set the dispatch-tick cron in vercel.json to
+# "15 * * * *" and delete this file.
+name: Cleaning dispatch tick
+on:
+  schedule:
+    - cron: '20 * * * *'
+  workflow_dispatch:
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    env:
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      APP_URL: ${{ vars.APP_URL || 'https://crm-nine-delta-37.vercel.app' }}
+    steps:
+      - name: Run dispatch tick
+        if: env.CRON_SECRET != ''
+        run: |
+          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron?job=dispatch-tick")
+          cat /tmp/out.json; echo
+          test "$code" = "200"
+      - name: Secret missing
+        if: env.CRON_SECRET == ''
+        run: echo "CRON_SECRET repository secret not set; skipping."
