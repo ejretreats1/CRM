@@ -3,7 +3,7 @@ import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, 
 import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl, CleaningEnrollmentLink } from '../../types/cleaning';
 import { fetchEnrollmentLinks, deleteEnrollmentLink } from '../../services/cleaningDb';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
-import { fetchPropertyAllPhotos } from '../../services/uplisting';
+import { fetchPropertyAllPhotos, formatPropertyAddress } from '../../services/uplisting';
 
 interface Props {
   configs: CleaningPropertyConfig[];
@@ -37,6 +37,7 @@ interface FormState {
   laundromatAddress: string;
   linkedPropertyIds: string[];
   clientNotes: string;
+  detailsAutoFilled: boolean;
 }
 
 const EMPTY: FormState = {
@@ -47,6 +48,7 @@ const EMPTY: FormState = {
   laundromatAddress: '',
   linkedPropertyIds: [],
   clientNotes: '',
+  detailsAutoFilled: false,
 };
 
 function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
@@ -378,6 +380,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       laundromatAddress: config.laundromatAddress ?? '',
       linkedPropertyIds: [...(config.linkedPropertyIds ?? [])],
       clientNotes: config.clientNotes ?? '',
+      detailsAutoFilled: false,
     });
     setEditing(config);
   }
@@ -423,14 +426,20 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
     const autoFee = reservations
       .filter(r => r.listing_id === pid && (r.cleaning_fee ?? 0) > 0)
       .sort((a, b) => b.check_out.localeCompare(a.check_out))[0]?.cleaning_fee;
+    // Pull everything the PMS knows about the listing into the form so the
+    // admin only has to add the fee and cleaners.
+    const fullAddress = prop ? formatPropertyAddress(prop) : '';
     setForm(f => ({
       ...f,
       propertyId: pid,
-      propertyName: prop?.name ?? prop?.nickname ?? pid,
+      propertyName: prop?.nickname || prop?.name || pid,
       cleaningFee: autoFee ? String(autoFee) : f.cleaningFee,
       feeAutoFilled: !!autoFee,
       photoUrl: prop?.photo_url ?? f.photoUrl,
-      address: f.address || prop?.address || '',
+      address: fullAddress || f.address,
+      checkinTime: prop?.check_in_time || f.checkinTime,
+      checkoutTime: prop?.check_out_time || f.checkoutTime,
+      detailsAutoFilled: !!prop && !!(fullAddress || prop.check_in_time || prop.check_out_time || prop.bedrooms),
     }));
   }
 
@@ -1017,12 +1026,19 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                       >
                         <option value="">Select a property…</option>
                         {unenrolled.map(p => (
-                          <option key={p.id} value={p.id}>{p.name || p.nickname || p.address}</option>
+                          <option key={p.id} value={p.id}>
+                            {(p.nickname || p.name || p.address)}{p.nickname && p.name && p.nickname !== p.name ? ` — ${p.name}` : ''}
+                          </option>
                         ))}
                       </select>
+                      {form.detailsAutoFilled && (
+                        <p className="mt-1.5 flex items-center gap-1 text-[10px] font-semibold text-[#5ce0a0]">
+                          <Zap size={9} /> Name, address, photo and check-in/out times filled from the listing — review below.
+                        </p>
+                      )}
                       <button
                         type="button"
-                        onClick={() => { setManualEntry(true); setForm(f => ({ ...f, propertyId: '', propertyName: '' })); }}
+                        onClick={() => { setManualEntry(true); setForm(f => ({ ...f, propertyId: '', propertyName: '', detailsAutoFilled: false })); }}
                         className="mt-1.5 text-xs text-[#4a90d9] hover:text-[#6ab0f9] transition-colors"
                       >
                         + Enter property manually instead
