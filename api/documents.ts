@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
+import { requireAdmin, APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth';
 
 
 // ─── iCal helpers (inlined from _ical.ts to avoid Vercel bundling issues) ─────
@@ -118,8 +119,17 @@ async function getResend() {
   return _resend as any;
 }
 
+// Server-side DB client. Prefers the service-role key (bypasses RLS) so the
+// browser's anon key can be locked down; falls back to anon if it isn't set.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _serverSupabase: any = null;
 function getSupabase() {
-  return createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);
+  if (_serverSupabase) return _serverSupabase;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY!;
+  _serverSupabase = createClient(process.env.VITE_SUPABASE_URL!, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  return _serverSupabase;
 }
 
 // Service-role client — bypasses RLS. Used only for storage uploads from
@@ -289,7 +299,7 @@ async function sigComplete(body: any, res: VercelResponse) {
 
   await (await getResend()).emails.send({
     from: 'E&J Retreats <signatures@ejretreats.com>',
-    to: 'ejretreats1@gmail.com',
+    to: ADMIN_EMAIL,
     subject: `✅ Signed: ${sigReq.document_name}`,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
@@ -467,7 +477,7 @@ async function agreementComplete(body: any, res: VercelResponse) {
   const completedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   await (await getResend()).emails.send({
     from: 'E&J Retreats <signatures@ejretreats.com>',
-    to: 'ejretreats1@gmail.com',
+    to: ADMIN_EMAIL,
     subject: `✅ Agreement signed: ${tmpl.name}`,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
@@ -576,7 +586,7 @@ async function agreementSelfSign(body: any, res: VercelResponse) {
   const completedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   await (await getResend()).emails.send({
     from: 'E&J Retreats <signatures@ejretreats.com>',
-    to: 'ejretreats1@gmail.com',
+    to: ADMIN_EMAIL,
     subject: `✅ ${signerName.trim()} signed: ${tmpl.name}`,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
@@ -974,7 +984,8 @@ async function cleaningGet(combined: string, res: VercelResponse) {
       checkinDate: row.checkin_date, guestName: row.guest_name, notes: row.notes,
       status: row.status, assignedCleanerId: row.assigned_cleaner_id,
       portalData: row.portal_data,
-      doorCode: cfg?.door_code ?? null,
+      // Door code only once this cleaner holds the job and the clean is live.
+      doorCode: row.assigned_cleaner_id === cleanerInfo.cleanerId && ['accepted', 'in_progress'].includes(row.status) ? (cfg?.door_code ?? null) : null,
       address: cfg?.address ?? null,
       checkoutTime: cfg?.checkout_time ?? null,
       checkinTime: cfg?.checkin_time ?? null,
@@ -1233,7 +1244,7 @@ async function cleaningDispatch(body: any, res: VercelResponse) {
     dispatch_index: 0,
   }).eq('id', jobId);
 
-  const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+  const base = APP_URL;
 
   // Only email the #1 priority cleaner — if they pass, next cleaner is contacted
   const { cleaner: first, token: firstToken } = cleanerTokens[0];
@@ -1310,7 +1321,7 @@ async function cleaningDecline(body: any, res: VercelResponse) {
   const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   });
-  const base = 'https://crm-nine-delta-37.vercel.app';
+  const base = APP_URL;
 
   if (nextIndex >= dispatchOrder.length) {
     // All cleaners passed — revert to pending and alert admin
@@ -1324,7 +1335,7 @@ async function cleaningDecline(body: any, res: VercelResponse) {
       const _allPassedSubj = `⚠️ No cleaners available: ${row.property_name} – ${dateLabel}`;
       const _apr = await (await getResend()).emails.send({
         from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-        to: 'ejretreats1@gmail.com',
+        to: ADMIN_EMAIL,
         subject: _allPassedSubj,
         html: `
           <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
@@ -1342,7 +1353,7 @@ async function cleaningDecline(body: any, res: VercelResponse) {
           </div>
         `,
       });
-      if (_apr?.id) await logEmail(_apr.id, 'cleaning-dispatch', 'ejretreats1@gmail.com', _allPassedSubj, jobId, 'Admin');
+      if (_apr?.id) await logEmail(_apr.id, 'cleaning-dispatch', ADMIN_EMAIL, _allPassedSubj, jobId, 'Admin');
     } catch {}
 
     return res.status(200).json({ passed: true, allPassed: true });
@@ -1399,7 +1410,7 @@ async function cleaningDecline(body: any, res: VercelResponse) {
   const _passSubj = `👋 ${passedName} passed: ${row.property_name} – ${dateLabel}`;
   await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-    to: 'ejretreats1@gmail.com',
+    to: ADMIN_EMAIL,
     subject: _passSubj,
     html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
       <p><strong>${passedName}</strong> passed on the cleaning for <strong>${row.property_name}</strong> (${dateLabel}).</p>
@@ -1412,15 +1423,25 @@ async function cleaningDecline(body: any, res: VercelResponse) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleaningUploadPhoto(body: any, res: VercelResponse) {
-  const { photoBase64, filename, jobId } = body;
+  const { photoBase64, filename, jobId, combined } = body;
   if (!photoBase64 || !jobId) return res.status(400).json({ error: 'photoBase64 and jobId required' });
+  if (typeof photoBase64 !== 'string' || photoBase64.length > 20 * 1024 * 1024) {
+    return res.status(413).json({ error: 'File too large (max ~15MB).' });
+  }
 
   // Use service-role client so RLS on storage.objects doesn't block the upload
   const admin = getSupabaseAdmin();
 
-  // Verify the job exists (anon client is fine for a read)
-  const { data: job } = await getSupabase().from('cleaning_jobs').select('id').eq('id', jobId).single();
+  // Only the cleaner holding this job (proven by their dispatch token) may upload.
+  const { data: job } = await getSupabase().from('cleaning_jobs').select('id, dispatch_tokens, assigned_cleaner_id, status').eq('id', jobId).single();
   if (!job) return res.status(404).json({ error: 'Job not found' });
+  const upToken = typeof combined === 'string' && combined.includes(':') ? combined.slice(combined.indexOf(':') + 1) : '';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const upInfo = ((job as any).dispatch_tokens ?? {})[upToken];
+  if (!upInfo || (job as any).assigned_cleaner_id !== upInfo.cleanerId) {
+    return res.status(403).json({ error: 'You are not assigned to this job.' });
+  }
+  if ((job as any).status === 'cancelled') return res.status(410).json({ error: 'This job has been cancelled.' });
 
   const base64Data = (photoBase64 as string).replace(/^data:[^;]+;base64,/, '');
   const buffer = Buffer.from(base64Data, 'base64');
@@ -1488,19 +1509,19 @@ async function cleaningAccept(body: any, res: VercelResponse) {
   const _acceptSubj = `✅ ${cleanerInfo.cleanerName} accepted: ${row.property_name}`;
   const _acr = await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-    to: 'ejretreats1@gmail.com',
+    to: ADMIN_EMAIL,
     subject: _acceptSubj,
     html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${cleanerInfo.cleanerName}</strong> accepted the cleaning job for <strong>${row.property_name}</strong> on ${new Date(row.checkout_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}.</p></div>`,
   }).catch(() => null);
-  if (_acr?.id) await logEmail(_acr.id, 'cleaning-accept', 'ejretreats1@gmail.com', _acceptSubj, jobId, 'Admin');
+  if (_acr?.id) await logEmail(_acr.id, 'cleaning-accept', ADMIN_EMAIL, _acceptSubj, jobId, 'Admin');
 
   return res.status(200).json({ success: true });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleaningSubmit(body: any, res: VercelResponse) {
-  const { combined, checklist, photos, damageNotes, damageMedia, suppliesNotes, appUrl: rawAppUrl } = body;
-  const crmUrl = (rawAppUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+  const { combined, checklist, photos, damageNotes, damageMedia, suppliesNotes } = body;
+  const crmUrl = APP_URL;
   const colonIdx = (combined as string).indexOf(':');
   const jobId = combined.slice(0, colonIdx);
   const token = combined.slice(colonIdx + 1);
@@ -1514,6 +1535,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
   const cleanerInfo = tokens[token];
   if (!cleanerInfo) return res.status(401).json({ error: 'Invalid link.' });
   if (row.assigned_cleaner_id !== cleanerInfo.cleanerId) return res.status(403).json({ error: 'You are not assigned to this job.' });
+  if (row.status === 'cancelled') return res.status(410).json({ error: 'This job has been cancelled.' });
 
   const now = new Date().toISOString();
   const portalData = { checklist, photos: photos ?? [], damageNotes: damageNotes ?? '', damageMedia: damageMedia ?? [], suppliesNotes: suppliesNotes ?? '', submittedAt: now };
@@ -1554,7 +1576,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
   const _submitSubj = `${paymentResult.charged ? '✅' : '⚠️'} Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`;
   const _sr = await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-    to: 'ejretreats1@gmail.com',
+    to: ADMIN_EMAIL,
     subject: _submitSubj,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
@@ -1562,8 +1584,8 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
         <p><strong>${cleanerInfo.cleanerName}</strong> has submitted the cleaning for <strong>${row.property_name}</strong> (${dateLabel}).</p>
         <p>✅ Checklist: ${checklistDone}/${checklistTotal} items completed<br>
            📸 Cleaning photos: ${photoCount}<br>
-           ${suppliesNotes ? `📦 Supplies needed: ${suppliesNotes}<br>` : ''}
-           ${damageNotes ? `⚠️ Damage notes: ${damageNotes}<br>` : ''}
+           ${suppliesNotes ? `📦 Supplies needed: ${escapeHtml(suppliesNotes)}<br>` : ''}
+           ${damageNotes ? `⚠️ Damage notes: ${escapeHtml(damageNotes)}<br>` : ''}
            ${damageMediaArr.length ? `📸 Damage photos/videos: ${damageMediaArr.length}<br>` : ''}
            ${paymentLine}
         </p>
@@ -1573,14 +1595,14 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
       </div>
     `,
   }).catch(() => null);
-  if (_sr?.id) await logEmail(_sr.id, 'cleaning-submit', 'ejretreats1@gmail.com', _submitSubj, jobId, 'Admin');
+  if (_sr?.id) await logEmail(_sr.id, 'cleaning-submit', ADMIN_EMAIL, _submitSubj, jobId, 'Admin');
 
   // Send a separate urgent damage alert if cleaner reported damage
   if (hasDamage) {
     const _dmgSubj = `🚨 DAMAGE REPORTED: ${row.property_name} – ${cleanerInfo.cleanerName}`;
     const _dr = await (await getResend()).emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-      to: 'ejretreats1@gmail.com',
+      to: ADMIN_EMAIL,
       subject: _dmgSubj,
       html: `
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
@@ -1593,7 +1615,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
           ${damageNotes ? `
           <div style="margin-bottom:20px">
             <p style="font-weight:bold;color:#374151;margin-bottom:6px">Damage Notes:</p>
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;color:#7c2d12;white-space:pre-wrap;font-size:14px">${damageNotes}</div>
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;color:#7c2d12;white-space:pre-wrap;font-size:14px">${escapeHtml(damageNotes)}</div>
           </div>` : ''}
           ${damageMediaArr.length > 0 ? `
           <div style="margin-bottom:20px">
@@ -1616,14 +1638,14 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
         </div>
       `,
     }).catch(() => null);
-    if (_dr?.id) await logEmail(_dr.id, 'cleaning-damage-alert', 'ejretreats1@gmail.com', _dmgSubj, jobId, 'Admin');
+    if (_dr?.id) await logEmail(_dr.id, 'cleaning-damage-alert', ADMIN_EMAIL, _dmgSubj, jobId, 'Admin');
   }
 
   if (hasSuppliesNeeded) {
     const _supSubj = `📦 Supplies Needed: ${row.property_name} – ${cleanerInfo.cleanerName}`;
     const _sr2 = await (await getResend()).emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-      to: 'ejretreats1@gmail.com',
+      to: ADMIN_EMAIL,
       subject: _supSubj,
       html: `
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
@@ -1635,7 +1657,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
           </div>
           <div style="margin-bottom:20px">
             <p style="font-weight:bold;color:#374151;margin-bottom:6px">Supplies Notes:</p>
-            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;color:#78350f;white-space:pre-wrap;font-size:14px">${suppliesNotes}</div>
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;color:#78350f;white-space:pre-wrap;font-size:14px">${escapeHtml(suppliesNotes)}</div>
           </div>
           <p style="margin-top:24px">
             <a href="${crmUrl}" style="display:inline-block;background:#f59e0b;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold">
@@ -1646,7 +1668,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
         </div>
       `,
     }).catch(() => null);
-    if (_sr2?.id) await logEmail(_sr2.id, 'cleaning-supplies-alert', 'ejretreats1@gmail.com', _supSubj, jobId, 'Admin');
+    if (_sr2?.id) await logEmail(_sr2.id, 'cleaning-supplies-alert', ADMIN_EMAIL, _supSubj, jobId, 'Admin');
   }
 
   return res.status(200).json({ success: true });
@@ -1670,7 +1692,7 @@ async function cleanerSendPortalLink(body: any, res: VercelResponse) {
   }
 
   const nameSlug = cleaner.name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
-  const portalUrl = `https://crm-nine-delta-37.vercel.app/cleaner?cleaner-dashboard=${nameSlug}:${cleanerId}:${dashToken}`;
+  const portalUrl = `${APP_URL}/cleaner?cleaner-dashboard=${nameSlug}:${cleanerId}:${dashToken}`;
   const firstName = cleaner.name.split(' ')[0];
   const portalAppName = `${cleaner.name} Cleaner Portal`;
 
@@ -1752,7 +1774,7 @@ async function cleanerBroadcastResetup(_body: any, res: VercelResponse) {
     }
 
     const nameSlug = cleaner.name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
-    const portalUrl = `https://crm-nine-delta-37.vercel.app/cleaner?cleaner-dashboard=${nameSlug}:${cleaner.id}:${dashToken}`;
+    const portalUrl = `${APP_URL}/cleaner?cleaner-dashboard=${nameSlug}:${cleaner.id}:${dashToken}`;
     const firstName = cleaner.name.split(' ')[0];
     const portalAppName = `${cleaner.name} Cleaner Portal`;
     const subject = `Action needed: Re-save your Cleaner Portal app`;
@@ -1858,7 +1880,7 @@ async function cleanerConnectSend(body: any, res: VercelResponse) {
     }).eq('id', cleanerId);
     if (updateErr) return res.status(500).json({ error: `DB update failed: ${updateErr.message}` });
 
-    const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+    const base = APP_URL;
     const link = `${base}?cleaner-setup=${cleanerId}:${connectToken}`;
 
     if (sendEmail) {
@@ -1913,7 +1935,7 @@ async function cleanerConnectUrl(body: any, res: VercelResponse) {
   if (!cleaner.stripe_account_id) return res.status(400).json({ error: 'No Stripe account found. Contact E&J Retreats.' });
 
   const stripe = await getStripe();
-  const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+  const base = APP_URL;
 
   const accountLink = await stripe.accountLinks.create({
     account: cleaner.stripe_account_id,
@@ -1948,7 +1970,7 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
     await supabase.from('cleaners').update({ stripe_connect_status: 'active', dashboard_token: dashToken }).eq('id', cleanerId);
 
     const nameSlug2 = cleaner.name.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
-    const portalUrl = `https://crm-nine-delta-37.vercel.app/cleaner?cleaner-dashboard=${nameSlug2}:${cleanerId}:${dashToken}`;
+    const portalUrl = `${APP_URL}/cleaner?cleaner-dashboard=${nameSlug2}:${cleanerId}:${dashToken}`;
     const firstName = cleaner.name.split(' ')[0];
     const portalAppName = `${cleaner.name} Cleaner Portal`;
 
@@ -2009,11 +2031,11 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
     const _stripeAdminSubj = `✅ Stripe connected: ${cleaner.name}`;
     const _sar = await (await getResend()).emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-      to: 'ejretreats1@gmail.com',
+      to: ADMIN_EMAIL,
       subject: _stripeAdminSubj,
       html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${cleaner.name}</strong> has connected their Stripe account (${cleaner.stripe_account_id}) and is ready to receive payouts.</p></div>`,
     }).catch(() => null);
-    if (_sar?.id) await logEmail(_sar.id, 'cleaning-stripe', 'ejretreats1@gmail.com', _stripeAdminSubj, cleanerId, 'Admin');
+    if (_sar?.id) await logEmail(_sar.id, 'cleaning-stripe', ADMIN_EMAIL, _stripeAdminSubj, cleanerId, 'Admin');
   }
 
   return res.status(200).json({
@@ -2089,7 +2111,7 @@ async function cleaningClientSend(body: any, res: VercelResponse) {
     });
     if (error) return res.status(500).json({ error: error.message });
 
-    const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+    const base = APP_URL;
     const link = `${base}?cleaning-onboard=${token}`;
 
     if (copyOnly) {
@@ -2224,7 +2246,7 @@ async function cleaningClientConfirm(body: any, res: VercelResponse) {
 
   await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-    to: 'ejretreats1@gmail.com',
+    to: ADMIN_EMAIL,
     subject: `✅ Client onboarded: ${record.property_name}`,
     html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${record.client_name ?? record.client_email}</strong> completed onboarding for <strong>${record.property_name}</strong>. Card is on file and ready to charge after each cleaning.</p></div>`,
   }).catch(() => {});
@@ -2328,7 +2350,7 @@ async function cleaningEnrollCreateLink(body: any, res: VercelResponse) {
     });
     if (error) return res.status(500).json({ error: error.message });
 
-    const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+    const base = APP_URL;
     const link = `${base}?cleaning-enroll=${token}`;
 
     if (copyOnly) return res.status(200).json({ id, token, link });
@@ -2432,13 +2454,13 @@ async function cleaningEnrollSubmit(body: any, res: VercelResponse) {
     property_config_ids: createdIds,
   }).eq('token', token);
 
-  const summary = properties.map(p => `<li><strong>${p.propertyName}</strong> — ${p.address}</li>`).join('');
+  const summary = properties.map(p => `<li><strong>${escapeHtml(p.propertyName)}</strong> — ${escapeHtml(p.address)}</li>`).join('');
   await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-    to: 'ejretreats1@gmail.com',
+    to: ADMIN_EMAIL,
     subject: `🏠 Property enrollment submitted: ${client.name} (${properties.length} propert${properties.length === 1 ? 'y' : 'ies'})`,
     html: `<div style="font-family:sans-serif;padding:24px">
-      <p><strong>${client.name}</strong> (${client.email}${client.phone ? `, ${client.phone}` : ''}) submitted property details:</p>
+      <p><strong>${escapeHtml(client.name)}</strong> (${escapeHtml(client.email)}${client.phone ? `, ${escapeHtml(client.phone)}` : ''}) submitted property details:</p>
       <ul>${summary}</ul>
       <p>The propert${properties.length === 1 ? 'y is' : 'ies are'} now in the Cleaning → Properties tab. <strong>Set the cleaning fee and assign cleaners</strong>, then send the payment setup link.</p>
     </div>`,
@@ -2893,7 +2915,7 @@ async function cleanerOnboardSend(body: any, res: VercelResponse) {
   });
   if (insertErr) return res.status(500).json({ error: insertErr.message });
 
-  const base = (appUrl ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+  const base = APP_URL;
   const link = `${base}?cleaner-onboard=${token}`;
 
   if (sendEmail) {
@@ -2996,7 +3018,7 @@ async function cleanerOnboardComplete(body: any, res: VercelResponse) {
     const adminSignedSubj = `✅ Contractor agreement signed: ${name.trim()}`;
     const _adr = await (await getResend()).emails.send({
       from: 'E&J Retreats <cleaning@ejretreats.com>',
-      to: 'ejretreats1@gmail.com',
+      to: ADMIN_EMAIL,
       subject: adminSignedSubj,
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f8fafc">
@@ -3015,7 +3037,7 @@ async function cleanerOnboardComplete(body: any, res: VercelResponse) {
         </div>
       `,
     });
-    if (_adr?.id) await logEmail(_adr.id, 'cleaning-onboard', 'ejretreats1@gmail.com', adminSignedSubj, row.id, 'Admin');
+    if (_adr?.id) await logEmail(_adr.id, 'cleaning-onboard', ADMIN_EMAIL, adminSignedSubj, row.id, 'Admin');
   } catch {}
 
   return res.status(200).json({ ok: true });
@@ -3061,8 +3083,10 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
   ]);
 
   if (!cleanerRow) return res.status(404).json({ error: 'Cleaner not found.' });
-  if (cleanerRow.dashboard_token && cleanerRow.dashboard_token !== providedToken) {
-    return res.status(403).json({ error: 'Invalid or expired portal link.' });
+  // A dashboard token is required. Links from before tokens existed stop working;
+  // the admin can send a fresh portal link from the Cleaners tab.
+  if (!cleanerRow.dashboard_token || !providedToken || cleanerRow.dashboard_token !== providedToken) {
+    return res.status(403).json({ error: 'This portal link is no longer valid. Please ask E&J Retreats for a new link.' });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -3082,7 +3106,8 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
       notes: row.notes ?? null,
       status: row.status,
       payout: myPayout ?? row.cleaner_payout ?? 0,
-      doorCode: cfg?.door_code ?? null,
+      // Door code only once this cleaner holds the job and the clean is live.
+      doorCode: row.assigned_cleaner_id === cleanerId && ['accepted', 'in_progress'].includes(row.status) ? (cfg?.door_code ?? null) : null,
       address: cfg?.address ?? null,
       checkoutTime: cfg?.checkout_time ?? null,
       checkinTime: cfg?.checkin_time ?? null,
@@ -3111,10 +3136,25 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
   });
 }
 
+/** Resolve + verify a cleaner from a dashboard `combined` value ("slug:cleanerId:token" / "cleanerId:token"). */
+async function verifyDashboardCleaner(combined: unknown): Promise<{ cleanerId: string } | null> {
+  if (typeof combined !== 'string' || !combined) return null;
+  const parts = combined.split(':');
+  const cleanerId = parts.length >= 3 ? parts[1] : parts[0];
+  const token = parts.length >= 3 ? parts[2] : parts.length === 2 ? parts[1] : '';
+  if (!cleanerId || !token) return null;
+  const { data } = await getSupabase().from('cleaners').select('id, dashboard_token').eq('id', cleanerId).maybeSingle();
+  if (!data?.dashboard_token || data.dashboard_token !== token) return null;
+  return { cleanerId };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleanerDashboardAccept(body: any, res: VercelResponse) {
-  const { jobId, cleanerId } = body;
-  if (!jobId || !cleanerId) return res.status(400).json({ error: 'Missing jobId or cleanerId.' });
+  const auth = await verifyDashboardCleaner(body.combined);
+  if (!auth) return res.status(403).json({ error: 'Invalid or expired portal link.' });
+  const { jobId } = body;
+  const cleanerId = auth.cleanerId;
+  if (!jobId) return res.status(400).json({ error: 'Missing jobId.' });
 
   const supabase = getSupabase();
   const { data: row } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
@@ -3145,7 +3185,7 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
 
   await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-    to: 'ejretreats1@gmail.com',
+    to: ADMIN_EMAIL,
     subject: `✅ ${cleanerInfo.cleanerName} accepted: ${row.property_name}`,
     html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${cleanerInfo.cleanerName}</strong> accepted the cleaning job for <strong>${row.property_name}</strong> on ${new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}.</p></div>`,
   }).catch(() => {});
@@ -3155,8 +3195,11 @@ async function cleanerDashboardAccept(body: any, res: VercelResponse) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleanerDashboardDecline(body: any, res: VercelResponse) {
-  const { jobId, cleanerId } = body;
-  if (!jobId || !cleanerId) return res.status(400).json({ error: 'Missing jobId or cleanerId.' });
+  const auth = await verifyDashboardCleaner(body.combined);
+  if (!auth) return res.status(403).json({ error: 'Invalid or expired portal link.' });
+  const { jobId } = body;
+  const cleanerId = auth.cleanerId;
+  if (!jobId) return res.status(400).json({ error: 'Missing jobId.' });
 
   const supabase = getSupabase();
   const { data: row } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).single();
@@ -3180,7 +3223,7 @@ async function cleanerDashboardDecline(body: any, res: VercelResponse) {
   const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   });
-  const base = 'https://crm-nine-delta-37.vercel.app';
+  const base = APP_URL;
 
   if (nextIndex >= dispatchOrder.length) {
     await supabase.from('cleaning_jobs').update({
@@ -3190,7 +3233,7 @@ async function cleanerDashboardDecline(body: any, res: VercelResponse) {
     }).eq('id', jobId);
     await (await getResend()).emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-      to: 'ejretreats1@gmail.com',
+      to: ADMIN_EMAIL,
       subject: `⚠️ No cleaners available: ${row.property_name} – ${dateLabel}`,
       html: `<div style="font-family:sans-serif;padding:24px"><p>All cleaners passed on <strong>${row.property_name}</strong> (${dateLabel}). The job has been reverted to pending.</p></div>`,
     }).catch(() => {});
@@ -3234,7 +3277,7 @@ async function cleanerDashboardDecline(body: any, res: VercelResponse) {
   // Notify admin
   await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-    to: 'ejretreats1@gmail.com',
+    to: ADMIN_EMAIL,
     subject: `👋 ${passedCleanerName} passed: ${row.property_name} – ${dateLabel}`,
     html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
       <p><strong>${passedCleanerName}</strong> passed on the cleaning for <strong>${row.property_name}</strong> (${dateLabel}).</p>
@@ -3333,7 +3376,7 @@ async function emailMktSendCampaign(body: any, res: VercelResponse) {
       try {
         const r = await resend.emails.send({
           from: process.env.RESEND_CAMPAIGN_FROM_EMAIL ?? 'outreach@ejretreats.com',
-          reply_to: process.env.RESEND_CAMPAIGN_REPLY_TO ?? 'ejretreats1@gmail.com',
+          reply_to: process.env.RESEND_CAMPAIGN_REPLY_TO ?? ADMIN_EMAIL,
           to: email,
           subject: subject.replace(/\{First Name\}/g, firstName).replace(/\{name\}/gi, lead.name || '').replace(/\{company\}/gi, lead.company || ''),
           html: htmlBody,
@@ -3522,7 +3565,7 @@ async function emailMktSendDueSequences(body: any, res: VercelResponse) {
   const sb = getSupabase();
   const resend = await getResend();
   const now = new Date().toISOString();
-  const appUrl = process.env.APP_URL ?? 'https://crm-nine-delta-37.vercel.app';
+  const appUrl = process.env.APP_URL ?? APP_URL;
 
   let q = sb.from('email_mkt_sequence_enrollments')
     .select('*').eq('status', 'active').lte('next_send_at', now).limit(batchSize);
@@ -3576,7 +3619,7 @@ async function emailMktSendDueSequences(body: any, res: VercelResponse) {
     try {
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL ?? 'team@ejretreats.com',
-        reply_to: process.env.RESEND_REPLY_TO ?? 'ejretreats1@gmail.com',
+        reply_to: process.env.RESEND_REPLY_TO ?? ADMIN_EMAIL,
         to: enr.email, subject, html: htmlBody,
       });
       sent++;
@@ -3765,7 +3808,7 @@ async function smsInbound(req: VercelRequest, res: VercelResponse) {
     // Send notification email (non-blocking — don't delay Twilio response)
     const notifyEmail = process.env.NOTIFY_EMAIL;
     if (notifyEmail) {
-      const crmUrl = (process.env.CRM_URL ?? 'https://crm-nine-delta-37.vercel.app').replace(/\/$/, '');
+      const crmUrl = (process.env.CRM_URL ?? APP_URL).replace(/\/$/, '');
       const inboxUrl = `${crmUrl}?goto=sms-inbox`;
       const preview = msgBody.length > 80 ? msgBody.slice(0, 80) + '…' : msgBody;
       const subjectName = leadName ?? from;
@@ -4573,7 +4616,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.query.flow === 'health') return res.status(200).json({ ok: true, v: 5 });
 
   // GET — token status checks
+  // Public, token-gated GET flows (client / cleaner pages). Everything else needs a signed-in admin.
+  const PUBLIC_GET = new Set(['onboarding', 'cleaning', 'cleaning-client', 'cleaning-enroll', 'cleaner-onboard', 'cleaner-connect', 'cleaner-dashboard']);
   if (req.method === 'GET') {
+    const f = String(req.query.flow ?? '');
+    const publicGet = PUBLIC_GET.has(f)
+      || (f === 'email-mkt' && req.query.action === 'unsubscribe');
+    if (!publicGet && !(await requireAdmin(req, res))) return;
     const token = req.query.token as string;
     if (req.query.flow === 'onboarding' && token) return await onboardingGet(token, res);
     if (req.query.flow === 'cleaning' && token) return await cleaningGet(token, res);
@@ -4608,6 +4657,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const action: string = body.action ?? req.query.action as string;
   const flow: string = body.flow ?? req.query.flow as string;
+
+  // Public POST actions: each verifies its own link token (dispatch token, dashboard
+  // token, onboarding token, share token) or is an inbound webhook. Everything else
+  // is an admin action and requires the Clerk session token from the CRM.
+  const PUBLIC_POST = new Set([
+    'cleaner-onboard:complete',
+    'cleaner:connect-url', 'cleaner:dashboard-accept', 'cleaner:dashboard-decline',
+    'cleaning:accept', 'cleaning:decline', 'cleaning:submit', 'cleaning:upload-photo',
+    'cleaning-client:setup-intent', 'cleaning-client:confirm',
+    'cleaning-enroll:submit',
+    'onboarding:submit',
+    'agreement:complete', 'agreement:self-sign',
+    'email-mkt:webhook',
+    'sms:inbound',
+  ]);
+  if (!PUBLIC_POST.has(`${flow}:${action}`) && !(await requireAdmin(req, res))) return;
+
   if (flow === 'cleaner-onboard') {
     if (action === 'send')     return await cleanerOnboardSend(body, res);
     if (action === 'complete') return await cleanerOnboardComplete(body, res);

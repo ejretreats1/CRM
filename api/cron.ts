@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { APP_URL, ADMIN_EMAIL } from './_auth';
 import { Resend } from 'resend';
 import Stripe from 'stripe';
 import { randomUUID } from 'crypto';
@@ -220,7 +221,7 @@ async function autoPayout(job: Record<string, any>): Promise<{ ok: boolean; erro
       : `<tr><td style="padding:6px 12px;font-weight:600;background:#f5f5f5">Pay via</td><td style="padding:6px 12px;color:#dc2626">⚠️ No payout info on file — update cleaner profile</td></tr>`;
     await getResend().emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-      to: 'ejretreats1@gmail.com',
+      to: ADMIN_EMAIL,
       subject: `💳 Manual Payout Due — Pay ${cleaner?.name ?? 'cleaner'} $${job.cleaner_payout}`,
       html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px">
         <h2 style="color:#dc2626;margin:0 0 12px">Manual Payment Required</h2>
@@ -322,7 +323,7 @@ async function runIcalSync(res: VercelResponse) {
       .eq('source', 'ical')
       .is('dispatch_tokens', null);
 
-    const base = 'https://crm-nine-delta-37.vercel.app';
+    const base = APP_URL;
 
     for (const job of pendingJobs ?? []) {
       // Build one unique token per cleaner in priority order
@@ -633,7 +634,7 @@ async function runCampaignSend(res: VercelResponse) {
   if (totalSentAll > 0) {
     await getResend().emails.send({
       from: 'E&J Retreats CRM <cleaning@ejretreats.com>',
-      to: 'ejretreats1@gmail.com',
+      to: ADMIN_EMAIL,
       subject: `📧 Daily campaign send complete — ${results.filter(r => r.sent > 0).length} campaigns, ${totalSentAll} emails`,
       html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
         <h2 style="margin:0 0 16px;color:#1e293b">Daily Campaign Summary</h2>
@@ -649,9 +650,12 @@ async function runCampaignSend(res: VercelResponse) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Vercel sends Authorization: Bearer {CRON_SECRET} for cron jobs
+  // Vercel sends Authorization: Bearer {CRON_SECRET} for cron jobs. Fail closed
+  // if the secret isn't configured, otherwise "Bearer undefined" would pass.
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return res.status(500).json({ error: 'CRON_SECRET is not configured' });
   const auth = req.headers['authorization'];
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (auth !== `Bearer ${secret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -761,7 +765,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     await getResend().emails.send({
       from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-      to: 'ejretreats1@gmail.com',
+      to: ADMIN_EMAIL,
       subject,
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f8fafc">

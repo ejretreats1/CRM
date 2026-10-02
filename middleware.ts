@@ -19,7 +19,8 @@ export default function middleware(request: Request): Response | undefined {
   // URL format: "First-Last:cleanerId:token"  (name slug is the first segment)
   // Older formats: "cleanerId:token" or "cleanerId" — show generic name
   const parts = combined.split(':');
-  const nameSlug = parts.length >= 3 ? parts[0] : '';
+  // Only letters, digits and dashes may reach the HTML below.
+  const nameSlug = parts.length >= 3 ? parts[0].replace(/[^A-Za-z0-9-]/g, '').slice(0, 60) : '';
   const displayName = nameSlug
     ? nameSlug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
     : 'Cleaner';

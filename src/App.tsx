@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
+import { installAuthFetch } from './services/authFetch';
 import LoginPage from './components/LoginPage';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -74,7 +75,9 @@ type Modal =
 
 export default function App() {
   useScrollAnimation();
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+  // Admin API calls carry the Clerk session token (see api/_auth.ts).
+  useEffect(() => { installAuthFetch(() => getToken()); }, [getToken]);
   const { user } = useUser();
   const isAdmin = (user?.publicMetadata?.role as string) === 'admin';
 
