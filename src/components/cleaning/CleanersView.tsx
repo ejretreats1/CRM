@@ -17,7 +17,7 @@ const ALL_SKILLS: { value: CleaningJobType; label: string; emoji: string }[] = [
 ];
 
 const EMPTY: Omit<Cleaner, 'id' | 'createdAt'> = {
-  name: '', email: '', phone: '', status: 'active', skills: ['cleaning'], payoutInfo: '',
+  name: '', email: '', phone: '', status: 'pending', skills: ['cleaning'], payoutInfo: '',
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -342,6 +342,8 @@ export default function CleanersView({ cleaners, jobs, onSave, onDelete }: Props
                   <td className="px-4 py-3">
                     {c.status === 'active' ? (
                       <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-medium"><CheckCircle size={12} /> Active</span>
+                    ) : c.status === 'pending' ? (
+                      <span className="flex items-center gap-1 text-xs text-amber-400 font-medium" title="Becomes active automatically once the agreement is signed and Stripe payouts are connected"><CreditCard size={12} /> Onboarding</span>
                     ) : (
                       <span className="flex items-center gap-1 text-xs text-[#3a5070] font-medium"><XCircle size={12} /> Inactive</span>
                     )}
@@ -375,6 +377,10 @@ export default function CleanersView({ cleaners, jobs, onSave, onDelete }: Props
                     {selected.status === 'active' ? (
                       <span className="flex items-center gap-1 text-xs text-[#5ce0a0] font-semibold bg-[#0a2518] border border-[#1e4030] px-2 py-0.5 rounded-full">
                         <CheckCircle size={10} /> Active
+                      </span>
+                    ) : selected.status === 'pending' ? (
+                      <span className="flex items-center gap-1 text-xs text-amber-400 font-semibold bg-[#2a1a05] border border-[#4a3010] px-2 py-0.5 rounded-full">
+                        Onboarding — {!selected.agreementSignedAt ? 'agreement' : ''}{!selected.agreementSignedAt && selected.stripeConnectStatus !== 'active' ? ' + ' : ''}{selected.stripeConnectStatus !== 'active' ? 'Stripe' : ''} pending
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-xs text-[#3a5070] font-semibold bg-[#162035] border border-[#1e2d45] px-2 py-0.5 rounded-full">
@@ -634,8 +640,9 @@ export default function CleanersView({ cleaners, jobs, onSave, onDelete }: Props
                 <select
                   className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
                   value={form.status}
-                  onChange={e => setForm(f => ({ ...f, status: e.target.value as 'active' | 'inactive' }))}
+                  onChange={e => setForm(f => ({ ...f, status: e.target.value as Cleaner['status'] }))}
                 >
+                  <option value="pending">Onboarding (auto-activates after agreement + Stripe)</option>
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>

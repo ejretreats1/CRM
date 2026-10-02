@@ -18,6 +18,7 @@ import { randomUUID } from 'crypto';
 import { APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth';
 import { payoutJob, chargeJob, findPayableJobs } from './_billing';
 import { CLEANING_FROM, sendCleanerPortalEmail, sendClientReceiptEmail, sendCardUpdateEmail } from './_emails';
+import { maybeActivateCleaner } from './_jobs';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any;
@@ -210,6 +211,7 @@ async function onAccountUpdated({ db, stripe, resend }: WebhookDeps, account: St
 
   const dashToken: string = cleaner.dashboard_token || randomUUID();
   await db.from('cleaners').update({ stripe_connect_status: 'active', dashboard_token: dashToken }).eq('id', cleaner.id);
+  await maybeActivateCleaner(db, cleaner.id);
   try { await sendCleanerPortalEmail(resend, cleaner, dashToken); } catch (err) { console.error('[stripe-webhook] portal email failed:', (err as Error).message); }
 
   // Anything waiting on this cleaner's Stripe account can go out now.

@@ -598,6 +598,33 @@ interface Props {
 export default function CleaningLeadsView({ leads, onSave, onBulkSave, onDelete }: Props) {
   const [modal, setModal] = useState<CleaningLead | null>(null);
   const [csvImport, setCsvImport] = useState(false);
+  const [enrolling, setEnrolling] = useState<string | null>(null);
+  const [enrolled, setEnrolled] = useState<Record<string, string>>({});
+
+  /** Email the lead the "tell us about your property" form; they go straight on to card setup afterwards. */
+  async function sendEnrollLink(lead: CleaningLead) {
+    if (!lead.email) { alert('Add an email to this lead first.'); return; }
+    if (!confirm(`Email ${lead.name} the property enrollment form at ${lead.email}?`)) return;
+    setEnrolling(lead.id);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning-enroll', action: 'create-link', clientName: lead.name, clientEmail: lead.email, clientPhone: lead.phone || undefined, appUrl: window.location.origin }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Failed to create link.');
+      setEnrolled(prev => ({ ...prev, [lead.id]: d.link }));
+      if (d.emailError) alert(`${d.emailError}\n\nLink: ${d.link}`);
+      // Sending the enrollment form means they've said yes — move the lead to Booked.
+      if (lead.opportunityStatus !== 'Booked' && lead.opportunityStatus !== 'Lost') {
+        await onSave({ ...lead, opportunityStatus: 'Booked', updatedAt: new Date().toISOString() }).catch(() => {});
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed.');
+    } finally {
+      setEnrolling(null);
+    }
+  }
   const [section, setSection] = useState<'outreach' | 'scraped'>('outreach');
   const [oppFilter, setOppFilter] = useState<CleaningLeadOpportunityStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<CleaningLeadCategory | 'all'>('all');
@@ -850,6 +877,11 @@ export default function CleaningLeadsView({ leads, onSave, onBulkSave, onDelete 
                         ))}
                       </div>
                     </div>
+                    <button onClick={() => sendEnrollLink(lead)} disabled={enrolling === lead.id}
+                      title={enrolled[lead.id] ? `Enrollment link sent: ${enrolled[lead.id]}` : 'Email this lead the property enrollment form (then card setup)'}
+                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${enrolled[lead.id] ? 'text-[#5ce0a0] border-[#1e4030] bg-[#0a2518]' : 'text-[#d0954a] border-[#4a3010] hover:bg-[#2a1a05]'}`}>
+                      {enrolling === lead.id ? 'Sending…' : enrolled[lead.id] ? 'Enroll link sent ✓' : 'Enroll →'}
+                    </button>
                     <button onClick={() => setModal(lead)}
                       className="text-xs text-[#3a5070] hover:text-[#b8d4f0] border border-[#1e2d45] hover:border-[#1e3a5a] px-2.5 py-1.5 rounded-lg transition-colors">
                       Edit

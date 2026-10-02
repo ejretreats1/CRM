@@ -401,10 +401,32 @@ export async function advanceDispatch(db: Db, resend: Resend, job: Row, reason: 
 
 // ── Hourly tick ──────────────────────────────────────────────────────────────
 
-export interface TickResult { dispatched: number; escalated: number; exhausted: number; urgentAlerts: number; errors: string[] }
+export interface TickResult { dispatched: number; escalated: number; exhausted: number; urgentAlerts: number; blocked: string[]; errors: string[] }
+
+/** A property can only be auto-dispatched once the client has a card on file and a fee is set. */
+export function dispatchBlocker(job: Row, config: Row): string | null {
+  const fee = Number(job.cleaning_fee ?? 0) > 0 ? Number(job.cleaning_fee) : Number(config.cleaning_fee ?? 0);
+  if (!config.stripe_payment_method_id) return 'no card on file — send the client the payment-setup link';
+  if (fee <= 0) return 'cleaning fee not set';
+  return null;
+}
+
+/**
+ * New cleaners start as "pending" and become active automatically once the
+ * agreement is signed AND Stripe payouts are connected. Admins can still flip
+ * the status by hand.
+ */
+export async function maybeActivateCleaner(db: Db, cleanerId: string): Promise<boolean> {
+  const { data: c } = await db.from('cleaners').select('id, status, agreement_signed_at, stripe_connect_status').eq('id', cleanerId).maybeSingle();
+  if (!c || c.status !== 'pending') return false;
+  if (!c.agreement_signed_at || c.stripe_connect_status !== 'active') return false;
+  const { error } = await db.from('cleaners').update({ status: 'active' }).eq('id', cleanerId).eq('status', 'pending');
+  return !error;
+}
 
 export async function dispatchTick(db: Db, resend: Resend, now: Date = new Date()): Promise<TickResult> {
-  const result: TickResult = { dispatched: 0, escalated: 0, exhausted: 0, urgentAlerts: 0, errors: [] };
+  const result: TickResult = { dispatched: 0, escalated: 0, exhausted: 0, urgentAlerts: 0, blocked: [], errors: [] };
+  const blockedProps = new Set<string>();
   const today = todayET(now);
   const windowEnd = addDays(today, DISPATCH_WINDOW_DAYS);
   const nowIso = now.toISOString();
@@ -426,8 +448,16 @@ export async function dispatchTick(db: Db, resend: Resend, now: Date = new Date(
     if (job.checkout_date > windowEnd && !job.same_day) continue;
     const config = configByProperty.get(job.property_id);
     if (!config) continue;
+    const blocker = dispatchBlocker(job, config);
+    if (blocker) {
+      if (!blockedProps.has(config.property_id)) { blockedProps.add(config.property_id); result.blocked.push(`${config.property_name}: ${blocker}`); }
+      continue;
+    }
     const roster = resolveRoster(config, (cleaners ?? []) as Row[]);
-    if (!roster.length) continue;
+    if (!roster.length) {
+      if (!blockedProps.has(config.property_id)) { blockedProps.add(config.property_id); result.blocked.push(`${config.property_name}: no active cleaners on the roster`); }
+      continue;
+    }
     const r = await dispatchJob(db, resend, job, roster);
     if (r.ok) result.dispatched++;
     if (r.error) result.errors.push(`${job.property_name}: ${r.error}`);

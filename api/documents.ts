@@ -7,7 +7,7 @@ import { chargeJob, payoutJob, markPayoutPaid } from './_billing';
 
 
 import { syncPropertyIcal } from './_ical';
-import { dispatchJob, advanceDispatch, syncUplistingJobs, dispatchTick, type RosterCleaner } from './_jobs';
+import { dispatchJob, advanceDispatch, syncUplistingJobs, dispatchTick, maybeActivateCleaner, type RosterCleaner } from './_jobs';
 import { sendCleanerPortalEmail, sendJobCancelledEmail, sendClientReceiptEmail, emailId } from './_emails';
 
 let _resend: any = null;
@@ -1574,6 +1574,31 @@ async function cleanerBroadcastResetup(_body: any, res: VercelResponse) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+/**
+ * Stripe Connect onboarding link for a cleaner. Reuses the existing Express
+ * account and connect token so links in earlier emails keep working.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ensureConnectLink(supabase: any, cleaner: any): Promise<{ link: string; stripeAccountId: string; token: string }> {
+  const stripe = await getStripe();
+  let stripeAccountId: string = cleaner.stripe_account_id ?? '';
+  if (!stripeAccountId) {
+    const account = await stripe.accounts.create({
+      type: 'express',
+      email: cleaner.email,
+      capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
+      metadata: { cleaner_id: cleaner.id, cleaner_name: cleaner.name },
+    });
+    stripeAccountId = account.id;
+  }
+  const token: string = cleaner.connect_token || randomUUID();
+  const patch: Record<string, unknown> = { stripe_account_id: stripeAccountId, connect_token: token };
+  if (cleaner.stripe_connect_status !== 'active') patch.stripe_connect_status = 'pending';
+  const { error } = await supabase.from('cleaners').update(patch).eq('id', cleaner.id);
+  if (error) throw new Error(`DB update failed: ${error.message}`);
+  return { link: `${APP_URL}?cleaner-setup=${cleaner.id}:${token}`, stripeAccountId, token };
+}
+
 async function cleanerConnectSend(body: any, res: VercelResponse) {
   const { cleanerId, appUrl, sendEmail } = body;
   if (!cleanerId) return res.status(400).json({ error: 'cleanerId required.' });
@@ -1587,30 +1612,7 @@ async function cleanerConnectSend(body: any, res: VercelResponse) {
   if (dbErr || !cleaner) return res.status(404).json({ error: `Cleaner not found: ${dbErr?.message ?? 'unknown'}` });
 
   try {
-    const stripe = await getStripe();
-    const connectToken = randomUUID();
-
-    // Create Express account if not yet created
-    let stripeAccountId: string = cleaner.stripe_account_id ?? '';
-    if (!stripeAccountId) {
-      const account = await stripe.accounts.create({
-        type: 'express',
-        email: cleaner.email,
-        capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
-        metadata: { cleaner_id: cleanerId, cleaner_name: cleaner.name },
-      });
-      stripeAccountId = account.id;
-    }
-
-    const { error: updateErr } = await supabase.from('cleaners').update({
-      stripe_account_id: stripeAccountId,
-      connect_token: connectToken,
-      stripe_connect_status: 'pending',
-    }).eq('id', cleanerId);
-    if (updateErr) return res.status(500).json({ error: `DB update failed: ${updateErr.message}` });
-
-    const base = APP_URL;
-    const link = `${base}?cleaner-setup=${cleanerId}:${connectToken}`;
+    const { link } = await ensureConnectLink(supabase, cleaner);
 
     if (sendEmail) {
       const stripeEmailSubj = 'Set up your Stripe account to receive cleaning payouts';
@@ -1697,6 +1699,7 @@ async function cleanerConnectVerify(combined: string, res: VercelResponse) {
       dashToken = randomUUID();
     }
     await supabase.from('cleaners').update({ stripe_connect_status: 'active', dashboard_token: dashToken }).eq('id', cleanerId);
+    await maybeActivateCleaner(supabase, cleanerId);
 
     // Portal link + save-as-app instructions (shared with the Stripe webhook path)
     try {
@@ -1746,6 +1749,11 @@ async function cleaningClientGet(token: string, res: VercelResponse) {
   if (error || !data) return res.status(404).json({ error: 'Invalid or expired link.' });
   if (new Date(data.expires_at) < new Date()) return res.status(410).json({ error: 'This onboarding link has expired.' });
   const configIds: string[] = data.property_config_ids ?? (data.property_config_id ? [data.property_config_id] : []);
+  const { data: cfgs } = configIds.length ? await supabase.from('cleaning_property_configs').select('id, property_name, cleaning_fee').in('id', configIds) : { data: [] };
+  const properties = configIds.map((id: string) => {
+    const c = (cfgs ?? []).find((x: any) => x.id === id);
+    return { id, name: c?.property_name ?? '', fee: Number(c?.cleaning_fee ?? 0) };
+  });
   return res.status(200).json({
     id: data.id,
     propertyConfigId: configIds[0] ?? data.property_config_id,
@@ -1754,6 +1762,7 @@ async function cleaningClientGet(token: string, res: VercelResponse) {
     clientName: data.client_name,
     clientEmail: data.client_email,
     status: data.status,
+    properties,
   });
 }
 
@@ -1893,15 +1902,18 @@ async function cleaningClientSetupIntent(body: any, res: VercelResponse) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleaningClientConfirm(body: any, res: VercelResponse) {
-  const { token, setupIntentId } = body;
+  const { token, setupIntentId, consent } = body;
+  if (!token || typeof setupIntentId !== 'string' || !setupIntentId.startsWith('seti_')) return res.status(400).json({ error: 'token and setupIntentId required.' });
   const supabase = getSupabase();
 
   const { data: record } = await supabase.from('cleaning_client_onboarding').select('*').eq('token', token).single();
   if (!record) return res.status(404).json({ error: 'Invalid link.' });
+  if (record.status === 'completed') return res.status(200).json({ success: true, alreadyComplete: true });
 
   const stripe = await getStripe();
   const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
   if (setupIntent.status !== 'succeeded') return res.status(400).json({ error: 'Payment setup not completed.' });
+  if (setupIntent.metadata?.token && setupIntent.metadata.token !== token) return res.status(400).json({ error: 'This card setup belongs to a different link.' });
 
   const pmId = typeof setupIntent.payment_method === 'string'
     ? setupIntent.payment_method
@@ -1921,6 +1933,12 @@ async function cleaningClientConfirm(body: any, res: VercelResponse) {
   await supabase.from('cleaning_client_onboarding').update({
     status: 'completed',
     completed_at: now,
+    consent: {
+      agreedAt: typeof consent?.agreedAt === 'string' ? consent.agreedAt : now,
+      feesShown: Array.isArray(consent?.feesShown) ? consent.feesShown.slice(0, 50) : null,
+      userAgent: typeof consent?.userAgent === 'string' ? consent.userAgent.slice(0, 300) : null,
+      setupIntentId,
+    },
   }).eq('token', token);
 
   await (await getResend()).emails.send({
@@ -2123,6 +2141,26 @@ async function cleaningEnrollSubmit(body: any, res: VercelResponse) {
     createdIds.push(id);
   }
 
+  // Combined flow: the card-setup link is created now so the client can add
+  // their card on the next screen instead of waiting for a second email.
+  let nextLink: string | null = null;
+  try {
+    const obId = randomUUID();
+    const obToken = randomUUID();
+    const { error: obErr } = await supabase.from('cleaning_client_onboarding').insert({
+      id: obId, token: obToken,
+      property_config_id: createdIds[0],
+      property_config_ids: createdIds,
+      property_name: properties.map(p => p.propertyName).join(', '),
+      client_name: client.name,
+      client_email: client.email,
+      status: 'pending',
+      created_at: now,
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    if (!obErr) nextLink = `${APP_URL}?cleaning-onboard=${obToken}`;
+  } catch (e) { console.error('enroll → card link failed:', e); }
+
   await supabase.from('cleaning_property_enrollments').update({
     status: 'submitted',
     submitted_at: now,
@@ -2145,7 +2183,7 @@ async function cleaningEnrollSubmit(body: any, res: VercelResponse) {
     </div>`,
   }).catch(() => {});
 
-  return res.status(200).json({ success: true, propertyConfigIds: createdIds });
+  return res.status(200).json({ success: true, propertyConfigIds: createdIds, nextLink });
 }
 
 // ── CLEANING CHARGE & PAYOUT ──────────────────────────────────────────────────
@@ -2585,8 +2623,23 @@ async function cleanerOnboardComplete(body: any, res: VercelResponse) {
     agreement_data: agreementData,
   }).eq('token', token);
 
-  if (row.cleaner_id) {
-    await supabase.from('cleaners').update({ agreement_signed_at: now }).eq('id', row.cleaner_id);
+  // Attach the signature to the cleaner record (by id, else by email) and
+  // hand the cleaner straight to Stripe payout setup — one link, no waiting.
+  let cleanerId: string | null = row.cleaner_id ?? null;
+  if (!cleanerId) {
+    const { data: byEmail } = await supabase.from('cleaners').select('id').ilike('email', email.trim()).limit(1).maybeSingle();
+    cleanerId = byEmail?.id ?? null;
+  }
+  let nextLink: string | null = null;
+  let stripeActive = false;
+  if (cleanerId) {
+    await supabase.from('cleaners').update({ agreement_signed_at: now, ...(phone?.trim() ? { phone: phone.trim() } : {}) }).eq('id', cleanerId);
+    const { data: cleaner } = await supabase.from('cleaners').select('*').eq('id', cleanerId).maybeSingle();
+    stripeActive = cleaner?.stripe_connect_status === 'active';
+    if (stripeActive) await maybeActivateCleaner(supabase, cleanerId);
+    else if (cleaner && process.env.STRIPE_SECRET_KEY) {
+      try { nextLink = (await ensureConnectLink(supabase, cleaner)).link; } catch (e) { console.error('connect link after agreement failed:', e); }
+    }
   }
 
   const dateLabel = new Date(now).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -2652,7 +2705,7 @@ async function cleanerOnboardComplete(body: any, res: VercelResponse) {
     if (emailId(_adr)) await logEmail(emailId(_adr)!, 'cleaning-onboard', ADMIN_EMAIL, adminSignedSubj, row.id, 'Admin');
   } catch {}
 
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ ok: true, nextLink, stripeActive });
 }
 
 // ── CLEANER DASHBOARD ─────────────────────────────────────────────────────────
