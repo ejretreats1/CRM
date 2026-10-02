@@ -121,7 +121,12 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
     }
   }, [todayJobId]);
 
-  const configMap = new Map(configs.map(c => [c.propertyId, c]));
+  // Sub-unit jobs (multi-unit Uplisting listings) resolve to the parent property's config.
+  const configMap = new Map<string, CleaningPropertyConfig>();
+  for (const c of configs) {
+    configMap.set(c.propertyId, c);
+    for (const subId of c.linkedPropertyIds ?? []) if (!configMap.has(subId)) configMap.set(subId, c);
+  }
 
   async function handleRedispatch(job: CleaningJob) {
     const config = configMap.get(job.propertyId);
@@ -143,19 +148,8 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
 
     setDispatching(job.id);
     try {
-      // Clear the existing assignment then re-send to the full roster
-      const now = new Date().toISOString();
-      const cleared = {
-        ...job,
-        status: 'dispatched' as const,
-        assignedCleanerId: undefined,
-        assignedCleanerName: undefined,
-        acceptedAt: undefined,
-        dispatchedAt: now,
-        updatedAt: now,
-      };
-      await onUpdateJob(cleared);
-      await dispatchCleaningJob({
+      // The server clears the current assignment and re-offers the job to the full roster.
+      const r = await dispatchCleaningJob({
         jobId: job.id,
         propertyName: job.propertyName,
         checkoutDate: job.checkoutDate,
@@ -163,8 +157,20 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
         guestName: job.guestName,
         cleanerPayout: 0,
         notes: job.notes,
+        redispatch: true,
         cleaners: assignedCleaners.map(c => ({ id: c.id, name: c.name, email: c.email, payout: c.payout })),
       });
+      const now = new Date().toISOString();
+      await onUpdateJob({
+        ...job,
+        status: 'dispatched' as const,
+        assignedCleanerId: undefined,
+        assignedCleanerName: undefined,
+        acceptedAt: undefined,
+        dispatchedAt: now,
+        updatedAt: now,
+      });
+      if (r.warning) alert(r.warning);
     } catch (e) {
       alert(`Re-dispatch failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
     } finally {
@@ -193,7 +199,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
 
     setDispatching(job.id);
     try {
-      await dispatchCleaningJob({
+      const r = await dispatchCleaningJob({
         jobId: job.id,
         propertyName: job.propertyName,
         checkoutDate: job.checkoutDate,
@@ -205,6 +211,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
       });
       const now = new Date().toISOString();
       await onUpdateJob({ ...job, status: 'dispatched', dispatchedAt: now, updatedAt: now });
+      if (r.warning) alert(r.warning);
     } catch (e) {
       alert(`Dispatch failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
     } finally {
@@ -408,6 +415,16 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         <span className="font-semibold text-white text-sm">{displayName(job.propertyId, job.propertyName, uplistingProperties)}</span>
                       </div>
                       <StatusBadge status={job.status} />
+                      {job.sameDay && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-[#2a1e00] border-[#f59e0b] text-[#f59e0b]" title="The next guest checks in the same day">
+                          ⚡ Same-day
+                        </span>
+                      )}
+                      {(job.rescheduleCount ?? 0) > 0 && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-[#1a1a2e] border-[#4a4a8a] text-[#a0a0e0]" title="The booking dates changed after this job was created">
+                          📅 Date changed
+                        </span>
+                      )}
                       {job.portalData && (job.portalData.damageNotes?.trim() || (job.portalData.damageMedia ?? []).length > 0) && (
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-[#2a0a0a] border-[#e05c5c] text-[#e05c5c]">
                           🚨 Damage Reported
@@ -435,6 +452,13 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         <span className="text-[#3a5070]">Cleaning:</span>
                         <span className="text-[#b8d4f0] font-medium">{fmt(job.checkoutDate)}</span>
                       </div>
+                      {job.checkinDate && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <Calendar size={12} className="text-[#3a5070]" />
+                          <span className="text-[#3a5070]">Next check-in:</span>
+                          <span className="text-[#b8d4f0]">{fmt(job.checkinDate)}</span>
+                        </div>
+                      )}
                       {job.guestName && (
                         <div className="flex items-center gap-1.5 text-xs">
                           <User size={12} className="text-[#3a5070]" />

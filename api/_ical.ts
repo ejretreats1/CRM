@@ -1,4 +1,8 @@
-// Shared iCal parsing + property sync logic (not a Vercel function — _ prefix)
+// Shared iCal parsing + property sync (not a Vercel function — _ prefix).
+// Fetches every calendar feed on a property and hands the bookings to
+// reconcileJobs(), which creates / moves / cancels cleaning jobs.
+
+import { reconcileJobs, type BookingLike, type ReconcileResult } from './_jobs';
 
 export interface IcalEvent {
   uid: string;
@@ -15,144 +19,98 @@ export interface IcalUrl {
   unitName?: string;
 }
 
-function parseIcalDate(val: string): string {
-  const d = val.replace(/T.*$/, '').trim();
-  return d.length === 8 ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : d;
+/**
+ * DATE and DATE-TIME values → YYYY-MM-DD. Date-times are converted to the
+ * business timezone first so a UTC midnight doesn't land on the previous day.
+ */
+export function parseIcalDate(val: string): string {
+  const v = val.trim();
+  const m = v.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/);
+  if (!m) return v.includes('T') ? v.slice(0, 10) : v;
+  const [, y, mo, d, hh, mm, ss, z] = m;
+  if (!hh) return `${y}-${mo}-${d}`;
+  if (z) {
+    const utc = new Date(Date.UTC(+y, +mo - 1, +d, +hh, +mm, +(ss ?? 0)));
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(utc);
+  }
+  return `${y}-${mo}-${d}`; // floating local time: take the date as written
 }
 
 export function parseIcal(text: string): IcalEvent[] {
   const events: IcalEvent[] = [];
-  // Unfold RFC 5545 line continuations (CRLF + whitespace = continuation)
-  const unfolded = text.replace(/\r?\n[ \t]/g, '');
+  const unfolded = text.replace(/\r?\n[ \t]/g, ''); // RFC 5545 line folding
   const lines = unfolded.split(/\r?\n/);
-
   let inEvent = false;
   let cur: Partial<IcalEvent> = {};
-
   for (const line of lines) {
     if (line === 'BEGIN:VEVENT') { inEvent = true; cur = {}; continue; }
     if (line === 'END:VEVENT') {
       inEvent = false;
-      if (cur.uid && cur.start && cur.end) events.push(cur as IcalEvent);
+      if (cur.uid && cur.start && cur.end) events.push({ summary: '', status: 'CONFIRMED', ...cur } as IcalEvent);
       continue;
     }
     if (!inEvent) continue;
-
     const colonIdx = line.indexOf(':');
     if (colonIdx === -1) continue;
     const key = line.slice(0, colonIdx).split(';')[0].toUpperCase();
     const val = line.slice(colonIdx + 1).trim();
-
     if (key === 'UID')     cur.uid     = val;
     if (key === 'DTSTART') cur.start   = parseIcalDate(val);
     if (key === 'DTEND')   cur.end     = parseIcalDate(val);
-    if (key === 'SUMMARY') cur.summary = val.replace(/\\,/g, ',').replace(/\\n/g, ' ').replace(/\\;/g, ';');
+    if (key === 'SUMMARY') cur.summary = val.replace(/\\,/g, ',').replace(/\\n/g, ' ').replace(/\;/g, ';');
     if (key === 'STATUS')  cur.status  = val.toUpperCase();
   }
-
   return events;
 }
 
-// Events that mean "owner blocked, no guest checkout" — skip these
-const BLOCK_RE = /^(not available|airbnb \(not available\)|blocked|owner block|maintenance|hold|unavailable)$/i;
+// Events that mean "owner blocked, no guest checkout"
+const BLOCK_RE = /^(not available|airbnb \(not available\)|blocked|owner block|maintenance|hold|unavailable|closed(?:\s*-\s*not available)?|unavailable \(.*\))$/i;
+export function isBlock(summary: string): boolean { return BLOCK_RE.test((summary ?? '').trim()); }
 
-function isBlock(summary: string): boolean {
-  return BLOCK_RE.test(summary.trim());
-}
+export interface IcalFetchResult { bookings: BookingLike[]; errors: string[]; complete: boolean }
 
-// ─── Sync one property's iCal URLs against cleaning_jobs ─────────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function syncPropertyIcal(supabase: any, config: {
-  id: string;
-  property_id: string;
-  property_name: string;
-  cleaning_fee: number;
-  ical_urls: IcalUrl[];
-}): Promise<{ created: number; cancelled: number; errors: string[] }> {
-  const ical_urls: IcalUrl[] = config.ical_urls ?? [];
-  if (!ical_urls.length) return { created: 0, cancelled: 0, errors: [] };
-
-  // 7-day lookback so recently-past checkouts aren't permanently lost
-  const lookback = new Date();
-  lookback.setDate(lookback.getDate() - 7);
-  const lookbackStr = lookback.toISOString().slice(0, 10);
-  // No upper cutoff — import all future reservations regardless of how far out
-
-  // Load existing jobs for this property (keyed by reservation_id = UID)
-  const { data: existing } = await supabase
-    .from('cleaning_jobs')
-    .select('id, reservation_id, status')
-    .eq('property_id', config.property_id);
-  type JobRow = { reservation_id: string; id: string; status: string };
-  const byUid = new Map<string, JobRow>(
-    (existing ?? [])
-      .filter((j: JobRow) => j.reservation_id)
-      .map((j: JobRow) => [j.reservation_id, j])
-  );
-
-  let created = 0, cancelled = 0;
+/** Fetch every feed on the property; `complete` is false if any feed failed. */
+export async function fetchIcalBookings(icalUrls: IcalUrl[], parentPropertyId: string): Promise<IcalFetchResult> {
+  const bookings: BookingLike[] = [];
   const errors: string[] = [];
-  const now = new Date().toISOString();
-
-  for (const entry of ical_urls) {
+  let complete = true;
+  for (const entry of icalUrls) {
     try {
-      const r = await fetch(
-        entry.url.replace(/^webcal:\/\//i, 'https://'),
-        { headers: { 'User-Agent': 'EJRetreats-Cleaning/1.0' }, signal: AbortSignal.timeout(12000) },
-      );
-      if (!r.ok) { errors.push(`${entry.platform}: HTTP ${r.status}`); continue; }
+      const r = await fetch(entry.url.replace(/^webcal:\/\//i, 'https://'), {
+        headers: { 'User-Agent': 'EJRetreats-Cleaning/1.0' }, signal: AbortSignal.timeout(12_000),
+      });
+      if (!r.ok) { errors.push(`${entry.platform}: HTTP ${r.status}`); complete = false; continue; }
       const text = await r.text();
-      const events = parseIcal(text);
-
-      for (const ev of events) {
+      if (!/BEGIN:VCALENDAR/i.test(text)) { errors.push(`${entry.platform}: not an iCal feed`); complete = false; continue; }
+      const unitKey = entry.unitName ? `${parentPropertyId}:${entry.unitName}` : parentPropertyId;
+      for (const ev of parseIcal(text)) {
         if (!ev.uid || !ev.end) continue;
-
-        if (ev.status === 'CANCELLED') {
-          const ex = byUid.get(ev.uid);
-          if (ex && ex.status !== 'cancelled') {
-            await supabase.from('cleaning_jobs').update({ status: 'cancelled', updated_at: now }).eq('id', ex.id);
-            cancelled++;
-          }
-          continue;
-        }
-
-        if (isBlock(ev.summary)) continue;                // owner-blocked, no cleaning
-        if (ev.end < lookbackStr) continue;               // older than 7 days, skip
-        if (byUid.has(ev.uid)) continue;                  // already have this reservation
-
-        const jobId = `ical_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const guestName = (ev.summary && ev.summary !== 'Reserved' && !isBlock(ev.summary)) ? ev.summary : null;
-        const jobPropertyName = entry.unitName
-          ? `${config.property_name} — ${entry.unitName}`
-          : config.property_name;
-
-        await supabase.from('cleaning_jobs').insert({
-          id: jobId,
-          reservation_id: ev.uid,
-          property_id: config.property_id,
-          property_name: jobPropertyName,
-          guest_name: guestName,
-          checkout_date: ev.end,
-          checkin_date: (ev.start && ev.start !== ev.end) ? ev.start : null,
-          status: 'pending',
-          cleaning_fee: config.cleaning_fee,
-          cleaner_payout: 0,
-          source: 'ical',
-          created_at: now,
-          updated_at: now,
-        });
-        byUid.set(ev.uid, { id: jobId, reservation_id: ev.uid, status: 'pending' });
-        created++;
+        if (isBlock(ev.summary)) continue;
+        const guestName = ev.summary && ev.summary !== 'Reserved' && !/^reserved/i.test(ev.summary) ? ev.summary : null;
+        bookings.push({ reservationId: ev.uid, unitKey, unitName: entry.unitName ?? null, checkIn: ev.start, checkOut: ev.end, guestName, cancelled: ev.status === 'CANCELLED' });
       }
     } catch (e) {
       errors.push(`${entry.platform}: ${e instanceof Error ? e.message : String(e)}`);
+      complete = false;
     }
   }
+  return { bookings, errors, complete };
+}
 
-  // Stamp lastSyncedAt on each URL
-  const updatedUrls = ical_urls.map(u => ({ ...u, lastSyncedAt: now }));
-  await supabase.from('cleaning_property_configs').update({ ical_urls: updatedUrls }).eq('id', config.id);
-
-  return { created, cancelled, errors };
+/** Sync one property's iCal URLs against cleaning_jobs. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function syncPropertyIcal(supabase: any, config: {
+  id: string; property_id: string; property_name: string; cleaning_fee: number; ical_urls: IcalUrl[];
+  linked_property_ids?: string[] | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+}, resend?: any): Promise<ReconcileResult> {
+  const icalUrls: IcalUrl[] = config.ical_urls ?? [];
+  if (!icalUrls.length) return { created: 0, updated: 0, cancelled: 0, errors: [] };
+  const fetched = await fetchIcalBookings(icalUrls, config.property_id);
+  const result = await reconcileJobs(supabase, config, fetched.bookings, { source: 'ical', complete: fetched.complete, resend });
+  result.errors.push(...fetched.errors);
+  const now = new Date().toISOString();
+  const stamped = icalUrls.map(u => ({ ...u, lastSyncedAt: now }));
+  await supabase.from('cleaning_property_configs').update({ ical_urls: stamped }).eq('id', config.id);
+  return result;
 }

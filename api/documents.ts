@@ -4,113 +4,11 @@ import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { requireAdmin, APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth';
 import { chargeJob, payoutJob, markPayoutPaid } from './_billing';
-import { sendCleanerPortalEmail } from './_emails';
 
 
-// ─── iCal helpers (inlined from _ical.ts to avoid Vercel bundling issues) ─────
-
-interface IcalEvent {
-  uid: string;
-  start: string;
-  end: string;
-  summary: string;
-  status: string;
-}
-
-function parseIcalDate(val: string): string {
-  const d = val.replace(/T.*$/, '').trim();
-  return d.length === 8 ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : d;
-}
-
-function parseIcal(text: string): IcalEvent[] {
-  const events: IcalEvent[] = [];
-  const unfolded = text.replace(/\r?\n[ \t]/g, '');
-  const lines = unfolded.split(/\r?\n/);
-  let inEvent = false;
-  let cur: Partial<IcalEvent> = {};
-  for (const line of lines) {
-    if (line === 'BEGIN:VEVENT') { inEvent = true; cur = {}; continue; }
-    if (line === 'END:VEVENT') {
-      inEvent = false;
-      if (cur.uid && cur.start && cur.end) events.push(cur as IcalEvent);
-      continue;
-    }
-    if (!inEvent) continue;
-    const colonIdx = line.indexOf(':');
-    if (colonIdx === -1) continue;
-    const key = line.slice(0, colonIdx).split(';')[0].toUpperCase();
-    const val = line.slice(colonIdx + 1).trim();
-    if (key === 'UID')     cur.uid     = val;
-    if (key === 'DTSTART') cur.start   = parseIcalDate(val);
-    if (key === 'DTEND')   cur.end     = parseIcalDate(val);
-    if (key === 'SUMMARY') cur.summary = val.replace(/\\,/g, ',').replace(/\\n/g, ' ').replace(/\\;/g, ';');
-    if (key === 'STATUS')  cur.status  = val.toUpperCase();
-  }
-  return events;
-}
-
-const BLOCK_RE = /^(not available|airbnb \(not available\)|blocked|owner block|maintenance|hold|unavailable)$/i;
-function isBlock(summary: string): boolean { return BLOCK_RE.test(summary.trim()); }
-
-async function syncPropertyIcal(supabase: any, config: {
-  id: string; property_id: string; property_name: string;
-  cleaning_fee: number; ical_urls: { platform: string; url: string; lastSyncedAt?: string }[];
-}): Promise<{ created: number; cancelled: number; errors: string[] }> {
-  const ical_urls = config.ical_urls ?? [];
-  if (!ical_urls.length) return { created: 0, cancelled: 0, errors: [] };
-  // 7-day lookback so recently-past checkouts aren't permanently lost
-  const lookback = new Date(); lookback.setDate(lookback.getDate() - 7);
-  const lookbackStr = lookback.toISOString().slice(0, 10);
-  // No upper cutoff — import all future reservations regardless of how far out
-  const { data: existing } = await supabase
-    .from('cleaning_jobs').select('id, reservation_id, status').eq('property_id', config.property_id);
-  type JobRow = { reservation_id: string; id: string; status: string };
-  const byUid = new Map<string, JobRow>(
-    (existing ?? []).filter((j: JobRow) => j.reservation_id).map((j: JobRow) => [j.reservation_id, j])
-  );
-  let created = 0, cancelled = 0;
-  const errors: string[] = [];
-  const now = new Date().toISOString();
-  for (const entry of ical_urls) {
-    try {
-      const r = await fetch(entry.url.replace(/^webcal:\/\//i, 'https://'),
-        { headers: { 'User-Agent': 'EJRetreats-Cleaning/1.0' }, signal: AbortSignal.timeout(12000) });
-      if (!r.ok) { errors.push(`${entry.platform}: HTTP ${r.status}`); continue; }
-      const text = await r.text();
-      const events = parseIcal(text);
-      for (const ev of events) {
-        if (!ev.uid || !ev.end) continue;
-        if (ev.status === 'CANCELLED') {
-          const ex = byUid.get(ev.uid);
-          if (ex && ex.status !== 'cancelled') {
-            await supabase.from('cleaning_jobs').update({ status: 'cancelled', updated_at: now }).eq('id', ex.id);
-            cancelled++;
-          }
-          continue;
-        }
-        if (isBlock(ev.summary)) continue;
-        if (ev.end < lookbackStr) continue; // skip checkouts older than 7 days
-        if (byUid.has(ev.uid)) continue;
-        const jobId = `ical_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const guestName = (ev.summary && ev.summary !== 'Reserved' && !isBlock(ev.summary)) ? ev.summary : null;
-        await supabase.from('cleaning_jobs').insert({
-          id: jobId, reservation_id: ev.uid, property_id: config.property_id,
-          property_name: config.property_name, guest_name: guestName,
-          checkout_date: ev.end, checkin_date: (ev.start && ev.start !== ev.end) ? ev.start : null,
-          status: 'pending', cleaning_fee: config.cleaning_fee, cleaner_payout: 0,
-          source: 'ical', created_at: now, updated_at: now,
-        });
-        byUid.set(ev.uid, { id: jobId, reservation_id: ev.uid, status: 'pending' });
-        created++;
-      }
-    } catch (e) {
-      errors.push(`${entry.platform}: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-  const updatedUrls = ical_urls.map(u => ({ ...u, lastSyncedAt: now }));
-  await supabase.from('cleaning_property_configs').update({ ical_urls: updatedUrls }).eq('id', config.id);
-  return { created, cancelled, errors };
-}
+import { syncPropertyIcal } from './_ical';
+import { dispatchJob, advanceDispatch, syncUplistingJobs, dispatchTick, type RosterCleaner } from './_jobs';
+import { sendCleanerPortalEmail, sendJobCancelledEmail } from './_emails';
 
 let _resend: any = null;
 async function getResend() {
@@ -1126,147 +1024,76 @@ async function cleaningMarkPayoutPaid(body: any, res: VercelResponse) {
 }
 
 async function cleaningCancellation(body: any, res: VercelResponse) {
-  const { jobId } = body;
+  const { jobId, reason } = body;
   if (!jobId) return res.status(400).json({ error: 'jobId required.' });
 
   const supabase = getSupabase();
   const { data: job } = await supabase
     .from('cleaning_jobs')
-    .select('id, property_name, checkout_date, assigned_cleaner_id, dispatch_tokens')
+    .select('id, property_name, checkout_date, assigned_cleaner_id, dispatch_tokens, dispatch_order, dispatch_index, status')
     .eq('id', jobId)
     .single();
   if (!job) return res.status(404).json({ error: 'Job not found.' });
 
-  const propertyName = job.property_name ?? 'the property';
-  const dateLabel = job.checkout_date
-    ? new Date(job.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-    : '';
-
+  // Who needs to hear about it: the assigned cleaner, else the cleaner currently being offered the job.
   const toNotify: { name: string; email: string }[] = [];
-
+  const tokens = (job.dispatch_tokens ?? {}) as Record<string, { cleanerId: string; cleanerName: string; cleanerEmail?: string }>;
   if (job.assigned_cleaner_id) {
     const { data: cleaner } = await supabase.from('cleaners').select('name, email').eq('id', job.assigned_cleaner_id).single();
     if (cleaner?.email) toNotify.push({ name: cleaner.name, email: cleaner.email });
+  } else if (job.status === 'dispatched') {
+    const order = (job.dispatch_order ?? []) as string[];
+    const cur = tokens[order[job.dispatch_index ?? 0]];
+    if (cur?.cleanerEmail) toNotify.push({ name: cur.cleanerName, email: cur.cleanerEmail });
   }
-
-  if (toNotify.length === 0 && job.dispatch_tokens) {
-    const tokens = job.dispatch_tokens as Record<string, { cleanerName: string; cleanerEmail: string }>;
-    for (const t of Object.values(tokens)) {
-      if (t.cleanerEmail) toNotify.push({ name: t.cleanerName, email: t.cleanerEmail });
-    }
-  }
-
   if (toNotify.length === 0) return res.json({ notified: 0 });
 
-  const sg = getSendGrid();
+  const resend = await getResend();
   let notified = 0;
   for (const c of toNotify) {
-    const subject = `Cleaning Cancelled — ${propertyName}${dateLabel ? ` (${dateLabel})` : ''}`;
-    const html = `
-      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0f1923;color:#b8d4f0;border-radius:12px;padding:32px">
-        <h2 style="color:#e05c5c;margin-top:0">🚫 Cleaning Cancelled</h2>
-        <p style="color:#b8d4f0">Hi ${c.name},</p>
-        <p style="color:#b8d4f0">The cleaning job at <strong style="color:#fff">${propertyName}</strong>${dateLabel ? ` scheduled for <strong style="color:#fff">${dateLabel}</strong>` : ''} has been <strong style="color:#e05c5c">cancelled</strong>.</p>
-        <div style="background:#1a0e0e;border:1px solid #3a1a1a;border-radius:10px;padding:16px;margin:20px 0;text-align:center">
-          <p style="color:#e05c5c;font-size:16px;font-weight:700;margin:0">You do not need to come — please disregard this assignment.</p>
-        </div>
-        <p style="color:#b8d4f0">Sorry for any inconvenience. We'll be in touch with your next assignment soon.</p>
-        <p style="color:#3a5070;font-size:13px;margin-top:32px">— E&amp;J Retreats Cleaning</p>
-      </div>
-    `;
     try {
-      await sg.send({ to: c.email, from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>', subject, html });
+      const sent = await sendJobCancelledEmail(resend, { to: c.email, name: c.name, propertyName: job.property_name ?? 'the property', checkoutDate: job.checkout_date, reason: typeof reason === 'string' ? reason : undefined });
+      if (sent.id) await logEmail(sent.id, 'cleaning-cancelled', c.email, sent.subject, jobId, c.name);
       notified++;
     } catch (e) {
       console.error('Cancellation email error:', c.email, e);
     }
   }
-
   return res.json({ notified });
 }
 
 async function cleaningDispatch(body: any, res: VercelResponse) {
-  const { jobId, propertyName, checkoutDate, checkinDate, guestName, notes, cleaners, appUrl, jobType } = body;
-
+  const { jobId, cleaners } = body;
+  if (!jobId) return res.status(400).json({ error: 'jobId required.' });
   if (!cleaners?.length) return res.status(400).json({ error: 'No cleaners provided.' });
 
   const supabase = getSupabase();
-  const dateLabel = new Date(checkoutDate + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-  });
+  const { data: job } = await supabase.from('cleaning_jobs').select('*').eq('id', jobId).maybeSingle();
+  if (!job) return res.status(404).json({ error: 'Job not found. Save it first, then dispatch.' });
+  if (job.status !== 'pending') {
+    if (!body.redispatch || ['completed', 'cancelled'].includes(job.status)) return res.status(409).json({ error: `Job is ${job.status}, not pending.` });
+    // Re-dispatch: drop the current assignment so the whole roster is offered the job again.
+    const { error: resetErr } = await supabase.from('cleaning_jobs').update({
+      status: 'pending', assigned_cleaner_id: null, assigned_cleaner_name: null, accepted_at: null,
+      dispatch_tokens: null, dispatch_order: null, dispatch_index: 0, updated_at: new Date().toISOString(),
+    }).eq('id', jobId).eq('status', job.status);
+    if (resetErr) return res.status(500).json({ error: resetErr.message });
+    job.status = 'pending';
+  }
 
-  const jobTypeMeta: Record<string, { emoji: string; label: string; dateLabel: string; intro: string }> = {
-    cleaning:  { emoji: '🧹', label: 'Cleaning Job',  dateLabel: 'Cleaning Date', intro: 'A cleaning job is available for one of your assigned properties. Tap the button below to accept or pass.' },
-    handyman:  { emoji: '🔧', label: 'Handyman Job',  dateLabel: 'Job Date',      intro: 'A handyman job is available. Review the details below and tap the button to accept or pass.' },
-    lawncare:  { emoji: '🌿', label: 'Lawn Care Job', dateLabel: 'Job Date',      intro: 'A lawn care job is available. Review the details below and tap the button to accept or pass.' },
-  };
-  const meta = jobTypeMeta[jobType ?? 'cleaning'] ?? jobTypeMeta['cleaning'];
+  // The admin picks the order; names/emails come from the cleaners table so a stale
+  // browser copy can never email the wrong address.
+  const ids = (cleaners as { id: string }[]).map(c => c.id);
+  const { data: rows } = await supabase.from('cleaners').select('id, name, email, status').in('id', ids);
+  const byId = new Map<string, any>((rows ?? []).map((r: any) => [r.id, r] as [string, any]));
+  const roster: RosterCleaner[] = (cleaners as { id: string; payout?: number }[])
+    .map(c => { const r = byId.get(c.id); return r?.email ? { id: r.id, name: r.name, email: r.email, payout: Number(c.payout ?? 0) } : null; })
+    .filter((c): c is RosterCleaner => !!c);
+  if (!roster.length) return res.status(400).json({ error: 'None of the selected cleaners have an email on file.' });
 
-  // Generate a unique token per cleaner in priority order, build dispatch map + order array
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dispatchTokens: Record<string, any> = {};
-  const dispatchOrder: string[] = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cleanerTokens: { cleaner: any; token: string }[] = (cleaners as any[]).map(c => {
-    const token = randomUUID();
-    dispatchTokens[token] = { cleanerId: c.id, cleanerName: c.name, cleanerEmail: c.email, payout: c.payout ?? 0 };
-    dispatchOrder.push(token);
-    return { cleaner: c, token };
-  });
-
-  // Store tokens + mark job as dispatched (sequential: index 0 = first to receive email)
-  await supabase.from('cleaning_jobs').update({
-    status: 'dispatched',
-    dispatched_at: new Date().toISOString(),
-    dispatch_tokens: dispatchTokens,
-    dispatch_order: dispatchOrder,
-    dispatch_index: 0,
-  }).eq('id', jobId);
-
-  const base = APP_URL;
-
-  // Only email the #1 priority cleaner — if they pass, next cleaner is contacted
-  const { cleaner: first, token: firstToken } = cleanerTokens[0];
-  const portalLink = `${base}?cleaner=${jobId}:${firstToken}`;
-  const dispatchSubject = `${meta.emoji} ${meta.label} Available: ${propertyName} – ${dateLabel}`;
-  try {
-    const _dr = await (await getResend()).emails.send({
-      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-      to: first.email,
-      subject: dispatchSubject,
-      html: `
-        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
-          <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
-            <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">${meta.emoji} ${meta.label} Available</h2>
-            <p style="color:#334155;margin:0 0 20px">Hi ${first.name},</p>
-            <p style="color:#334155;margin:0 0 16px">${meta.intro}</p>
-            <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
-              <table style="width:100%;border-collapse:collapse">
-                <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${propertyName}</td></tr>
-                <tr><td style="padding:4px 0;color:#64748b;font-size:14px">${meta.dateLabel}</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
-                ${checkinDate ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Next Check-in</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${new Date(checkinDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'})}</td></tr>` : ''}
-                ${guestName ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Departing Guest</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${guestName}</td></tr>` : ''}
-                ${first.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:18px">$${first.payout}</td></tr>` : ''}
-                ${notes ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px;vertical-align:top">Notes</td><td style="padding:4px 0;color:#0f172a;font-size:14px">${notes}</td></tr>` : ''}
-              </table>
-            </div>
-            <div style="text-align:center;margin:24px 0">
-              <a href="${portalLink}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
-                View &amp; Accept Job
-              </a>
-            </div>
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin:0 0 16px">
-              <p style="margin:0;color:#9a3412;font-size:13px">⚠️ <strong>Can't make it?</strong> Please tap the button above and press <strong>Pass</strong> as soon as possible so we can notify the backup in time.</p>
-            </div>
-            <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">— E&amp;J Retreats</p>
-          </div>
-        </div>
-      `,
-    });
-    if (_dr?.id) await logEmail(_dr.id, 'cleaning-dispatch', first.email, dispatchSubject, jobId, first.name);
-  } catch {}
-
-  return res.status(200).json({ sent: 1 });
+  const result = await dispatchJob(supabase, await getResend(), job, roster);
+  if (!result.ok) return res.status(409).json({ error: result.error });
+  return res.status(200).json({ sent: 1, warning: result.error });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1282,122 +1109,18 @@ async function cleaningDecline(body: any, res: VercelResponse) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tokens = (row.dispatch_tokens ?? {}) as Record<string, any>;
-  const cleanerInfo = tokens[token];
-  if (!cleanerInfo) return res.status(401).json({ error: 'Invalid or expired link.' });
-
+  if (!tokens[token]) return res.status(401).json({ error: 'Invalid or expired link.' });
   if (row.status !== 'dispatched') {
     return res.status(409).json({ error: 'This job has already been claimed or is no longer available.' });
   }
-
   const dispatchOrder = (row.dispatch_order ?? []) as string[];
-  const currentIndex = row.dispatch_index ?? 0;
-
-  if (dispatchOrder[currentIndex] !== token) {
+  if (dispatchOrder[row.dispatch_index ?? 0] !== token) {
     return res.status(400).json({ error: 'You have already passed on this job.' });
   }
 
-  const nextIndex = currentIndex + 1;
-  const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-  });
-  const base = APP_URL;
-
-  if (nextIndex >= dispatchOrder.length) {
-    // All cleaners passed — revert to pending and alert admin
-    await supabase.from('cleaning_jobs').update({
-      status: 'pending',
-      dispatch_index: nextIndex,
-      updated_at: new Date().toISOString(),
-    }).eq('id', jobId);
-
-    try {
-      const _allPassedSubj = `⚠️ No cleaners available: ${row.property_name} – ${dateLabel}`;
-      const _apr = await (await getResend()).emails.send({
-        from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-        to: ADMIN_EMAIL,
-        subject: _allPassedSubj,
-        html: `
-          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
-            <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
-              <h2 style="color:#dc2626;margin:0 0 8px;font-size:20px">⚠️ All Cleaners Passed</h2>
-              <p style="color:#334155;margin:0 0 16px">All assigned cleaners passed on this job. It has been moved back to <strong>Pending</strong> — please dispatch manually.</p>
-              <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
-                <table style="width:100%;border-collapse:collapse">
-                  <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${row.property_name}</td></tr>
-                  <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
-                </table>
-              </div>
-              <p style="color:#94a3b8;font-size:12px;margin:0">— E&amp;J Retreats CRM</p>
-            </div>
-          </div>
-        `,
-      });
-      if (_apr?.id) await logEmail(_apr.id, 'cleaning-dispatch', ADMIN_EMAIL, _allPassedSubj, jobId, 'Admin');
-    } catch {}
-
-    return res.status(200).json({ passed: true, allPassed: true });
-  }
-
-  // Advance to next cleaner
-  const nextToken = dispatchOrder[nextIndex];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nextCleaner = tokens[nextToken] as { cleanerName: string; cleanerEmail: string; payout: number };
-
-  await supabase.from('cleaning_jobs').update({
-    dispatch_index: nextIndex,
-    updated_at: new Date().toISOString(),
-  }).eq('id', jobId);
-
-  const portalLink = `${base}?cleaner=${jobId}:${nextToken}`;
-  const cascadeSubject = `🧹 Cleaning Job Available: ${row.property_name} – ${dateLabel}`;
-  try {
-    const _cr = await (await getResend()).emails.send({
-      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-      to: nextCleaner.cleanerEmail,
-      subject: cascadeSubject,
-      html: `
-        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
-          <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
-            <h2 style="color:#1e40af;margin:0 0 8px;font-size:20px">🧹 Cleaning Job Available</h2>
-            <p style="color:#334155;margin:0 0 20px">Hi ${nextCleaner.cleanerName},</p>
-            <p style="color:#334155;margin:0 0 16px">A cleaning job is available for one of your assigned properties. Tap the button below to accept or pass.</p>
-            <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin:0 0 20px">
-              <table style="width:100%;border-collapse:collapse">
-                <tr><td style="padding:4px 0;color:#64748b;font-size:14px;width:130px">Property</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${row.property_name}</td></tr>
-                <tr><td style="padding:4px 0;color:#64748b;font-size:14px">Cleaning Date</td><td style="padding:4px 0;font-weight:600;color:#0f172a;font-size:14px">${dateLabel}</td></tr>
-                ${nextCleaner.payout ? `<tr><td style="padding:4px 0;color:#64748b;font-size:14px">Your Payout</td><td style="padding:4px 0;font-weight:700;color:#16a34a;font-size:18px">$${nextCleaner.payout}</td></tr>` : ''}
-              </table>
-            </div>
-            <div style="text-align:center;margin:24px 0">
-              <a href="${portalLink}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
-                View &amp; Accept Job
-              </a>
-            </div>
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin:0 0 16px">
-              <p style="margin:0;color:#9a3412;font-size:13px">⚠️ <strong>Can't make it?</strong> Please tap the button above and press <strong>Pass</strong> as soon as possible so we can notify the backup cleaner in time.</p>
-            </div>
-            <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">— E&amp;J Retreats</p>
-          </div>
-        </div>
-      `,
-    });
-    if (_cr?.id) await logEmail(_cr.id, 'cleaning-dispatch', nextCleaner.cleanerEmail, cascadeSubject, jobId, nextCleaner.cleanerName);
-  } catch {}
-
-  // Notify admin that a cleaner passed and the next one was contacted
-  const passedName = cleanerInfo?.cleanerName ?? 'A cleaner';
-  const _passSubj = `👋 ${passedName} passed: ${row.property_name} – ${dateLabel}`;
-  await (await getResend()).emails.send({
-    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-    to: ADMIN_EMAIL,
-    subject: _passSubj,
-    html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-      <p><strong>${passedName}</strong> passed on the cleaning for <strong>${row.property_name}</strong> (${dateLabel}).</p>
-      <p>✉️ <strong>${nextCleaner.cleanerName}</strong> has been contacted as the next backup cleaner.</p>
-    </div>`,
-  }).catch(() => {});
-
-  return res.status(200).json({ passed: true });
+  const outcome = await advanceDispatch(supabase, await getResend(), row, 'passed');
+  if (outcome.error && !outcome.next && !outcome.exhausted) return res.status(409).json({ error: outcome.error });
+  return res.status(200).json({ passed: true, allPassed: outcome.exhausted });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1473,16 +1196,17 @@ async function cleaningAccept(body: any, res: VercelResponse) {
   }
 
   const now = new Date().toISOString();
-  const { error } = await supabase.from('cleaning_jobs').update({
+  const { data: claimed, error } = await supabase.from('cleaning_jobs').update({
     status: 'accepted',
     assigned_cleaner_id: cleanerInfo.cleanerId,
     assigned_cleaner_name: cleanerInfo.cleanerName,
     cleaner_payout: cleanerInfo.payout ?? 0,
     accepted_at: now,
     updated_at: now,
-  }).eq('id', jobId).in('status', ['dispatched', 'pending']);
+  }).eq('id', jobId).in('status', ['dispatched', 'pending']).select('id');
 
   if (error) return res.status(500).json({ error: error.message });
+  if (!claimed?.length) return res.status(409).json({ error: 'Sorry — this job was just claimed by another cleaner.' });
 
   // Notify admin
   const _acceptSubj = `✅ ${cleanerInfo.cleanerName} accepted: ${row.property_name}`;
@@ -3058,7 +2782,6 @@ async function cleanerDashboardDecline(body: any, res: VercelResponse) {
   const auth = await verifyDashboardCleaner(body.combined);
   if (!auth) return res.status(403).json({ error: 'Invalid or expired portal link.' });
   const { jobId } = body;
-  const cleanerId = auth.cleanerId;
   if (!jobId) return res.status(400).json({ error: 'Missing jobId.' });
 
   const supabase = getSupabase();
@@ -3066,86 +2789,18 @@ async function cleanerDashboardDecline(body: any, res: VercelResponse) {
   if (!row) return res.status(404).json({ error: 'Job not found.' });
   if (row.status !== 'dispatched') return res.status(409).json({ error: 'This job is no longer available.' });
 
-  // Find the cleaner's token in dispatch_tokens
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tokens = (row.dispatch_tokens ?? {}) as Record<string, any>;
-  const token = Object.entries(tokens).find(([, t]) => t.cleanerId === cleanerId)?.[0];
+  const token = Object.entries(tokens).find(([, t]) => t.cleanerId === auth.cleanerId)?.[0];
   if (!token) return res.status(403).json({ error: 'You were not dispatched to this job.' });
-
   const dispatchOrder = (row.dispatch_order ?? []) as string[];
-  const currentIndex = row.dispatch_index ?? 0;
-
-  if (dispatchOrder[currentIndex] !== token) {
+  if (dispatchOrder[row.dispatch_index ?? 0] !== token) {
     return res.status(400).json({ error: 'You have already passed on this job.' });
   }
 
-  const nextIndex = currentIndex + 1;
-  const dateLabel = new Date(row.checkout_date + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-  });
-  const base = APP_URL;
-
-  if (nextIndex >= dispatchOrder.length) {
-    await supabase.from('cleaning_jobs').update({
-      status: 'pending',
-      dispatch_index: nextIndex,
-      updated_at: new Date().toISOString(),
-    }).eq('id', jobId);
-    await (await getResend()).emails.send({
-      from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-      to: ADMIN_EMAIL,
-      subject: `⚠️ No cleaners available: ${row.property_name} – ${dateLabel}`,
-      html: `<div style="font-family:sans-serif;padding:24px"><p>All cleaners passed on <strong>${row.property_name}</strong> (${dateLabel}). The job has been reverted to pending.</p></div>`,
-    }).catch(() => {});
-    return res.status(200).json({ success: true });
-  }
-
-  // Notify next cleaner
-  const nextToken = dispatchOrder[nextIndex];
-  const nextInfo = tokens[nextToken];
-  await supabase.from('cleaning_jobs').update({
-    dispatch_index: nextIndex,
-    updated_at: new Date().toISOString(),
-  }).eq('id', jobId);
-
-  const passedCleanerName = tokens[token]?.cleanerName ?? 'A cleaner';
-  let nextCleanerName = 'the next cleaner';
-
-  if (nextInfo) {
-    const nextCleanerRow = nextInfo.cleanerId
-      ? (await supabase.from('cleaners').select('email,name').eq('id', nextInfo.cleanerId).single()).data
-      : null;
-    if (nextCleanerRow?.email) {
-      nextCleanerName = nextCleanerRow.name;
-      const portalUrl = `${base}/?cleaner=${jobId}:${nextToken}`;
-      await (await getResend()).emails.send({
-        from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-        to: nextCleanerRow.email,
-        subject: `🧹 Cleaning job available: ${row.property_name} – ${dateLabel}`,
-        html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-          <p>Hi ${nextCleanerRow.name},</p>
-          <p>A cleaning job is available at <strong>${row.property_name}</strong> on ${dateLabel}.</p>
-          <p><a href="${portalUrl}" style="background:#1d4ed8;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px">View &amp; Accept Job</a></p>
-          <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin-top:16px">
-            <p style="margin:0;color:#9a3412;font-size:13px">⚠️ <strong>Can't make it?</strong> Please tap the button above and press <strong>Pass</strong> as soon as possible so we can notify the backup cleaner in time.</p>
-          </div>
-        </div>`,
-      }).catch(() => {});
-    }
-  }
-
-  // Notify admin
-  await (await getResend()).emails.send({
-    from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
-    to: ADMIN_EMAIL,
-    subject: `👋 ${passedCleanerName} passed: ${row.property_name} – ${dateLabel}`,
-    html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
-      <p><strong>${passedCleanerName}</strong> passed on the cleaning for <strong>${row.property_name}</strong> (${dateLabel}).</p>
-      <p>✉️ <strong>${nextCleanerName}</strong> has been contacted as the next backup cleaner.</p>
-    </div>`,
-  }).catch(() => {});
-
-  return res.status(200).json({ success: true });
+  const outcome = await advanceDispatch(supabase, await getResend(), row, 'passed');
+  if (outcome.error && !outcome.next && !outcome.exhausted) return res.status(409).json({ error: outcome.error });
+  return res.status(200).json({ success: true, allPassed: outcome.exhausted });
 }
 
 // ── EMAIL MARKETING ──────────────────────────────────────────────────────────
@@ -4563,28 +4218,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const supabase = getSupabase();
         const { data: config, error } = await supabase
           .from('cleaning_property_configs')
-          .select('id, property_id, property_name, cleaning_fee, ical_urls')
+          .select('*')
           .eq('property_id', propertyId)
           .maybeSingle();
         if (error || !config) return res.status(404).json({ error: 'Property config not found.' });
-        const result = await syncPropertyIcal(supabase, config);
+        const result = await syncPropertyIcal(supabase, config, await getResend());
         return res.status(200).json({ ok: true, ...result });
       } catch (e) {
         return res.status(500).json({ error: e instanceof Error ? e.message : 'iCal sync failed.' });
       }
+    }
+    if (action === 'sync-now') {
+      // Everything the daily cron does, on demand: iCal + Uplisting → jobs, then offer new jobs.
+      const supabase = getSupabase();
+      const resend = await getResend();
+      const errors: string[] = [];
+      let created = 0, updated = 0, cancelled = 0;
+      const { data: configs } = await supabase.from('cleaning_property_configs').select('*');
+      for (const config of configs ?? []) {
+        if (!config.ical_urls?.length) continue;
+        try { const r = await syncPropertyIcal(supabase, config, resend); created += r.created; updated += r.updated; cancelled += r.cancelled; errors.push(...r.errors.map((e: string) => `${config.property_name}: ${e}`)); }
+        catch (e) { errors.push(`${config.property_name}: ${e instanceof Error ? e.message : String(e)}`); }
+      }
+      try {
+        const { data: settings } = await supabase.from('settings').select('uplisting_api_key').eq('id', 'default').maybeSingle();
+        if (settings?.uplisting_api_key) { const u = await syncUplistingJobs(supabase, resend, settings.uplisting_api_key); created += u.created; updated += u.updated; cancelled += u.cancelled; errors.push(...u.errors); }
+      } catch (e) { errors.push(`Uplisting: ${e instanceof Error ? e.message : String(e)}`); }
+      let dispatched = 0;
+      try { const t = await dispatchTick(supabase, resend); dispatched = t.dispatched; errors.push(...t.errors); }
+      catch (e) { errors.push(`dispatch: ${e instanceof Error ? e.message : String(e)}`); }
+      return res.status(200).json({ ok: true, created, updated, cancelled, dispatched, errors });
     }
     if (action === 'ical-sync-all') {
       try {
         const supabase = getSupabase();
         const { data: configs } = await supabase
           .from('cleaning_property_configs')
-          .select('id, property_id, property_name, cleaning_fee, ical_urls');
+          .select('*');
+        const resend = await getResend();
         let totalCreated = 0, totalCancelled = 0;
         const allErrors: string[] = [];
         const properties: { property: string; created: number; cancelled: number; errors: string[] }[] = [];
         for (const config of configs ?? []) {
           if (!config.ical_urls?.length) continue;
-          const r = await syncPropertyIcal(supabase, config);
+          const r = await syncPropertyIcal(supabase, config, resend);
           totalCreated += r.created;
           totalCancelled += r.cancelled;
           if (r.errors.length) allErrors.push(...r.errors.map((e: string) => `${config.property_name}: ${e}`));

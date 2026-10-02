@@ -7,7 +7,7 @@ import {
 import type { View } from '../../types';
 import type { CleaningJob, Cleaner, CleaningPropertyConfig } from '../../types/cleaning';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
-import { dispatchCleaningJob } from '../../services/cleaningApi';
+import { syncCleaningJobsNow } from '../../services/cleaningApi';
 
 function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
   const p = props.find(up => up.id === propertyId);
@@ -1074,102 +1074,28 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
     await handleUpdateJob({ ...job, chargedAt: now, updatedAt: now });
   }
 
-  // Auto-create + auto-dispatch jobs the moment a new reservation checkout appears —
-  // no manual "Sync" or "Dispatch" click needed when a property has an assigned cleaner roster.
+  // Booking sync runs on the server (daily cron + hourly dispatch tick). When the
+  // CRM opens we also ask the server to sync right now so new checkouts show up
+  // immediately, then reload jobs. The browser never creates jobs itself.
   const autoSyncRef = useRef(false);
   const [autoSyncing, setAutoSyncing] = useState(false);
 
   useEffect(() => {
     if (loading || dbError) return;
-    autoSyncAndDispatch();
+    serverSyncNow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, dbError, reservations, configs]);
+  }, [loading, dbError]);
 
-  async function autoSyncAndDispatch() {
+  async function serverSyncNow() {
     if (autoSyncRef.current) return;
     autoSyncRef.current = true;
     setAutoSyncing(true);
     try {
-      // Build configMap including sub-unit IDs for multi-unit listings
-      const configMap = new Map<string, CleaningPropertyConfig>();
-      for (const c of configs) {
-        configMap.set(c.propertyId, c);
-        for (const subId of c.linkedPropertyIds ?? []) configMap.set(subId, c);
-      }
-      const existingReservationIds = new Set(jobs.map(j => j.reservationId).filter(Boolean));
-
-      const today = new Date();
-      const windowStart = new Date(today); windowStart.setDate(today.getDate() - 14);
-      const startStr = windowStart.toISOString().slice(0, 10);
-
-      const relevant = reservations.filter(r => {
-        if (!r.check_out) return false;
-        if (r.check_out < startStr) return false; // skip checkouts older than 14 days
-        if (!configMap.has(r.listing_id)) return false;
-        if (existingReservationIds.has(r.id)) return false;
-        return true;
-      });
-
-      if (relevant.length === 0) return;
-
-      const now = new Date().toISOString();
-      const newJobs: CleaningJob[] = relevant.map(r => {
-        const config = configMap.get(r.listing_id)!;
-        // For sub-unit reservations, suffix property name with the sub-unit's Uplisting name
-        let propertyName = config.propertyName;
-        if (r.listing_id !== config.propertyId) {
-          const subProp = uplistingProperties.find(p => p.id === r.listing_id);
-          if (subProp) propertyName = `${config.propertyName} — ${subProp.nickname || subProp.name}`;
-        }
-        return {
-          id: `cj_${Date.now()}_${r.id}`,
-          reservationId: r.id,
-          propertyId: r.listing_id,
-          propertyName,
-          guestName: r.guest_name || undefined,
-          checkoutDate: r.check_out,
-          checkinDate: undefined,
-          status: 'pending' as const,
-          cleaningFee: config.cleaningFee,
-          cleanerPayout: 0,
-          source: 'uplisting' as const,
-          createdAt: now,
-          updatedAt: now,
-        };
-      });
-
-      await handleSyncJobs(newJobs);
-
-      // Dispatch each freshly created job to its property's full cleaner roster —
-      // first cleaner to accept locks the job (race-safe on the server).
-      for (const job of newJobs) {
-        const config = configMap.get(job.propertyId)!;
-        const assignedCleaners = config.assignedCleaners
-          .map(ac => {
-            const profile = cleaners.find(c => c.id === ac.id);
-            return profile && profile.status === 'active' ? { id: profile.id, name: profile.name, email: profile.email, payout: ac.payout } : null;
-          })
-          .filter((c): c is { id: string; name: string; email: string; payout: number } => !!c);
-
-        if (assignedCleaners.length === 0) continue; // no roster yet — leave pending for manual dispatch
-
-        try {
-          await dispatchCleaningJob({
-            jobId: job.id,
-            propertyName: job.propertyName,
-            checkoutDate: job.checkoutDate,
-            checkinDate: job.checkinDate,
-            guestName: job.guestName,
-            cleanerPayout: 0,
-            notes: job.notes,
-            cleaners: assignedCleaners,
-          });
-          const dispatchedAt = new Date().toISOString();
-          await handleUpdateJob({ ...job, status: 'dispatched', dispatchedAt, updatedAt: dispatchedAt });
-        } catch {
-          // leave as pending — admin can dispatch manually from the Jobs tab
-        }
-      }
+      const r = await syncCleaningJobsNow();
+      if (r.created || r.updated || r.cancelled || r.dispatched) setJobs(await fetchCleaningJobs());
+      if (r.errors?.length) console.warn('Booking sync issues:', r.errors);
+    } catch (e) {
+      console.warn('Booking sync failed:', e);
     } finally {
       setAutoSyncing(false);
       autoSyncRef.current = false;
