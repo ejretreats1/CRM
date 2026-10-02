@@ -36,7 +36,12 @@ class FakeStripe {
   transfers = { create: async (p: any, o: any) => { const t = { id: `tr_${this.transferLog.length + 1}`, amount: p.amount, metadata: p.metadata, key: o.idempotencyKey, params: p }; this.transferLog.push(t); return t; }, list: async () => ({ data: this.transferLog }) };
   accounts = { retrieve: async (id: string) => ({ payouts_enabled: !!this.payoutsEnabled[id] }) };
 }
-const { chargeJob, payoutJob, markPayoutPaid, findChargeableJobs, findPayableJobs } = await import(process.cwd() + '/api/_billing.ts');
+import { execSync } from 'node:child_process';
+import { unlinkSync } from 'node:fs';
+const bundle = process.cwd() + '/_billing.test-bundle.mjs';
+execSync(`npx esbuild api/_billing.ts --bundle --platform=node --format=esm --packages=external --log-level=error --outfile=${bundle}`, { stdio: 'inherit' });
+const { chargeJob, payoutJob, markPayoutPaid, findChargeableJobs, findPayableJobs } = await import(bundle);
+try { unlinkSync(bundle); } catch { /* ignore */ }
 const base = () => ({
   cleaning_jobs: [
     { id: 'j1', property_id: 'p1', property_name: 'Beach', checkout_date: '2026-10-01', status: 'completed', cleaning_fee: 120, cleaner_payout: 80, assigned_cleaner_id: 'c1', assigned_cleaner_name: 'Pat', portal_data: { submittedAt: 'x' }, charged_at: null, payout_sent_at: null, charge_status: null, charge_attempts: 0, updated_at: '2026-10-01T00:00:00Z' },

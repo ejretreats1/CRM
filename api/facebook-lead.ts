@@ -1,6 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID, createHmac, timingSafeEqual } from 'crypto';
+import Stripe from 'stripe';
+import { Resend } from 'resend';
+import { handleStripeWebhook } from './_stripe_webhook';
 
 function toE164(phone: string): string | null {
   const digits = phone.replace(/\D/g, '');
@@ -162,6 +165,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Read the raw body before parsing (needed for HMAC check)
   const rawBody = await readRawBody(req);
+
+  // Stripe webhook (rewritten here from /api/stripe-webhook so it shares this
+  // function's raw-body handling; Stripe signatures need the exact bytes).
+  if (req.query.provider === 'stripe') {
+    return handleStripeWebhook(req, res, rawBody, {
+      db: supabase,
+      stripe: new Stripe(process.env.STRIPE_SECRET_KEY!),
+      resend: new Resend(process.env.RESEND_API_KEY),
+      secret: process.env.STRIPE_WEBHOOK_SECRET,
+    });
+  }
 
   let body: Record<string, unknown>;
   try {

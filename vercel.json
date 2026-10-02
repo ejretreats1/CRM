@@ -3,6 +3,7 @@
     "api/documents.ts": { "maxDuration": 60 }
   },
   "rewrites": [
+    { "source": "/api/stripe-webhook", "destination": "/api/facebook-lead?provider=stripe" },
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/cleaner", "destination": "/cleaner.html" },
     { "source": "/(.*)", "destination": "/index.html" }

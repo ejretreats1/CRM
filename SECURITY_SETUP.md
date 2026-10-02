@@ -14,6 +14,7 @@ be locked so the public browser key can't read or write business data.
 | `ADMIN_EMAIL` | Recommended | Where admin notifications go (default `ejretreats1@gmail.com`). |
 | `CLERK_PUBLISHABLE_KEY` | Optional | Server verifies admin sessions against this Clerk instance. Defaults to `VITE_CLERK_PUBLISHABLE_KEY`, which Vercel already exposes to functions. `CLERK_JWKS_URL` can override the derived JWKS URL. |
 | `VITE_SUPABASE_CLERK_AUTH` | After step 2 | `true` makes the CRM send the Clerk token with every Supabase query. |
+| `STRIPE_WEBHOOK_SECRET` | For the webhook | Signing secret of the Stripe webhook endpoint (step 5). |
 
 ## 2. Clerk ↔ Supabase (needed before the RLS lockdown)
 
@@ -53,3 +54,23 @@ format) no longer work. Re-send portal links from the Cleaners tab.
 | Cleaner agreement / Stripe setup | onboarding / connect token | sign, connect Stripe |
 
 Everything else under `/api/documents` requires a signed-in CRM admin.
+
+## 5. Stripe webhook (receipts, declined-card follow-up, Connect status)
+
+1. Run `supabase-stripe-webhook-migration.sql`.
+2. Stripe dashboard → Developers → Webhooks → **Add endpoint**.
+   - Endpoint URL: `https://crm-nine-delta-37.vercel.app/api/stripe-webhook` (use your `APP_URL`).
+   - Events: `payment_intent.succeeded`, `payment_intent.payment_failed`,
+     `setup_intent.succeeded`, `account.updated`, `transfer.reversed`,
+     `charge.dispute.created`, `charge.refunded`.
+   - For `account.updated` to arrive for cleaners' Express accounts, the endpoint
+     must **listen to events on Connected accounts** as well (toggle on the
+     endpoint form), or add a second endpoint with the same URL for connected accounts.
+3. Copy the endpoint's **Signing secret** (`whsec_…`) into Vercel as `STRIPE_WEBHOOK_SECRET`, redeploy.
+4. Send a test event from the Stripe dashboard; the endpoint should return `{"received":true,...}`.
+
+What it does: confirms charges and pays cleaners if the API path missed it, emails the
+client a receipt with the cleaner's photos, emails a card-update link when a charge is
+declined (once per 3 days) and retries the charge automatically once a new card is saved,
+marks cleaners Stripe-active and releases waiting payouts when they finish Connect, and
+alerts you on reversed transfers, disputes and refunds.
