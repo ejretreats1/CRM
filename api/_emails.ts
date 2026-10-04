@@ -1,5 +1,5 @@
 // Shared transactional emails for the cleaning business.
-import { APP_URL, escapeHtml } from './_auth';
+import { APP_URL, escapeHtml } from './_auth.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Resend = any;

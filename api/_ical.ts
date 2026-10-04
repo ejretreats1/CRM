@@ -2,7 +2,7 @@
 // Fetches every calendar feed on a property and hands the bookings to
 // reconcileJobs(), which creates / moves / cancels cleaning jobs.
 
-import { reconcileJobs, type BookingLike, type ReconcileResult } from './_jobs';
+import { reconcileJobs, type BookingLike, type ReconcileResult } from './_jobs.js';
 
 export interface IcalEvent {
   uid: string;

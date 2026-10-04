@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID, createHmac, timingSafeEqual } from 'crypto';
 import Stripe from 'stripe';
 import { Resend } from 'resend';
-import { handleStripeWebhook } from './_stripe_webhook';
+import { handleStripeWebhook } from './_stripe_webhook.js';
 
 function toE164(phone: string): string | null {
   const digits = phone.replace(/\D/g, '');

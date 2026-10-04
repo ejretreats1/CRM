@@ -15,10 +15,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type Stripe from 'stripe';
 import { randomUUID } from 'crypto';
-import { APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth';
-import { payoutJob, chargeJob, findPayableJobs } from './_billing';
-import { CLEANING_FROM, sendCleanerPortalEmail, sendClientReceiptEmail, sendCardUpdateEmail } from './_emails';
-import { maybeActivateCleaner } from './_jobs';
+import { APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth.js';
+import { payoutJob, chargeJob, findPayableJobs } from './_billing.js';
+import { CLEANING_FROM, sendCleanerPortalEmail, sendClientReceiptEmail, sendCardUpdateEmail } from './_emails.js';
+import { maybeActivateCleaner } from './_jobs.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any;

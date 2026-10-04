@@ -15,8 +15,8 @@
 // is still unassigned close to checkout.
 
 import { randomUUID } from 'crypto';
-import { APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth';
-import { CLEANING_FROM, sendJobOfferEmail, sendJobCancelledEmail, sendJobRescheduledEmail } from './_emails';
+import { APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth.js';
+import { CLEANING_FROM, sendJobOfferEmail, sendJobCancelledEmail, sendJobRescheduledEmail } from './_emails.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any;
