@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth';
+import { APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth.js';
 import { Resend } from 'resend';
 import Stripe from 'stripe';
-import { syncPropertyIcal } from './_ical';
-import { syncUplistingJobs, dispatchTick } from './_jobs';
-import { sendMorningReminders, sendSms } from './_sms';
-import { chargeJob, payoutJob, findChargeableJobs, findPayableJobs } from './_billing';
+import { syncPropertyIcal } from './_ical.js';
+import { syncUplistingJobs, dispatchTick } from './_jobs.js';
+import { sendMorningReminders, sendSms } from './_sms.js';
+import { chargeJob, payoutJob, findChargeableJobs, findPayableJobs } from './_billing.js';
 
 export const config = { maxDuration: 60 };
 

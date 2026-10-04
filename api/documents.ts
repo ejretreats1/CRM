@@ -2,13 +2,13 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
-import { requireAdmin, APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth';
-import { chargeJob, payoutJob, markPayoutPaid } from './_billing';
+import { requireAdmin, APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth.js';
+import { chargeJob, payoutJob, markPayoutPaid } from './_billing.js';
 
 
-import { syncPropertyIcal } from './_ical';
-import { dispatchJob, advanceDispatch, syncUplistingJobs, dispatchTick, maybeActivateCleaner, type RosterCleaner } from './_jobs';
-import { sendCleanerPortalEmail, sendJobCancelledEmail, sendClientReceiptEmail, emailId } from './_emails';
+import { syncPropertyIcal } from './_ical.js';
+import { dispatchJob, advanceDispatch, syncUplistingJobs, dispatchTick, maybeActivateCleaner, type RosterCleaner } from './_jobs.js';
+import { sendCleanerPortalEmail, sendJobCancelledEmail, sendClientReceiptEmail, emailId } from './_emails.js';
 
 let _resend: any = null;
 async function getResend() {

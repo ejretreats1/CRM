@@ -1,6 +1,6 @@
 // Shared SMS helpers (Twilio) — not a Vercel function (_ prefix).
-import { todayET, dateLabel } from './_jobs';
-import { cleanerPortalUrl } from './_emails';
+import { todayET, dateLabel } from './_jobs.js';
+import { cleanerPortalUrl } from './_emails.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any;
