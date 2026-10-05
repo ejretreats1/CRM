@@ -177,6 +177,29 @@ export default function OwnerDetail({
   const [generatingOLink, setGeneratingOLink] = useState(false);
   const [oLink, setOLink] = useState<string | null>(null);
   const [oLinkCopied, setOLinkCopied] = useState(false);
+  const [vrboCopied, setVrboCopied] = useState(false);
+
+  /** Copy-and-send text asking the client to create a bare-bones Vrbo account we can connect to Uplisting. */
+  function vrboSetupMessage(): string {
+    const first = (owner.name ?? '').trim().split(' ')[0] || 'there';
+    return `Hi ${first}, quick favor so we can get your place live on Vrbo as well.
+
+We need a Vrbo owner account in your name that we then connect to our booking system (Uplisting). It takes about 10 minutes:
+
+1. Go to vrbo.com/list and click "List your property."
+2. Create the account with your email and a password.
+3. Add the bare minimum to get through the setup: property address, type, bedrooms/bathrooms, max guests, and one photo. Skip or put placeholders for everything else (description, pricing, calendar). We'll fill all of that in from our side once it's connected.
+4. When you reach payment setup, you can enter your own bank or skip for now. Payouts can be changed later.
+5. Don't publish yet if it gives you the option, just save.
+
+Then send us the login email and password so we can sign in and link the account to Uplisting. Once it's connected, we manage pricing, calendar sync, messaging and the listing itself, and you don't need to touch Vrbo again. After we've linked it you're welcome to change the password. The connection stays active.
+
+Reply here if you get stuck on any step and I'll walk you through it.`;
+  }
+  async function copyVrboMessage() {
+    try { await navigator.clipboard.writeText(vrboSetupMessage()); setVrboCopied(true); setTimeout(() => setVrboCopied(false), 2500); }
+    catch { prompt('Copy this message:', vrboSetupMessage()); }
+  }
 
   // Submissions store one entry per property. Older submissions kept a single
   // property's fields flat on the form itself — fall back to that shape.
@@ -862,6 +885,21 @@ export default function OwnerDetail({
           >
             {generatingOLink ? <Loader size={13} className="animate-spin" /> : <Link2 size={13} />}
             {onboardingData ? 'Re-generate Link' : 'Generate Link'}
+          </button>
+        </div>
+
+        {/* Vrbo account setup message */}
+        <div className="bg-[#1a2335] rounded-xl border border-[#243550] p-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-white">Vrbo account setup message</p>
+            <p className="text-xs text-[#3a5070] mt-0.5">Copy a ready-to-send text asking {owner.name?.split(' ')[0] || 'the client'} to create a bare-bones Vrbo account and send us the login so we can connect it to Uplisting.</p>
+          </div>
+          <button
+            onClick={copyVrboMessage}
+            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex-shrink-0 ${vrboCopied ? 'bg-[#0a2518] border border-[#1e4030] text-[#5ce0a0]' : 'bg-[#1e2d45] hover:bg-[#1e3a5a] text-[#b8d4f0] border border-[#1e3a5a]'}`}
+          >
+            {vrboCopied ? <Check size={13} /> : <Copy size={13} />}
+            {vrboCopied ? 'Copied!' : 'Copy Vrbo message'}
           </button>
         </div>
 
