@@ -231,3 +231,25 @@ export async function sendJobRescheduledEmail(resend: Resend, opts: { to: string
   });
   return { id: emailIdOrThrow(result), subject };
 }
+
+/** "Please submit your cleaning report" — sent by the admin for an overdue report. */
+export async function sendReportReminderEmail(resend: Resend, opts: { to: string; name: string; propertyName: string; checkoutDate: string; portalLink: string; dashboardLink?: string | null }) {
+  const subject = `Reminder: submit your cleaning report — ${opts.propertyName} (${longDate(opts.checkoutDate)})`;
+  const result = await resend.emails.send({
+    from: CLEANING_FROM, to: opts.to, subject,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+        <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+          <h2 style="color:#b45309;margin:0 0 12px;font-size:20px">📋 Cleaning report still needed</h2>
+          <p style="color:#334155">Hi ${escapeHtml(opts.name)},</p>
+          <p style="color:#334155">We don't have your report yet for the clean at <strong>${escapeHtml(opts.propertyName)}</strong> on <strong>${longDate(opts.checkoutDate)}</strong>. Your payout is released as soon as the report is in, so please take a minute to submit it: photos, checklist, and any damage or supply notes.</p>
+          <div style="text-align:center;margin:24px 0">
+            <a href="${opts.portalLink}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">Submit Cleaning Report</a>
+          </div>
+          ${opts.dashboardLink ? `<p style="color:#64748b;font-size:13px;text-align:center">Or open your <a href="${opts.dashboardLink}" style="color:#1e40af">Cleaner Portal</a> and tap the job under "Needs report".</p>` : ''}
+          <p style="color:#94a3b8;font-size:12px;margin:16px 0 0">— E&amp;J Retreats Cleaning</p>
+        </div>
+      </div>`,
+  });
+  return { id: emailIdOrThrow(result), subject };
+}

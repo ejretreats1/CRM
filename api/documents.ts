@@ -8,7 +8,8 @@ import { chargeJob, payoutJob, markPayoutPaid } from './_billing.js';
 
 import { syncPropertyIcal } from './_ical.js';
 import { dispatchJob, advanceDispatch, syncUplistingJobs, dispatchTick, maybeActivateCleaner, type RosterCleaner } from './_jobs.js';
-import { sendCleanerPortalEmail, sendJobCancelledEmail, sendClientReceiptEmail, emailId } from './_emails.js';
+import { sendCleanerPortalEmail, sendJobCancelledEmail, sendClientReceiptEmail, sendReportReminderEmail, cleanerPortalUrl, emailId } from './_emails.js';
+import { sendSms } from './_sms.js';
 
 let _resend: any = null;
 async function getResend() {
@@ -1021,6 +1022,41 @@ async function cleaningMarkPayoutPaid(body: any, res: VercelResponse) {
   const r = await markPayoutPaid(getSupabase(), jobId, { method, reference, paidAt });
   if (!r.ok) return res.status(400).json({ error: r.error });
   return res.json({ success: true });
+}
+
+/** Admin: nudge the assigned cleaner to submit an overdue report (email + text). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningRemindReport(body: any, res: VercelResponse) {
+  const { jobId } = body;
+  if (!jobId) return res.status(400).json({ error: 'jobId required.' });
+  const supabase = getSupabase();
+  const { data: job } = await supabase.from('cleaning_jobs').select('id, property_name, checkout_date, status, assigned_cleaner_id, dispatch_tokens, portal_data').eq('id', jobId).maybeSingle();
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
+  if (!job.assigned_cleaner_id) return res.status(400).json({ error: 'No cleaner is assigned to this job.' });
+  if (job.status === 'completed' || job.portal_data?.submittedAt) return res.status(409).json({ error: 'The report for this job is already in.' });
+  const { data: cleaner } = await supabase.from('cleaners').select('id, name, email, phone, dashboard_token').eq('id', job.assigned_cleaner_id).maybeSingle();
+  if (!cleaner) return res.status(404).json({ error: 'Cleaner not found.' });
+  const tokens = (job.dispatch_tokens ?? {}) as Record<string, { cleanerId: string }>;
+  const token = Object.entries(tokens).find(([, t]) => t.cleanerId === cleaner.id)?.[0];
+  if (!token) return res.status(400).json({ error: 'This cleaner has no job link on file. Re-dispatch the job to them first.' });
+  const portalLink = `${APP_URL}/?cleaner=${jobId}:${token}`;
+  const dashboardLink = cleaner.dashboard_token ? cleanerPortalUrl(cleaner, cleaner.dashboard_token) : null;
+  const out: { email?: string; sms?: string } = {};
+  if (cleaner.email) {
+    try {
+      const sent = await sendReportReminderEmail(await getResend(), { to: cleaner.email, name: cleaner.name, propertyName: job.property_name, checkoutDate: job.checkout_date, portalLink, dashboardLink });
+      if (sent.id) await logEmail(sent.id, 'cleaning-report-reminder', cleaner.email, sent.subject, jobId, cleaner.name);
+      out.email = 'sent';
+    } catch (e) { out.email = `failed: ${e instanceof Error ? e.message : String(e)}`; }
+  }
+  const phone = normalizePhone(cleaner.phone);
+  if (phone) {
+    try {
+      const sid = await sendSms(phone, `Hi ${String(cleaner.name).split(' ')[0]}, E&J Retreats here — we still need your cleaning report for ${job.property_name} (${new Date(job.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}). Your payout goes out once it's in: ${portalLink}`);
+      out.sms = sid ? 'sent' : 'not configured';
+    } catch (e) { out.sms = `failed: ${e instanceof Error ? e.message : String(e)}`; }
+  }
+  return res.status(200).json({ ok: true, ...out });
 }
 
 async function cleaningCancellation(body: any, res: VercelResponse) {
@@ -2730,21 +2766,29 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
   }
 
   const supabase = getSupabase();
+  res.setHeader('Cache-Control', 'private, no-store'); // personal data; the page keeps its own local copy
 
+  // Only what the dashboard renders: unfinished jobs always, finished ones from the last 60 days.
+  const JOB_COLS = 'id, property_id, property_name, checkout_date, checkin_date, guest_name, notes, status, cleaner_payout, assigned_cleaner_id, dispatch_tokens, same_day, completed_at, portal_data';
+  const sixtyDaysAgo = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
   const [{ data: cleanerRow }, { data: myJobRows }, { data: dispatchedRows }, { data: configs }] = await Promise.all([
-    supabase.from('cleaners').select('*').eq('id', cleanerId).single(),
+    supabase.from('cleaners').select('id, name, email, phone, dashboard_token, status').eq('id', cleanerId).maybeSingle(),
     supabase.from('cleaning_jobs')
-      .select('*')
+      .select(JOB_COLS)
       .eq('assigned_cleaner_id', cleanerId)
-      .not('status', 'in', '("cancelled")')
-      .order('checkout_date', { ascending: true }),
+      .neq('status', 'cancelled')
+      .or(`status.in.(accepted,in_progress),checkout_date.gte.${sixtyDaysAgo}`)
+      .order('checkout_date', { ascending: true })
+      .limit(200),
     supabase.from('cleaning_jobs')
-      .select('*')
+      .select(JOB_COLS)
       .eq('status', 'dispatched')
       .is('assigned_cleaner_id', null)
-      .order('checkout_date', { ascending: true }),
+      .gte('checkout_date', sixtyDaysAgo)
+      .order('checkout_date', { ascending: true })
+      .limit(100),
     supabase.from('cleaning_property_configs')
-      .select('property_id,door_code,address,checkout_time,checkin_time,photo_url'),
+      .select('property_id,linked_property_ids,door_code,address,checkout_time,checkin_time,photo_url'),
   ]);
 
   if (!cleanerRow) return res.status(404).json({ error: 'Cleaner not found.' });
@@ -2757,7 +2801,7 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function enrichJob(row: any, myPayout?: number) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cfg = (configs ?? []).find((c: any) => c.property_id === row.property_id);
+    const cfg = (configs ?? []).find((c: any) => c.property_id === row.property_id || (c.linked_property_ids ?? []).includes(row.property_id));
     // Find this cleaner's dispatch token so the dashboard can link to the job portal
     const tokens = (row.dispatch_tokens ?? {}) as Record<string, { cleanerId: string; payout?: number }>;
     const portalToken = Object.entries(tokens).find(([, t]) => t.cleanerId === cleanerId)?.[0] ?? null;
@@ -2778,6 +2822,9 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
       checkinTime: cfg?.checkin_time ?? null,
       photoUrl: cfg?.photo_url ?? null,
       portalToken,
+      sameDay: !!row.same_day || (!!row.checkin_date && row.checkin_date === row.checkout_date),
+      reportSubmitted: !!(row.portal_data?.submittedAt) || row.status === 'completed',
+      completedAt: row.completed_at ?? null,
     };
   }
 
@@ -2798,6 +2845,7 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
     },
     myJobs: (myJobRows ?? []).map((r: any) => enrichJob(r)), // eslint-disable-line @typescript-eslint/no-explicit-any
     availableJobs,
+    serverTime: new Date().toISOString(),
   });
 }
 
@@ -4292,6 +4340,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'decline')           return await cleaningDecline(body, res);
     if (action === 'submit')            return await cleaningSubmit(body, res);
     if (action === 'charge-and-payout') return await cleaningChargeAndPayout(body, res);
+    if (action === 'remind-report')     return await cleaningRemindReport(body, res);
     if (action === 'ical-sync') {
       const { propertyId } = body;
       if (!propertyId) return res.status(400).json({ error: 'propertyId required' });

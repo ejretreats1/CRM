@@ -238,6 +238,25 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
   }
 
   const [undoing, setUndoing] = useState<string | null>(null);
+  const [reminding, setReminding] = useState<string | null>(null);
+
+  /** Email + text the assigned cleaner about a report that's overdue. */
+  async function handleRemindReport(job: CleaningJob) {
+    setReminding(job.id);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'remind-report', jobId: job.id }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Failed to send reminder.');
+      alert(`Reminder sent to ${job.assignedCleanerName ?? 'the cleaner'} — email ${d.email ?? 'n/a'}${d.sms ? `, text ${d.sms}` : ''}.`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed.');
+    } finally {
+      setReminding(null);
+    }
+  }
 
   async function handleUndoComplete(job: CleaningJob) {
     if (!confirm('Undo complete? This will set the job back to Accepted so it will still auto-charge today if the checkout date matches.')) return;
@@ -501,6 +520,15 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                       )}
                     </div>
 
+                    {(job.status === 'accepted' || job.status === 'in_progress') && !job.portalData && job.checkoutDate < new Date().toISOString().slice(0, 10) && (
+                      <div className="flex items-center gap-2 flex-wrap text-xs">
+                        <span className="text-[#d0954a]">📋 Report overdue — not charged until the cleaner submits (or you click Complete, then Retry Charge).</span>
+                        <button onClick={() => handleRemindReport(job)} disabled={reminding === job.id}
+                          className="px-2 py-0.5 rounded-md border border-[#4a3010] text-[#d0954a] hover:bg-[#2a1a05] font-semibold disabled:opacity-50">
+                          {reminding === job.id ? 'Sending…' : 'Remind cleaner'}
+                        </button>
+                      </div>
+                    )}
                     {job.status === 'dispatched' && job.dispatchEmailError && (
                       <div className="flex items-center gap-1.5 text-xs text-[#e05c5c]">
                         <span>✉️ Offer email failed — {job.dispatchEmailError}. Text/call them or re-dispatch.</span>
