@@ -234,7 +234,7 @@ function JobDetailModal({
                 </div>
               </div>
             )}
-            {job.checkinDate && (
+            {job.checkinDate && job.checkinDate >= job.checkoutDate && (
               <div className="flex items-start gap-2.5">
                 <Clock size={14} className={`mt-0.5 flex-shrink-0 ${isSameDay ? 'text-red-400' : 'text-[#3a5070]'}`} />
                 <div>

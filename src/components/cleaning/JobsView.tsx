@@ -498,7 +498,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         <span className="text-[#3a5070]">Cleaning:</span>
                         <span className="text-[#b8d4f0] font-medium">{fmt(job.checkoutDate)}</span>
                       </div>
-                      {job.checkinDate && (
+                      {job.checkinDate && job.checkinDate >= job.checkoutDate && (
                         <div className="flex items-center gap-1.5 text-xs">
                           <Calendar size={12} className="text-[#3a5070]" />
                           <span className="text-[#3a5070]">Next check-in:</span>
@@ -544,7 +544,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                       )}
                     </div>
 
-                    {(job.status === 'accepted' || job.status === 'in_progress') && !job.portalData && job.checkoutDate < new Date().toISOString().slice(0, 10) && (
+                    {(job.status === 'accepted' || job.status === 'in_progress') && !job.portalData && !job.chargedAt && job.checkoutDate < new Date().toISOString().slice(0, 10) && (
                       <div className="flex items-center gap-2 flex-wrap text-xs">
                         <span className="text-[#d0954a]">📋 Report overdue — not charged until the cleaner submits (or click Complete, then Charge now).</span>
                         <button onClick={() => handleRemindReport(job)} disabled={reminding === job.id}
@@ -601,6 +601,11 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                           className="px-2 py-0.5 rounded-md border border-[#1e3a5a] text-[#4a90d9] hover:bg-[#0d1e35] font-semibold disabled:opacity-50">
                           {reminding === job.id ? 'Sending…' : 'Remind cleaner'}
                         </button>
+                      </div>
+                    )}
+                    {(job.status === 'accepted' || job.status === 'in_progress') && job.chargedAt && !job.portalData && (
+                      <div className="flex items-center gap-2 flex-wrap text-xs text-[#3a5070]">
+                        <span>Already billed{job.payoutSentAt ? ' and paid' : ''} — no report needed. Click <strong>Complete</strong> to close it out; nothing is charged again.</span>
                       </div>
                     )}
                     {job.portalData?.waived && (
