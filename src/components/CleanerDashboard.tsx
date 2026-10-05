@@ -104,12 +104,11 @@ function JobDetailModal({
   const isAvailable = job.status === 'dispatched';
   const isSameDay = job.sameDay || (job.checkinDate && job.checkinDate === job.checkoutDate);
 
-  // Escape closes; lock background scroll while open.
+  // Escape closes the modal.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow; document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+    return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
   async function handlePass() {
@@ -404,7 +403,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
   // Nothing cached and the request failed → full-screen error with retry.
   if (error && !data) {
     return (
-      <div className="min-h-screen bg-[#0a1628] flex items-center justify-center p-6">
+      <div className="h-screen overflow-y-auto bg-[#0a1628] flex items-center justify-center p-6">
         <div className="text-center max-w-xs">
           <AlertTriangle size={32} className="text-[#d0954a] mx-auto mb-3" />
           <p className="text-white font-semibold mb-2">Unable to load your portal</p>
@@ -420,7 +419,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
   // Skeleton while the very first load is in flight.
   if (!data) {
     return (
-      <div className="min-h-screen bg-[#0a1628]">
+      <div className="h-screen overflow-y-auto bg-[#0a1628]">
         <div className="bg-[#0f1923] border-b border-[#1e2d45] px-5 py-5">
           <div className="h-3 w-24 bg-[#1e2d45] rounded mb-2 animate-pulse" />
           <div className="h-6 w-40 bg-[#1e2d45] rounded animate-pulse" />
@@ -452,7 +451,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
   );
 
   return (
-    <div className="min-h-screen bg-[#0a1628] pb-10">
+    <div className="h-screen overflow-y-auto overscroll-contain bg-[#0a1628] pb-10" style={{ WebkitOverflowScrolling: 'touch' }}>
       {/* Header */}
       <div className="bg-[#0f1923] border-b border-[#1e2d45] px-5 py-4">
         <div className="max-w-lg mx-auto flex items-start justify-between gap-3">
