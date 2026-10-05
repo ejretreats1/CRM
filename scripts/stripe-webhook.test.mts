@@ -98,7 +98,10 @@ const results: Record<string, boolean> = {};
   results.accountActivates = r.status === 200 && sam.stripe_connect_status === 'active' && !!sam.dashboard_token && !!portal && portal.html.includes(`cleaner-dashboard=Sam-Roe:c2:${sam.dashboard_token}`);
   results.accountReleasesManualDue = db.tables.cleaning_jobs[1].payout_status === 'sent' && stripe.transferLog.length === 1 && stripe.transferLog[0].metadata.job_id === 'j2';
   const again = await deliver(deps, 'account.updated', { id: 'acct_2', object: 'account', payouts_enabled: true });
-  results.accountNoRepeatEmail = again.body?.handled === 'account_updated:no_change' && resend.sent.filter(m => m.to === 'sam@x.com').length === 1; }
+  // Sam gets the portal email + one "payout sent" email for the released payout; a repeat event sends nothing more.
+  const samMails = () => resend.sent.filter(m => m.to === 'sam@x.com');
+  results.accountPayoutEmailed = samMails().some(m => /payout sent/i.test(m.subject) && /\$80\.00/.test(m.subject));
+  results.accountNoRepeatEmail = again.body?.handled === 'account_updated:no_change' && samMails().length === 2; }
 { const db = new FakeDb(base()), stripe = new FakeStripeApi(), resend = new FakeResend(); const deps = { db, stripe, resend };
   db.tables.cleaning_jobs[0].payout_sent_at = 'x'; db.tables.cleaning_jobs[0].payout_status = 'sent';
   const r = await deliver(deps, 'transfer.reversed', { id: 'tr_9', amount: 8000, metadata: { job_id: 'j1' } });

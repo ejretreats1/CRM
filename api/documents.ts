@@ -1006,7 +1006,7 @@ async function manualCleanerPayout(body: any, res: VercelResponse) {
 async function sendJobPayout(body: any, res: VercelResponse) {
   const { jobId } = body;
   if (!jobId) return res.status(400).json({ error: 'jobId required.' });
-  const outcome = await payoutJob(getSupabase(), await getStripe(), jobId, { manual: true });
+  const outcome = await payoutJob(getSupabase(), await getStripe(), jobId, { manual: true, notify: { resend: await getResend(), sms: sendSms } });
   if (outcome.status === 'sent') return res.json({ transferId: outcome.transferId, jobId, amount: outcome.amount, warning: outcome.error ?? null });
   if (outcome.status === 'already_sent') return res.status(400).json({ error: 'Payout already sent.' });
   if (outcome.status === 'manual_due') return res.status(409).json({ error: 'This cleaner has no active Stripe account yet — pay them directly and use “Mark paid”.', manualDue: true });
@@ -1019,7 +1019,7 @@ async function sendJobPayout(body: any, res: VercelResponse) {
 async function cleaningMarkPayoutPaid(body: any, res: VercelResponse) {
   const { jobId, method, reference, paidAt } = body;
   if (!jobId) return res.status(400).json({ error: 'jobId required.' });
-  const r = await markPayoutPaid(getSupabase(), jobId, { method, reference, paidAt });
+  const r = await markPayoutPaid(getSupabase(), jobId, { method, reference, paidAt, notify: { resend: await getResend(), sms: sendSms } });
   if (!r.ok) return res.status(400).json({ error: r.error });
   return res.json({ success: true });
 }
@@ -2801,7 +2801,7 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
   res.setHeader('Cache-Control', 'private, no-store'); // personal data; the page keeps its own local copy
 
   // Only what the dashboard renders: unfinished jobs always, finished ones from the last 60 days.
-  const JOB_COLS = 'id, property_id, property_name, checkout_date, checkin_date, guest_name, notes, status, cleaner_payout, assigned_cleaner_id, dispatch_tokens, same_day, completed_at, portal_data, charged_at, payout_sent_at, payout_status, payout_due_at';
+  const JOB_COLS = 'id, property_id, property_name, checkout_date, checkin_date, guest_name, notes, status, cleaner_payout, assigned_cleaner_id, dispatch_tokens, same_day, completed_at, portal_data, charged_at, payout_sent_at, payout_status, payout_due_at, payout_method';
   const sixtyDaysAgo = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
   const [{ data: cleanerRow }, { data: myJobRows }, { data: dispatchedRows }, { data: configs }] = await Promise.all([
     supabase.from('cleaners').select('id, name, email, phone, dashboard_token, status').eq('id', cleanerId).maybeSingle(),
@@ -2864,6 +2864,8 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
       paidOut: !!row.payout_sent_at,
       payoutStatus: row.payout_status ?? null,
       payoutDueAt: row.payout_due_at ?? null,
+      paidAt: row.payout_sent_at ?? null,
+      payoutMethod: row.payout_method ?? null,
     };
   }
 

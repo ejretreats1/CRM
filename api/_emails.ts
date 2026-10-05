@@ -253,3 +253,23 @@ export async function sendReportReminderEmail(resend: Resend, opts: { to: string
   });
   return { id: emailIdOrThrow(result), subject };
 }
+
+/** "Your payout was sent" — Stripe transfer or manual payment recorded by the office. */
+export async function sendPayoutSentEmail(resend: Resend, opts: { to: string; name: string; amount: number; propertyName: string; checkoutDate: string; via: 'stripe' | string }) {
+  const stripe = opts.via === 'stripe';
+  const subject = `💸 $${opts.amount.toFixed(2)} payout sent — ${opts.propertyName} (${longDate(opts.checkoutDate)})`;
+  const result = await resend.emails.send({
+    from: CLEANING_FROM, to: opts.to, subject,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+        <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+          <h2 style="color:#16a34a;margin:0 0 12px;font-size:20px">💸 Payout sent</h2>
+          <p style="color:#334155">Hi ${escapeHtml(opts.name)},</p>
+          <p style="color:#334155">Your payout of <strong style="font-size:18px">$${opts.amount.toFixed(2)}</strong> for the clean at <strong>${escapeHtml(opts.propertyName)}</strong> on ${longDate(opts.checkoutDate)} ${stripe ? 'has been sent through Stripe. It usually lands in your bank account within 1–2 business days (check your Stripe Express dashboard for the exact date).' : `was paid via ${escapeHtml(String(opts.via))}.`}</p>
+          <p style="color:#64748b;font-size:13px;margin-top:20px">Thank you for the great work! Questions about this payout? Just reply to this email.</p>
+          <p style="color:#94a3b8;font-size:12px;margin:16px 0 0">— E&amp;J Retreats Cleaning</p>
+        </div>
+      </div>`,
+  });
+  return { id: emailIdOrThrow(result), subject };
+}
