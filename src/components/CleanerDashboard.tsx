@@ -25,6 +25,8 @@ interface DashJob {
   paidOut?: boolean;
   payoutStatus?: string | null;
   payoutDueAt?: string | null;
+  paidAt?: string | null;
+  payoutMethod?: string | null;
 }
 
 interface DashData {
@@ -365,7 +367,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
   const [savedAt, setSavedAt] = useState<number | null>(cached.current?.savedAt ?? null);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab] = useState<'my-jobs' | 'available'>('my-jobs');
+  const [tab, setTab] = useState<'my-jobs' | 'available' | 'pay'>('my-jobs');
   const [selectedJob, setSelectedJob] = useState<DashJob | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -466,6 +468,13 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
   const completed   = myJobs.filter(j => !seen.has(j.id)).sort((a, b) => b.checkoutDate.localeCompare(a.checkoutDate));
   const openCount = needsReport.length + todayJobs.length + upcoming.length;
   const earned30 = completed.filter(j => j.checkoutDate >= new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)).reduce((s, j) => s + (j.payout || 0), 0);
+  // Pay tab: what's coming and what's been paid (last 60 days of jobs come from the API)
+  const finished = (j: DashJob) => j.payout > 0 && (j.reportSubmitted || j.status === 'completed');
+  const upcomingPay = myJobs.filter(j => finished(j) && !j.paidOut).sort((a, b) => (a.payoutDueAt ?? '').localeCompare(b.payoutDueAt ?? ''));
+  const paidJobs = myJobs.filter(j => finished(j) && j.paidOut).sort((a, b) => (b.paidAt ?? '').localeCompare(a.paidAt ?? ''));
+  const upcomingTotal = upcomingPay.reduce((s, j) => s + j.payout, 0);
+  const paidTotal = paidJobs.reduce((s, j) => s + j.payout, 0);
+  const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const stale = savedAt ? Date.now() - savedAt > 10 * 60_000 : false;
 
   const Section = ({ title, tone, children }: { title: string; tone?: 'warn' | 'live'; children: React.ReactNode }) => (
@@ -504,7 +513,7 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
 
       {/* Tabs */}
       <div className="flex border-b border-[#1e2d45] bg-[#0f1923] sticky top-0 z-10">
-        {([['my-jobs', 'My Cleans', openCount, 'bg-[#4a90d9]'], ['available', 'Available', availableJobs.length, 'bg-[#d0954a]']] as const).map(([key, label, count, color]) => (
+        {([['my-jobs', 'My Cleans', openCount, 'bg-[#4a90d9]'], ['available', 'Available', availableJobs.length, 'bg-[#d0954a]'], ['pay', 'Pay', upcomingPay.length, 'bg-[#5ce0a0]']] as const).map(([key, label, count, color]) => (
           <button key={key} onClick={() => setTab(key)} className={`flex-1 py-3.5 text-sm font-semibold transition-colors relative ${tab === key ? 'text-white' : 'text-[#3a5070] hover:text-[#b8d4f0]'}`}>
             {label}
             {count > 0 && <span className={`ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${tab === key ? `${color} text-white` : 'bg-[#1e2d45] text-[#b8d4f0]'}`}>{count}</span>}
@@ -583,6 +592,68 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
           )
         )}
       </div>
+
+      {tab === 'pay' && (
+        <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#0f1923] border border-[#1e2d45] rounded-2xl px-4 py-3">
+              <p className="text-[10px] font-semibold text-[#3a5070] uppercase tracking-wide">Coming to you</p>
+              <p className="text-2xl font-bold text-[#5ce0a0] mt-0.5">${upcomingTotal}</p>
+              <p className="text-[11px] text-[#3a5070]">{upcomingPay.length} payout{upcomingPay.length === 1 ? '' : 's'} scheduled</p>
+            </div>
+            <div className="bg-[#0f1923] border border-[#1e2d45] rounded-2xl px-4 py-3">
+              <p className="text-[10px] font-semibold text-[#3a5070] uppercase tracking-wide">Paid (last 60 days)</p>
+              <p className="text-2xl font-bold text-white mt-0.5">${paidTotal}</p>
+              <p className="text-[11px] text-[#3a5070]">{paidJobs.length} payout{paidJobs.length === 1 ? '' : 's'}</p>
+            </div>
+          </div>
+          <p className="text-[11px] text-[#3a5070] px-1">Payouts are sent 2 days after you submit a report. Stripe deposits them in your bank 1–2 business days after that. You'll get an email and a text when each one goes out.</p>
+
+          {upcomingPay.length > 0 && (
+            <Section title="Scheduled" tone="live">
+              {upcomingPay.map(job => (
+                <button key={job.id} onClick={() => setSelectedJob(job)} className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-2xl px-4 py-3.5 flex items-center gap-3 text-left hover:border-[#2a4060]">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{job.propertyName}</p>
+                    <p className="text-xs text-[#3a5070] mt-0.5">Clean {fmtShort(job.checkoutDate)}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-base font-bold text-[#5ce0a0]">${job.payout}</p>
+                    <p className="text-[11px] text-[#7a94b8]">
+                      {job.payoutStatus === 'manual_due' ? 'Paid directly by E&J'
+                        : job.payoutStatus === 'failed' ? 'Retrying — we\'re on it'
+                        : job.payoutDueAt ? (new Date(job.payoutDueAt) > new Date() ? `Sends ${fmtDay(job.payoutDueAt)}` : 'Sending today')
+                        : 'Scheduled'}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </Section>
+          )}
+          {paidJobs.length > 0 && (
+            <Section title="Paid">
+              {paidJobs.map(job => (
+                <div key={job.id} className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-2xl px-4 py-3.5 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{job.propertyName}</p>
+                    <p className="text-xs text-[#3a5070] mt-0.5">Clean {fmtShort(job.checkoutDate)}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-base font-bold text-white">${job.payout}</p>
+                    <p className="text-[11px] text-[#3a8060]">Paid {job.paidAt ? fmtDay(job.paidAt) : ''}{job.payoutStatus === 'sent_manual' && job.payoutMethod ? ` · ${job.payoutMethod}` : ' · Stripe'}</p>
+                  </div>
+                </div>
+              ))}
+            </Section>
+          )}
+          {upcomingPay.length === 0 && paidJobs.length === 0 && (
+            <div className="text-center py-12">
+              <DollarSign size={32} className="text-[#1e2d45] mx-auto mb-2" />
+              <p className="text-[#3a5070] text-sm">No payouts yet. Submit a report after each clean and your payout shows up here.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {selectedJob && (
         <JobDetailModal

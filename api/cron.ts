@@ -536,7 +536,7 @@ async function runBilling(res: VercelResponse) {
   for (const job of await findPayableJobs(supabase)) {
     if (Date.now() - startedAt > BUDGET_MS) { results.errors.push('Ran out of time before paying every cleaner; the rest run tomorrow.'); break; }
     try {
-      const r = await payoutJob(supabase, stripe, job.id);
+      const r = await payoutJob(supabase, stripe, job.id, { notify: { resend: getResend(), sms: sendSms } });
       if (r.status === 'sent') { results.payoutsAttempted++; results.payoutsSucceeded++; }
       else if (r.status === 'failed') { results.payoutsAttempted++; results.payoutFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown' }); }
       else if (r.status === 'manual_due') results.manualPayoutsDue.push({ jobId: job.id, property: job.property_name, cleaner: job.assigned_cleaner_name ?? job.assigned_cleaner_id, amount: Number(job.cleaner_payout), date: job.checkout_date });

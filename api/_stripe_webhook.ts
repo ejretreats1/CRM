@@ -218,7 +218,7 @@ async function onAccountUpdated({ db, stripe, resend }: WebhookDeps, account: St
   let paid = 0;
   for (const job of await findPayableJobs(db)) {
     if (job.assigned_cleaner_id !== cleaner.id) continue;
-    const r = await payoutJob(db, stripe, job.id);
+    const r = await payoutJob(db, stripe, job.id, { notify: { resend } });
     if (r.status === 'sent') paid++;
   }
   await adminEmail(resend, `✅ Stripe connected: ${cleaner.name}`,

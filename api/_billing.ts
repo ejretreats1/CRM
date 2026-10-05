@@ -20,6 +20,7 @@
 // Requires the columns added by supabase-cleaning-billing-migration.sql.
 
 import type Stripe from 'stripe';
+import { sendPayoutSentEmail } from './_emails.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any;
@@ -44,6 +45,29 @@ export interface PayoutOutcome {
  * lets the client's charge settle in Stripe first; when the job was charged
  * the transfer is still tied to that charge via source_transaction.
  */
+/** Optional channels for telling the cleaner their payout went out. */
+export interface PayoutNotify {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  resend?: any;
+  sms?: (to: string, body: string) => Promise<string | null>;
+}
+
+async function notifyPayoutSent(job: JobRow, cleaner: JobRow | null, amount: number, via: string, notify?: PayoutNotify) {
+  if (!notify || !cleaner) return;
+  const first = String(cleaner.name ?? '').split(' ')[0] || 'there';
+  const when = new Date(job.checkout_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (notify.resend && cleaner.email) {
+    try { await sendPayoutSentEmail(notify.resend, { to: cleaner.email, name: cleaner.name, amount, propertyName: job.property_name, checkoutDate: job.checkout_date, via }); } catch (e) { console.error('[payout] email failed:', (e as Error).message); }
+  }
+  if (notify.sms && cleaner.phone) {
+    const digits = String(cleaner.phone).replace(/\D/g, '');
+    const to = digits.length === 10 ? `+1${digits}` : digits.length === 11 && digits.startsWith('1') ? `+${digits}` : digits.length > 11 ? `+${digits}` : null;
+    if (to) {
+      try { await notify.sms(to, `Hi ${first}! E&J Retreats sent your $${amount.toFixed(2)} payout for ${job.property_name} (${when})${via === 'stripe' ? ' via Stripe — it usually lands in 1–2 business days' : ` via ${via}`}. Thank you!`); } catch (e) { console.error('[payout] sms failed:', (e as Error).message); }
+    }
+  }
+}
+
 export const PAYOUT_DELAY_DAYS = 2;
 export function payoutDueFrom(iso: string): string {
   return new Date(new Date(iso).getTime() + PAYOUT_DELAY_DAYS * 86400000).toISOString();
@@ -263,7 +287,7 @@ export async function payoutJob(
   db: Db,
   stripe: Stripe,
   jobId: string,
-  opts: { chargeId?: string; manual?: boolean } = {},
+  opts: { chargeId?: string; manual?: boolean; notify?: PayoutNotify } = {},
 ): Promise<PayoutOutcome> {
   const job = await loadJob(db, jobId);
   if (!job) return { status: 'skipped', reason: 'not_found' };
@@ -314,6 +338,7 @@ export async function payoutJob(
       const existing = recent.data.find(t => t.metadata?.job_id === jobId && !t.reversed);
       if (existing) {
         await recordPaid(db, jobId, existing.id, attempt);
+        await notifyPayoutSent(job, cleaner, existing.amount / 100, 'stripe', opts.notify);
         return { status: 'sent', transferId: existing.id, amount: existing.amount / 100 };
       }
     } catch { /* fall through */ }
@@ -353,6 +378,7 @@ export async function payoutJob(
   }
 
   const recordErr = await recordPaid(db, jobId, transfer.id, attempt);
+  await notifyPayoutSent(job, cleaner, amount, 'stripe', opts.notify);
   return { status: 'sent', transferId: transfer.id, amount, ...(recordErr ? { error: `Sent, but recording it failed: ${recordErr}` } : {}) };
 }
 
@@ -373,21 +399,27 @@ async function recordPaid(db: Db, jobId: string, transferId: string, attempt: nu
 export async function markPayoutPaid(
   db: Db,
   jobId: string,
-  details: { method?: string; reference?: string; paidAt?: string },
+  details: { method?: string; reference?: string; paidAt?: string; notify?: PayoutNotify },
 ): Promise<{ ok: boolean; error?: string }> {
   const job = await loadJob(db, jobId);
   if (!job) return { ok: false, error: 'Job not found.' };
   if (job.payout_sent_at) return { ok: false, error: 'Payout already recorded for this job.' };
   const now = nowIso();
+  const method = details.method?.trim() || 'manual';
   const { error } = await db.from('cleaning_jobs').update({
     payout_sent_at: details.paidAt ?? now,
     payout_status: 'sent_manual',
-    payout_method: details.method?.trim() || 'manual',
+    payout_method: method,
     payout_reference: details.reference?.trim() || null,
     payout_error: null,
     updated_at: now,
   }).eq('id', jobId);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  if (error) return { ok: false, error: error.message };
+  if (details.notify && job.assigned_cleaner_id) {
+    const { data: cleaner } = await db.from('cleaners').select('*').eq('id', job.assigned_cleaner_id).maybeSingle();
+    await notifyPayoutSent(job, cleaner ?? null, Number(job.cleaner_payout ?? 0), method, details.notify);
+  }
+  return { ok: true };
 }
 
 /** Completed jobs whose payout is scheduled for later (for the daily summary). */
