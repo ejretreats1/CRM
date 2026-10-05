@@ -1024,6 +1024,33 @@ async function cleaningMarkPayoutPaid(body: any, res: VercelResponse) {
   return res.json({ success: true });
 }
 
+/**
+ * Admin: waive the cleaner's report for a job (e.g. the portal was down). Marks
+ * the job completed with a placeholder report so billing can proceed. Nothing is
+ * charged here — "Charge now" or the daily run does that.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cleaningWaiveReport(body: any, res: VercelResponse) {
+  const { jobId, note } = body;
+  if (!jobId) return res.status(400).json({ error: 'jobId required.' });
+  const supabase = getSupabase();
+  const { data: job } = await supabase.from('cleaning_jobs').select('id, status, portal_data, assigned_cleaner_id').eq('id', jobId).maybeSingle();
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
+  if (job.status === 'cancelled') return res.status(409).json({ error: 'Job is cancelled.' });
+  if (job.portal_data?.submittedAt && !job.portal_data?.waived) return res.status(409).json({ error: 'The cleaner already submitted a report for this job.' });
+  const now = new Date().toISOString();
+  const portalData = {
+    checklist: {}, photos: [], damageNotes: '', damageMedia: [], suppliesNotes: '',
+    submittedAt: now, waived: true,
+    waivedNote: typeof note === 'string' && note.trim() ? note.trim().slice(0, 300) : 'Report waived by E&J Retreats',
+  };
+  const patch: Record<string, unknown> = { portal_data: portalData, updated_at: now };
+  if (job.status !== 'completed') { patch.status = 'completed'; patch.completed_at = now; }
+  const { error } = await supabase.from('cleaning_jobs').update(patch).eq('id', jobId).neq('status', 'cancelled');
+  if (error) return res.status(500).json({ error: error.message });
+  return res.status(200).json({ ok: true, portalData });
+}
+
 /** Admin: nudge the assigned cleaner to submit an overdue report (email + text). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cleaningRemindReport(body: any, res: VercelResponse) {
@@ -2825,6 +2852,7 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
       sameDay: !!row.same_day || (!!row.checkin_date && row.checkin_date === row.checkout_date),
       // Only a real cleaner report counts — an admin marking the job Complete does not.
       reportSubmitted: !!(row.portal_data?.submittedAt),
+      reportWaived: !!(row.portal_data?.waived),
       completedAt: row.completed_at ?? null,
       // Billing already done → the report is optional (nice to have photos), not a blocker.
       billed: !!row.charged_at,
@@ -4346,6 +4374,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'submit')            return await cleaningSubmit(body, res);
     if (action === 'charge-and-payout') return await cleaningChargeAndPayout(body, res);
     if (action === 'remind-report')     return await cleaningRemindReport(body, res);
+    if (action === 'waive-report')      return await cleaningWaiveReport(body, res);
     if (action === 'ical-sync') {
       const { propertyId } = body;
       if (!propertyId) return res.status(400).json({ error: 'propertyId required' });

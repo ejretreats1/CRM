@@ -239,6 +239,28 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
 
   const [undoing, setUndoing] = useState<string | null>(null);
   const [reminding, setReminding] = useState<string | null>(null);
+  const [waiving, setWaiving] = useState<string | null>(null);
+
+  /** Office waives the cleaner's report so the job can be billed (e.g. the portal was down). */
+  async function handleWaiveReport(job: CleaningJob) {
+    const note = prompt('Waive the cleaner report for this job? The job is marked complete with a note and can then be charged (Charge now, or automatically at the 1pm ET run).\n\nReason (optional):', 'Cleaner portal was down; report waived by E&J');
+    if (note === null) return;
+    setWaiving(job.id);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'waive-report', jobId: job.id, note }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Failed to waive report.');
+      const now = new Date().toISOString();
+      await onUpdateJob({ ...job, status: 'completed', completedAt: job.completedAt ?? now, portalData: d.portalData, updatedAt: now });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed.');
+    } finally {
+      setWaiving(null);
+    }
+  }
 
   /** Email + text the assigned cleaner about a report that's overdue. */
   async function handleRemindReport(job: CleaningJob) {
@@ -529,6 +551,10 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                           className="px-2 py-0.5 rounded-md border border-[#4a3010] text-[#d0954a] hover:bg-[#2a1a05] font-semibold disabled:opacity-50">
                           {reminding === job.id ? 'Sending…' : 'Remind cleaner'}
                         </button>
+                        <button onClick={() => handleWaiveReport(job)} disabled={waiving === job.id}
+                          className="px-2 py-0.5 rounded-md border border-[#2a4060] text-[#7a94b8] hover:bg-[#162035] font-semibold disabled:opacity-50">
+                          {waiving === job.id ? 'Saving…' : 'Waive report & complete'}
+                        </button>
                       </div>
                     )}
                     {job.status === 'dispatched' && job.dispatchEmailError && (
@@ -565,9 +591,20 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                       </div>
                     )}
                     {job.status === 'completed' && !job.chargedAt && !job.portalData && job.chargeStatus !== 'failed' && (
-                      <div className="text-xs text-[#d0954a]">
-                        📋 No cleaner report on file. Auto-charge waits for the report — use <strong>Charge now</strong> on the right to bill the client anyway{config && !config.stripePaymentMethodId ? '. This property has no card on file yet: select it in Properties and send the payment-setup link first' : ''}.
+                      <div className="flex items-center gap-2 flex-wrap text-xs text-[#d0954a]">
+                        <span>📋 No cleaner report on file. Use <strong>Charge now</strong> to bill anyway, or waive the report so the daily run bills it{config && !config.stripePaymentMethodId ? ' (this property has no card on file yet — send the payment-setup link first)' : ''}.</span>
+                        <button onClick={() => handleWaiveReport(job)} disabled={waiving === job.id}
+                          className="px-2 py-0.5 rounded-md border border-[#4a3010] text-[#d0954a] hover:bg-[#2a1a05] font-semibold disabled:opacity-50">
+                          {waiving === job.id ? 'Saving…' : 'Waive report'}
+                        </button>
+                        <button onClick={() => handleRemindReport(job)} disabled={reminding === job.id}
+                          className="px-2 py-0.5 rounded-md border border-[#1e3a5a] text-[#4a90d9] hover:bg-[#0d1e35] font-semibold disabled:opacity-50">
+                          {reminding === job.id ? 'Sending…' : 'Remind cleaner'}
+                        </button>
                       </div>
+                    )}
+                    {job.portalData?.waived && (
+                      <div className="text-xs text-[#7a94b8]">📋 Report waived by office{job.portalData.waivedNote ? ` — ${job.portalData.waivedNote}` : ''}</div>
                     )}
 
                     {job.notes && (
@@ -648,7 +685,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         Cancel
                       </button>
                     )}
-                    {job.status === 'completed' && job.portalData && (
+                    {job.status === 'completed' && job.portalData && !job.portalData.waived && (
                       <button
                         onClick={() => setExpandedReport(expandedReport === job.id ? null : job.id)}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0a1e30] border border-[#1e3a5a] text-[#4a90d9] text-xs font-semibold rounded-lg hover:bg-[#0f2a40] transition-colors whitespace-nowrap"

@@ -19,6 +19,7 @@ interface DashJob {
   portalToken?: string | null;
   sameDay?: boolean;
   reportSubmitted?: boolean;
+  reportWaived?: boolean;
   completedAt?: string | null;
   billed?: boolean;
   paidOut?: boolean;
@@ -311,7 +312,7 @@ function JobDetailModal({
           {job.reportSubmitted && (
             <div className="bg-[#0a2518] border border-[#1e4030] rounded-xl px-4 py-3 flex items-center gap-2">
               <CheckCircle size={16} className="text-[#5ce0a0]" />
-              <p className="text-[#5ce0a0] text-sm font-semibold">Report submitted{job.completedAt ? ` · ${new Date(job.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</p>
+              <p className="text-[#5ce0a0] text-sm font-semibold">{job.reportWaived ? 'No report needed — handled by E&J' : `Report submitted${job.completedAt ? ` · ${new Date(job.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}`}</p>
             </div>
           )}
 
