@@ -420,7 +420,8 @@ function CleaningPayments({
   const netProfit = totalCharged - totalPayouts - totalExpenses;
   const awaitingChargeDollars = completed.filter(j => !j.chargedAt).reduce((s, j) => s + j.cleaningFee, 0);
   const pendingCount = completed.filter(j => !j.chargedAt).length;
-  const awaitingPayoutDollars = completed.filter(j => !!j.chargedAt && !j.payoutSentAt).reduce((s, j) => s + j.cleanerPayout, 0);
+  // Payouts no longer depend on the client charge: every completed job with an unpaid cleaner counts.
+  const awaitingPayoutDollars = completed.filter(j => !j.payoutSentAt && j.cleanerPayout > 0 && !!j.assignedCleanerId).reduce((s, j) => s + j.cleanerPayout, 0);
 
   function goToFilter(f: PaymentFilter) {
     setFilter(f);
@@ -473,7 +474,7 @@ function CleaningPayments({
   let filtered = completed;
   if (filter === 'charged') filtered = filtered.filter(j => j.chargedAt);
   if (filter === 'not_charged') filtered = filtered.filter(j => !j.chargedAt);
-  if (filter === 'awaiting_payout') filtered = filtered.filter(j => !!j.chargedAt && !j.payoutSentAt && j.cleanerPayout > 0);
+  if (filter === 'awaiting_payout') filtered = filtered.filter(j => j.status === 'completed' && !j.payoutSentAt && j.cleanerPayout > 0 && !!j.assignedCleanerId);
   if (filter === 'payout_sent') filtered = filtered.filter(j => j.payoutSentAt);
   filtered = [...filtered].sort((a, b) => b.checkoutDate.localeCompare(a.checkoutDate));
 
