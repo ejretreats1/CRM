@@ -458,23 +458,8 @@ async function runCampaignSend(res: VercelResponse) {
     }
   }
 
-  // Notify admin if anything sent
-  const totalSentAll = results.reduce((s, r) => s + (r.sent ?? 0), 0) + seqSent;
-  if (totalSentAll > 0) {
-    await getResend().emails.send({
-      from: 'E&J Retreats CRM <cleaning@ejretreats.com>',
-      to: ADMIN_EMAIL,
-      subject: `📧 Daily campaign send complete — ${results.filter(r => r.sent > 0).length} campaigns, ${totalSentAll} emails`,
-      html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
-        <h2 style="margin:0 0 16px;color:#1e293b">Daily Campaign Summary</h2>
-        <table style="width:100%;border-collapse:collapse;font-size:14px">
-          ${results.map(r => `<tr><td style="padding:6px 0;color:#334155">${r.campaign}</td><td style="padding:6px 0;color:${r.sent > 0 ? '#16a34a' : '#94a3b8'};font-weight:600">${r.sent} sent</td><td style="padding:6px 0;color:#94a3b8">${r.allDone ? 'Completed' : r.note ?? ''}</td></tr>`).join('')}
-        </table>
-        ${seqSent > 0 ? `<p style="margin:16px 0 0;color:#334155">+ ${seqSent} follow-up sequence emails sent.</p>` : ''}
-      </div>`,
-    }).catch(() => {});
-  }
-
+  // No daily summary email: campaign/sequence sends are visible in the CRM's
+  // Email Marketing tab, and the admin asked not to be emailed about them.
   return res.status(200).json({ campaigns: results, sequenceEmailsSent: seqSent });
 }
 
