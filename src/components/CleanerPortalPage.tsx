@@ -157,9 +157,12 @@ export default function CleanerPortalPage({ combined }: { combined: string }) {
         setCleaner(c);
         setCanAccept(ca ?? true);
 
-        if (j.status === 'completed' || j.portalData) {
+        // A real report (portalData) means done. A job the office marked Complete
+        // without a report can still be reported on — that's how late reports and
+        // the payout happen.
+        if (j.portalData?.submittedAt) {
           setPageState(j.assignedCleanerId === c.cleanerId ? 'submitted' : 'claimed');
-        } else if (j.status === 'accepted' || j.status === 'in_progress') {
+        } else if (j.status === 'accepted' || j.status === 'in_progress' || j.status === 'completed') {
           setPageState(j.assignedCleanerId === c.cleanerId ? 'portal' : 'claimed');
         } else if (j.status === 'cancelled') {
           setErrorMsg('This job has been cancelled.');

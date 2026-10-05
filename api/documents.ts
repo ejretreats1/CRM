@@ -2823,7 +2823,8 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
       photoUrl: cfg?.photo_url ?? null,
       portalToken,
       sameDay: !!row.same_day || (!!row.checkin_date && row.checkin_date === row.checkout_date),
-      reportSubmitted: !!(row.portal_data?.submittedAt) || row.status === 'completed',
+      // Only a real cleaner report counts — an admin marking the job Complete does not.
+      reportSubmitted: !!(row.portal_data?.submittedAt),
       completedAt: row.completed_at ?? null,
     };
   }

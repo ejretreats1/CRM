@@ -170,7 +170,7 @@ function JobDetailModal({
 
         <div className="p-5 space-y-4">
           {/* Report overdue */}
-          {(job.status === 'accepted' || job.status === 'in_progress') && !job.reportSubmitted && job.checkoutDate < todayLocal() && (
+          {['accepted', 'in_progress', 'completed'].includes(job.status) && !job.reportSubmitted && job.checkoutDate < todayLocal() && (
             <div className="bg-[#2a1a05] border border-[#6a4a10] rounded-xl px-4 py-3 flex items-start gap-2.5">
               <AlertTriangle size={16} className="text-[#d0954a] mt-0.5 flex-shrink-0" />
               <div>
@@ -284,7 +284,7 @@ function JobDetailModal({
           )}
 
           {/* Submit Cleaning Report button (accepted / in-progress jobs) */}
-          {(job.status === 'accepted' || job.status === 'in_progress') && job.portalToken && (
+          {['accepted', 'in_progress', 'completed'].includes(job.status) && !job.reportSubmitted && job.portalToken && (
             <a
               href={`/?cleaner=${job.id}:${job.portalToken}`}
               className={`w-full font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2 text-base border ${
@@ -297,7 +297,7 @@ function JobDetailModal({
               {job.checkoutDate < todayLocal() && !job.reportSubmitted ? 'Submit Overdue Report' : 'Open Job & Submit Report'}
             </a>
           )}
-          {job.status === 'completed' && (
+          {job.reportSubmitted && (
             <div className="bg-[#0a2518] border border-[#1e4030] rounded-xl px-4 py-3 flex items-center gap-2">
               <CheckCircle size={16} className="text-[#5ce0a0]" />
               <p className="text-[#5ce0a0] text-sm font-semibold">Report submitted{job.completedAt ? ` · ${new Date(job.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</p>
@@ -434,11 +434,14 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
   const today = todayLocal();
   const myJobs = Array.isArray(data.myJobs) ? data.myJobs : [];
   const availableJobs = Array.isArray(data.availableJobs) ? data.availableJobs : [];
-  const open = (j: DashJob) => (j.status === 'accepted' || j.status === 'in_progress') && !j.reportSubmitted;
-  const needsReport = myJobs.filter(j => open(j) && j.checkoutDate < today);
-  const todayJobs   = myJobs.filter(j => open(j) && j.checkoutDate === today);
-  const upcoming    = myJobs.filter(j => open(j) && j.checkoutDate > today);
-  const completed   = myJobs.filter(j => !open(j)).sort((a, b) => b.checkoutDate.localeCompare(a.checkoutDate));
+  // A clean needs a report until the cleaner actually submits one — even if the
+  // office already marked the job Complete (that only affects billing).
+  const reportable = (j: DashJob) => ['accepted', 'in_progress', 'completed'].includes(j.status) && !j.reportSubmitted;
+  const needsReport = myJobs.filter(j => reportable(j) && j.checkoutDate < today);
+  const todayJobs   = myJobs.filter(j => reportable(j) && j.checkoutDate === today);
+  const upcoming    = myJobs.filter(j => (j.status === 'accepted' || j.status === 'in_progress') && j.checkoutDate > today);
+  const seen = new Set([...needsReport, ...todayJobs, ...upcoming].map(j => j.id));
+  const completed   = myJobs.filter(j => !seen.has(j.id)).sort((a, b) => b.checkoutDate.localeCompare(a.checkoutDate));
   const openCount = needsReport.length + todayJobs.length + upcoming.length;
   const earned30 = completed.filter(j => j.checkoutDate >= new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)).reduce((s, j) => s + (j.payout || 0), 0);
   const stale = savedAt ? Date.now() - savedAt > 10 * 60_000 : false;
