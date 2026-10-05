@@ -270,7 +270,9 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
   }
 
   async function handleCharge(job: CleaningJob) {
-    if (!confirm(`Charge $${job.cleaningFee} to the client card on file for ${displayName(job.propertyId, job.propertyName, uplistingProperties)}?`)) return;
+    const fee = job.cleaningFee || configMap.get(job.propertyId)?.cleaningFee || 0;
+    const noReport = !job.portalData ? ' The cleaner has not submitted a report for this job; the charge will go through without one and the cleaner will be paid.' : '';
+    if (!confirm(`Charge $${fee} to the client card on file for ${displayName(job.propertyId, job.propertyName, uplistingProperties)}?${noReport}`)) return;
     setCharging(job.id);
     setChargeErrors(prev => { const next = { ...prev }; delete next[job.id]; return next; });
     try {
@@ -522,7 +524,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
 
                     {(job.status === 'accepted' || job.status === 'in_progress') && !job.portalData && job.checkoutDate < new Date().toISOString().slice(0, 10) && (
                       <div className="flex items-center gap-2 flex-wrap text-xs">
-                        <span className="text-[#d0954a]">📋 Report overdue — not charged until the cleaner submits (or you click Complete, then Retry Charge).</span>
+                        <span className="text-[#d0954a]">📋 Report overdue — not charged until the cleaner submits (or click Complete, then Charge now).</span>
                         <button onClick={() => handleRemindReport(job)} disabled={reminding === job.id}
                           className="px-2 py-0.5 rounded-md border border-[#4a3010] text-[#d0954a] hover:bg-[#2a1a05] font-semibold disabled:opacity-50">
                           {reminding === job.id ? 'Sending…' : 'Remind cleaner'}
@@ -563,7 +565,9 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                       </div>
                     )}
                     {job.status === 'completed' && !job.chargedAt && !job.portalData && job.chargeStatus !== 'failed' && (
-                      <div className="text-xs text-[#d0954a]">Waiting for the cleaner's report before charging</div>
+                      <div className="text-xs text-[#d0954a]">
+                        📋 No cleaner report on file. Auto-charge waits for the report — use <strong>Charge now</strong> on the right to bill the client anyway{config && !config.stripePaymentMethodId ? '. This property has no card on file yet: select it in Properties and send the payment-setup link first' : ''}.
+                      </div>
                     )}
 
                     {job.notes && (
@@ -624,15 +628,15 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         {undoing === job.id ? 'Undoing…' : 'Undo Complete'}
                       </button>
                     )}
-                    {job.status === 'completed' && config?.stripePaymentMethodId && !job.chargedAt && (
+                    {job.status === 'completed' && !job.chargedAt && (
                       <button
                         onClick={() => handleCharge(job)}
                         disabled={charging === job.id}
-                        title="Auto-charge failed — click to retry"
+                        title={job.chargeStatus === 'failed' ? 'The automatic charge failed — click to retry now' : 'Charge the client card on file now (works without the cleaner report) and pay the cleaner'}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50 whitespace-nowrap"
                       >
                         <CreditCard size={12} />
-                        {charging === job.id ? 'Retrying…' : `Retry Charge $${job.cleaningFee}`}
+                        {charging === job.id ? 'Charging…' : job.chargeStatus === 'failed' ? `Retry Charge $${job.cleaningFee || config?.cleaningFee || ''}` : `Charge $${job.cleaningFee || config?.cleaningFee || ''} now`}
                       </button>
                     )}
                     {(job.status === 'pending' || job.status === 'dispatched' || job.status === 'accepted' || job.status === 'in_progress') && !job.chargedAt && (
