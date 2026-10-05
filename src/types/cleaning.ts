@@ -78,6 +78,9 @@ export interface CleaningPortalData {
   damageMedia?: string[];
   suppliesNotes?: string;
   submittedAt: string;
+  /** The office waived the cleaner's report (e.g. portal outage); billing proceeds without one */
+  waived?: boolean;
+  waivedNote?: string;
 }
 
 export interface CleaningExpense {
