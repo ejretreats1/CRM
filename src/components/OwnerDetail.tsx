@@ -59,7 +59,7 @@ const CHANNEL_MAP: Record<string, string> = {
 
 const STATUS_STYLES: Record<string, { badge: string; label: string }> = {
   active:     { badge: 'bg-[#0a2518] text-[#4ab57a]', label: 'Active' },
-  onboarding: { badge: 'bg-[#1a1505] text-[#f59e0b]',    label: 'Onboarding' },
+  onboarding: { badge: 'bg-[#1a1505] text-[#f59e0b]',    label: 'Client / Property Info' },
   inactive:   { badge: 'bg-[#1e2d45] text-[#b8d4f0]',    label: 'Inactive' },
 };
 
@@ -172,9 +172,34 @@ export default function OwnerDetail({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [onboardingData, setOnboardingData] = useState<Record<string, any> | null>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(true);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [onboardingStatus, setOnboardingStatus] = useState<string | null>(null);
   const [generatingOLink, setGeneratingOLink] = useState(false);
   const [oLink, setOLink] = useState<string | null>(null);
   const [oLinkCopied, setOLinkCopied] = useState(false);
+  const [vrboCopied, setVrboCopied] = useState(false);
+
+  /** Copy-and-send text asking the client to create a bare-bones Vrbo account we can connect to Uplisting. */
+  function vrboSetupMessage(): string {
+    const first = (owner.name ?? '').trim().split(' ')[0] || 'there';
+    return `Hi ${first}, quick favor so we can get your place live on Vrbo as well.
+
+We need a Vrbo owner account in your name that we then connect to our booking system (Uplisting). It takes about 10 minutes:
+
+1. Go to vrbo.com/list and click "List your property."
+2. Create the account with your email and a password.
+3. Add the bare minimum to get through the setup: property address, type, bedrooms/bathrooms, max guests, and one photo. Skip or put placeholders for everything else (description, pricing, calendar). We'll fill all of that in from our side once it's connected.
+4. When you reach payment setup, you can enter your own bank or skip for now. Payouts can be changed later.
+5. Don't publish yet if it gives you the option, just save.
+
+Then send us the login email and password so we can sign in and link the account to Uplisting. Once it's connected, we manage pricing, calendar sync, messaging and the listing itself, and you don't need to touch Vrbo again. After we've linked it you're welcome to change the password. The connection stays active.
+
+Reply here if you get stuck on any step and I'll walk you through it.`;
+  }
+  async function copyVrboMessage() {
+    try { await navigator.clipboard.writeText(vrboSetupMessage()); setVrboCopied(true); setTimeout(() => setVrboCopied(false), 2500); }
+    catch { prompt('Copy this message:', vrboSetupMessage()); }
+  }
 
   // Submissions store one entry per property. Older submissions kept a single
   // property's fields flat on the form itself — fall back to that shape.
@@ -223,15 +248,26 @@ export default function OwnerDetail({
 
   const loadOnboarding = useCallback(async () => {
     setOnboardingLoading(true);
-    const { data } = await supabase
+    setOnboardingError(null);
+    // Latest form with answers for this client — completed first, otherwise the
+    // most recent one that has any answers saved.
+    const { data, error } = await supabase
       .from('onboarding_requests')
-      .select('form_data, submitted_at')
+      .select('form_data, submitted_at, status, created_at')
       .eq('owner_id', owner.id)
-      .eq('status', 'completed')
-      .order('submitted_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setOnboardingData(data?.form_data ?? null);
+      .not('form_data', 'is', null)
+      .order('submitted_at', { ascending: false, nullsFirst: false })
+      .limit(10);
+    if (error) {
+      // A silent empty state hid RLS problems; say what went wrong instead.
+      setOnboardingError(error.message);
+      setOnboardingData(null);
+    } else {
+      const rows = (data ?? []) as { form_data: Record<string, any> | null; status: string | null }[];
+      const best = rows.find(r => r.status === 'completed' && r.form_data) ?? rows.find(r => r.form_data) ?? null;
+      setOnboardingData(best?.form_data ?? null);
+      setOnboardingStatus(best?.status ?? null);
+    }
     setOnboardingLoading(false);
   }, [owner.id]);
 
@@ -509,7 +545,7 @@ export default function OwnerDetail({
           { id: 'documents',  label: 'Documents' },
           { id: 'vendors',    label: 'Vendors' },
           { id: 'outreach',   label: 'Outreach' },
-          { id: 'onboarding', label: 'Onboarding' },
+          { id: 'onboarding', label: 'Client / Property Info' },
         ] as { id: OwnerTab; label: string }[]).map(tab => (
           <button
             key={tab.id}
@@ -852,6 +888,21 @@ export default function OwnerDetail({
           </button>
         </div>
 
+        {/* Vrbo account setup message */}
+        <div className="bg-[#1a2335] rounded-xl border border-[#243550] p-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-white">Vrbo account setup message</p>
+            <p className="text-xs text-[#3a5070] mt-0.5">Copy a ready-to-send text asking {owner.name?.split(' ')[0] || 'the client'} to create a bare-bones Vrbo account and send us the login so we can connect it to Uplisting.</p>
+          </div>
+          <button
+            onClick={copyVrboMessage}
+            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex-shrink-0 ${vrboCopied ? 'bg-[#0a2518] border border-[#1e4030] text-[#5ce0a0]' : 'bg-[#1e2d45] hover:bg-[#1e3a5a] text-[#b8d4f0] border border-[#1e3a5a]'}`}
+          >
+            {vrboCopied ? <Check size={13} /> : <Copy size={13} />}
+            {vrboCopied ? 'Copied!' : 'Copy Vrbo message'}
+          </button>
+        </div>
+
         {/* Generated link display */}
         {oLink && (
           <div className="bg-[#0f1923] border border-[#1e3a5a] rounded-xl p-3 flex items-center gap-3">
@@ -864,14 +915,24 @@ export default function OwnerDetail({
 
         {onboardingLoading ? (
           <div className="flex justify-center py-12"><Loader size={20} className="animate-spin text-[#4a90d9]" /></div>
+        ) : onboardingError ? (
+          <div className="bg-[#1a0e0e] rounded-xl border border-[#3a1a1a] flex flex-col items-center justify-center py-10 text-center px-6">
+            <ClipboardList size={32} className="text-[#e05c5c] mb-3" />
+            <p className="text-sm text-white font-medium mb-1">Couldn't load the client's answers</p>
+            <p className="text-xs text-[#e05c5c] mb-2">{onboardingError}</p>
+            <p className="text-xs text-[#3a5070]">If this mentions a policy or permission, the onboarding_requests table needs a Supabase policy for signed-in users (see SECURITY_SETUP.md).</p>
+          </div>
         ) : !onboardingData ? (
           <div className="bg-[#1a2335] rounded-xl border border-[#243550] flex flex-col items-center justify-center py-14 text-center px-6">
             <ClipboardList size={32} className="text-[#3a5070] mb-3" />
-            <p className="text-sm text-white font-medium mb-1">No onboarding data yet</p>
-            <p className="text-xs text-[#3a5070]">Generate a link above and send it to the client — their answers will populate here automatically.</p>
+            <p className="text-sm text-white font-medium mb-1">No client / property info yet</p>
+            <p className="text-xs text-[#3a5070]">Generate a link above and send it to the client — everything they fill out shows up here.</p>
           </div>
         ) : (
           <>
+            {onboardingStatus && onboardingStatus !== 'completed' && (
+              <p className="text-xs text-[#d0954a]">Showing the client's saved answers — the form hasn't been marked completed yet.</p>
+            )}
             <OSection title="Owner Information">
               <OField label="Full Name"      value={onboardingData.fullName} />
               <OField label="Email"          value={onboardingData.email} />
