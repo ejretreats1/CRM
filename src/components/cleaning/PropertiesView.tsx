@@ -23,6 +23,7 @@ interface FormState {
   propertyName: string;
   cleaningFee: string;
   feeAutoFilled: boolean;
+  billingMode: 'stripe' | 'external';
   assignedCleaners: AssignedCleaner[];
   doorCode: string;
   address: string;
@@ -42,7 +43,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  propertyId: '', propertyName: '', cleaningFee: '', feeAutoFilled: false, assignedCleaners: [],
+  propertyId: '', propertyName: '', cleaningFee: '', feeAutoFilled: false, billingMode: 'stripe', assignedCleaners: [],
   doorCode: '', address: '', checkoutTime: '', checkinTime: '',
   photoUrl: '', stagingPhotoUrls: [], stagingUrlInput: '',
   icalUrls: [], icalUrlInput: '', icalPlatform: 'Airbnb', icalUnitName: '',
@@ -371,6 +372,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       propertyName: config.propertyName,
       cleaningFee: String(config.cleaningFee),
       feeAutoFilled: false,
+      billingMode: config.billingMode ?? 'stripe',
       assignedCleaners: [...config.assignedCleaners],
       doorCode: config.doorCode ?? '',
       address: config.address ?? '',
@@ -543,6 +545,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         onboardedAt: existing?.onboardedAt,
         stripeCustomerId: existing?.stripeCustomerId,
         stripePaymentMethodId: existing?.stripePaymentMethodId,
+        billingMode: form.billingMode,
       };
       await onSave(config);
       setEditing(null);
@@ -696,7 +699,11 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                             </span>
                           )}
                         </div>
-                        {!c.stripePaymentMethodId && (
+                        {c.billingMode === 'external' ? (
+                          <div className="flex items-center gap-1.5" title="You invoice this client outside Stripe. Cleaners are still paid via Stripe after each report.">
+                            <span className="text-xs font-semibold text-[#7ab8e8]">🧾 Billed outside Stripe</span>
+                          </div>
+                        ) : !c.stripePaymentMethodId && (
                           <div className="flex items-center gap-1.5" title="Jobs for this property are not auto-dispatched until the client saves a card. Select it and send the payment-setup link.">
                             <AlertTriangle size={13} className="text-[#d0954a]" />
                             <span className="text-xs font-semibold text-[#d0954a]">No card on file — not auto-dispatched</span>
@@ -1123,6 +1130,16 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                   placeholder="150"
                 />
                 <p className="text-xs text-[#3a5070] mt-1">What you charge the property owner per clean</p>
+                {/* How the client pays */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {([['stripe', '💳 Card on file (Stripe)', 'Charged automatically after each clean'], ['external', '🧾 Billed outside Stripe', 'You invoice the client yourself; the cleaner is still paid via Stripe after each report']] as const).map(([mode, label, help]) => (
+                    <button key={mode} type="button" onClick={() => setForm(f => ({ ...f, billingMode: mode }))}
+                      className={`text-left rounded-xl border px-3 py-2.5 transition-colors ${form.billingMode === mode ? 'border-[#4a90d9] bg-[#0d1e35]' : 'border-[#1e2d45] bg-[#0f1923] hover:border-[#2a4060]'}`}>
+                      <p className={`text-xs font-semibold ${form.billingMode === mode ? 'text-white' : 'text-[#b8d4f0]'}`}>{label}</p>
+                      <p className="text-[11px] text-[#3a5070] mt-0.5 leading-snug">{help}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Address */}

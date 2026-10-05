@@ -1330,9 +1330,11 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
       : charge.payout?.status === 'failed'
         ? `Payout failed: ${escapeHtml(charge.payout.error ?? '')}`
         : '';
-  const paymentLine = charge.ok
-    ? `💳 <strong>$${charge.amount ?? row.cleaning_fee} charged</strong> to client automatically${payoutNote ? ` · ${payoutNote}` : ''}`
-    : `⚠️ <strong>Auto-charge failed:</strong> ${escapeHtml(charge.error ?? 'unknown error')}${charge.willRetryAt ? ' — will retry automatically' : ' — retry from the CRM'}`;
+  const paymentLine = charge.reason === 'external_billing'
+    ? `🧾 <strong>Client billed outside Stripe</strong> — invoice them $${charge.amount ?? row.cleaning_fee}${payoutNote ? ` · ${payoutNote}` : ''}`
+    : charge.ok
+      ? `💳 <strong>$${charge.amount ?? row.cleaning_fee} charged</strong> to client automatically${payoutNote ? ` · ${payoutNote}` : ''}`
+      : `⚠️ <strong>Auto-charge failed:</strong> ${escapeHtml(charge.error ?? 'unknown error')}${charge.willRetryAt ? ' — will retry automatically' : ' — retry from the CRM'}`;
 
   const hasDamage = !!(damageNotes?.trim() || damageMediaArr.length > 0);
   const hasSuppliesNeeded = !!suppliesNotes?.trim();
@@ -1345,7 +1347,8 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
     let config = (await supabase.from('cleaning_property_configs').select('*').eq('property_id', row.property_id).maybeSingle()).data;
     if (!config) config = (await supabase.from('cleaning_property_configs').select('*').contains('linked_property_ids', [row.property_id]).maybeSingle()).data;
     if (config?.client_email) {
-      const paymentNote = charge.ok ? null
+      const paymentNote = charge.reason === 'external_billing' ? 'This clean will appear on your next invoice from E&J Retreats.'
+        : charge.ok ? null
         : charge.willRetryAt ? 'Your card on file could not be charged yet; we will retry automatically.'
         : charge.reason === 'already_charged' ? null
         : 'We will follow up separately about payment.';
@@ -1364,7 +1367,7 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
     }
   }
 
-  const _submitSubj = `${charge.ok ? '✅' : '⚠️'} Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`;
+  const _submitSubj = `${charge.ok || charge.reason === 'external_billing' ? '✅' : '⚠️'} Job submitted: ${row.property_name} – ${cleanerInfo.cleanerName}`;
   const _sr = await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: ADMIN_EMAIL,
@@ -2258,6 +2261,11 @@ async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
   if (!jobId) return res.status(400).json({ error: 'jobId required.' });
   // Admin-triggered: may charge a completed job even if the cleaner's report is missing.
   const outcome = await chargeJob(getSupabase(), await getStripe(), jobId, { trigger: 'manual', allowWithoutReport: true });
+  if (outcome.skipped && outcome.reason === 'external_billing') {
+    const p = outcome.payout;
+    const payoutMsg = p?.status === 'sent' ? 'cleaner payout sent via Stripe' : p?.status === 'already_sent' ? 'cleaner already paid' : p?.status === 'manual_due' ? 'cleaner has no Stripe account — pay them directly and click Mark paid' : p?.status === 'failed' ? `cleaner payout failed: ${p.error ?? ''}` : 'no cleaner payout due';
+    return res.status(200).json({ charged: false, external: true, amount: outcome.amount, payout: p ?? null, message: `This property is billed outside Stripe (nothing charged) — ${payoutMsg}.` });
+  }
   if (outcome.skipped && outcome.reason === 'already_charged') return res.status(400).json({ error: 'This job has already been charged.' });
   if (outcome.skipped) return res.status(400).json({ error: outcome.error ?? 'Job cannot be charged right now.' });
   if (!outcome.ok) return res.status(402).json({ error: outcome.error ?? 'Charge failed.', willRetryAt: outcome.willRetryAt ?? null });
@@ -2855,7 +2863,7 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
       reportWaived: !!(row.portal_data?.waived),
       completedAt: row.completed_at ?? null,
       // Billing already done → the report is optional (nice to have photos), not a blocker.
-      billed: !!row.charged_at,
+      billed: !!row.charged_at || row.charge_status === 'external',
       paidOut: !!row.payout_sent_at,
       payoutStatus: row.payout_status ?? null,
     };

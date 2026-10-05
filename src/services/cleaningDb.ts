@@ -79,6 +79,7 @@ function rowToConfig(r: any): CleaningPropertyConfig {
     linkedPropertyIds: r.linked_property_ids ?? undefined,
     clientPhone: r.client_phone ?? undefined,
     clientNotes: r.client_notes ?? undefined,
+    billingMode: r.billing_mode === 'external' ? 'external' : 'stripe',
   };
 }
 
@@ -101,6 +102,7 @@ function configToRow(c: CleaningPropertyConfig) {
     linked_property_ids: c.linkedPropertyIds ?? null,
     ...(c.clientPhone !== undefined && { client_phone: c.clientPhone || null }),
     client_notes: c.clientNotes?.trim() || null,
+    billing_mode: c.billingMode ?? 'stripe',
   };
 }
 

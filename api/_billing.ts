@@ -40,7 +40,7 @@ export interface ChargeOutcome {
   ok: boolean;
   /** true when nothing was attempted (already charged, not eligible, claimed elsewhere) */
   skipped?: boolean;
-  reason?: 'already_charged' | 'cancelled' | 'not_completed' | 'no_report' | 'claimed_elsewhere' | 'not_found';
+  reason?: 'already_charged' | 'cancelled' | 'not_completed' | 'no_report' | 'claimed_elsewhere' | 'not_found' | 'external_billing';
   error?: string;
   errorCode?: string;
   paymentIntentId?: string;
@@ -110,6 +110,18 @@ export async function chargeJob(
   const config = await loadConfig(db, job.property_id);
   if (!config) return { ok: false, error: 'Property is not enrolled in cleaning (no config).' };
   const fee = billableFee(job, config);
+
+  // Client is invoiced outside Stripe (not on card billing yet): nothing to
+  // charge here, but the cleaner is still paid now. Mark the job so the cron
+  // doesn't keep trying to charge it and the admin can see what to invoice.
+  if (config.billing_mode === 'external') {
+    if (job.charge_status !== 'external') {
+      await db.from('cleaning_jobs').update({ charge_status: 'external', last_charge_error: null, next_charge_attempt_at: null, updated_at: nowIso() }).eq('id', jobId).is('charged_at', null);
+    }
+    const payout = opts.payout === false ? undefined : await payoutJob(db, stripe, jobId, { external: true });
+    return { ok: true, skipped: true, reason: 'external_billing', amount: fee, payout };
+  }
+
   if (!(fee > 0)) return { ok: false, error: 'Cleaning fee is not set for this job.' };
   if (!config.stripe_customer_id || !config.stripe_payment_method_id) {
     return { ok: false, error: 'No payment method on file — client has not completed card setup.' };
@@ -241,7 +253,7 @@ export async function payoutJob(
   db: Db,
   stripe: Stripe,
   jobId: string,
-  opts: { chargeId?: string; manual?: boolean } = {},
+  opts: { chargeId?: string; manual?: boolean; external?: boolean } = {},
 ): Promise<PayoutOutcome> {
   const job = await loadJob(db, jobId);
   if (!job) return { status: 'skipped', reason: 'not_found' };
@@ -250,7 +262,10 @@ export async function payoutJob(
   if (!job.assigned_cleaner_id) return { status: 'skipped', reason: 'no_cleaner' };
   const amount = Number(job.cleaner_payout ?? 0);
   if (!(amount > 0)) return { status: 'skipped', reason: 'zero_payout' };
-  if (!job.charged_at) return { status: 'skipped', reason: 'not_charged', error: 'Client has not been charged for this job yet.' };
+  // Externally billed jobs (client pays E&J outside Stripe) are paid from the
+  // platform balance without a client charge to tie to.
+  const external = opts.external || job.charge_status === 'external';
+  if (!job.charged_at && !external) return { status: 'skipped', reason: 'not_charged', error: 'Client has not been charged for this job yet.' };
 
   const { data: cleaner } = await db.from('cleaners').select('*').eq('id', job.assigned_cleaner_id).maybeSingle();
   if (!cleaner) return { status: 'skipped', reason: 'cleaner_missing', error: 'Cleaner record not found.' };
@@ -374,18 +389,18 @@ export async function findChargeableJobs(db: Db, limit = 50): Promise<JobRow[]> 
   return data ?? [];
 }
 
-/** Charged jobs whose cleaner payout hasn't gone out (includes manual_due, re-checked daily). */
+/** Charged (or externally billed) jobs whose cleaner payout hasn't gone out (includes manual_due, re-checked daily). */
 export async function findPayableJobs(db: Db, limit = 50): Promise<JobRow[]> {
   const { data } = await db
     .from('cleaning_jobs')
     .select('*')
-    .not('charged_at', 'is', null)
+    .or('charged_at.not.is.null,charge_status.eq.external')
     .is('payout_sent_at', null)
     .not('assigned_cleaner_id', 'is', null)
     .gt('cleaner_payout', 0)
     .neq('status', 'cancelled')
     .or('payout_status.is.null,payout_status.in.(failed,manual_due)')
-    .order('charged_at', { ascending: true })
+    .order('checkout_date', { ascending: true })
     .limit(limit);
   return data ?? [];
 }
