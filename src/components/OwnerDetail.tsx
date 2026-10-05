@@ -59,7 +59,7 @@ const CHANNEL_MAP: Record<string, string> = {
 
 const STATUS_STYLES: Record<string, { badge: string; label: string }> = {
   active:     { badge: 'bg-[#0a2518] text-[#4ab57a]', label: 'Active' },
-  onboarding: { badge: 'bg-[#1a1505] text-[#f59e0b]',    label: 'Onboarding' },
+  onboarding: { badge: 'bg-[#1a1505] text-[#f59e0b]',    label: 'Client / Property Info' },
   inactive:   { badge: 'bg-[#1e2d45] text-[#b8d4f0]',    label: 'Inactive' },
 };
 
@@ -172,6 +172,8 @@ export default function OwnerDetail({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [onboardingData, setOnboardingData] = useState<Record<string, any> | null>(null);
   const [onboardingLoading, setOnboardingLoading] = useState(true);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [onboardingStatus, setOnboardingStatus] = useState<string | null>(null);
   const [generatingOLink, setGeneratingOLink] = useState(false);
   const [oLink, setOLink] = useState<string | null>(null);
   const [oLinkCopied, setOLinkCopied] = useState(false);
@@ -223,15 +225,26 @@ export default function OwnerDetail({
 
   const loadOnboarding = useCallback(async () => {
     setOnboardingLoading(true);
-    const { data } = await supabase
+    setOnboardingError(null);
+    // Latest form with answers for this client — completed first, otherwise the
+    // most recent one that has any answers saved.
+    const { data, error } = await supabase
       .from('onboarding_requests')
-      .select('form_data, submitted_at')
+      .select('form_data, submitted_at, status, created_at')
       .eq('owner_id', owner.id)
-      .eq('status', 'completed')
-      .order('submitted_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setOnboardingData(data?.form_data ?? null);
+      .not('form_data', 'is', null)
+      .order('submitted_at', { ascending: false, nullsFirst: false })
+      .limit(10);
+    if (error) {
+      // A silent empty state hid RLS problems; say what went wrong instead.
+      setOnboardingError(error.message);
+      setOnboardingData(null);
+    } else {
+      const rows = (data ?? []) as { form_data: Record<string, any> | null; status: string | null }[];
+      const best = rows.find(r => r.status === 'completed' && r.form_data) ?? rows.find(r => r.form_data) ?? null;
+      setOnboardingData(best?.form_data ?? null);
+      setOnboardingStatus(best?.status ?? null);
+    }
     setOnboardingLoading(false);
   }, [owner.id]);
 
@@ -509,7 +522,7 @@ export default function OwnerDetail({
           { id: 'documents',  label: 'Documents' },
           { id: 'vendors',    label: 'Vendors' },
           { id: 'outreach',   label: 'Outreach' },
-          { id: 'onboarding', label: 'Onboarding' },
+          { id: 'onboarding', label: 'Client / Property Info' },
         ] as { id: OwnerTab; label: string }[]).map(tab => (
           <button
             key={tab.id}
@@ -864,14 +877,24 @@ export default function OwnerDetail({
 
         {onboardingLoading ? (
           <div className="flex justify-center py-12"><Loader size={20} className="animate-spin text-[#4a90d9]" /></div>
+        ) : onboardingError ? (
+          <div className="bg-[#1a0e0e] rounded-xl border border-[#3a1a1a] flex flex-col items-center justify-center py-10 text-center px-6">
+            <ClipboardList size={32} className="text-[#e05c5c] mb-3" />
+            <p className="text-sm text-white font-medium mb-1">Couldn't load the client's answers</p>
+            <p className="text-xs text-[#e05c5c] mb-2">{onboardingError}</p>
+            <p className="text-xs text-[#3a5070]">If this mentions a policy or permission, the onboarding_requests table needs a Supabase policy for signed-in users (see SECURITY_SETUP.md).</p>
+          </div>
         ) : !onboardingData ? (
           <div className="bg-[#1a2335] rounded-xl border border-[#243550] flex flex-col items-center justify-center py-14 text-center px-6">
             <ClipboardList size={32} className="text-[#3a5070] mb-3" />
-            <p className="text-sm text-white font-medium mb-1">No onboarding data yet</p>
-            <p className="text-xs text-[#3a5070]">Generate a link above and send it to the client — their answers will populate here automatically.</p>
+            <p className="text-sm text-white font-medium mb-1">No client / property info yet</p>
+            <p className="text-xs text-[#3a5070]">Generate a link above and send it to the client — everything they fill out shows up here.</p>
           </div>
         ) : (
           <>
+            {onboardingStatus && onboardingStatus !== 'completed' && (
+              <p className="text-xs text-[#d0954a]">Showing the client's saved answers — the form hasn't been marked completed yet.</p>
+            )}
             <OSection title="Owner Information">
               <OField label="Full Name"      value={onboardingData.fullName} />
               <OField label="Email"          value={onboardingData.email} />

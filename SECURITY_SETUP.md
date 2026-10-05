@@ -83,3 +83,7 @@ Jobs are offered to one cleaner at a time. If the current cleaner has not answer
 - **hourly from GitHub Actions** (`.github/workflows/dispatch-tick.yml`). For that to work add a repository secret: GitHub → repo **Settings → Secrets and variables → Actions → New repository secret**, name `CRON_SECRET`, value = the same `CRON_SECRET` you set in Vercel. Until the secret exists the workflow does nothing.
 
 On Vercel **Pro**, you can instead change the `dispatch-tick` schedule in `vercel.json` to `"15 * * * *"` and delete the workflow file.
+
+## 7. Tables that only allowed the anon role
+
+Once `VITE_SUPABASE_CLERK_AUTH=true` is on, the CRM's queries run as the `authenticated` role. Any table whose only policy is `to anon` (e.g. `onboarding_requests`, created with an "anon all" policy) silently returns nothing — the symptom was "No onboarding data yet" on a client who had filled out the form. Run `supabase-authenticated-policies-migration.sql`: it adds an `authenticated_all` policy to every public table with RLS on and no policy for authenticated users, and prints the resulting policy list.
