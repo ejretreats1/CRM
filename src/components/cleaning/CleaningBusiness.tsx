@@ -670,25 +670,40 @@ function CleaningPayments({
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {job.payoutStatus === 'manual_due' ? (
+                        <div className="flex items-center gap-1.5 justify-end flex-wrap">
+                          {job.payoutStatus !== 'manual_due' && (
+                            <button
+                              onClick={() => handleSendPayout(job)}
+                              disabled={sendingPayout === job.id || markingPaid === job.id || deletingJobId === job.id}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0a2518] border border-[#1a4a2e] text-[#5ce0a0] text-xs font-semibold rounded-lg hover:bg-[#0d3020] transition-colors disabled:opacity-50"
+                            >
+                              <CreditCard size={11} />
+                              {sendingPayout === job.id ? 'Sending…' : job.payoutStatus === 'failed' ? 'Retry transfer' : 'Send Now'}
+                            </button>
+                          )}
                           <button
                             onClick={() => handleMarkPaid(job)}
-                            disabled={markingPaid === job.id}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50 ml-auto"
+                            disabled={markingPaid === job.id || sendingPayout === job.id || deletingJobId === job.id}
+                            title="Already paid outside the CRM (Zelle, cash…) — records it and removes it from this list"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50"
                           >
                             <CheckCircle size={11} />
                             {markingPaid === job.id ? 'Saving…' : 'Mark paid'}
                           </button>
-                        ) : (
                           <button
-                            onClick={() => handleSendPayout(job)}
-                            disabled={sendingPayout === job.id}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#0a2518] border border-[#1a4a2e] text-[#5ce0a0] text-xs font-semibold rounded-lg hover:bg-[#0d3020] transition-colors disabled:opacity-50 ml-auto"
+                            onClick={async () => {
+                              if (!confirm(`Delete this job (${job.propertyName}, ${fmtDate(job.checkoutDate)})? It disappears from the CRM and the cleaner's portal and no payout will be sent. This cannot be undone.`)) return;
+                              setDeletingJobId(job.id);
+                              try { await onDeleteJob(job.id); } finally { setDeletingJobId(null); }
+                            }}
+                            disabled={deletingJobId === job.id || sendingPayout === job.id || markingPaid === job.id}
+                            title="Remove this job entirely (no payout)"
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-[#1a0e0e] border border-[#3a1a1a] text-[#e05c5c] text-xs font-semibold rounded-lg hover:bg-[#240e0e] transition-colors disabled:opacity-50"
                           >
-                            <CreditCard size={11} />
-                            {sendingPayout === job.id ? 'Sending…' : job.payoutStatus === 'failed' ? 'Retry transfer' : 'Send Now'}
+                            <Trash2 size={11} />
+                            {deletingJobId === job.id ? '…' : 'Delete'}
                           </button>
-                        )}
+                        </div>
                         {payoutErrors[job.id] && (
                           <p className="text-xs text-[#e05c5c] mt-1 max-w-[160px]">{payoutErrors[job.id]}</p>
                         )}
