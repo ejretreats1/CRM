@@ -2769,7 +2769,7 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
   res.setHeader('Cache-Control', 'private, no-store'); // personal data; the page keeps its own local copy
 
   // Only what the dashboard renders: unfinished jobs always, finished ones from the last 60 days.
-  const JOB_COLS = 'id, property_id, property_name, checkout_date, checkin_date, guest_name, notes, status, cleaner_payout, assigned_cleaner_id, dispatch_tokens, same_day, completed_at, portal_data';
+  const JOB_COLS = 'id, property_id, property_name, checkout_date, checkin_date, guest_name, notes, status, cleaner_payout, assigned_cleaner_id, dispatch_tokens, same_day, completed_at, portal_data, charged_at, payout_sent_at, payout_status';
   const sixtyDaysAgo = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
   const [{ data: cleanerRow }, { data: myJobRows }, { data: dispatchedRows }, { data: configs }] = await Promise.all([
     supabase.from('cleaners').select('id, name, email, phone, dashboard_token, status').eq('id', cleanerId).maybeSingle(),
@@ -2826,6 +2826,10 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
       // Only a real cleaner report counts — an admin marking the job Complete does not.
       reportSubmitted: !!(row.portal_data?.submittedAt),
       completedAt: row.completed_at ?? null,
+      // Billing already done → the report is optional (nice to have photos), not a blocker.
+      billed: !!row.charged_at,
+      paidOut: !!row.payout_sent_at,
+      payoutStatus: row.payout_status ?? null,
     };
   }
 

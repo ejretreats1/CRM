@@ -20,6 +20,9 @@ interface DashJob {
   sameDay?: boolean;
   reportSubmitted?: boolean;
   completedAt?: string | null;
+  billed?: boolean;
+  paidOut?: boolean;
+  payoutStatus?: string | null;
 }
 
 interface DashData {
@@ -170,7 +173,7 @@ function JobDetailModal({
 
         <div className="p-5 space-y-4">
           {/* Report overdue */}
-          {['accepted', 'in_progress', 'completed'].includes(job.status) && !job.reportSubmitted && job.checkoutDate < todayLocal() && (
+          {['accepted', 'in_progress', 'completed'].includes(job.status) && !job.reportSubmitted && !job.billed && job.checkoutDate < todayLocal() && (
             <div className="bg-[#2a1a05] border border-[#6a4a10] rounded-xl px-4 py-3 flex items-start gap-2.5">
               <AlertTriangle size={16} className="text-[#d0954a] mt-0.5 flex-shrink-0" />
               <div>
@@ -288,14 +291,22 @@ function JobDetailModal({
             <a
               href={`/?cleaner=${job.id}:${job.portalToken}`}
               className={`w-full font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2 text-base border ${
-                job.checkoutDate < todayLocal() && !job.reportSubmitted
-                  ? 'bg-[#d0954a] hover:bg-[#e0a55a] text-[#0a1628] border-[#d0954a]'
-                  : 'bg-[#2a6040] hover:bg-[#3a7050] text-[#5ce0a0] border-[#1e4030]'
+                job.billed
+                  ? 'bg-transparent hover:bg-[#1e2d45] text-[#7a94b8] border-[#2a4060] font-semibold'
+                  : job.checkoutDate < todayLocal()
+                    ? 'bg-[#d0954a] hover:bg-[#e0a55a] text-[#0a1628] border-[#d0954a]'
+                    : 'bg-[#2a6040] hover:bg-[#3a7050] text-[#5ce0a0] border-[#1e4030]'
               }`}
             >
               <CheckCircle size={18} />
-              {job.checkoutDate < todayLocal() && !job.reportSubmitted ? 'Submit Overdue Report' : 'Open Job & Submit Report'}
+              {job.billed ? 'Add photos / report (optional)' : job.checkoutDate < todayLocal() ? 'Submit Overdue Report' : 'Open Job & Submit Report'}
             </a>
+          )}
+          {job.billed && !job.reportSubmitted && (
+            <div className="bg-[#0a2518] border border-[#1e4030] rounded-xl px-4 py-3 flex items-center gap-2">
+              <CheckCircle size={16} className="text-[#5ce0a0]" />
+              <p className="text-[#5ce0a0] text-sm font-semibold">{job.paidOut ? 'Paid' : job.payoutStatus === 'manual_due' ? 'Payout coming (paid directly by E&J)' : 'Billed — payout on its way'} · no report on file</p>
+            </div>
           )}
           {job.reportSubmitted && (
             <div className="bg-[#0a2518] border border-[#1e4030] rounded-xl px-4 py-3 flex items-center gap-2">
@@ -436,7 +447,8 @@ export default function CleanerDashboard({ combined }: { combined: string }) {
   const availableJobs = Array.isArray(data.availableJobs) ? data.availableJobs : [];
   // A clean needs a report until the cleaner actually submits one — even if the
   // office already marked the job Complete (that only affects billing).
-  const reportable = (j: DashJob) => ['accepted', 'in_progress', 'completed'].includes(j.status) && !j.reportSubmitted;
+  // Once the client has been billed the report is optional, so the job moves to Completed.
+  const reportable = (j: DashJob) => ['accepted', 'in_progress', 'completed'].includes(j.status) && !j.reportSubmitted && !j.billed;
   const needsReport = myJobs.filter(j => reportable(j) && j.checkoutDate < today);
   const todayJobs   = myJobs.filter(j => reportable(j) && j.checkoutDate === today);
   const upcoming    = myJobs.filter(j => (j.status === 'accepted' || j.status === 'in_progress') && j.checkoutDate > today);
@@ -598,6 +610,8 @@ function JobCard({ job, overdue, onClick }: { job: DashJob; overdue?: boolean; o
         )}
         {overdue ? (
           <span className="text-xs font-bold px-2 py-0.5 rounded-full border bg-[#2a1a05] border-[#d0954a] text-[#f0b860]">Submit report</span>
+        ) : job.paidOut ? (
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-[#0a2518] border-[#1e4030] text-[#5ce0a0]">Paid</span>
         ) : (
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[job.status]}`}>
             {STATUS_LABELS[job.status]}
