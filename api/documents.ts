@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { requireAdmin, APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth.js';
-import { chargeJob, payoutJob, markPayoutPaid } from './_billing.js';
+import { chargeJob, payoutJob, markPayoutPaid, payoutDueFrom } from './_billing.js';
 
 
 import { syncPropertyIcal } from './_ical.js';
@@ -1044,7 +1044,7 @@ async function cleaningWaiveReport(body: any, res: VercelResponse) {
     submittedAt: now, waived: true,
     waivedNote: typeof note === 'string' && note.trim() ? note.trim().slice(0, 300) : 'Report waived by E&J Retreats',
   };
-  const patch: Record<string, unknown> = { portal_data: portalData, updated_at: now };
+  const patch: Record<string, unknown> = { portal_data: portalData, updated_at: now, payout_due_at: payoutDueFrom(now) };
   if (job.status !== 'completed') { patch.status = 'completed'; patch.completed_at = now; }
   const { error } = await supabase.from('cleaning_jobs').update(patch).eq('id', jobId).neq('status', 'cancelled');
   if (error) return res.status(500).json({ error: error.message });
@@ -1306,14 +1306,17 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
   const now = new Date().toISOString();
   const portalData = { checklist, photos: photos ?? [], damageNotes: damageNotes ?? '', damageMedia: damageMedia ?? [], suppliesNotes: suppliesNotes ?? '', submittedAt: now };
 
+  const payoutDueAt = payoutDueFrom(now);
   await supabase.from('cleaning_jobs').update({
     status: 'completed',
     completed_at: now,
     updated_at: now,
     portal_data: portalData,
+    ...(row.payout_sent_at ? {} : { payout_due_at: row.payout_due_at ?? payoutDueAt }),
   }).eq('id', jobId);
 
-  // Charge the client now that the report is in (idempotent; also pays the cleaner).
+  // Charge the client now that the report is in (idempotent). The cleaner's
+  // payout is scheduled for payoutDueAt and sent by the daily run.
   const charge = await chargeJob(supabase, await getStripe(), jobId, { trigger: 'submit' })
     .catch(e => ({ ok: false as const, error: (e as Error).message ?? 'Unexpected error' } as Awaited<ReturnType<typeof chargeJob>>));
 
@@ -1323,13 +1326,9 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
   const checklistDone = Object.values(checklist as Record<string, boolean>).filter(Boolean).length;
   const checklistTotal = Object.keys(checklist as Record<string, boolean>).length;
 
-  const payoutNote = charge.payout?.status === 'sent'
-    ? 'Payout sent to cleaner via Stripe ✓'
-    : charge.payout?.status === 'manual_due'
-      ? 'Cleaner has no active Stripe account — pay them directly, then click “Mark paid” in the CRM'
-      : charge.payout?.status === 'failed'
-        ? `Payout failed: ${escapeHtml(charge.payout.error ?? '')}`
-        : '';
+  const payoutNote = row.payout_sent_at
+    ? 'Cleaner already paid'
+    : `Cleaner payout scheduled for ${new Date(row.payout_due_at ?? payoutDueAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} (sends automatically)`;
   const paymentLine = charge.reason === 'external_billing'
     ? `🧾 <strong>Client billed outside Stripe</strong> — invoice them $${charge.amount ?? row.cleaning_fee}${payoutNote ? ` · ${payoutNote}` : ''}`
     : charge.ok
@@ -2262,14 +2261,12 @@ async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
   // Admin-triggered: may charge a completed job even if the cleaner's report is missing.
   const outcome = await chargeJob(getSupabase(), await getStripe(), jobId, { trigger: 'manual', allowWithoutReport: true });
   if (outcome.skipped && outcome.reason === 'external_billing') {
-    const p = outcome.payout;
-    const payoutMsg = p?.status === 'sent' ? 'cleaner payout sent via Stripe' : p?.status === 'already_sent' ? 'cleaner already paid' : p?.status === 'manual_due' ? 'cleaner has no Stripe account — pay them directly and click Mark paid' : p?.status === 'failed' ? `cleaner payout failed: ${p.error ?? ''}` : 'no cleaner payout due';
-    return res.status(200).json({ charged: false, external: true, amount: outcome.amount, payout: p ?? null, message: `This property is billed outside Stripe (nothing charged) — ${payoutMsg}.` });
+    return res.status(200).json({ charged: false, external: true, amount: outcome.amount, message: 'This property is billed outside Stripe — nothing was charged. The cleaner payout goes out on its scheduled date (or use Pay cleaner now).' });
   }
   if (outcome.skipped && outcome.reason === 'already_charged') return res.status(400).json({ error: 'This job has already been charged.' });
   if (outcome.skipped) return res.status(400).json({ error: outcome.error ?? 'Job cannot be charged right now.' });
   if (!outcome.ok) return res.status(402).json({ error: outcome.error ?? 'Charge failed.', willRetryAt: outcome.willRetryAt ?? null });
-  return res.status(200).json({ charged: true, paymentIntentId: outcome.paymentIntentId, amount: outcome.amount, payout: outcome.payout ?? null, warning: outcome.error ?? null });
+  return res.status(200).json({ charged: true, paymentIntentId: outcome.paymentIntentId, amount: outcome.amount, warning: outcome.error ?? null });
 }
 
 // ── CONTENT STUDIO ───────────────────────────────────────────────────────────
@@ -2804,7 +2801,7 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
   res.setHeader('Cache-Control', 'private, no-store'); // personal data; the page keeps its own local copy
 
   // Only what the dashboard renders: unfinished jobs always, finished ones from the last 60 days.
-  const JOB_COLS = 'id, property_id, property_name, checkout_date, checkin_date, guest_name, notes, status, cleaner_payout, assigned_cleaner_id, dispatch_tokens, same_day, completed_at, portal_data, charged_at, payout_sent_at, payout_status';
+  const JOB_COLS = 'id, property_id, property_name, checkout_date, checkin_date, guest_name, notes, status, cleaner_payout, assigned_cleaner_id, dispatch_tokens, same_day, completed_at, portal_data, charged_at, payout_sent_at, payout_status, payout_due_at';
   const sixtyDaysAgo = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
   const [{ data: cleanerRow }, { data: myJobRows }, { data: dispatchedRows }, { data: configs }] = await Promise.all([
     supabase.from('cleaners').select('id, name, email, phone, dashboard_token, status').eq('id', cleanerId).maybeSingle(),
@@ -2866,6 +2863,7 @@ async function cleanerDashboardGet(combined: string, res: VercelResponse) {
       billed: !!row.charged_at || row.charge_status === 'external',
       paidOut: !!row.payout_sent_at,
       payoutStatus: row.payout_status ?? null,
+      payoutDueAt: row.payout_due_at ?? null,
     };
   }
 

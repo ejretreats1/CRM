@@ -660,10 +660,12 @@ function CleaningPayments({
                           </span>
                         ) : job.payoutStatus === 'processing' ? (
                           <span className="text-xs text-[#4a90d9]">Sending…</span>
-                        ) : job.chargedAt ? (
-                          <span className="text-xs text-[#d0954a]">Client charged — payout queued for the next billing run (or click Send payout)</span>
+                        ) : job.payoutDueAt && new Date(job.payoutDueAt) > new Date() ? (
+                          <span className="text-xs text-[#7a94b8]" title="Cleaner payouts are sent automatically 2 days after the report, whether or not the client has been charged.">Scheduled {new Date(job.payoutDueAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                        ) : job.status === 'completed' ? (
+                          <span className="text-xs text-[#d0954a]">Due — sends at the next 1pm ET run (or click Send Now)</span>
                         ) : (
-                          <span className="text-xs text-[#5ce0a0]" title="The cleaner is paid via Stripe at the same moment the client's card is charged, which happens when the cleaner submits their report.">Pays automatically when the client is charged</span>
+                          <span className="text-xs text-[#3a5070]">Scheduled 2 days after the cleaner's report</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">

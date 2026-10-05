@@ -6,7 +6,7 @@ import Stripe from 'stripe';
 import { syncPropertyIcal } from './_ical.js';
 import { syncUplistingJobs, dispatchTick } from './_jobs.js';
 import { sendMorningReminders, sendSms } from './_sms.js';
-import { chargeJob, payoutJob, findChargeableJobs, findPayableJobs } from './_billing.js';
+import { chargeJob, payoutJob, findChargeableJobs, findPayableJobs, findScheduledPayouts } from './_billing.js';
 
 export const config = { maxDuration: 60 };
 
@@ -511,6 +511,7 @@ async function runBilling(res: VercelResponse) {
     awaitingReport: [] as { jobId: string; property: string; cleaner: string; date: string }[],
     gaveUp: [] as { jobId: string; property: string; error: string }[],
     externalBilled: [] as { jobId: string; property: string; date: string; amount: number; payout: string }[],
+    payoutsScheduled: [] as { jobId: string; property: string; cleaner: string; amount: number; dueAt: string }[],
     errors: [] as string[],
   };
 
@@ -521,7 +522,7 @@ async function runBilling(res: VercelResponse) {
     results.chargesAttempted++;
     try {
       const r = await chargeJob(supabase, stripe, job.id, { trigger: 'cron' });
-      if (r.skipped && r.reason === 'external_billing') { results.externalBilled.push({ jobId: job.id, property: job.property_name, date: job.checkout_date, amount: Number(r.amount ?? job.cleaning_fee ?? 0), payout: r.payout?.status ?? 'none' }); if (r.payout?.status === 'sent') { results.payoutsAttempted++; results.payoutsSucceeded++; } }
+      if (r.skipped && r.reason === 'external_billing') results.externalBilled.push({ jobId: job.id, property: job.property_name, date: job.checkout_date, amount: Number(r.amount ?? job.cleaning_fee ?? 0), payout: job.payout_sent_at ? 'paid' : 'scheduled' });
       else if (r.ok && !r.skipped) results.chargesSucceeded++;
       else if (!r.ok && !r.skipped) results.chargeFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown', retry: r.willRetryAt ?? null });
     } catch (e) {
@@ -545,6 +546,11 @@ async function runBilling(res: VercelResponse) {
     }
   }
 
+  // ── Step 2b: payouts coming up (information only) ─────────────────────────
+  try {
+    results.payoutsScheduled = (await findScheduledPayouts(supabase)).map((j: any) => ({ jobId: j.id, property: j.property_name, cleaner: j.assigned_cleaner_name ?? j.assigned_cleaner_id, amount: Number(j.cleaner_payout), dueAt: String(j.payout_due_at).slice(0, 10) }));
+  } catch { /* summary only */ }
+
   // ── Step 3: things a human needs to look at ───────────────────────────────
   const { data: noReport } = await supabase
     .from('cleaning_jobs')
@@ -567,7 +573,7 @@ async function runBilling(res: VercelResponse) {
 
   // ── Daily summary ─────────────────────────────────────────────────────────
   const attention = results.chargeFailed.length + results.payoutFailed.length + results.manualPayoutsDue.length + results.awaitingReport.length + results.gaveUp.length + results.externalBilled.length;
-  const total = results.chargesAttempted + results.payoutsAttempted + attention + results.errors.length;
+  const total = results.chargesAttempted + results.payoutsAttempted + attention + results.errors.length + (results.payoutsScheduled.length ? 1 : 0);
   if (total > 0) {
     const hasErrors = results.chargeFailed.length > 0 || results.payoutFailed.length > 0 || results.gaveUp.length > 0 || results.errors.length > 0;
     const subject = hasErrors
@@ -604,9 +610,10 @@ async function runBilling(res: VercelResponse) {
             ${section('Charges given up — fix the card or charge manually', '#dc2626', results.gaveUp.map(e => row([escapeHtml(e.property), escapeHtml(e.error)])))}
             ${section('Billed outside Stripe — invoice the client', '#0369a1', results.externalBilled.map(x => row([escapeHtml(x.property), x.date, `$${x.amount}`, `cleaner payout: ${escapeHtml(x.payout)}`])))}
             ${section('Payouts failed', '#dc2626', results.payoutFailed.map(e => row([escapeHtml(e.property), escapeHtml(e.error)])))}
+            ${section('Cleaner payouts scheduled (sent automatically on the date)', '#64748b', results.payoutsScheduled.map(p => row([escapeHtml(p.cleaner), `$${p.amount}`, escapeHtml(p.property), p.dueAt])))}
             ${section('Manual payouts due — pay the cleaner, then click “Mark paid” in the CRM', '#b45309', results.manualPayoutsDue.map(m => row([m.cleaner, `$${m.amount}`, m.property, m.date])))}
             ${section('Past checkout, no cleaning report yet (not charged)', '#b45309', results.awaitingReport.map(a => row([a.property, a.cleaner, a.date])))}
-            <p style="color:#94a3b8;font-size:12px;margin-top:16px">Clients are charged only after the cleaner submits their report. Payouts go out with the charge via Stripe Connect.</p>
+            <p style="color:#94a3b8;font-size:12px;margin-top:16px">Clients are charged when the cleaner submits their report. Cleaner payouts are sent automatically 2 days after the report via Stripe Connect, whether or not the client has been charged.</p>
           </div>
         </div>
       `,

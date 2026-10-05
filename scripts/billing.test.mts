@@ -60,11 +60,15 @@ const results: Record<string, boolean> = {};
 { const db = new FakeDb(base()); const st = new FakeStripe(); const r = await chargeJob(db, st as any, 'j1', { trigger: 'submit' }); const job = db.tables.cleaning_jobs[0];
   results.chargesJobFee = r.ok && st.piLog[0].amount === 12000 && st.piLog[0].key === 'cleaning_charge_j1_1' && st.piLog[0].params.receipt_email === 'o@x.com' && st.piLog[0].params.off_session === true;
   results.recorded = job.charge_status === 'charged' && !!job.charged_at && job.stripe_charge_id === 'pi_1' && job.status === 'completed';
-  results.payoutWithCharge = r.payout?.status === 'sent' && st.transferLog[0].params.source_transaction === 'ch_1' && st.transferLog[0].amount === 8000 && st.transferLog[0].key === 'payout_j1' && job.payout_status === 'sent' && !!job.payout_sent_at;
+  results.payoutDeferred = r.payout === undefined && !job.payout_sent_at && st.transferLog.length === 0;
+  job.payout_due_at = '2099-01-01T00:00:00Z'; const nd = await payoutJob(db, st as any, 'j1');
+  results.payoutNotDueYet = nd.status === 'skipped' && nd.reason === 'not_due' && nd.dueAt === '2099-01-01T00:00:00Z' && st.transferLog.length === 0;
+  job.payout_due_at = '2000-01-01T00:00:00Z'; const pd = await payoutJob(db, st as any, 'j1');
+  results.payoutOnceDueTiedToCharge = pd.status === 'sent' && st.transferLog[0].params.source_transaction === 'ch_1' && st.transferLog[0].amount === 8000 && st.transferLog[0].key === 'payout_j1' && job.payout_status === 'sent' && !!job.payout_sent_at;
   results.secondCallSkips = (await chargeJob(db, st as any, 'j1', { trigger: 'cron' })).reason === 'already_charged' && st.createCalls === 1; }
 // 2. concurrency: two callers, one charge
 { const db = new FakeDb(base()); const st = new FakeStripe(); const [a, b] = await Promise.all([chargeJob(db, st as any, 'j1', { trigger: 'submit' }), chargeJob(db, st as any, 'j1', { trigger: 'cron' })]);
-  results.concurrentSingleCharge = st.createCalls === 1 && st.transferLog.length === 1 && [a, b].filter(x => x.ok && !x.skipped).length === 1; }
+  results.concurrentSingleCharge = st.createCalls === 1 && st.transferLog.length === 0 && [a, b].filter(x => x.ok && !x.skipped).length === 1; }
 // 3. eligibility rules
 { const db = new FakeDb(base()); const st = new FakeStripe();
   results.notCompletedSkipped = (await chargeJob(db, st as any, 'j2', { trigger: 'cron' })).reason === 'not_completed';
@@ -77,7 +81,7 @@ const results: Record<string, boolean> = {};
 { const db = new FakeDb(base()); const st = new FakeStripe(); // legacy row: job fee 0 → falls back to property fee
   const m = await chargeJob(db, st as any, 'j3', { trigger: 'manual', allowWithoutReport: true }); const job = db.tables.cleaning_jobs[2];
   results.adminOverridesReportAndUsesPropertyFee = m.ok && st.piLog[0].amount === 10000;
-  results.manualDueWithoutStripe = m.payout?.status === 'manual_due' && job.payout_status === 'manual_due' && !job.payout_sent_at && st.transferLog.length === 0;
+  results.manualDueWithoutStripe = (await payoutJob(db, st as any, 'j3', { manual: true })).status === 'manual_due' && job.payout_status === 'manual_due' && !job.payout_sent_at && st.transferLog.length === 0;
   const mp = await markPayoutPaid(db, 'j3', { method: 'Zelle', reference: 'Z123' });
   results.markPaid = mp.ok && job.payout_status === 'sent_manual' && job.payout_method === 'Zelle' && job.payout_reference === 'Z123' && !!job.payout_sent_at;
   results.markPaidTwiceRefused = !(await markPayoutPaid(db, 'j3', { method: 'cash' })).ok; }
@@ -86,10 +90,10 @@ const results: Record<string, boolean> = {};
   const r = await chargeJob(db, st as any, 'j1', { trigger: 'cron' }); const job = db.tables.cleaning_jobs[0]; const inADay = new Date(job.next_charge_attempt_at).getTime() - Date.now();
   results.declineRecorded = !r.ok && job.charge_status === 'failed' && job.charge_attempts === 1 && /insufficient_funds/.test(job.last_charge_error) && inADay > 23 * 3600e3 && inADay < 25 * 3600e3 && !job.charged_at && st.transferLog.length === 0;
   job.next_charge_attempt_at = '2000-01-01T00:00:00Z'; const r2 = await chargeJob(db, st as any, 'j1', { trigger: 'cron' });
-  results.retryAttempt2 = r2.ok && st.piLog[0].key === 'cleaning_charge_j1_2' && job.charge_attempts === 2 && job.charge_status === 'charged' && r2.payout?.status === 'sent'; }
+  results.retryAttempt2 = r2.ok && st.piLog[0].key === 'cleaning_charge_j1_2' && job.charge_attempts === 2 && job.charge_status === 'charged'; }
 { const db = new FakeDb(base()); const st = new FakeStripe(); db.tables.cleaning_jobs[0].charge_status = 'failed'; db.tables.cleaning_jobs[0].charge_attempts = 1; st.searchResults = [{ id: 'pi_old', amount: 12000, latest_charge: 'ch_old' }];
   const r3 = await chargeJob(db, st as any, 'j1', { trigger: 'cron' });
-  results.adoptsExistingIntent = r3.ok && r3.paymentIntentId === 'pi_old' && st.createCalls === 0 && db.tables.cleaning_jobs[0].stripe_charge_id === 'pi_old' && st.transferLog[0]?.params.source_transaction === 'ch_old'; }
+  results.adoptsExistingIntent = r3.ok && r3.paymentIntentId === 'pi_old' && st.createCalls === 0 && db.tables.cleaning_jobs[0].stripe_charge_id === 'pi_old' && st.transferLog.length === 0; }
 // 5. give up after the schedule; stale processing claim can be taken over
 { const db = new FakeDb(base()); const st = new FakeStripe(); const job = db.tables.cleaning_jobs[0]; job.charge_status = 'failed'; job.charge_attempts = 3; job.next_charge_attempt_at = '2000-01-01T00:00:00Z';
   st.failNext = new Error('declined'); const r = await chargeJob(db, st as any, 'j1', { trigger: 'cron' });
@@ -100,7 +104,12 @@ const results: Record<string, boolean> = {};
   results.staleClaimTakenOver = (await chargeJob(db2, st2 as any, 'j1', { trigger: 'cron' })).ok && st2.createCalls === 1; }
 // 6. payouts: never before charge; pending Connect → manual_due until payouts_enabled; queues
 { const db = new FakeDb(base()); const st = new FakeStripe();
-  results.noPayoutBeforeCharge = (await payoutJob(db, st as any, 'j1')).reason === 'not_charged' && st.transferLog.length === 0;
+  // paid even though the client was never charged, once the delay has passed; no charge to tie to
+  db.tables.cleaning_jobs[0].payout_due_at = '2000-01-01T00:00:00Z';
+  const unch = await payoutJob(db, st as any, 'j1');
+  results.paidWithoutClientCharge = unch.status === 'sent' && st.transferLog.length === 1 && st.transferLog[0].params.source_transaction === undefined && !!db.tables.cleaning_jobs[0].payout_sent_at;
+  results.notCompletedNotPaid = (await payoutJob(db, st as any, 'j2', { manual: true })).reason === 'not_completed';
+  db.tables.cleaning_jobs[0].payout_sent_at = null; db.tables.cleaning_jobs[0].payout_status = null; db.tables.cleaning_jobs[0].stripe_transfer_id = null; st.transferLog.length = 0;
   db.tables.cleaning_jobs[0].charged_at = '2026-10-01T18:00:00Z'; db.tables.cleaning_jobs[0].assigned_cleaner_id = 'c3';
   results.pendingConnectManualDue = (await payoutJob(db, st as any, 'j1')).status === 'manual_due';
   st.payoutsEnabled['acct_3'] = true; const p2 = await payoutJob(db, st as any, 'j1');
@@ -109,17 +118,18 @@ const results: Record<string, boolean> = {};
 { const db = new FakeDb(base());
   results.chargeQueue = (await findChargeableJobs(db)).map((j: any) => j.id).join() === 'j1';
   db.tables.cleaning_jobs[4].next_charge_attempt_at = '2000-01-01T00:00:00Z'; results.chargeQueueRetryDue = (await findChargeableJobs(db)).map((j: any) => j.id).sort().join() === 'j1,j5';
-  db.tables.cleaning_jobs[0].charged_at = 'x'; db.tables.cleaning_jobs[0].payout_status = 'manual_due'; results.payQueueIncludesManualDue = (await findPayableJobs(db)).map((j: any) => j.id).join() === 'j1'; }
+  db.tables.cleaning_jobs[0].charged_at = 'x'; db.tables.cleaning_jobs[0].payout_status = 'manual_due'; db.tables.cleaning_jobs[0].payout_due_at = '2000-01-01T00:00:00Z'; results.payQueueIncludesManualDue = (await findPayableJobs(db)).map((j: any) => j.id).join() === 'j1'; }
 // 7. externally billed property: no charge, cleaner paid from platform balance; cron never retries the charge
 { const db = new FakeDb(base()); const st = new FakeStripe(); db.tables.cleaning_property_configs[0].billing_mode = 'external'; db.tables.cleaning_property_configs[0].stripe_payment_method_id = null;
   const r = await chargeJob(db, st as any, 'j1', { trigger: 'submit' }); const job = db.tables.cleaning_jobs[0];
   results.externalNoCharge = r.skipped === true && r.reason === 'external_billing' && r.amount === 120 && st.createCalls === 0 && !job.charged_at && job.charge_status === 'external';
-  results.externalPaysCleaner = r.payout?.status === 'sent' && st.transferLog.length === 1 && st.transferLog[0].amount === 8000 && st.transferLog[0].params.source_transaction === undefined && job.payout_status === 'sent' && !!job.payout_sent_at;
+  job.payout_due_at = '2000-01-01T00:00:00Z'; const ep = await payoutJob(db, st as any, 'j1');
+  results.externalPaysCleaner = r.payout === undefined && ep.status === 'sent' && st.transferLog.length === 1 && st.transferLog[0].amount === 8000 && st.transferLog[0].params.source_transaction === undefined && job.payout_status === 'sent' && !!job.payout_sent_at;
   results.externalNotInChargeQueue = !(await findChargeableJobs(db)).some((j: any) => j.id === 'j1');
-  results.externalRepeatIsNoop = (await chargeJob(db, st as any, 'j1', { trigger: 'cron' })).payout?.status === 'already_sent' && st.transferLog.length === 1; }
+  results.externalRepeatIsNoop = (await chargeJob(db, st as any, 'j1', { trigger: 'cron' })).reason === 'external_billing' && st.createCalls === 0 && st.transferLog.length === 1; }
 { const db = new FakeDb(base()); const st = new FakeStripe(); db.tables.cleaning_property_configs[0].billing_mode = 'external'; db.tables.cleaning_jobs[0].assigned_cleaner_id = 'c2'; // no Stripe
-  const r = await chargeJob(db, st as any, 'j1', { trigger: 'submit' }); const job = db.tables.cleaning_jobs[0];
-  results.externalManualDue = r.reason === 'external_billing' && r.payout?.status === 'manual_due' && job.payout_status === 'manual_due' && job.charge_status === 'external';
+  const r = await chargeJob(db, st as any, 'j1', { trigger: 'submit' }); const job = db.tables.cleaning_jobs[0]; job.payout_due_at = '2000-01-01T00:00:00Z';
+  results.externalManualDue = r.reason === 'external_billing' && (await payoutJob(db, st as any, 'j1')).status === 'manual_due' && job.payout_status === 'manual_due' && job.charge_status === 'external';
   results.externalInPayQueue = (await findPayableJobs(db)).some((j: any) => j.id === 'j1');
   const mp = await markPayoutPaid(db, 'j1', { method: 'Zelle' }); results.externalMarkPaid = mp.ok && !(await findPayableJobs(db)).some((j: any) => j.id === 'j1'); }
 

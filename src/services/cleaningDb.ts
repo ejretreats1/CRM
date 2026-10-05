@@ -192,6 +192,7 @@ function rowToJob(r: any): CleaningJob {
     payoutError: r.payout_error ?? undefined,
     payoutMethod: r.payout_method ?? undefined,
     payoutReference: r.payout_reference ?? undefined,
+    payoutDueAt: r.payout_due_at ?? undefined,
     dispatchEmailError: r.dispatch_email_error ?? undefined,
     morningSmsSentAt: r.morning_sms_sent_at ?? undefined,
     receiptSentAt: r.receipt_sent_at ?? undefined,

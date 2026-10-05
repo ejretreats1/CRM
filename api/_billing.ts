@@ -34,6 +34,19 @@ export interface PayoutOutcome {
   error?: string;
   transferId?: string;
   amount?: number;
+  /** When a not-yet-due payout will be sent */
+  dueAt?: string;
+}
+
+/**
+ * Cleaners are paid PAYOUT_DELAY_DAYS after the report is in (or the job was
+ * marked complete), whether or not the client has been charged yet. The gap
+ * lets the client's charge settle in Stripe first; when the job was charged
+ * the transfer is still tied to that charge via source_transaction.
+ */
+export const PAYOUT_DELAY_DAYS = 2;
+export function payoutDueFrom(iso: string): string {
+  return new Date(new Date(iso).getTime() + PAYOUT_DELAY_DAYS * 86400000).toISOString();
 }
 
 export interface ChargeOutcome {
@@ -118,8 +131,7 @@ export async function chargeJob(
     if (job.charge_status !== 'external') {
       await db.from('cleaning_jobs').update({ charge_status: 'external', last_charge_error: null, next_charge_attempt_at: null, updated_at: nowIso() }).eq('id', jobId).is('charged_at', null);
     }
-    const payout = opts.payout === false ? undefined : await payoutJob(db, stripe, jobId, { external: true });
-    return { ok: true, skipped: true, reason: 'external_billing', amount: fee, payout };
+    return { ok: true, skipped: true, reason: 'external_billing', amount: fee };
   }
 
   if (!(fee > 0)) return { ok: false, error: 'Cleaning fee is not set for this job.' };
@@ -154,8 +166,7 @@ export async function chargeJob(
       const existing = found.data[0];
       if (existing) {
         await recordCharged(db, jobId, existing.id, attempt);
-        const payout = opts.payout === false ? undefined : await payoutJob(db, stripe, jobId, { chargeId: chargeIdOf(existing) });
-        return { ok: true, paymentIntentId: existing.id, amount: existing.amount / 100, attempt, payout };
+        return { ok: true, paymentIntentId: existing.id, amount: existing.amount / 100, attempt };
       }
     } catch { /* search unavailable — fall through to a normal charge */ }
   }
@@ -202,13 +213,12 @@ export async function chargeJob(
   }
 
   const recordErr = await recordCharged(db, jobId, intent.id, attempt);
-  const payout = opts.payout === false ? undefined : await payoutJob(db, stripe, jobId, { chargeId: chargeIdOf(intent) });
+  // Payout is NOT sent here — it goes out PAYOUT_DELAY_DAYS after the report via payoutJob().
   return {
     ok: true,
     paymentIntentId: intent.id,
     amount: amountCents / 100,
     attempt,
-    payout,
     ...(recordErr ? { error: `Charged, but recording it failed: ${recordErr}` } : {}),
   };
 }
@@ -253,7 +263,7 @@ export async function payoutJob(
   db: Db,
   stripe: Stripe,
   jobId: string,
-  opts: { chargeId?: string; manual?: boolean; external?: boolean } = {},
+  opts: { chargeId?: string; manual?: boolean } = {},
 ): Promise<PayoutOutcome> {
   const job = await loadJob(db, jobId);
   if (!job) return { status: 'skipped', reason: 'not_found' };
@@ -262,10 +272,16 @@ export async function payoutJob(
   if (!job.assigned_cleaner_id) return { status: 'skipped', reason: 'no_cleaner' };
   const amount = Number(job.cleaner_payout ?? 0);
   if (!(amount > 0)) return { status: 'skipped', reason: 'zero_payout' };
-  // Externally billed jobs (client pays E&J outside Stripe) are paid from the
-  // platform balance without a client charge to tie to.
-  const external = opts.external || job.charge_status === 'external';
-  if (!job.charged_at && !external) return { status: 'skipped', reason: 'not_charged', error: 'Client has not been charged for this job yet.' };
+  // The cleaner is paid once the work is in (report submitted, or the job marked
+  // complete) and the delay has passed — regardless of whether the client has
+  // been charged. Manual sends (admin "Pay now") skip the delay.
+  const workDone = !!job.portal_data?.submittedAt || job.status === 'completed';
+  if (!workDone) return { status: 'skipped', reason: 'not_completed', error: 'The clean has not been completed/reported yet.' };
+  if (!opts.manual) {
+    const baseIso = [job.portal_data?.submittedAt, job.completed_at, job.updated_at].find((v: unknown) => typeof v === 'string' && !Number.isNaN(Date.parse(v))) as string | undefined;
+    const dueAt: string = job.payout_due_at ?? (baseIso ? payoutDueFrom(baseIso) : nowIso());
+    if (dueAt > nowIso()) return { status: 'skipped', reason: 'not_due', dueAt, amount };
+  }
 
   const { data: cleaner } = await db.from('cleaners').select('*').eq('id', job.assigned_cleaner_id).maybeSingle();
   if (!cleaner) return { status: 'skipped', reason: 'cleaner_missing', error: 'Cleaner record not found.' };
@@ -374,6 +390,21 @@ export async function markPayoutPaid(
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+/** Completed jobs whose payout is scheduled for later (for the daily summary). */
+export async function findScheduledPayouts(db: Db, limit = 50): Promise<JobRow[]> {
+  const { data } = await db
+    .from('cleaning_jobs')
+    .select('*')
+    .eq('status', 'completed')
+    .is('payout_sent_at', null)
+    .not('assigned_cleaner_id', 'is', null)
+    .gt('cleaner_payout', 0)
+    .gt('payout_due_at', nowIso())
+    .order('payout_due_at', { ascending: true })
+    .limit(limit);
+  return data ?? [];
+}
+
 /** Jobs the daily cron should try to charge right now. */
 export async function findChargeableJobs(db: Db, limit = 50): Promise<JobRow[]> {
   const now = nowIso();
@@ -389,16 +420,18 @@ export async function findChargeableJobs(db: Db, limit = 50): Promise<JobRow[]> 
   return data ?? [];
 }
 
-/** Charged (or externally billed) jobs whose cleaner payout hasn't gone out (includes manual_due, re-checked daily). */
+/** Completed jobs whose payout is due and hasn't gone out (includes manual_due, re-checked daily). */
 export async function findPayableJobs(db: Db, limit = 50): Promise<JobRow[]> {
+  const now = nowIso();
+  const fallbackCutoff = new Date(Date.now() - PAYOUT_DELAY_DAYS * 86400000).toISOString(); // legacy rows without payout_due_at
   const { data } = await db
     .from('cleaning_jobs')
     .select('*')
-    .or('charged_at.not.is.null,charge_status.eq.external')
+    .eq('status', 'completed')
     .is('payout_sent_at', null)
     .not('assigned_cleaner_id', 'is', null)
     .gt('cleaner_payout', 0)
-    .neq('status', 'cancelled')
+    .or(`payout_due_at.lte.${now},and(payout_due_at.is.null,completed_at.lte.${fallbackCutoff})`)
     .or('payout_status.is.null,payout_status.in.(failed,manual_due)')
     .order('checkout_date', { ascending: true })
     .limit(limit);

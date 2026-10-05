@@ -240,6 +240,28 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
   const [undoing, setUndoing] = useState<string | null>(null);
   const [reminding, setReminding] = useState<string | null>(null);
   const [waiving, setWaiving] = useState<string | null>(null);
+  const [paying, setPaying] = useState<string | null>(null);
+
+  /** Send the cleaner's payout now instead of waiting for the scheduled date. */
+  async function handlePayCleanerNow(job: CleaningJob) {
+    if (!confirm(`Send $${job.cleanerPayout} to ${job.assignedCleanerName ?? 'the cleaner'} via Stripe now?`)) return;
+    setPaying(job.id);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'send-job-payout', jobId: job.id }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Payout failed.');
+      const now = new Date().toISOString();
+      if (d.status === 'manual_due') { alert('This cleaner has no active Stripe account — pay them directly and click Mark paid in the Payments tab.'); await onUpdateJob({ ...job, payoutStatus: 'manual_due', updatedAt: now }); }
+      else await onUpdateJob({ ...job, payoutStatus: 'sent', payoutSentAt: now, updatedAt: now });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed.');
+    } finally {
+      setPaying(null);
+    }
+  }
 
   /** Office waives the cleaner's report so the job can be billed (e.g. the portal was down). */
   async function handleWaiveReport(job: CleaningJob) {
@@ -293,12 +315,8 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
 
   async function handleCharge(job: CleaningJob) {
     const fee = job.cleaningFee || configMap.get(job.propertyId)?.cleaningFee || 0;
-    const external = configMap.get(job.propertyId)?.billingMode === 'external';
-    const noReport = !job.portalData ? ' The cleaner has not submitted a report for this job; it will go through without one.' : '';
-    const q = external
-      ? `This property is billed outside Stripe. Pay the cleaner $${job.cleanerPayout} now via Stripe (nothing is charged to the client)?${noReport}`
-      : `Charge $${fee} to the client card on file for ${displayName(job.propertyId, job.propertyName, uplistingProperties)}?${noReport}`;
-    if (!confirm(q)) return;
+    const noReport = !job.portalData ? ' The cleaner has not submitted a report for this job; the charge will go through without one.' : '';
+    if (!confirm(`Charge $${fee} to the client card on file for ${displayName(job.propertyId, job.propertyName, uplistingProperties)}?${noReport}`)) return;
     setCharging(job.id);
     setChargeErrors(prev => { const next = { ...prev }; delete next[job.id]; return next; });
     try {
@@ -312,7 +330,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
       const now = new Date().toISOString();
       if (d.external) {
         alert(d.message);
-        await onUpdateJob({ ...job, chargeStatus: 'external', payoutStatus: d.payout?.status === 'sent' ? 'sent' : d.payout?.status === 'manual_due' ? 'manual_due' : job.payoutStatus, payoutSentAt: d.payout?.status === 'sent' ? now : job.payoutSentAt, updatedAt: now });
+        await onUpdateJob({ ...job, chargeStatus: 'external', updatedAt: now });
       } else {
         await onUpdateJob({ ...job, chargedAt: now, updatedAt: now });
       }
@@ -577,18 +595,29 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                     )}
                     {/* Charge status row */}
                     {job.chargedAt && (
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex items-center gap-1.5 text-xs text-[#5ce0a0]">
-                          <CreditCard size={12} />
-                          <span>Charged {new Date(job.chargedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                        </div>
+                      <div className="flex items-center gap-1.5 text-xs text-[#5ce0a0]">
+                        <CreditCard size={12} />
+                        <span>Charged {new Date(job.chargedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                    )}
+                    {/* Cleaner payout row — payouts go out 2 days after the report, charged or not */}
+                    {job.status === 'completed' && job.cleanerPayout > 0 && job.assignedCleanerId && (
+                      <div className="flex items-center gap-2 flex-wrap text-xs">
                         {job.payoutSentAt ? (
-                          <span className="text-xs text-[#d07af5]">· Payout {job.payoutStatus === 'sent_manual' ? `paid${job.payoutMethod ? ` via ${job.payoutMethod}` : ''}` : 'sent'}</span>
+                          <span className="text-[#d07af5]">💸 Cleaner paid {new Date(job.payoutSentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{job.payoutStatus === 'sent_manual' ? ` (${job.payoutMethod || 'manual'})` : ''}</span>
                         ) : job.payoutStatus === 'manual_due' ? (
-                          <span className="text-xs text-[#d0954a]">· Cleaner payout due — pay manually (Payments tab)</span>
+                          <span className="text-[#d0954a]">💸 Cleaner payout due — no Stripe account, pay manually (Payments tab)</span>
                         ) : job.payoutStatus === 'failed' ? (
-                          <span className="text-xs text-[#e05c5c]">· Payout failed: {job.payoutError}</span>
-                        ) : null}
+                          <span className="text-[#e05c5c]">💸 Payout failed: {job.payoutError} — retries daily</span>
+                        ) : (
+                          <span className="text-[#7a94b8]">💸 Cleaner payout ${job.cleanerPayout} {job.payoutDueAt && new Date(job.payoutDueAt) > new Date() ? `scheduled ${new Date(job.payoutDueAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}` : 'due — sends at the next 1pm run'}</span>
+                        )}
+                        {!job.payoutSentAt && job.payoutStatus !== 'manual_due' && (
+                          <button onClick={() => handlePayCleanerNow(job)} disabled={paying === job.id}
+                            className="px-2 py-0.5 rounded-md border border-[#1a4a2e] text-[#5ce0a0] hover:bg-[#0a2518] font-semibold disabled:opacity-50">
+                            {paying === job.id ? 'Sending…' : 'Pay cleaner now'}
+                          </button>
+                        )}
                       </div>
                     )}
                     {!job.chargedAt && job.chargeStatus === 'failed' && (
@@ -603,12 +632,12 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                     {job.chargeStatus === 'external' && !job.chargedAt && (
                       <div className="flex items-center gap-1.5 text-xs text-[#7ab8e8]">
                         <CreditCard size={12} />
-                        <span>Billed outside Stripe — invoice the client ${job.cleaningFee}{job.payoutSentAt ? ' · cleaner paid' : job.payoutStatus === 'manual_due' ? ' · cleaner payout due (pay manually)' : job.payoutStatus === 'failed' ? ` · cleaner payout failed: ${job.payoutError ?? ''}` : ''}</span>
+                        <span>🧾 Billed outside Stripe — invoice the client ${job.cleaningFee}</span>
                       </div>
                     )}
                     {job.status === 'completed' && !job.chargedAt && !job.portalData && job.chargeStatus !== 'failed' && job.chargeStatus !== 'external' && (
                       <div className="flex items-center gap-2 flex-wrap text-xs text-[#d0954a]">
-                        <span>📋 No cleaner report on file. Use <strong>Charge now</strong> to bill anyway, or waive the report so the daily run bills it{config && !config.stripePaymentMethodId ? ' (this property has no card on file yet — send the payment-setup link first)' : ''}.</span>
+                        <span>📋 No cleaner report on file. Use <strong>Charge now</strong> to bill anyway, or waive the report so the daily run bills it{config && config.billingMode !== 'external' && !config.stripePaymentMethodId ? ' (this property has no card on file yet — send the payment-setup link first)' : ''}.</span>
                         <button onClick={() => handleWaiveReport(job)} disabled={waiving === job.id}
                           className="px-2 py-0.5 rounded-md border border-[#4a3010] text-[#d0954a] hover:bg-[#2a1a05] font-semibold disabled:opacity-50">
                           {waiving === job.id ? 'Saving…' : 'Waive report'}
@@ -686,7 +715,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         {undoing === job.id ? 'Undoing…' : 'Undo Complete'}
                       </button>
                     )}
-                    {job.status === 'completed' && !job.chargedAt && !(job.chargeStatus === 'external' && job.payoutSentAt) && (
+                    {job.status === 'completed' && !job.chargedAt && job.chargeStatus !== 'external' && config?.billingMode !== 'external' && (
                       <button
                         onClick={() => handleCharge(job)}
                         disabled={charging === job.id}
@@ -694,7 +723,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50 whitespace-nowrap"
                       >
                         <CreditCard size={12} />
-                        {charging === job.id ? 'Working…' : config?.billingMode === 'external' ? `Pay cleaner $${job.cleanerPayout} now` : job.chargeStatus === 'failed' ? `Retry Charge $${job.cleaningFee || config?.cleaningFee || ''}` : `Charge $${job.cleaningFee || config?.cleaningFee || ''} now`}
+                        {charging === job.id ? 'Charging…' : job.chargeStatus === 'failed' ? `Retry Charge $${job.cleaningFee || config?.cleaningFee || ''}` : `Charge $${job.cleaningFee || config?.cleaningFee || ''} now`}
                       </button>
                     )}
                     {(job.status === 'pending' || job.status === 'dispatched' || job.status === 'accepted' || job.status === 'in_progress') && !job.chargedAt && (
