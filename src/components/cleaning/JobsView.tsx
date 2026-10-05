@@ -376,7 +376,8 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#0f1923] pb-3 -mx-4 px-4 pt-1 flex items-center justify-between flex-wrap gap-3">
+      {/* Sticky header: pulled into the scroll container's padding (p-4 / lg:p-6) so it sits flush at the top, same bg as the page */}
+      <div className="sticky top-0 z-10 bg-[#0f1623] -mt-4 lg:-mt-6 pt-4 lg:pt-6 pb-3 -mx-4 lg:-mx-6 px-4 lg:px-6 border-b border-[#1e2d45]/60 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">Jobs</h1>
           <p className="text-sm text-[#3a5070] mt-0.5">{jobs.length} total · {jobs.filter(j => j.status === 'pending').length} pending dispatch</p>
