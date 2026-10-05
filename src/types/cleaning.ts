@@ -131,6 +131,8 @@ export interface CleaningJob {
   payoutError?: string;
   payoutMethod?: string;
   payoutReference?: string;
+  /** When the cleaner's payout is scheduled to be sent (2 days after the report) */
+  payoutDueAt?: string;
   /** The offer email to the current cleaner failed (server-set) */
   dispatchEmailError?: string;
   morningSmsSentAt?: string;

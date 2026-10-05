@@ -24,6 +24,7 @@ interface DashJob {
   billed?: boolean;
   paidOut?: boolean;
   payoutStatus?: string | null;
+  payoutDueAt?: string | null;
 }
 
 interface DashData {
@@ -51,6 +52,14 @@ async function fetchDashboard(combined: string): Promise<DashData> {
   try { body = JSON.parse(text); } catch { throw new Error(r.ok ? 'Unexpected response from the server.' : `Server error (${r.status}). Please try again in a minute.`); }
   if (!r.ok || body.error) throw new Error(body.error ?? `Request failed (${r.status}).`);
   return body as DashData;
+}
+
+/** "Paid Oct 7" / "Payout scheduled Tue, Oct 7" / "Payout coming" for a finished job. */
+function payoutLabel(job: DashJob): string {
+  if (job.paidOut) return 'Paid';
+  if (job.payoutStatus === 'manual_due') return 'Payout coming (paid directly by E&J)';
+  if (job.payoutDueAt) return `Payout scheduled ${new Date(job.payoutDueAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+  return 'Payout on its way';
 }
 
 function todayLocal(): string {
@@ -306,13 +315,13 @@ function JobDetailModal({
           {job.billed && !job.reportSubmitted && (
             <div className="bg-[#0a2518] border border-[#1e4030] rounded-xl px-4 py-3 flex items-center gap-2">
               <CheckCircle size={16} className="text-[#5ce0a0]" />
-              <p className="text-[#5ce0a0] text-sm font-semibold">{job.paidOut ? 'Paid' : job.payoutStatus === 'manual_due' ? 'Payout coming (paid directly by E&J)' : 'Billed — payout on its way'} · no report on file</p>
+              <p className="text-[#5ce0a0] text-sm font-semibold">{payoutLabel(job)} · no report on file</p>
             </div>
           )}
           {job.reportSubmitted && (
             <div className="bg-[#0a2518] border border-[#1e4030] rounded-xl px-4 py-3 flex items-center gap-2">
               <CheckCircle size={16} className="text-[#5ce0a0]" />
-              <p className="text-[#5ce0a0] text-sm font-semibold">{job.reportWaived ? 'No report needed — handled by E&J' : `Report submitted${job.completedAt ? ` · ${new Date(job.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}`}</p>
+              <p className="text-[#5ce0a0] text-sm font-semibold">{job.reportWaived ? 'No report needed — handled by E&J' : `Report submitted${job.completedAt ? ` · ${new Date(job.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}`}{job.payout > 0 ? ` · ${payoutLabel(job)}` : ''}</p>
             </div>
           )}
 
