@@ -5,6 +5,8 @@ type Row = Record<string, any>;
 function splitTop(expr: string) { const out: string[] = []; let d = 0, c = ''; for (const ch of expr) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && d === 0) { out.push(c); c = ''; } else c += ch; } if (c) out.push(c); return out; }
 function term(t: string): (r: Row) => boolean {
   if (t.startsWith('and(')) { const subs = splitTop(t.slice(4, -1)).map(term); return r => subs.every(f => f(r)); }
+  const neg = t.match(/^(\w+)\.not\.(is|neq|eq|lt|lte|gt|gte|in)\.(.*)$/s);
+  if (neg) { const inner = term(`${neg[1]}.${neg[2]}.${neg[3]}`); return r => !inner(r); }
   const m = t.match(/^(\w+)\.(is|neq|eq|lt|lte|gt|gte|in)\.(.*)$/s); if (!m) throw new Error('bad or-term ' + t);
   const [, col, op, val] = m;
   return r => { const v = r[col]; if (op === 'is') return val === 'null' ? v == null : v === (val === 'true'); if (op === 'in') return val.replace(/^\(|\)$/g, '').split(',').includes(String(v)); if (v == null) return false; if (op === 'eq') return String(v) === val; if (op === 'neq') return String(v) !== val; if (op === 'lt') return v < val; if (op === 'lte') return v <= val; if (op === 'gt') return Number(v) > Number(val); return Number(v) >= Number(val); };

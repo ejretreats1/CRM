@@ -4,6 +4,8 @@ type Row = Record<string, any>;
 function splitTop(expr: string) { const out: string[] = []; let d = 0, c = ''; for (const ch of expr) { if (ch === '(') d++; if (ch === ')') d--; if (ch === ',' && d === 0) { out.push(c); c = ''; } else c += ch; } if (c) out.push(c); return out; }
 function term(t: string): (r: Row) => boolean {
   if (t.startsWith('and(')) { const subs = splitTop(t.slice(4, -1)).map(term); return r => subs.every(f => f(r)); }
+  const neg = t.match(/^(\w+)\.not\.(is|neq|eq|lt|lte|gt|gte|in)\.(.*)$/s);
+  if (neg) { const inner = term(`${neg[1]}.${neg[2]}.${neg[3]}`); return r => !inner(r); }
   const m = t.match(/^(\w+)\.(is|neq|eq|lt|lte|gt|gte|in)\.(.*)$/s); if (!m) throw new Error('bad or-term ' + t);
   const [, col, op, val] = m;
   return r => { const v = r[col]; if (op === 'is') return val === 'null' ? v == null : v === (val === 'true'); if (op === 'in') return val.replace(/^\(|\)$/g, '').split(',').includes(String(v)); if (v == null) return false; if (op === 'eq') return String(v) === val; if (op === 'neq') return String(v) !== val; if (op === 'lt') return v < val; if (op === 'lte') return v <= val; if (op === 'gt') return Number(v) > Number(val); return Number(v) >= Number(val); };
@@ -108,6 +110,19 @@ const results: Record<string, boolean> = {};
   results.chargeQueue = (await findChargeableJobs(db)).map((j: any) => j.id).join() === 'j1';
   db.tables.cleaning_jobs[4].next_charge_attempt_at = '2000-01-01T00:00:00Z'; results.chargeQueueRetryDue = (await findChargeableJobs(db)).map((j: any) => j.id).sort().join() === 'j1,j5';
   db.tables.cleaning_jobs[0].charged_at = 'x'; db.tables.cleaning_jobs[0].payout_status = 'manual_due'; results.payQueueIncludesManualDue = (await findPayableJobs(db)).map((j: any) => j.id).join() === 'j1'; }
+// 7. externally billed property: no charge, cleaner paid from platform balance; cron never retries the charge
+{ const db = new FakeDb(base()); const st = new FakeStripe(); db.tables.cleaning_property_configs[0].billing_mode = 'external'; db.tables.cleaning_property_configs[0].stripe_payment_method_id = null;
+  const r = await chargeJob(db, st as any, 'j1', { trigger: 'submit' }); const job = db.tables.cleaning_jobs[0];
+  results.externalNoCharge = r.skipped === true && r.reason === 'external_billing' && r.amount === 120 && st.createCalls === 0 && !job.charged_at && job.charge_status === 'external';
+  results.externalPaysCleaner = r.payout?.status === 'sent' && st.transferLog.length === 1 && st.transferLog[0].amount === 8000 && st.transferLog[0].params.source_transaction === undefined && job.payout_status === 'sent' && !!job.payout_sent_at;
+  results.externalNotInChargeQueue = !(await findChargeableJobs(db)).some((j: any) => j.id === 'j1');
+  results.externalRepeatIsNoop = (await chargeJob(db, st as any, 'j1', { trigger: 'cron' })).payout?.status === 'already_sent' && st.transferLog.length === 1; }
+{ const db = new FakeDb(base()); const st = new FakeStripe(); db.tables.cleaning_property_configs[0].billing_mode = 'external'; db.tables.cleaning_jobs[0].assigned_cleaner_id = 'c2'; // no Stripe
+  const r = await chargeJob(db, st as any, 'j1', { trigger: 'submit' }); const job = db.tables.cleaning_jobs[0];
+  results.externalManualDue = r.reason === 'external_billing' && r.payout?.status === 'manual_due' && job.payout_status === 'manual_due' && job.charge_status === 'external';
+  results.externalInPayQueue = (await findPayableJobs(db)).some((j: any) => j.id === 'j1');
+  const mp = await markPayoutPaid(db, 'j1', { method: 'Zelle' }); results.externalMarkPaid = mp.ok && !(await findPayableJobs(db)).some((j: any) => j.id === 'j1'); }
+
 const failed = Object.entries(results).filter(([, v]) => !v).map(([k]) => k);
 console.log(`${Object.keys(results).length - failed.length}/${Object.keys(results).length} billing checks passed${failed.length ? ' — FAILED: ' + failed.join(', ') : ''}`);
 if (failed.length) process.exit(1);

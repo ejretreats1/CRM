@@ -55,6 +55,8 @@ export interface CleaningPropertyConfig {
   clientPhone?: string;
   /** Free-form details the client supplied at enrollment (wifi, trash, supplies, parking…) */
   clientNotes?: string;
+  /** stripe (default): charge the card on file after each clean. external: client pays E&J outside Stripe; the cleaner is still paid via Stripe after each report. */
+  billingMode?: 'stripe' | 'external';
 }
 
 /** A link sent to a client so they can enroll their own property details. */
@@ -119,7 +121,8 @@ export interface CleaningJob {
   payoutSentAt?: string;
   stripeTransferId?: string;
   /** processing | charged | failed — set by the server billing flow */
-  chargeStatus?: 'processing' | 'charged' | 'failed';
+  /** external = client is invoiced outside Stripe; nothing was charged in the CRM */
+  chargeStatus?: 'processing' | 'charged' | 'failed' | 'external';
   chargeAttempts?: number;
   lastChargeError?: string;
   nextChargeAttemptAt?: string;

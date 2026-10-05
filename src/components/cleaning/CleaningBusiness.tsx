@@ -709,6 +709,11 @@ function CleaningPayments({
                             </span>
                             <span className="text-xs text-[#3a5070]">{fmtDate(job.chargedAt)}</span>
                           </span>
+                        ) : job.chargeStatus === 'external' ? (
+                          <span className="flex flex-col gap-0.5">
+                            <span className="flex items-center gap-1 text-xs text-[#7ab8e8] font-medium" title="This client is invoiced outside Stripe">🧾 Billed outside Stripe</span>
+                            <span className="text-xs text-[#3a5070]">Invoice ${job.cleaningFee}</span>
+                          </span>
                         ) : job.chargeStatus === 'failed' ? (
                           <span className="flex flex-col gap-0.5">
                             <span className="flex items-center gap-1 text-xs text-[#e05c5c] font-medium"><AlertCircle size={11} /> Charge failed</span>

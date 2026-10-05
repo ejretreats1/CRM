@@ -510,6 +510,7 @@ async function runBilling(res: VercelResponse) {
     manualPayoutsDue: [] as { jobId: string; property: string; cleaner: string; amount: number; date: string }[],
     awaitingReport: [] as { jobId: string; property: string; cleaner: string; date: string }[],
     gaveUp: [] as { jobId: string; property: string; error: string }[],
+    externalBilled: [] as { jobId: string; property: string; date: string; amount: number; payout: string }[],
     errors: [] as string[],
   };
 
@@ -520,7 +521,8 @@ async function runBilling(res: VercelResponse) {
     results.chargesAttempted++;
     try {
       const r = await chargeJob(supabase, stripe, job.id, { trigger: 'cron' });
-      if (r.ok && !r.skipped) results.chargesSucceeded++;
+      if (r.skipped && r.reason === 'external_billing') { results.externalBilled.push({ jobId: job.id, property: job.property_name, date: job.checkout_date, amount: Number(r.amount ?? job.cleaning_fee ?? 0), payout: r.payout?.status ?? 'none' }); if (r.payout?.status === 'sent') { results.payoutsAttempted++; results.payoutsSucceeded++; } }
+      else if (r.ok && !r.skipped) results.chargesSucceeded++;
       else if (!r.ok && !r.skipped) results.chargeFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown', retry: r.willRetryAt ?? null });
     } catch (e) {
       results.chargeFailed.push({ jobId: job.id, property: job.property_name, error: `crashed: ${e instanceof Error ? e.message : String(e)}`, retry: null });
@@ -564,7 +566,7 @@ async function runBilling(res: VercelResponse) {
   results.gaveUp = (exhausted ?? []).map((j: any) => ({ jobId: j.id, property: j.property_name, error: j.last_charge_error ?? 'unknown' }));
 
   // ── Daily summary ─────────────────────────────────────────────────────────
-  const attention = results.chargeFailed.length + results.payoutFailed.length + results.manualPayoutsDue.length + results.awaitingReport.length + results.gaveUp.length;
+  const attention = results.chargeFailed.length + results.payoutFailed.length + results.manualPayoutsDue.length + results.awaitingReport.length + results.gaveUp.length + results.externalBilled.length;
   const total = results.chargesAttempted + results.payoutsAttempted + attention + results.errors.length;
   if (total > 0) {
     const hasErrors = results.chargeFailed.length > 0 || results.payoutFailed.length > 0 || results.gaveUp.length > 0 || results.errors.length > 0;
@@ -600,6 +602,7 @@ async function runBilling(res: VercelResponse) {
             ${section('Run problems', '#dc2626', results.errors.map(e => row([escapeHtml(e)])))}
             ${section('Charges failed (will retry automatically)', '#dc2626', results.chargeFailed.map(e => row([escapeHtml(e.property), escapeHtml(e.error), e.retry ? `retry ${e.retry.slice(0, 10)}` : 'no more retries'])))}
             ${section('Charges given up — fix the card or charge manually', '#dc2626', results.gaveUp.map(e => row([escapeHtml(e.property), escapeHtml(e.error)])))}
+            ${section('Billed outside Stripe — invoice the client', '#0369a1', results.externalBilled.map(x => row([escapeHtml(x.property), x.date, `$${x.amount}`, `cleaner payout: ${escapeHtml(x.payout)}`])))}
             ${section('Payouts failed', '#dc2626', results.payoutFailed.map(e => row([escapeHtml(e.property), escapeHtml(e.error)])))}
             ${section('Manual payouts due — pay the cleaner, then click “Mark paid” in the CRM', '#b45309', results.manualPayoutsDue.map(m => row([m.cleaner, `$${m.amount}`, m.property, m.date])))}
             ${section('Past checkout, no cleaning report yet (not charged)', '#b45309', results.awaitingReport.map(a => row([a.property, a.cleaner, a.date])))}

@@ -185,7 +185,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
       return;
     }
     const fee = job.cleaningFee > 0 ? job.cleaningFee : config.cleaningFee;
-    const blockers = [!config.stripePaymentMethodId && 'the client has no card on file', fee <= 0 && 'no cleaning fee is set'].filter(Boolean);
+    const blockers = config.billingMode === 'external' ? [] : [!config.stripePaymentMethodId && 'the client has no card on file', fee <= 0 && 'no cleaning fee is set'].filter(Boolean);
     if (blockers.length && !confirm(`Heads up: ${blockers.join(' and ')} for ${config.propertyName}, so this job can't be billed yet. Dispatch anyway?`)) return;
     // Build list: cleaner profile + their negotiated payout for this property
     const assignedCleaners = config.assignedCleaners
@@ -293,8 +293,12 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
 
   async function handleCharge(job: CleaningJob) {
     const fee = job.cleaningFee || configMap.get(job.propertyId)?.cleaningFee || 0;
-    const noReport = !job.portalData ? ' The cleaner has not submitted a report for this job; the charge will go through without one and the cleaner will be paid.' : '';
-    if (!confirm(`Charge $${fee} to the client card on file for ${displayName(job.propertyId, job.propertyName, uplistingProperties)}?${noReport}`)) return;
+    const external = configMap.get(job.propertyId)?.billingMode === 'external';
+    const noReport = !job.portalData ? ' The cleaner has not submitted a report for this job; it will go through without one.' : '';
+    const q = external
+      ? `This property is billed outside Stripe. Pay the cleaner $${job.cleanerPayout} now via Stripe (nothing is charged to the client)?${noReport}`
+      : `Charge $${fee} to the client card on file for ${displayName(job.propertyId, job.propertyName, uplistingProperties)}?${noReport}`;
+    if (!confirm(q)) return;
     setCharging(job.id);
     setChargeErrors(prev => { const next = { ...prev }; delete next[job.id]; return next; });
     try {
@@ -306,7 +310,12 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? 'Charge failed.');
       const now = new Date().toISOString();
-      await onUpdateJob({ ...job, chargedAt: now, updatedAt: now });
+      if (d.external) {
+        alert(d.message);
+        await onUpdateJob({ ...job, chargeStatus: 'external', payoutStatus: d.payout?.status === 'sent' ? 'sent' : d.payout?.status === 'manual_due' ? 'manual_due' : job.payoutStatus, payoutSentAt: d.payout?.status === 'sent' ? now : job.payoutSentAt, updatedAt: now });
+      } else {
+        await onUpdateJob({ ...job, chargedAt: now, updatedAt: now });
+      }
     } catch (e: unknown) {
       setChargeErrors(prev => ({ ...prev, [job.id]: e instanceof Error ? e.message : 'Charge failed.' }));
     } finally {
@@ -591,7 +600,13 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         </span>
                       </div>
                     )}
-                    {job.status === 'completed' && !job.chargedAt && !job.portalData && job.chargeStatus !== 'failed' && (
+                    {job.chargeStatus === 'external' && !job.chargedAt && (
+                      <div className="flex items-center gap-1.5 text-xs text-[#7ab8e8]">
+                        <CreditCard size={12} />
+                        <span>Billed outside Stripe — invoice the client ${job.cleaningFee}{job.payoutSentAt ? ' · cleaner paid' : job.payoutStatus === 'manual_due' ? ' · cleaner payout due (pay manually)' : job.payoutStatus === 'failed' ? ` · cleaner payout failed: ${job.payoutError ?? ''}` : ''}</span>
+                      </div>
+                    )}
+                    {job.status === 'completed' && !job.chargedAt && !job.portalData && job.chargeStatus !== 'failed' && job.chargeStatus !== 'external' && (
                       <div className="flex items-center gap-2 flex-wrap text-xs text-[#d0954a]">
                         <span>📋 No cleaner report on file. Use <strong>Charge now</strong> to bill anyway, or waive the report so the daily run bills it{config && !config.stripePaymentMethodId ? ' (this property has no card on file yet — send the payment-setup link first)' : ''}.</span>
                         <button onClick={() => handleWaiveReport(job)} disabled={waiving === job.id}
@@ -671,7 +686,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         {undoing === job.id ? 'Undoing…' : 'Undo Complete'}
                       </button>
                     )}
-                    {job.status === 'completed' && !job.chargedAt && (
+                    {job.status === 'completed' && !job.chargedAt && !(job.chargeStatus === 'external' && job.payoutSentAt) && (
                       <button
                         onClick={() => handleCharge(job)}
                         disabled={charging === job.id}
@@ -679,7 +694,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2a1e0e] border border-[#5a3a1a] text-[#d0954a] text-xs font-semibold rounded-lg hover:bg-[#3a2810] transition-colors disabled:opacity-50 whitespace-nowrap"
                       >
                         <CreditCard size={12} />
-                        {charging === job.id ? 'Charging…' : job.chargeStatus === 'failed' ? `Retry Charge $${job.cleaningFee || config?.cleaningFee || ''}` : `Charge $${job.cleaningFee || config?.cleaningFee || ''} now`}
+                        {charging === job.id ? 'Working…' : config?.billingMode === 'external' ? `Pay cleaner $${job.cleanerPayout} now` : job.chargeStatus === 'failed' ? `Retry Charge $${job.cleaningFee || config?.cleaningFee || ''}` : `Charge $${job.cleaningFee || config?.cleaningFee || ''} now`}
                       </button>
                     )}
                     {(job.status === 'pending' || job.status === 'dispatched' || job.status === 'accepted' || job.status === 'in_progress') && !job.chargedAt && (

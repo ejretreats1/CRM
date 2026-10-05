@@ -406,6 +406,7 @@ export interface TickResult { dispatched: number; escalated: number; exhausted: 
 /** A property can only be auto-dispatched once the client has a card on file and a fee is set. */
 export function dispatchBlocker(job: Row, config: Row): string | null {
   const fee = Number(job.cleaning_fee ?? 0) > 0 ? Number(job.cleaning_fee) : Number(config.cleaning_fee ?? 0);
+  if (config.billing_mode === 'external') return null; // client is invoiced outside Stripe; cleaner is paid from the platform balance
   if (!config.stripe_payment_method_id) return 'no card on file — send the client the payment-setup link';
   if (fee <= 0) return 'cleaning fee not set';
   return null;
