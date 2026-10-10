@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Briefcase, Users, CreditCard,
-  CheckCircle, TrendingUp, DollarSign, Sparkles, AlertCircle, RefreshCw,
+  CheckCircle, TrendingUp, DollarSign, AlertCircle, RefreshCw,
   ChevronUp, ChevronDown, Trash2,
 } from 'lucide-react';
 import type { View } from '../../types';
@@ -55,64 +55,133 @@ function fmtDate(iso: string | null | undefined): string {
 
 function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expenses }: { jobs: CleaningJob[]; cleaners: Cleaner[]; configs: CleaningPropertyConfig[]; uplistingProperties: UplistingProperty[]; expenses: CleaningExpense[] }) {
   const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0,0,0,0);
   const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 7);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
   const weekStr  = weekStart.toISOString().slice(0,10);
   const weekEndStr = weekEnd.toISOString().slice(0,10);
-  const monthStr = monthStart.toISOString().slice(0,10);
+
+  // Fee for a job: its own fee, else the property's current fee (older rows were created before fees were copied onto jobs).
+  const configByProperty = new Map<string, CleaningPropertyConfig>();
+  for (const c of configs) { configByProperty.set(c.propertyId, c); for (const sub of c.linkedPropertyIds ?? []) if (!configByProperty.has(sub)) configByProperty.set(sub, c); }
+  const feeOf = (j: CleaningJob) => j.cleaningFee > 0 ? j.cleaningFee : (configByProperty.get(j.propertyId)?.cleaningFee ?? 0);
+
+  // ── Month by month: every completed clean counts at its fee, whether the client
+  // paid through Stripe or outside it. (The Payments tab tracks actual Stripe movement.)
+  interface MonthRow { key: string; label: string; cleans: number; revenue: number; payouts: number; expenses: number; profit: number; scheduled: number; viaStripe: number; outside: number }
+  const months: MonthRow[] = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const done = jobs.filter(j => j.checkoutDate.startsWith(key) && j.status === 'completed');
+    const scheduled = jobs.filter(j => j.checkoutDate.startsWith(key) && j.status !== 'completed' && j.status !== 'cancelled' && j.checkoutDate >= todayStr).length;
+    const revenue = done.reduce((s, j) => s + feeOf(j), 0);
+    const payouts = done.reduce((s, j) => s + (j.cleanerPayout || 0), 0);
+    const exp = expenses.filter(e => e.date.startsWith(key)).reduce((s, e) => s + e.amount, 0);
+    const viaStripe = done.filter(j => !!j.chargedAt).length;
+    months.push({ key, label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }), cleans: done.length, revenue, payouts, expenses: exp, profit: revenue - payouts - exp, scheduled, viaStripe, outside: done.length - viaStripe });
+  }
+  const thisMonth = months[0];
+  const lastMonth = months[1];
 
   const jobsThisWeek = jobs.filter(j => j.checkoutDate >= weekStr && j.checkoutDate < weekEndStr && j.status !== 'cancelled').length;
-  const chargedThisMonth = jobs
-    .filter(j => j.checkoutDate >= monthStr && j.chargedAt)
-    .reduce((s, j) => s + j.cleaningFee, 0);
   const activeCleaners = cleaners.filter(c => c.status === 'active').length;
-  const expensesThisMonth = expenses
-    .filter(e => e.date >= monthStr)
-    .reduce((s, e) => s + e.amount, 0);
-  const profitThisMonth = jobs
-    .filter(j => j.checkoutDate >= monthStr && j.chargedAt)
-    .reduce((s, j) => s + (j.cleaningFee - j.cleanerPayout), 0) - expensesThisMonth;
-
-  const awaitingCharge = jobs.filter(j => j.status === 'completed' && !j.chargedAt);
+  const awaitingCharge = jobs.filter(j => j.status === 'completed' && !j.chargedAt && j.chargeStatus !== 'external' && configByProperty.get(j.propertyId)?.billingMode !== 'external');
 
   const stats = [
-    { label: 'Jobs This Week',      value: jobsThisWeek > 0 ? String(jobsThisWeek) : '—', icon: Briefcase,   color: 'text-[#4a90d9]', bg: 'bg-[#0d1e35]' },
-    { label: 'Charged This Month',  value: chargedThisMonth > 0 ? fmtCurrency(chargedThisMonth) : '—', icon: DollarSign, color: 'text-[#5ce0a0]', bg: 'bg-[#0a2518]' },
-    { label: 'Active Cleaners',     value: activeCleaners > 0 ? String(activeCleaners) : '—', icon: Users,       color: 'text-[#d07af5]', bg: 'bg-[#1a0a2e]' },
-    { label: 'Net Profit',          value: profitThisMonth > 0 ? fmtCurrency(profitThisMonth) : '—', icon: TrendingUp,  color: 'text-[#d0954a]', bg: 'bg-[#1a1000]' },
+    { label: 'Cleans This Month',    value: String(thisMonth.cleans), sub: thisMonth.scheduled ? `${thisMonth.scheduled} more scheduled` : `${jobsThisWeek} this week`, icon: Briefcase,   color: 'text-[#4a90d9]', bg: 'bg-[#0d1e35]' },
+    { label: 'Revenue This Month',   value: fmtCurrency(thisMonth.revenue), sub: 'all completed cleans', icon: DollarSign, color: 'text-[#5ce0a0]', bg: 'bg-[#0a2518]' },
+    { label: 'Active Cleaners',      value: String(activeCleaners), sub: `${fmtCurrency(thisMonth.payouts)} payouts this month`, icon: Users,       color: 'text-[#d07af5]', bg: 'bg-[#1a0a2e]' },
+    { label: 'Net Profit This Month', value: fmtCurrency(thisMonth.profit), sub: lastMonth.cleans ? `${fmtCurrency(lastMonth.profit)} last month` : 'after payouts + expenses', icon: TrendingUp,  color: 'text-[#d0954a]', bg: 'bg-[#1a1000]' },
   ];
 
   const upcomingJobs = jobs
-    .filter(j => j.checkoutDate >= now.toISOString().slice(0,10) && j.status !== 'cancelled' && j.status !== 'completed')
+    .filter(j => j.checkoutDate >= todayStr && j.status !== 'cancelled' && j.status !== 'completed')
     .sort((a, b) => a.checkoutDate.localeCompare(b.checkoutDate))
     .slice(0, 5);
+
+  const monthsWithData = months.filter((m, i) => i === 0 || m.cleans > 0 || m.expenses > 0 || m.scheduled > 0);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-white">Cleaning Dashboard</h1>
-        <p className="text-sm text-[#3a5070] mt-0.5">Overview of your cleaning business — {configs.length} properties · {cleaners.filter(c=>c.status==='active').length} cleaners</p>
+        <p className="text-sm text-[#3a5070] mt-0.5">Overview of your cleaning business — {configs.length} properties · {activeCleaners} cleaners</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s, i) => (
-          <div key={s.label} style={{ transitionDelay: `${i * 60}ms` }} className={`scroll-fade ${s.bg} border border-[#1e2d45] rounded-2xl p-4 space-y-2`}>
+          <div key={s.label} style={{ transitionDelay: `${i * 60}ms` }} className={`scroll-fade ${s.bg} border border-[#1e2d45] rounded-2xl p-4 space-y-1.5`}>
             <div className="flex items-center justify-between">
               <span className="text-xs text-[#3a5070] font-medium">{s.label}</span>
               <s.icon size={16} className={s.color} />
             </div>
             <p className="text-2xl font-bold text-white">{s.value}</p>
+            <p className="text-[11px] text-[#3a5070]">{s.sub}</p>
           </div>
         ))}
+      </div>
+
+      {/* Month by month */}
+      <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#1e2d45]">
+          <h2 className="text-sm font-bold text-white">Month by Month</h2>
+          <p className="text-[11px] text-[#3a5070] mt-0.5">Every completed clean counts at its fee, whether the client paid through Stripe or outside it. Profit = revenue − cleaner payouts − expenses. The Payments tab tracks what actually moved through Stripe.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[11px] uppercase tracking-wide text-[#3a5070] border-b border-[#1e2d45]">
+                <th className="text-left px-5 py-2.5">Month</th>
+                <th className="text-right px-4 py-2.5">Cleans</th>
+                <th className="text-right px-4 py-2.5 hidden md:table-cell">Via Stripe / Outside</th>
+                <th className="text-right px-4 py-2.5">Revenue</th>
+                <th className="text-right px-4 py-2.5 hidden sm:table-cell">Payouts</th>
+                <th className="text-right px-4 py-2.5 hidden sm:table-cell">Expenses</th>
+                <th className="text-right px-5 py-2.5">Profit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthsWithData.map((m, i) => (
+                <tr key={m.key} className={`border-b border-[#1e2d45] last:border-0 ${i === 0 ? 'bg-[#0f1923]' : ''}`}>
+                  <td className="px-5 py-3">
+                    <p className="text-white font-medium">{m.label}{i === 0 ? <span className="ml-2 text-[10px] font-semibold text-[#4a90d9] bg-[#0d1e35] border border-[#1e3a5a] px-1.5 py-0.5 rounded-full align-middle">so far</span> : null}</p>
+                    {m.scheduled > 0 && <p className="text-[11px] text-[#3a5070]">{m.scheduled} more scheduled</p>}
+                  </td>
+                  <td className="px-4 py-3 text-right text-white font-semibold">{m.cleans}</td>
+                  <td className="px-4 py-3 text-right text-[#7a94b8] hidden md:table-cell">{m.cleans ? `${m.viaStripe} / ${m.outside}` : '—'}</td>
+                  <td className="px-4 py-3 text-right text-[#5ce0a0] font-semibold">{m.revenue ? fmtCurrency(m.revenue) : '—'}</td>
+                  <td className="px-4 py-3 text-right text-[#d07af5] hidden sm:table-cell">{m.payouts ? fmtCurrency(m.payouts) : '—'}</td>
+                  <td className="px-4 py-3 text-right text-[#e05c5c] hidden sm:table-cell">{m.expenses ? fmtCurrency(m.expenses) : '—'}</td>
+                  <td className={`px-5 py-3 text-right font-bold ${m.profit > 0 ? 'text-[#d0954a]' : m.profit < 0 ? 'text-[#e05c5c]' : 'text-[#3a5070]'}`}>{m.cleans || m.expenses ? fmtCurrency(m.profit) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+            {monthsWithData.length > 1 && (() => {
+              const t = monthsWithData.reduce((acc, m) => ({ cleans: acc.cleans + m.cleans, revenue: acc.revenue + m.revenue, payouts: acc.payouts + m.payouts, expenses: acc.expenses + m.expenses, profit: acc.profit + m.profit }), { cleans: 0, revenue: 0, payouts: 0, expenses: 0, profit: 0 });
+              return (
+                <tfoot>
+                  <tr className="border-t border-[#2a4060] text-[13px]">
+                    <td className="px-5 py-3 text-[#3a5070] font-semibold">Last {monthsWithData.length} months</td>
+                    <td className="px-4 py-3 text-right text-white font-semibold">{t.cleans}</td>
+                    <td className="hidden md:table-cell" />
+                    <td className="px-4 py-3 text-right text-[#5ce0a0] font-semibold">{fmtCurrency(t.revenue)}</td>
+                    <td className="px-4 py-3 text-right text-[#d07af5] hidden sm:table-cell">{fmtCurrency(t.payouts)}</td>
+                    <td className="px-4 py-3 text-right text-[#e05c5c] hidden sm:table-cell">{fmtCurrency(t.expenses)}</td>
+                    <td className="px-5 py-3 text-right text-[#d0954a] font-bold">{fmtCurrency(t.profit)}</td>
+                  </tr>
+                </tfoot>
+              );
+            })()}
+          </table>
+        </div>
       </div>
 
       {awaitingCharge.length > 0 && (
         <div className="flex items-center gap-2.5 bg-[#1a1000] border border-[#3a3200] rounded-xl px-4 py-3">
           <AlertCircle size={16} className="text-[#d0954a] flex-shrink-0" />
           <p className="text-xs text-[#d0954a]">
-            <strong>{awaitingCharge.length}</strong> completed job{awaitingCharge.length > 1 ? 's' : ''} {awaitingCharge.length > 1 ? 'are' : 'is'} still awaiting charge — auto-charge may have failed. Check the Payments tab to retry.
+            <strong>{awaitingCharge.length}</strong> completed job{awaitingCharge.length > 1 ? 's' : ''} {awaitingCharge.length > 1 ? 'are' : 'is'} still awaiting a Stripe charge. Check the Payments tab.
           </p>
         </div>
       )}
@@ -139,29 +208,6 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
           </div>
         </div>
       )}
-
-      <div className="bg-[#162035] border border-[#1e3a5a] rounded-2xl p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles size={16} className="text-[#4a90d9]" />
-          <h2 className="text-sm font-bold text-white">Build Roadmap</h2>
-        </div>
-        <div className="space-y-2">
-          {[
-            { phase: 'Phase 1', label: 'CRM split + structure', done: true },
-            { phase: 'Phase 2', label: 'Job engine — auto-create + auto-dispatch jobs from Uplisting checkouts', done: true },
-            { phase: 'Phase 3', label: 'Cleaner portal — photos, checklist, damage reports', done: true },
-            { phase: 'Phase 4', label: 'Client onboarding — agreement + card on file, batch invites', done: true },
-            { phase: 'Phase 5', label: 'Automated payments — charge clients, pay cleaners via Stripe', done: true },
-            { phase: 'Phase 6', label: 'Profit dashboard + payments reporting', done: true },
-          ].map(row => (
-            <div key={row.phase} className="flex items-center gap-3">
-              <CheckCircle size={14} className={row.done ? 'text-[#5ce0a0]' : 'text-[#1e3a5a]'} />
-              <span className="text-xs text-[#4a90d9] font-semibold w-16 flex-shrink-0">{row.phase}</span>
-              <span className={`text-xs ${row.done ? 'text-white' : 'text-[#3a5070]'}`}>{row.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
