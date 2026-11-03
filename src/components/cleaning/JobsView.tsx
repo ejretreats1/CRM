@@ -511,7 +511,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                       )}
                       {job.jobType && job.jobType !== 'cleaning' && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-[#1a1a2e] border-[#4a4a8a] text-[#a0a0e0]">
-                          {job.jobType === 'handyman' ? '🔧 Handyman' : '🌿 Lawn Care'}
+                          {job.jobType === 'handyman' ? '🔧 Handyman' : job.jobType === 'supplies' ? '📦 Supplies' : '🌿 Lawn Care'}
                         </span>
                       )}
                       {job.source === 'manual' && (

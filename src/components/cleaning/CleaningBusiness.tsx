@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Briefcase, Users, CreditCard,
   CheckCircle, TrendingUp, DollarSign, AlertCircle, RefreshCw,
-  ChevronUp, ChevronDown, Trash2,
+  ChevronUp, ChevronDown, Trash2, Package, Mail,
 } from 'lucide-react';
 import type { View } from '../../types';
 import type { CleaningJob, Cleaner, CleaningPropertyConfig } from '../../types/cleaning';
@@ -74,12 +74,14 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const done = jobs.filter(j => j.checkoutDate.startsWith(key) && j.status === 'completed');
+    // Supplies charges are billed work, not cleans — they count toward revenue only.
+    const cleans = done.filter(j => j.jobType !== 'supplies');
     const scheduled = jobs.filter(j => j.checkoutDate.startsWith(key) && j.status !== 'completed' && j.status !== 'cancelled' && j.checkoutDate >= todayStr).length;
     const revenue = done.reduce((s, j) => s + feeOf(j), 0);
     const payouts = done.reduce((s, j) => s + (j.cleanerPayout || 0), 0);
     const exp = expenses.filter(e => e.date.startsWith(key)).reduce((s, e) => s + e.amount, 0);
-    const viaStripe = done.filter(j => !!j.chargedAt).length;
-    months.push({ key, label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }), cleans: done.length, revenue, payouts, expenses: exp, profit: revenue - payouts - exp, scheduled, viaStripe, outside: done.length - viaStripe });
+    const viaStripe = cleans.filter(j => !!j.chargedAt).length;
+    months.push({ key, label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }), cleans: cleans.length, revenue, payouts, expenses: exp, profit: revenue - payouts - exp, scheduled, viaStripe, outside: cleans.length - viaStripe });
   }
   const thisMonth = months[0];
   const lastMonth = months[1];
@@ -126,7 +128,7 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
       <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-[#1e2d45]">
           <h2 className="text-sm font-bold text-white">Month by Month</h2>
-          <p className="text-[11px] text-[#3a5070] mt-0.5">Every completed clean counts at its fee, whether the client paid through Stripe or outside it. Profit = revenue − cleaner payouts − expenses. The Payments tab tracks what actually moved through Stripe.</p>
+          <p className="text-[11px] text-[#3a5070] mt-0.5">Every completed clean counts at its fee, whether the client paid through Stripe or outside it. Supplies charges count toward revenue but aren't counted as cleans. Profit = revenue − cleaner payouts − expenses. The Payments tab tracks what actually moved through Stripe.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -214,31 +216,53 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
 
 type PaymentFilter = 'all' | 'charged' | 'not_charged' | 'awaiting_payout' | 'payout_sent';
 
+type ChargeKind = 'supplies' | 'other';
+
 function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyConfig[]; onRefresh: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<ChargeKind>('supplies');
   const [propertyId, setPropertyId] = useState('');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
+  const [notify, setNotify] = useState(true);
   const [charging, setCharging] = useState(false);
   const [result, setResult] = useState<{ ok: true; msg: string } | { ok: false; msg: string } | null>(null);
 
   const selected = configs.find(c => c.propertyId === propertyId);
+  const supplies = kind === 'supplies';
+  // Supplies charges must say what was ordered — it's what the receipt lists.
+  const detailsMissing = supplies && !description.trim();
+  const canCharge = !!propertyId && !!amount && Number(amount) > 0 && !detailsMissing && !!selected?.stripePaymentMethodId;
+
+  function reset() { setAmount(''); setDescription(''); }
 
   async function handleCharge() {
-    if (!propertyId || !amount || Number(amount) <= 0) return;
+    if (!canCharge) return;
     setCharging(true);
     setResult(null);
     try {
       const r = await fetch('/api/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ flow: 'cleaning', action: 'manual-charge', propertyId, amount: Number(amount), description, requestId: crypto.randomUUID() }),
+        body: JSON.stringify({
+          flow: 'cleaning', action: 'manual-charge', propertyId, amount: Number(amount),
+          kind, details: description.trim(), description: description.trim(), notify,
+          requestId: crypto.randomUUID(),
+        }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? 'Charge failed.');
-      setResult({ ok: true, msg: `$${Number(amount).toFixed(2)} charged to ${data.clientName || data.propertyName} via Stripe.` });
-      setAmount('');
-      setDescription('');
+      const who = data.clientName || data.propertyName;
+      const sent = [
+        data.emailedClient ? `receipt emailed to ${data.clientEmail}` : null,
+        data.emailedAdmin ? 'copy sent to you' : null,
+      ].filter(Boolean).join(', ');
+      const noEmail = notify && !data.emailedClient && !selected?.clientEmail ? ' No client email on file — nothing sent to them.' : '';
+      setResult({
+        ok: true,
+        msg: `$${Number(amount).toFixed(2)} charged to ${who} via Stripe${sent ? ` — ${sent}` : ''}.${noEmail}${data.emailError ? ` (${data.emailError})` : ''}`,
+      });
+      reset();
       await onRefresh();
     } catch (e) {
       setResult({ ok: false, msg: e instanceof Error ? e.message : 'Charge failed.' });
@@ -254,14 +278,33 @@ function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyCo
         className="flex items-center gap-2 px-3 py-1.5 bg-[#1a2335] border border-[#1e2d45] text-[#b8d4f0] text-xs font-semibold rounded-lg hover:bg-[#22304a] transition-colors"
       >
         <DollarSign size={12} />
-        Manual Charge
+        Charge Client
         {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
       </button>
 
       {open && (
         <div className="mt-3 bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5 space-y-4">
+          <div className="flex gap-2">
+            {([
+              { id: 'supplies' as const, label: 'Supplies', icon: Package },
+              { id: 'other' as const,    label: 'Other charge', icon: DollarSign },
+            ]).map(t => (
+              <button
+                key={t.id}
+                onClick={() => { setKind(t.id); setResult(null); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                  kind === t.id
+                    ? 'bg-[#0d1e35] border-[#4a90d9] text-white'
+                    : 'bg-[#0f1923] border-[#1e2d45] text-[#7a94b8] hover:text-[#b8d4f0]'
+                }`}
+              >
+                <t.icon size={12} /> {t.label}
+              </button>
+            ))}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Property / Client</label>
               <select
                 className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#4a90d9]"
@@ -277,7 +320,9 @@ function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyCo
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Amount ($)</label>
+              <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">
+                {supplies ? 'Total charged ($)' : 'Amount ($)'}
+              </label>
               <input
                 type="number" min="0.01" step="0.01" placeholder="0.00"
                 className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
@@ -285,28 +330,60 @@ function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyCo
                 onChange={e => { setAmount(e.target.value); setResult(null); }}
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">Description (optional)</label>
-              <input
-                type="text" placeholder="Extra charge, supplies, etc."
-                className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
-                value={description}
-                onChange={e => { setDescription(e.target.value); setResult(null); }}
-              />
-            </div>
           </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">
+              {supplies ? 'What was ordered *' : 'Description (optional)'}
+            </label>
+            <textarea
+              rows={supplies ? 3 : 2}
+              placeholder={supplies
+                ? '2 cases toilet paper — $38\n4 gal laundry detergent — $42\nShipping — $9'
+                : 'Extra charge, late checkout clean, etc.'}
+              className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9] resize-none"
+              value={description}
+              onChange={e => { setDescription(e.target.value); setResult(null); }}
+            />
+            {supplies && (
+              <p className="text-[11px] text-[#3a5070] mt-1">One item per line — each line is listed on the receipt.</p>
+            )}
+          </div>
+
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={notify}
+              onChange={e => { setNotify(e.target.checked); setResult(null); }}
+              className="mt-0.5 accent-[#4a90d9]"
+            />
+            <span className="text-xs text-[#b8d4f0]">
+              <span className="flex items-center gap-1.5 font-semibold"><Mail size={11} /> Email the receipt</span>
+              <span className="block text-[11px] text-[#3a5070] mt-0.5">
+                {selected?.clientEmail
+                  ? `Goes to ${selected.clientEmail} and a copy to you.`
+                  : selected
+                    ? 'No client email on file for this property — only the office copy will be sent.'
+                    : 'Goes to the client and a copy to you.'}
+              </span>
+            </span>
+          </label>
+
           {selected && !selected.stripePaymentMethodId && (
             <p className="text-xs text-[#d0954a]">⚠ {selected.propertyName} has no card on file — client onboarding not complete.</p>
           )}
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={handleCharge}
-              disabled={charging || !propertyId || !amount || Number(amount) <= 0 || !selected?.stripePaymentMethodId}
+              disabled={charging || !canCharge}
               className="flex items-center gap-2 px-4 py-2.5 bg-[#5ce0a0] text-[#0a2518] text-sm font-semibold rounded-xl hover:bg-[#6cf0b0] transition-colors disabled:opacity-50"
             >
-              <DollarSign size={14} />
-              {charging ? 'Charging…' : 'Charge Client'}
+              {supplies ? <Package size={14} /> : <DollarSign size={14} />}
+              {charging ? 'Charging…' : supplies ? 'Charge Supplies' : 'Charge Client'}
             </button>
+            {detailsMissing && propertyId && !!amount && (
+              <p className="text-xs text-[#d0954a]">Add what was ordered before charging.</p>
+            )}
             {result && (
               <p className={`text-xs font-medium ${result.ok ? 'text-[#5ce0a0]' : 'text-[#e05c5c]'}`}>{result.msg}</p>
             )}

@@ -8,7 +8,7 @@ import { chargeJob, payoutJob, markPayoutPaid, payoutDueFrom } from './_billing.
 
 import { syncPropertyIcal } from './_ical.js';
 import { dispatchJob, advanceDispatch, syncUplistingJobs, dispatchTick, maybeActivateCleaner, type RosterCleaner } from './_jobs.js';
-import { sendCleanerPortalEmail, sendJobCancelledEmail, sendClientReceiptEmail, sendReportReminderEmail, cleanerPortalUrl, emailId } from './_emails.js';
+import { sendCleanerPortalEmail, sendJobCancelledEmail, sendClientReceiptEmail, sendReportReminderEmail, sendSupplyChargeEmail, cleanerPortalUrl, emailId } from './_emails.js';
 import { sendSms } from './_sms.js';
 
 let _resend: any = null;
@@ -901,57 +901,109 @@ async function cleaningGet(combined: string, res: VercelResponse) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function manualClientCharge(body: any, res: VercelResponse) {
-  const { propertyId, amount, description, requestId } = body;
+  const { propertyId, amount, description, requestId, kind, details, notify } = body;
   if (!propertyId || !amount || Number(amount) <= 0)
     return res.status(400).json({ error: 'propertyId and a positive amount are required.' });
+
+  // Supplies charges carry a short note of what was ordered, which goes on the
+  // receipt emailed to the client and the copy emailed to the office.
+  const supplies = kind === 'supplies';
+  const detailText = String(details ?? description ?? '').trim();
+  if (supplies && !detailText)
+    return res.status(400).json({ error: 'Add a short note of what was ordered.' });
 
   const supabase = getSupabase();
   const { data: config } = await supabase
     .from('cleaning_property_configs')
-    .select('property_name, client_name, stripe_customer_id, stripe_payment_method_id')
+    .select('property_name, client_name, client_email, stripe_customer_id, stripe_payment_method_id')
     .eq('property_id', propertyId)
     .maybeSingle();
   if (!config) return res.status(404).json({ error: 'Property not found.' });
   if (!config.stripe_customer_id || !config.stripe_payment_method_id)
     return res.status(400).json({ error: `${config.property_name} has no payment method on file — client onboarding not complete.` });
 
+  const label = supplies ? 'Supplies' : 'Manual charge';
+  const firstLine = detailText.split(/\r?\n/)[0]?.trim() ?? '';
+  const chargeDescription = supplies
+    ? `Supplies — ${config.property_name}${firstLine ? `: ${firstLine}` : ''}`.slice(0, 300)
+    : (detailText || `Manual charge — ${config.property_name}`).slice(0, 300);
+
   const stripe = await getStripe();
   const amountCents = Math.round(Number(amount) * 100);
+  let paymentIntent: any;
+  let jobId: string;
+  let chargedAt: string;
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
+    paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency: 'usd',
       customer: config.stripe_customer_id,
       payment_method: config.stripe_payment_method_id,
       confirm: true,
       off_session: true,
-      description: description?.trim() || `Manual charge — ${config.property_name}`,
-      metadata: { property_id: propertyId, type: 'manual_charge' },
+      description: chargeDescription,
+      metadata: { property_id: propertyId, type: supplies ? 'supplies_charge' : 'manual_charge' },
     }, { idempotencyKey: `manual_charge_${requestId || randomUUID()}` });
 
-    const now = new Date().toISOString();
-    const jobId = `cj_manual_${randomUUID().slice(0, 8)}`;
+    chargedAt = new Date().toISOString();
+    jobId = `cj_manual_${randomUUID().slice(0, 8)}`;
     await supabase.from('cleaning_jobs').insert({
       id: jobId,
       property_id: propertyId,
       property_name: config.property_name,
       status: 'completed',
-      checkout_date: now.slice(0, 10),
+      checkout_date: chargedAt.slice(0, 10),
       cleaning_fee: Number(amount),
       cleaner_payout: 0,
-      charged_at: now,
+      charged_at: chargedAt,
       stripe_charge_id: paymentIntent.id,
       charge_status: 'charged',
-      notes: description?.trim() || 'Manual charge',
+      // Marks the row as a supplies charge rather than a clean, so the
+      // dashboard doesn't count it as a job.
+      ...(supplies ? { job_type: 'supplies' } : {}),
+      notes: supplies ? `Supplies: ${detailText}` : (detailText || 'Manual charge'),
       source: 'manual',
-      created_at: now,
-      updated_at: now,
+      created_at: chargedAt,
+      updated_at: chargedAt,
     });
-
-    return res.json({ paymentIntentId: paymentIntent.id, jobId, amount: Number(amount), propertyName: config.property_name, clientName: config.client_name });
   } catch (e: any) {
     return res.status(500).json({ error: e.message ?? 'Charge failed.' });
   }
+
+  // The card has been charged — a failed receipt must not fail the request.
+  let emailedClient = false;
+  let emailedAdmin = false;
+  let emailError: string | undefined;
+  if (notify !== false) {
+    const mail = {
+      clientName: config.client_name, clientEmail: config.client_email,
+      propertyName: config.property_name, amount: Number(amount),
+      details: detailText || label, chargedAt, label: supplies ? 'Supplies' : 'Extra charge',
+    };
+    if (config.client_email) {
+      try {
+        const sent = await sendSupplyChargeEmail(await getResend(), { ...mail, to: config.client_email, audience: 'client' });
+        emailedClient = true;
+        if (sent.id) await logEmail(sent.id, supplies ? 'cleaning-supply-charge' : 'cleaning-manual-charge', config.client_email, sent.subject, jobId, config.client_name ?? undefined);
+      } catch (e: any) {
+        emailError = `Client receipt failed: ${e?.message ?? 'unknown error'}`;
+      }
+    }
+    try {
+      const sent = await sendSupplyChargeEmail(await getResend(), { ...mail, to: ADMIN_EMAIL, audience: 'admin' });
+      emailedAdmin = true;
+      if (sent.id) await logEmail(sent.id, supplies ? 'cleaning-supply-charge' : 'cleaning-manual-charge', ADMIN_EMAIL, sent.subject, jobId, 'Admin');
+    } catch (e: any) {
+      emailError = [emailError, `Office copy failed: ${e?.message ?? 'unknown error'}`].filter(Boolean).join(' · ');
+    }
+  }
+
+  return res.json({
+    paymentIntentId: paymentIntent.id, jobId, amount: Number(amount),
+    propertyName: config.property_name, clientName: config.client_name,
+    clientEmail: config.client_email ?? null,
+    emailedClient, emailedAdmin, emailError,
+  });
 }
 
 async function manualCleanerPayout(body: any, res: VercelResponse) {

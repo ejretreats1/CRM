@@ -1,6 +1,7 @@
 export type CleaningJobStatus = 'pending' | 'dispatched' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
 export type CleaningJobSource = 'uplisting' | 'hostaway' | 'manual' | 'ical';
-export type CleaningJobType = 'cleaning' | 'handyman' | 'lawncare';
+/** supplies = a supplies charge billed to the client, not a job anyone works */
+export type CleaningJobType = 'cleaning' | 'handyman' | 'lawncare' | 'supplies';
 
 export interface Cleaner {
   id: string;
