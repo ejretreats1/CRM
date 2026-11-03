@@ -273,3 +273,78 @@ export async function sendPayoutSentEmail(resend: Resend, opts: { to: string; na
   });
   return { id: emailIdOrThrow(result), subject };
 }
+
+// ── Supplies / extra charges ─────────────────────────────────────────────────
+
+/** Split "2 cases toilet paper — $38\n4 gal detergent — $42" into one row per item. */
+export function supplyLines(details: string): string[] {
+  return String(details ?? '')
+    .split(/\r?\n/)
+    .map(l => l.replace(/^[-•*\s]+/, '').trim())
+    .filter(Boolean);
+}
+
+/**
+ * Receipt for supplies (or another one-off extra) charged to a client's card.
+ * Sent to the client, and as a copy to the office, so both sides have a record
+ * of what was ordered and what it cost.
+ */
+export async function sendSupplyChargeEmail(resend: Resend, opts: {
+  to: string;
+  /** client = receipt wording; admin = internal copy for the office */
+  audience: 'client' | 'admin';
+  clientName?: string | null;
+  clientEmail?: string | null;
+  propertyName: string;
+  amount: number;
+  /** What was ordered — one item per line */
+  details: string;
+  /** ISO timestamp of the charge */
+  chargedAt: string;
+  /** "Supplies" (default), or another label for a one-off charge */
+  label?: string;
+}) {
+  const label = opts.label?.trim() || 'Supplies';
+  const supplies = /suppl/i.test(label);
+  const emoji = supplies ? '📦' : '💳';
+  const client = opts.audience === 'client';
+  const items = supplyLines(opts.details);
+  const amount = Number(opts.amount) || 0;
+  const when = new Date(opts.chargedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const subject = client
+    ? `${label} for ${opts.propertyName} — $${amount.toFixed(2)} charged`
+    : `${emoji} ${label}: ${opts.propertyName} — $${amount.toFixed(2)} charged`;
+  const intro = client
+    ? `<p style="color:#334155">Hi ${escapeHtml(opts.clientName ?? 'there')},</p>
+       <p style="color:#334155">${supplies
+         ? `We picked up supplies for <strong>${escapeHtml(opts.propertyName)}</strong> and charged the card on file. Here's what was ordered:`
+         : `We've charged the card on file for <strong>${escapeHtml(opts.propertyName)}</strong>. Here's what it covers:`}</p>`
+    : `<p style="color:#334155">${escapeHtml(opts.clientName ?? 'Client')}${opts.clientEmail ? ` (${escapeHtml(opts.clientEmail)})` : ''} was charged for ${escapeHtml(label.toLowerCase())} at <strong>${escapeHtml(opts.propertyName)}</strong>.</p>`;
+  const result = await resend.emails.send({
+    from: CLEANING_FROM,
+    to: opts.to,
+    subject,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f8fafc">
+        <div style="background:white;border-radius:12px;padding:28px;border:1px solid #e2e8f0">
+          <h2 style="color:#1e40af;margin:0 0 16px">${emoji} ${escapeHtml(label)} for ${escapeHtml(opts.propertyName)}</h2>
+          ${intro}
+          <table style="border-collapse:collapse;width:100%;font-size:14px;margin:16px 0">
+            ${items.map(item => `<tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155">${escapeHtml(item)}</td></tr>`).join('')}
+            <tr>
+              <td style="padding:12px;background:#f5f5f5;font-weight:700;color:#0f172a">
+                Total charged ${when}
+                <span style="float:right;font-size:18px;color:#16a34a">$${amount.toFixed(2)}</span>
+              </td>
+            </tr>
+          </table>
+          ${client
+            ? `<p style="color:#64748b;font-size:13px;margin-top:20px">Questions about this charge? Just reply to this email and we'll sort it out.</p>`
+            : `<p style="color:#64748b;font-size:13px;margin-top:20px">Logged in the CRM under this property's payments.</p>`}
+          <p style="color:#94a3b8;font-size:12px;margin:16px 0 0">— E&amp;J Retreats Cleaning</p>
+        </div>
+      </div>
+    `,
+  });
+  return { id: emailIdOrThrow(result), subject };
+}
