@@ -5,6 +5,7 @@ import { fetchEnrollmentLinks, deleteEnrollmentLink } from '../../services/clean
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 import { fetchPropertyAllPhotos, fetchPropertyDetails, formatPropertyAddress } from '../../services/uplisting';
 import { downloadApiFile } from '../../services/apiFile';
+import { displayName, listingName } from './propertyName';
 
 interface Props {
   configs: CleaningPropertyConfig[];
@@ -52,11 +53,6 @@ const EMPTY: FormState = {
   clientNotes: '',
   detailsAutoFilled: false,
 };
-
-function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
-  const p = props.find(up => up.id === propertyId);
-  return p?.nickname || p?.name || propertyName;
-}
 
 const ICAL_PLATFORMS = ['Airbnb', 'VRBO', 'Booking.com', 'Guesty', 'Hostaway', 'Uplisting', 'Direct', 'Other'];
 
@@ -516,7 +512,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   }
 
   async function handleSave() {
-    if (!form.propertyId && !form.propertyName) return;
+    if (!form.propertyName.trim()) return;
     setSaving(true);
     setSaveError(null);
     try {
@@ -524,8 +520,8 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       const existing = editing !== 'new' ? editing : null;
       const config: CleaningPropertyConfig = {
         id: existing?.id ?? `cpc_${Date.now()}`,
-        propertyId: form.propertyId || form.propertyName,
-        propertyName: form.propertyName,
+        propertyId: form.propertyId || form.propertyName.trim(),
+        propertyName: form.propertyName.trim(),
         cleaningFee: parseFloat(form.cleaningFee) || 0,
         assignedCleaners: form.assignedCleaners,
         enrolledAt: existing?.enrolledAt ?? now,
@@ -787,12 +783,16 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                     )}
                     <button
                       onClick={() => openEdit(c)}
+                      title="Edit property"
+                      aria-label={`Edit ${displayName(c.propertyId, c.propertyName, uplistingProperties)}`}
                       className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#4a90d9] hover:bg-[#1e2d45] transition-colors"
                     >
                       <Edit2 size={14} />
                     </button>
                     <button
                       onClick={() => { if (confirm('Remove this property from cleaning?')) onDelete(c.id); }}
+                      title="Remove property"
+                      aria-label={`Remove ${displayName(c.propertyId, c.propertyName, uplistingProperties)}`}
                       className="p-1.5 rounded-lg text-[#3a5070] hover:text-[#e05c5c] hover:bg-[#2a0e0e] transition-colors"
                     >
                       <Trash2 size={14} />
@@ -1105,7 +1105,33 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                     </>
                   )
                 ) : (
-                  <p className="text-sm font-medium text-white px-3 py-2.5 bg-[#0f1923] rounded-lg border border-[#1e2d45]">{form.propertyName}</p>
+                  // Renaming an enrolled property: the name is free text, but the
+                  // property id it's filed under never changes, so jobs, charges
+                  // and links stay attached.
+                  <>
+                    <input
+                      className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                      value={form.propertyName}
+                      onChange={e => setForm(f => ({ ...f, propertyName: e.target.value }))}
+                      placeholder="Property name"
+                    />
+                    <p className="mt-1.5 text-[11px] text-[#3a5070]">
+                      Used everywhere in the CRM and in cleaner and client emails — renaming updates this property's jobs too.
+                    </p>
+                    {(() => {
+                      const fromListing = listingName(form.propertyId, uplistingProperties);
+                      if (!fromListing || fromListing === form.propertyName.trim()) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, propertyName: fromListing }))}
+                          className="mt-1.5 text-xs text-[#4a90d9] hover:text-[#6ab0f9] transition-colors text-left"
+                        >
+                          ↺ Use the listing name: {fromListing}
+                        </button>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
 
@@ -1493,7 +1519,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving || (!form.propertyId && !form.propertyName)}
+                disabled={saving || !form.propertyName.trim()}
                 className="flex-1 px-4 py-2.5 bg-[#4a90d9] text-white text-sm font-semibold rounded-xl hover:bg-[#5aa0e9] transition-colors disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save'}
