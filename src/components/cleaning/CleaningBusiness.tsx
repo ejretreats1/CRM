@@ -8,11 +8,8 @@ import type { View } from '../../types';
 import type { CleaningJob, Cleaner, CleaningPropertyConfig } from '../../types/cleaning';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 import { syncCleaningJobsNow } from '../../services/cleaningApi';
+import { displayName, renamedJobName } from './propertyName';
 
-function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
-  const p = props.find(up => up.id === propertyId);
-  return p?.nickname || p?.name || propertyName;
-}
 import {
   type CleaningLead,
   type CleaningSop,
@@ -1070,37 +1067,35 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
 
   // Property configs
   async function handleSaveConfig(c: CleaningPropertyConfig) {
+    const previous = configs.find(x => x.id === c.id);
     await upsertPropertyConfig(c);
     setConfigs(prev => {
       const exists = prev.find(x => x.id === c.id);
       return exists ? prev.map(x => x.id === c.id ? c : x) : [c, ...prev];
     });
-    // Auto-sync client fee + cleaner payout to any uncharged/unpaid jobs for this property
+
+    // Sync this property's jobs: a rename reaches every job (it's just the
+    // label), while fee + payout only reach jobs that aren't charged or paid
+    // out yet.
     const now = new Date().toISOString();
     const payoutMap = new Map(c.assignedCleaners.map(ac => [ac.id, ac.payout]));
-    const toUpdate = jobs.filter(j => {
-      if (j.propertyId !== c.propertyId) return false;
-      if (j.chargedAt || j.payoutSentAt) return false;
-      const feeChanged = j.cleaningFee !== c.cleaningFee;
+    const renamedFrom = previous && previous.propertyName !== c.propertyName ? previous.propertyName : null;
+
+    const toUpdate = jobs.flatMap(j => {
+      if (j.propertyId !== c.propertyId) return [];
+      const propertyName = renamedFrom ? renamedJobName(j.propertyName, renamedFrom, c.propertyName) : j.propertyName;
+      const settled = !!(j.chargedAt || j.payoutSentAt);
       const configuredPayout = j.assignedCleanerId ? payoutMap.get(j.assignedCleanerId) : undefined;
-      const payoutChanged = configuredPayout !== undefined && j.cleanerPayout !== configuredPayout;
-      return feeChanged || payoutChanged;
+      const cleaningFee = settled ? j.cleaningFee : c.cleaningFee;
+      const cleanerPayout = !settled && configuredPayout !== undefined ? configuredPayout : j.cleanerPayout;
+      if (propertyName === j.propertyName && cleaningFee === j.cleaningFee && cleanerPayout === j.cleanerPayout) return [];
+      return [{ ...j, propertyName, cleaningFee, cleanerPayout, updatedAt: now }];
     });
-    await Promise.all(toUpdate.map(j => {
-      const configuredPayout = j.assignedCleanerId ? payoutMap.get(j.assignedCleanerId) : undefined;
-      return upsertCleaningJob({
-        ...j,
-        cleaningFee: c.cleaningFee,
-        cleanerPayout: configuredPayout ?? j.cleanerPayout,
-        updatedAt: now,
-      });
-    }));
+
     if (toUpdate.length > 0) {
-      setJobs(prev => prev.map(j => {
-        if (j.propertyId !== c.propertyId || j.chargedAt || j.payoutSentAt) return j;
-        const configuredPayout = j.assignedCleanerId ? payoutMap.get(j.assignedCleanerId) : undefined;
-        return { ...j, cleaningFee: c.cleaningFee, cleanerPayout: configuredPayout ?? j.cleanerPayout, updatedAt: now };
-      }));
+      await bulkUpsertCleaningJobs(toUpdate);
+      const byId = new Map(toUpdate.map(j => [j.id, j]));
+      setJobs(prev => prev.map(j => byId.get(j.id) ?? j));
     }
   }
   async function handleDeleteConfig(id: string) {

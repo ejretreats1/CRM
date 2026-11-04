@@ -6,6 +6,7 @@ import {
 import type { CleaningJob, CleaningJobType, CleaningPropertyConfig, Cleaner } from '../../types/cleaning';
 import type { UplistingProperty } from '../../services/uplisting';
 import { dispatchCleaningJob } from '../../services/cleaningApi';
+import { displayName } from './propertyName';
 
 interface Props {
   jobs: CleaningJob[];
@@ -17,11 +18,6 @@ interface Props {
   onDeleteJob?: (id: string) => Promise<void>;
   onCleanupOrphans?: () => Promise<void>;
   autoSyncing?: boolean;
-}
-
-function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
-  const p = props.find(p => p.id === propertyId);
-  return p?.nickname || p?.name || propertyName;
 }
 
 type StatusFilter = 'all' | 'pending' | 'dispatched' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';

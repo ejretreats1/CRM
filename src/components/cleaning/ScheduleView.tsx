@@ -2,17 +2,13 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Home, User, Calendar, DollarSign, X, Phone, Mail, KeyRound, Clock, MapPin } from 'lucide-react';
 import type { CleaningJob, Cleaner, CleaningPropertyConfig } from '../../types/cleaning';
 import type { UplistingProperty } from '../../services/uplisting';
+import { displayName } from './propertyName';
 
 interface Props {
   jobs: CleaningJob[];
   cleaners: Cleaner[];
   configs: CleaningPropertyConfig[];
   uplistingProperties: UplistingProperty[];
-}
-
-function displayName(propertyId: string | undefined, propertyName: string, props: UplistingProperty[]): string {
-  const p = props.find(p => p.id === propertyId);
-  return p?.nickname || p?.name || propertyName;
 }
 
 const STATUS_COLORS: Record<string, string> = {
