@@ -144,7 +144,7 @@ async function runBookingSync(res: VercelResponse) {
   const errors: string[] = [];
 
   // 1. iCal properties
-  const ical = { properties: 0, created: 0, updated: 0, cancelled: 0 };
+  const ical = { properties: 0, created: 0, updated: 0, cancelled: 0, rebound: 0 };
   try {
     const { data: configs, error } = await supabase.from('cleaning_property_configs').select('*').not('ical_urls', 'is', null);
     if (error) throw error;
@@ -153,7 +153,7 @@ async function runBookingSync(res: VercelResponse) {
       ical.properties++;
       try {
         const r = await syncPropertyIcal(supabase, config, resend);
-        ical.created += r.created; ical.updated += r.updated; ical.cancelled += r.cancelled;
+        ical.created += r.created; ical.updated += r.updated; ical.cancelled += r.cancelled; ical.rebound += r.rebound;
         errors.push(...r.errors.map(e => `${config.property_name}: ${e}`));
       } catch (e) {
         errors.push(`${config.property_name}: ${e instanceof Error ? e.message : String(e)}`);

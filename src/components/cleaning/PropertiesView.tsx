@@ -14,8 +14,8 @@ interface Props {
   reservations: UplistingReservation[];
   onSave: (c: CleaningPropertyConfig) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onSyncIcal: (propertyId: string) => Promise<{ created: number; cancelled: number; errors: string[] }>;
-  onSyncAllIcal?: () => Promise<{ created: number; cancelled: number; errors: string[]; properties: { property: string; created: number; cancelled: number; errors: string[] }[] }>;
+  onSyncIcal: (propertyId: string) => Promise<{ created: number; cancelled: number; rebound?: number; errors: string[] }>;
+  onSyncAllIcal?: () => Promise<{ created: number; cancelled: number; rebound?: number; errors: string[]; properties: { property: string; created: number; cancelled: number; rebound?: number; errors: string[] }[] }>;
   uplistingApiKey?: string;
 }
 
@@ -165,9 +165,9 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
 
   // --- iCal sync state ---
   const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [syncResult, setSyncResult] = useState<Record<string, { created: number; cancelled: number; errors: string[] }>>({});
+  const [syncResult, setSyncResult] = useState<Record<string, { created: number; cancelled: number; rebound?: number; errors: string[] }>>({});
   const [syncingAll, setSyncingAll] = useState(false);
-  const [syncAllResult, setSyncAllResult] = useState<{ created: number; cancelled: number; errors: string[]; properties: { property: string; created: number; cancelled: number; errors: string[] }[] } | null>(null);
+  const [syncAllResult, setSyncAllResult] = useState<{ created: number; cancelled: number; rebound?: number; errors: string[]; properties: { property: string; created: number; cancelled: number; rebound?: number; errors: string[] }[] } | null>(null);
 
   // PDF download state
   const [downloadingConfigId, setDownloadingConfigId] = useState<string | null>(null);
@@ -750,7 +750,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                         <div className={`mt-1.5 text-[10px] px-2 py-1 rounded-lg border ${syncResult[c.propertyId].errors.length ? 'bg-[#1a0e0e] border-[#3a1a1a] text-[#e05c5c]' : 'bg-[#0a2518] border-[#1e4030] text-[#5ce0a0]'}`}>
                           {syncResult[c.propertyId].errors.length
                             ? syncResult[c.propertyId].errors.join(', ')
-                            : `+${syncResult[c.propertyId].created} jobs${syncResult[c.propertyId].cancelled ? `, ${syncResult[c.propertyId].cancelled} cancelled` : ''}`}
+                            : `+${syncResult[c.propertyId].created} jobs${syncResult[c.propertyId].rebound ? `, ${syncResult[c.propertyId].rebound} kept through a re-issued booking` : ''}${syncResult[c.propertyId].cancelled ? `, ${syncResult[c.propertyId].cancelled} cancelled` : ''}`}
                         </div>
                       )}
                     </div>
@@ -1370,6 +1370,11 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                       </div>
                     ))}
                   </div>
+                )}
+                {form.icalUrls.length > 1 && form.icalUrls.every(u => !u.unitName?.trim()) && (
+                  <p className="text-xs text-[#d0954a] mb-2">
+                    ⚠ None of these calendars has a unit name. If they're different units, name each one — without names the CRM treats them as a single unit, so two checkouts on the same day look like one duplicated clean, and a re-issued booking can't be matched back to its job. Feeds for the <em>same</em> unit (an Airbnb and a VRBO calendar for one listing) should share a name, or have none.
+                  </p>
                 )}
                 <div className="flex gap-2 mb-1.5">
                   <select

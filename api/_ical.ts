@@ -105,7 +105,7 @@ export async function syncPropertyIcal(supabase: any, config: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }, resend?: any): Promise<ReconcileResult> {
   const icalUrls: IcalUrl[] = config.ical_urls ?? [];
-  if (!icalUrls.length) return { created: 0, updated: 0, cancelled: 0, errors: [] };
+  if (!icalUrls.length) return { created: 0, updated: 0, cancelled: 0, rebound: 0, errors: [] };
   const fetched = await fetchIcalBookings(icalUrls, config.property_id);
   const result = await reconcileJobs(supabase, config, fetched.bookings, { source: 'ical', complete: fetched.complete, resend });
   result.errors.push(...fetched.errors);

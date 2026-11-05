@@ -196,6 +196,7 @@ function rowToJob(r: any): CleaningJob {
     dispatchEmailError: r.dispatch_email_error ?? undefined,
     morningSmsSentAt: r.morning_sms_sent_at ?? undefined,
     receiptSentAt: r.receipt_sent_at ?? undefined,
+    cancelReason: r.cancel_reason ?? undefined,
     notes: r.notes ?? undefined,
     jobType: (r.job_type ?? 'cleaning') as CleaningJob['jobType'],
     portalData: r.portal_data ?? undefined,

@@ -138,6 +138,8 @@ export interface CleaningJob {
   dispatchEmailError?: string;
   morningSmsSentAt?: string;
   receiptSentAt?: string;
+  /** Why a sync cancelled this job — server-written, read-only here */
+  cancelReason?: string;
   notes?: string;
   jobType?: CleaningJobType;
   portalData?: CleaningPortalData;
