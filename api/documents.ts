@@ -4480,18 +4480,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .from('cleaning_property_configs')
           .select('*');
         const resend = await getResend();
-        let totalCreated = 0, totalCancelled = 0;
+        let totalCreated = 0, totalCancelled = 0, totalRebound = 0;
         const allErrors: string[] = [];
-        const properties: { property: string; created: number; cancelled: number; errors: string[] }[] = [];
+        const properties: { property: string; created: number; cancelled: number; rebound: number; errors: string[] }[] = [];
         for (const config of configs ?? []) {
           if (!config.ical_urls?.length) continue;
           const r = await syncPropertyIcal(supabase, config, resend);
           totalCreated += r.created;
           totalCancelled += r.cancelled;
+          totalRebound += r.rebound;
           if (r.errors.length) allErrors.push(...r.errors.map((e: string) => `${config.property_name}: ${e}`));
-          properties.push({ property: config.property_name, created: r.created, cancelled: r.cancelled, errors: r.errors });
+          properties.push({ property: config.property_name, created: r.created, cancelled: r.cancelled, rebound: r.rebound, errors: r.errors });
         }
-        return res.status(200).json({ ok: true, created: totalCreated, cancelled: totalCancelled, errors: allErrors, properties });
+        return res.status(200).json({ ok: true, created: totalCreated, cancelled: totalCancelled, rebound: totalRebound, errors: allErrors, properties });
       } catch (e) {
         return res.status(500).json({ error: e instanceof Error ? e.message : 'Sync all failed.' });
       }

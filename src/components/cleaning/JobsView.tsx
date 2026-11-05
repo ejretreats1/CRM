@@ -581,6 +581,9 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                           ⧉ Duplicate
                         </span>
                       )}
+                      {job.status === 'cancelled' && job.cancelReason && (
+                        <span className="text-xs text-[#7a94b8]">{job.cancelReason}</span>
+                      )}
                     </div>
 
                     {/* Row 2: date info */}

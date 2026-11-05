@@ -57,7 +57,7 @@ export interface BookingLike {
   cancelled: boolean;
 }
 
-export interface ReconcileResult { created: number; updated: number; cancelled: number; errors: string[] }
+export interface ReconcileResult { created: number; updated: number; cancelled: number; rebound: number; errors: string[] }
 
 interface ReconcileOpts {
   source: 'ical' | 'uplisting';
@@ -90,7 +90,7 @@ export function withNextCheckIn(bookings: BookingLike[]): Map<string, { nextChec
 }
 
 export async function reconcileJobs(db: Db, config: Row, bookings: BookingLike[], opts: ReconcileOpts): Promise<ReconcileResult> {
-  const result: ReconcileResult = { created: 0, updated: 0, cancelled: 0, errors: [] };
+  const result: ReconcileResult = { created: 0, updated: 0, cancelled: 0, rebound: 0, errors: [] };
   const today = opts.today ?? todayET();
   const lookback = addDays(today, -(opts.lookbackDays ?? 7));
   const now = new Date().toISOString();
@@ -106,6 +106,7 @@ export async function reconcileJobs(db: Db, config: Row, bookings: BookingLike[]
 
   const nextInfo = withNextCheckIn(bookings);
   const seen = new Set<string>();
+  const fresh: { booking: BookingLike; info: { nextCheckIn: string | null; sameDay: boolean }; propertyName: string }[] = [];
 
   for (const b of bookings) {
     if (!b.reservationId || !b.checkOut) continue;
@@ -122,29 +123,9 @@ export async function reconcileJobs(db: Db, config: Row, bookings: BookingLike[]
     const propertyName = b.unitName ? `${config.property_name} — ${b.unitName}` : config.property_name;
 
     if (!job) {
-      const { error: insErr } = await db.from('cleaning_jobs').insert({
-        id: `${opts.source === 'ical' ? 'ical' : 'cj'}_${randomUUID().slice(0, 12)}`,
-        reservation_id: b.reservationId,
-        property_id: config.property_id,          // always the enrolled (parent) property
-        unit_id: b.unitKey !== config.property_id ? b.unitKey : null,
-        property_name: propertyName,
-        guest_name: b.guestName || null,
-        checkout_date: b.checkOut,
-        checkin_date: info.nextCheckIn,
-        same_day: info.sameDay,
-        status: 'pending',
-        cleaning_fee: config.cleaning_fee ?? 0,
-        cleaner_payout: 0,
-        source: opts.source,
-        created_at: now,
-        updated_at: now,
-      });
-      if (insErr) {
-        // A concurrent sync may have inserted it (unique index) — not an error worth alerting on.
-        if (!/duplicate|23505/i.test(insErr.message ?? '')) result.errors.push(`insert ${b.reservationId}: ${insErr.message}`);
-      } else {
-        result.created++;
-      }
+      // Held back: it may be a stay this CRM already has under an id the feed
+      // has since re-issued. Rebinding is settled below, then the rest insert.
+      fresh.push({ booking: b, info, propertyName });
       continue;
     }
 
@@ -170,14 +151,86 @@ export async function reconcileJobs(db: Db, config: Row, bookings: BookingLike[]
     }
   }
 
-  // Bookings that vanished from the feed (Airbnb drops cancelled reservations
-  // rather than flagging them). Only when every feed was read successfully.
+  // Jobs whose booking no longer appears under the id it had. Airbnb drops
+  // cancelled reservations rather than flagging them, so this is how a real
+  // cancellation looks — but so does a relisting that re-issues its bookings.
+  const orphans = (existing ?? []).filter((job: Row) =>
+    job.source === opts.source &&
+    !seen.has(job.reservation_id) &&
+    ACTIVE_STATUSES.includes(job.status) &&
+    job.checkout_date >= today,          // keep history; don't rewrite the past
+  );
+
+  // A unit can only have one checkout on a given day, so when exactly one
+  // orphaned job and exactly one unrecognised booking share a unit and a
+  // checkout date, they are the same stay under a new id: move the job across
+  // instead of cancelling it and starting a new one. The cleaner keeps the job
+  // and hears nothing about it. Anything ambiguous (two stays claiming the same
+  // unit and day, which is what unnamed feeds on a multi-unit property look
+  // like) is left alone. Only on a complete sync, like cancelling.
+  const stayKey = (unitKey: string, checkout: string) => `${unitKey}|${checkout}`;
+  const rebound = new Set<string>();          // job ids moved onto a new booking id
+  const reboundBookings = new Set<string>();  // booking ids those jobs took over
+  if (opts.complete && fresh.length && orphans.length) {
+    const orphansByStay = new Map<string, Row[]>();
+    for (const job of orphans) {
+      const key = stayKey(job.unit_id ?? config.property_id, job.checkout_date);
+      orphansByStay.set(key, [...(orphansByStay.get(key) ?? []), job]);
+    }
+    const freshByStay = new Map<string, typeof fresh>();
+    for (const f of fresh) {
+      const key = stayKey(f.booking.unitKey, f.booking.checkOut);
+      freshByStay.set(key, [...(freshByStay.get(key) ?? []), f]);
+    }
+    for (const [key, group] of freshByStay) {
+      if (group.length !== 1) continue;
+      const candidates = orphansByStay.get(key);
+      if (!candidates || candidates.length !== 1) continue;
+      const job = candidates[0];
+      const { booking, info, propertyName } = group[0];
+      const patch: Row = { reservation_id: booking.reservationId, updated_at: now };
+      if ((job.checkin_date ?? null) !== info.nextCheckIn) patch.checkin_date = info.nextCheckIn;
+      if (!!job.same_day !== info.sameDay) patch.same_day = info.sameDay;
+      if (booking.guestName && job.guest_name !== booking.guestName) patch.guest_name = booking.guestName;
+      if (job.property_name !== propertyName) patch.property_name = propertyName;
+      const { error: reErr } = await db.from('cleaning_jobs').update(patch).eq('id', job.id);
+      if (reErr) { result.errors.push(`rebind ${job.id}: ${reErr.message}`); continue; }
+      rebound.add(job.id);
+      reboundBookings.add(booking.reservationId);
+      result.rebound++;
+    }
+  }
+
+  for (const { booking, info, propertyName } of fresh) {
+    if (reboundBookings.has(booking.reservationId)) continue;
+    const { error: insErr } = await db.from('cleaning_jobs').insert({
+      id: `${opts.source === 'ical' ? 'ical' : 'cj'}_${randomUUID().slice(0, 12)}`,
+      reservation_id: booking.reservationId,
+      property_id: config.property_id,          // always the enrolled (parent) property
+      unit_id: booking.unitKey !== config.property_id ? booking.unitKey : null,
+      property_name: propertyName,
+      guest_name: booking.guestName || null,
+      checkout_date: booking.checkOut,
+      checkin_date: info.nextCheckIn,
+      same_day: info.sameDay,
+      status: 'pending',
+      cleaning_fee: config.cleaning_fee ?? 0,
+      cleaner_payout: 0,
+      source: opts.source,
+      created_at: now,
+      updated_at: now,
+    });
+    if (insErr) {
+      // A concurrent sync may have inserted it (unique index) — not an error worth alerting on.
+      if (!/duplicate|23505/i.test(insErr.message ?? '')) result.errors.push(`insert ${booking.reservationId}: ${insErr.message}`);
+    } else {
+      result.created++;
+    }
+  }
+
   if (opts.complete) {
-    for (const job of existing ?? []) {
-      if (job.source !== opts.source) continue;
-      if (seen.has(job.reservation_id)) continue;
-      if (!ACTIVE_STATUSES.includes(job.status)) continue;
-      if (job.checkout_date < today) continue; // keep history; don't rewrite the past
+    for (const job of orphans) {
+      if (rebound.has(job.id)) continue;
       await cancelJob(db, job, 'The booking no longer appears in the calendar.', result, opts.resend);
     }
   }
@@ -204,7 +257,17 @@ async function cancelJob(db: Db, job: Row, reason: string, result: ReconcileResu
     if (resend) await adminAlert(resend, `⚠️ Booking cancelled after charge: ${job.property_name}`, `<p>The booking behind the ${escapeHtml(job.checkout_date)} cleaning at <strong>${escapeHtml(job.property_name)}</strong> was cancelled, but the client was already charged. Review in the CRM (refund?).</p>`);
     return;
   }
-  const { error } = await db.from('cleaning_jobs').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', job.id).in('status', ACTIVE_STATUSES);
+  // cancel_reason is what the Jobs tab shows for a cancelled row. It arrived
+  // later than this table, so a database without it still cancels cleanly.
+  const now = new Date().toISOString();
+  let { error } = await db.from('cleaning_jobs')
+    .update({ status: 'cancelled', cancel_reason: reason, updated_at: now })
+    .eq('id', job.id).in('status', ACTIVE_STATUSES);
+  if (error && /cancel_reason/i.test(error.message ?? '')) {
+    ({ error } = await db.from('cleaning_jobs')
+      .update({ status: 'cancelled', updated_at: now })
+      .eq('id', job.id).in('status', ACTIVE_STATUSES));
+  }
   if (error) { result.errors.push(`cancel ${job.id}: ${error.message}`); return; }
   result.cancelled++;
   if (!resend) return;
@@ -270,8 +333,8 @@ export async function fetchUplistingListingNames(apiKey: string): Promise<Map<st
 }
 
 /** Sync Uplisting bookings for every enrolled property whose id is an Uplisting listing. */
-export async function syncUplistingJobs(db: Db, resend: Resend | undefined, apiKey: string): Promise<{ properties: number; created: number; updated: number; cancelled: number; errors: string[] }> {
-  const summary = { properties: 0, created: 0, updated: 0, cancelled: 0, errors: [] as string[] };
+export async function syncUplistingJobs(db: Db, resend: Resend | undefined, apiKey: string): Promise<{ properties: number; created: number; updated: number; cancelled: number; rebound: number; errors: string[] }> {
+  const summary = { properties: 0, created: 0, updated: 0, cancelled: 0, rebound: 0, errors: [] as string[] };
   const { data: configs } = await db.from('cleaning_property_configs').select('*');
   const names = await fetchUplistingListingNames(apiKey);
   const today = todayET();
@@ -296,7 +359,7 @@ export async function syncUplistingJobs(db: Db, resend: Resend | undefined, apiK
       }
     }
     const r = await reconcileJobs(db, config, bookings, { source: 'uplisting', complete, resend, today });
-    summary.created += r.created; summary.updated += r.updated; summary.cancelled += r.cancelled; summary.errors.push(...r.errors.map(e => `${config.property_name}: ${e}`));
+    summary.created += r.created; summary.updated += r.updated; summary.cancelled += r.cancelled; summary.rebound += r.rebound; summary.errors.push(...r.errors.map(e => `${config.property_name}: ${e}`));
   }
   return summary;
 }

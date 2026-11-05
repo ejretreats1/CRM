@@ -1143,7 +1143,7 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
     const [j, pc] = await Promise.all([fetchCleaningJobs(), fetchPropertyConfigs()]);
     setJobs(j);
     setConfigs(pc);
-    return d as { created: number; cancelled: number; errors: string[] };
+    return d as { created: number; cancelled: number; rebound?: number; errors: string[] };
   }
 
   async function handleSyncAllIcal() {
@@ -1157,7 +1157,7 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
     const [j, pc] = await Promise.all([fetchCleaningJobs(), fetchPropertyConfigs()]);
     setJobs(j);
     setConfigs(pc);
-    return d as { created: number; cancelled: number; errors: string[]; properties: { property: string; created: number; cancelled: number; errors: string[] }[] };
+    return d as { created: number; cancelled: number; rebound?: number; errors: string[]; properties: { property: string; created: number; cancelled: number; rebound?: number; errors: string[] }[] };
   }
 
   // Leads
