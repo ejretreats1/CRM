@@ -20,7 +20,7 @@ interface Props {
   autoSyncing?: boolean;
 }
 
-type StatusFilter = 'all' | 'pending' | 'dispatched' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+type StatusFilter = 'all' | 'pending' | 'dispatched' | 'accepted' | 'in_progress' | 'completed' | 'cancelled' | 'duplicates';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pending', dispatched: 'Dispatched', accepted: 'Accepted',
@@ -94,6 +94,33 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
     try { await onCleanupOrphans(); } finally { setCleaningUp(false); }
   }
 
+  // Two jobs for the same unit of the same property on the same day are the
+  // same clean booked twice — usually one stay reaching the CRM through two
+  // calendar feeds, or a hand-added job the sync then created as well. Supplies
+  // charges and manual payouts aren't cleans, so they never pair up.
+  function duplicateKey(job: CleaningJob): string | null {
+    if (job.status === 'cancelled') return null;
+    if (job.jobType === 'supplies') return null;
+    if (job.propertyId.startsWith('manual_payout_')) return null;
+    return `${job.propertyId}|${job.unitId ?? ''}|${job.checkoutDate}`;
+  }
+
+  const duplicateIds = new Set<string>();
+  const byDuplicateKey = new Map<string, CleaningJob[]>();
+  for (const job of jobs) {
+    const key = duplicateKey(job);
+    if (!key) continue;
+    const group = byDuplicateKey.get(key) ?? [];
+    group.push(job);
+    byDuplicateKey.set(key, group);
+  }
+  for (const group of byDuplicateKey.values()) {
+    if (group.length > 1) for (const job of group) duplicateIds.add(job.id);
+  }
+
+  const duplicateGroups = [...byDuplicateKey.values()].filter(g => g.length > 1).length;
+  const cancelledCount = jobs.filter(j => j.status === 'cancelled').length;
+
   const FILTERS: { id: StatusFilter; label: string }[] = [
     { id: 'all', label: 'All' },
     { id: 'pending', label: 'Pending' },
@@ -101,12 +128,18 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
     { id: 'accepted', label: 'Accepted' },
     { id: 'in_progress', label: 'In Progress' },
     { id: 'completed', label: 'Completed' },
+    ...(duplicateIds.size > 0 ? [{ id: 'duplicates' as const, label: 'Duplicates' }] : []),
     { id: 'cancelled', label: 'Cancelled' },
   ];
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  const filtered = filter === 'all' ? jobs : jobs.filter(j => j.status === filter);
+  // "All" means everything still live: cancelled jobs pile up from the calendar
+  // syncs and are only worth looking at on their own tab.
+  const filtered =
+    filter === 'all' ? jobs.filter(j => j.status !== 'cancelled')
+    : filter === 'duplicates' ? jobs.filter(j => duplicateIds.has(j.id))
+    : jobs.filter(j => j.status === filter);
   const sortedJobs = [...filtered].sort((a, b) => a.checkoutDate.localeCompare(b.checkoutDate));
   const todayJobId = sortedJobs.find(j => j.checkoutDate >= todayStr)?.id ?? null;
 
@@ -403,7 +436,10 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
       <div className="sticky top-0 z-10 bg-[#1e2d45] -mt-4 lg:-mt-6 pt-4 lg:pt-6 pb-3 -mx-4 lg:-mx-6 px-4 lg:px-6 border-b border-[#1e2d45]/60 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-white">Jobs</h1>
-          <p className="text-sm text-[#3a5070] mt-0.5">{jobs.length} total · {jobs.filter(j => j.status === 'pending').length} pending dispatch</p>
+          <p className="text-sm text-[#3a5070] mt-0.5">
+            {jobs.length - cancelledCount} live · {jobs.filter(j => j.status === 'pending').length} pending dispatch
+            {cancelledCount > 0 && ` · ${cancelledCount} cancelled (hidden)`}
+          </p>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
           {orphanedCount > 0 && onCleanupOrphans && (
@@ -445,12 +481,36 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
             }`}
           >
             {f.label}
-            {f.id !== 'all' && jobs.filter(j => j.status === f.id).length > 0 && (
-              <span className="ml-1.5 opacity-70">{jobs.filter(j => j.status === f.id).length}</span>
-            )}
+            {(() => {
+              const n = f.id === 'all' ? 0 : f.id === 'duplicates' ? duplicateIds.size : jobs.filter(j => j.status === f.id).length;
+              return n > 0 ? <span className="ml-1.5 opacity-70">{n}</span> : null;
+            })()}
           </button>
         ))}
       </div>
+
+      {/* Duplicate warning */}
+      {duplicateIds.size > 0 && filter !== 'duplicates' && (
+        <div className="bg-[#2a1e00] border border-[#5a4a1a] rounded-2xl px-4 py-3 flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-start gap-2">
+            <AlertCircle size={15} className="text-[#f59e0b] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-[#f59e0b]">
+                {duplicateIds.size} job{duplicateIds.size === 1 ? '' : 's'} cover the same clean
+              </p>
+              <p className="text-xs text-[#b8d4f0] mt-0.5">
+                {duplicateGroups} stay{duplicateGroups === 1 ? ' has' : 's have'} more than one job for the same unit and date — usually one listing reaching the CRM through two calendar feeds. Each copy dispatches and charges on its own, so remove the extras. If they're really separate units, give each calendar its own unit name in Properties.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setFilter('duplicates')}
+            className="px-3 py-1.5 bg-[#1a2335] border border-[#5a4a1a] text-[#f59e0b] text-xs font-semibold rounded-lg hover:bg-[#22304a] transition-colors flex-shrink-0"
+          >
+            Show them
+          </button>
+        </div>
+      )}
 
       {/* Job list */}
       {sortedJobs.length === 0 ? (
@@ -512,6 +572,14 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                       )}
                       {job.source === 'manual' && (
                         <span className="text-xs text-[#3a5070] border border-[#2a4060] rounded-full px-2 py-0.5">Manual</span>
+                      )}
+                      {duplicateIds.has(job.id) && (
+                        <span
+                          title="Another job covers this same unit and date — cancel or delete the one you don't want."
+                          className="text-xs font-bold px-2 py-0.5 rounded-full border bg-[#2a1e00] border-[#f59e0b] text-[#f59e0b]"
+                        >
+                          ⧉ Duplicate
+                        </span>
                       )}
                     </div>
 
