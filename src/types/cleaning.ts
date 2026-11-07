@@ -147,3 +147,20 @@ export interface CleaningJob {
   createdAt: string;
   updatedAt: string;
 }
+
+/** What a calendar link would give the sync — see api/_ical.ts previewIcalFeed */
+export type IcalPreview =
+  | { ok: false; error: string }
+  | {
+      ok: true;
+      error?: undefined;
+      calendarName?: string;
+      events: number;
+      skipped: number;
+      bookings: number;
+      blocks: number;
+      cancelled: number;
+      blockSummaries: string[];
+      bookingSummaries: string[];
+      upcoming: { checkOut: string; checkIn: string; guestName: string | null }[];
+    };

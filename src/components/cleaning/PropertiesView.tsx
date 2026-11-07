@@ -1,10 +1,11 @@
-import { useState, useEffect, type Dispatch, type SetStateAction } from 'react';
+import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw, ChevronUp, ChevronDown, Download, ImagePlus, Link2, AlertTriangle } from 'lucide-react';
 import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl, CleaningEnrollmentLink } from '../../types/cleaning';
 import { fetchEnrollmentLinks, deleteEnrollmentLink } from '../../services/cleaningDb';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 import { fetchPropertyAllPhotos, fetchPropertyDetails, formatPropertyAddress } from '../../services/uplisting';
 import { downloadApiFile } from '../../services/apiFile';
+import type { IcalPreview } from '../../types/cleaning';
 import { displayName, listingName } from './propertyName';
 
 interface Props {
@@ -166,6 +167,9 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   // --- iCal sync state ---
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<Record<string, { created: number; cancelled: number; rebound?: number; errors: string[] }>>({});
+  const [feedTesting, setFeedTesting] = useState(false);
+  const [feedTest, setFeedTest] = useState<IcalPreview | null>(null);
+  const feedTestRef = useRef<HTMLDivElement | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
   const [syncAllResult, setSyncAllResult] = useState<{ created: number; cancelled: number; rebound?: number; errors: string[]; properties: { property: string; created: number; cancelled: number; rebound?: number; errors: string[] }[] } | null>(null);
 
@@ -416,6 +420,30 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
     }
   }
 
+  useEffect(() => {
+    if (feedTest) feedTestRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [feedTest]);
+
+  async function testIcalUrl() {
+    const url = form.icalUrlInput.trim();
+    if (!url) return;
+    setFeedTesting(true);
+    setFeedTest(null);
+    try {
+      const r = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: 'cleaning', action: 'ical-test', url }),
+      });
+      const d = await r.json();
+      setFeedTest(r.ok ? d : { ok: false, error: d.error ?? 'Could not test that link.' });
+    } catch (e) {
+      setFeedTest({ ok: false, error: e instanceof Error ? e.message : 'Could not test that link.' });
+    } finally {
+      setFeedTesting(false);
+    }
+  }
+
   function addIcalUrl() {
     const raw = form.icalUrlInput.trim();
     if (!raw) return;
@@ -423,6 +451,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
     const entry: IcalUrl = { platform: form.icalPlatform, url };
     if (form.icalUnitName.trim()) entry.unitName = form.icalUnitName.trim();
     setForm(f => ({ ...f, icalUrls: [...f.icalUrls, entry], icalUrlInput: '', icalUnitName: '' }));
+    setFeedTest(null);
   }
 
   function onPropertySelect(pid: string) {
@@ -1376,7 +1405,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                     ⚠ None of these calendars has a unit name. If they're different units, name each one — without names the CRM treats them as a single unit, so two checkouts on the same day look like one duplicated clean, and a re-issued booking can't be matched back to its job. Feeds for the <em>same</em> unit (an Airbnb and a VRBO calendar for one listing) should share a name, or have none.
                   </p>
                 )}
-                <div className="flex gap-2 mb-1.5">
+                <div className="flex gap-2 mb-1.5 flex-wrap">
                   <select
                     className="bg-[#0f1923] border border-[#1e2d45] rounded-lg px-2 py-2 text-xs text-white focus:outline-none focus:border-[#4a90d9] flex-shrink-0"
                     value={form.icalPlatform}
@@ -1391,18 +1420,62 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                     placeholder="Unit name"
                   />
                   <input
-                    className="flex-1 bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 text-xs text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
+                    className="flex-1 min-w-[12rem] bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2 text-xs text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9]"
                     value={form.icalUrlInput}
-                    onChange={e => setForm(f => ({ ...f, icalUrlInput: e.target.value }))}
+                    onChange={e => { setForm(f => ({ ...f, icalUrlInput: e.target.value })); setFeedTest(null); }}
                     placeholder="webcal:// or https:// export URL"
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addIcalUrl(); } }}
                   />
+                  <button
+                    type="button"
+                    onClick={testIcalUrl}
+                    disabled={feedTesting || !form.icalUrlInput.trim()}
+                    title="Fetch the calendar and show what the sync would make of it"
+                    className="px-3 py-2 bg-[#0f1923] border border-[#1e2d45] text-[#b8d4f0] text-xs font-semibold rounded-lg hover:bg-[#1e2d45] disabled:opacity-40 transition-colors whitespace-nowrap"
+                  >{feedTesting ? 'Testing…' : 'Test'}</button>
                   <button
                     type="button"
                     onClick={addIcalUrl}
                     className="px-3 py-2 bg-[#1e2d45] border border-[#2a4060] text-[#4a90d9] text-xs font-semibold rounded-lg hover:bg-[#2a3d55] transition-colors whitespace-nowrap"
                   >Add</button>
                 </div>
+                {feedTest && (
+                  <div ref={feedTestRef} className={`mb-2 rounded-lg border px-3 py-2 text-xs ${feedTest.ok ? 'bg-[#0a2518] border-[#1e4030] text-[#b8d4f0]' : 'bg-[#1a0e0e] border-[#3a1a1a] text-[#e05c5c]'}`}>
+                    {!feedTest.ok ? (
+                      <p>{feedTest.error}</p>
+                    ) : (
+                      <div className="space-y-1">
+                        <p className="font-semibold text-[#5ce0a0]">
+                          ✓ Works — {feedTest.bookings} booking{feedTest.bookings === 1 ? '' : 's'} would create cleaning jobs
+                          {feedTest.blocks > 0 && `, ${feedTest.blocks} owner block${feedTest.blocks === 1 ? '' : 's'} ignored`}
+                          {feedTest.cancelled > 0 && `, ${feedTest.cancelled} cancelled`}
+                          {feedTest.skipped > 0 && `, ${feedTest.skipped} unreadable`}
+                        </p>
+                        {feedTest.calendarName && <p className="text-[#7a94b8]">Calendar: {feedTest.calendarName}</p>}
+                        {feedTest.upcoming.length > 0 ? (
+                          <div>
+                            <p className="text-[#3a5070]">Next cleaning days (the guest's checkout):</p>
+                            {feedTest.upcoming.map((u, i) => (
+                              <p key={i} className="text-[#b8d4f0]">
+                                · {new Date(u.checkOut + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                {u.guestName ? ` — ${u.guestName}` : ''}
+                              </p>
+                            ))}
+                            <p className="text-[#d0954a]">Check one against the real booking — if every date is a day out, this calendar counts checkout differently and the feed needs adjusting.</p>
+                          </div>
+                        ) : (
+                          <p className="text-[#d0954a]">No upcoming checkouts in this calendar yet — nothing to clean until it has bookings.</p>
+                        )}
+                        {feedTest.bookingSummaries.length > 0 && (
+                          <p className="text-[#3a5070]">Treated as stays: {feedTest.bookingSummaries.join(', ')}</p>
+                        )}
+                        {feedTest.blockSummaries.length > 0 && (
+                          <p className="text-[#3a5070]">Ignored as blocks: {feedTest.blockSummaries.join(', ')}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Sub-unit listings (multi-unit) */}

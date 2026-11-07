@@ -114,3 +114,76 @@ export async function syncPropertyIcal(supabase: any, config: {
   await supabase.from('cleaning_property_configs').update({ ical_urls: stamped }).eq('id', config.id);
   return result;
 }
+
+// ── Feed preview ─────────────────────────────────────────────────────────────
+
+export interface IcalPreview {
+  ok: boolean;
+  error?: string;
+  /** Name the calendar gives itself (X-WR-CALNAME) — handy for telling two share links apart */
+  calendarName?: string;
+  events: number;        // VEVENTs the parser understood
+  skipped: number;       // VEVENTs dropped for missing UID / DTSTART / DTEND
+  bookings: number;      // would become cleaning jobs
+  blocks: number;        // filtered out as owner blocks
+  cancelled: number;     // STATUS:CANCELLED
+  blockSummaries: string[];
+  bookingSummaries: string[];
+  upcoming: { checkOut: string; checkIn: string; guestName: string | null }[];
+}
+
+/**
+ * Fetch a calendar the way the sync does and report what it would make of it,
+ * so a feed can be checked before it's saved. It runs the same parse and the
+ * same block filter, so it can't disagree with the sync that follows.
+ */
+export async function previewIcalFeed(rawUrl: string, today: string): Promise<IcalPreview> {
+  const empty = { events: 0, skipped: 0, bookings: 0, blocks: 0, cancelled: 0, blockSummaries: [], bookingSummaries: [], upcoming: [] };
+  const url = rawUrl.trim().replace(/^webcal:\/\//i, 'https://');
+  if (!/^https?:\/\//i.test(url)) return { ok: false, error: 'That is not a web address — paste the calendar export URL (https:// or webcal://).', ...empty };
+
+  let text: string;
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': 'EJRetreats-Cleaning/1.0' }, signal: AbortSignal.timeout(12_000) });
+    if (!r.ok) return { ok: false, error: `The calendar host answered HTTP ${r.status}. Check the link is still shared and hasn't expired.`, ...empty };
+    text = await r.text();
+  } catch (e) {
+    return { ok: false, error: `Couldn't reach the calendar: ${e instanceof Error ? e.message : String(e)}`, ...empty };
+  }
+  if (!/BEGIN:VCALENDAR/i.test(text)) return { ok: false, error: "That link doesn't return a calendar (no BEGIN:VCALENDAR). It may be a web page rather than the iCal export URL.", ...empty };
+
+  const rawEvents = (text.match(/BEGIN:VEVENT/gi) ?? []).length;
+  const parsed = parseIcal(text);
+  const calendarName = text.replace(/\r?\n[ \t]/g, '').match(/^X-WR-CALNAME:(.*)$/im)?.[1]?.trim() || undefined;
+
+  const blockSummaries = new Set<string>();
+  const bookingSummaries = new Set<string>();
+  let blocks = 0, cancelled = 0;
+  const upcoming: { checkOut: string; checkIn: string; guestName: string | null }[] = [];
+  for (const ev of parsed) {
+    if (isBlock(ev.summary)) { blocks++; blockSummaries.add(ev.summary.trim()); continue; }
+    if (ev.status === 'CANCELLED') { cancelled++; continue; }
+    if (ev.summary.trim()) bookingSummaries.add(ev.summary.trim());
+    if (ev.end >= today) {
+      upcoming.push({
+        checkOut: ev.end,
+        checkIn: ev.start,
+        guestName: ev.summary && !/^reserved/i.test(ev.summary) ? ev.summary : null,
+      });
+    }
+  }
+  upcoming.sort((a, b) => a.checkOut.localeCompare(b.checkOut));
+
+  return {
+    ok: true,
+    calendarName,
+    events: parsed.length,
+    skipped: rawEvents - parsed.length,
+    bookings: parsed.length - blocks - cancelled,
+    blocks,
+    cancelled,
+    blockSummaries: [...blockSummaries].slice(0, 8),
+    bookingSummaries: [...bookingSummaries].slice(0, 8),
+    upcoming: upcoming.slice(0, 5),
+  };
+}
