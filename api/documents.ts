@@ -6,7 +6,7 @@ import { requireAdmin, APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth.js';
 import { chargeJob, payoutJob, markPayoutPaid, payoutDueFrom } from './_billing.js';
 
 
-import { syncPropertyIcal } from './_ical.js';
+import { syncPropertyIcal, previewIcalFeed } from './_ical.js';
 import { dispatchJob, advanceDispatch, syncUplistingJobs, dispatchTick, maybeActivateCleaner, type RosterCleaner } from './_jobs.js';
 import { sendCleanerPortalEmail, sendJobCancelledEmail, sendClientReceiptEmail, sendReportReminderEmail, sendSupplyChargeEmail, cleanerPortalUrl, emailId } from './_emails.js';
 import { sendSms } from './_sms.js';
@@ -4435,6 +4435,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'charge-and-payout') return await cleaningChargeAndPayout(body, res);
     if (action === 'remind-report')     return await cleaningRemindReport(body, res);
     if (action === 'waive-report')      return await cleaningWaiveReport(body, res);
+    if (action === 'ical-test') {
+      // Check a calendar link before it's saved: same fetch, same parser, same
+      // block filter as the sync, so what it reports is what the sync will do.
+      const { url } = body;
+      if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url required' });
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      return res.status(200).json(await previewIcalFeed(url, today));
+    }
     if (action === 'ical-sync') {
       const { propertyId } = body;
       if (!propertyId) return res.status(400).json({ error: 'propertyId required' });
