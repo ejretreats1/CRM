@@ -8,7 +8,7 @@ import { chargeJob, payoutJob, markPayoutPaid, payoutDueFrom } from './_billing.
 
 import { syncPropertyIcal, previewIcalFeed } from './_ical.js';
 import { dispatchJob, advanceDispatch, syncUplistingJobs, dispatchTick, maybeActivateCleaner, type RosterCleaner } from './_jobs.js';
-import { sendCleanerPortalEmail, sendJobCancelledEmail, sendClientReceiptEmail, sendReportReminderEmail, sendSupplyChargeEmail, cleanerPortalUrl, emailId } from './_emails.js';
+import { sendCleanerPortalEmail, sendJobCancelledEmail, sendClientReceiptEmail, sendReportReminderEmail, sendChargeReceiptEmail, chargeKindLabel, type ChargeKind, cleanerPortalUrl, emailId } from './_emails.js';
 import { sendSms } from './_sms.js';
 
 let _resend: any = null;
@@ -905,12 +905,13 @@ async function manualClientCharge(body: any, res: VercelResponse) {
   if (!propertyId || !amount || Number(amount) <= 0)
     return res.status(400).json({ error: 'propertyId and a positive amount are required.' });
 
-  // Supplies charges carry a short note of what was ordered, which goes on the
-  // receipt emailed to the client and the copy emailed to the office.
-  const supplies = kind === 'supplies';
+  // Supplies and lawn care carry a short note of what was ordered or done,
+  // which the receipt lists for the client and for the office copy.
+  const chargeKind: ChargeKind = kind === 'supplies' || kind === 'lawncare' ? kind : 'other';
+  const itemised = chargeKind !== 'other';
   const detailText = String(details ?? description ?? '').trim();
-  if (supplies && !detailText)
-    return res.status(400).json({ error: 'Add a short note of what was ordered.' });
+  if (itemised && !detailText)
+    return res.status(400).json({ error: chargeKind === 'supplies' ? 'Add a short note of what was ordered.' : 'Add a short note of the work done.' });
 
   const supabase = getSupabase();
   const { data: config } = await supabase
@@ -922,10 +923,10 @@ async function manualClientCharge(body: any, res: VercelResponse) {
   if (!config.stripe_customer_id || !config.stripe_payment_method_id)
     return res.status(400).json({ error: `${config.property_name} has no payment method on file — client onboarding not complete.` });
 
-  const label = supplies ? 'Supplies' : 'Manual charge';
+  const label = chargeKindLabel(chargeKind);
   const firstLine = detailText.split(/\r?\n/)[0]?.trim() ?? '';
-  const chargeDescription = supplies
-    ? `Supplies — ${config.property_name}${firstLine ? `: ${firstLine}` : ''}`.slice(0, 300)
+  const chargeDescription = itemised
+    ? `${label} — ${config.property_name}${firstLine ? `: ${firstLine}` : ''}`.slice(0, 300)
     : (detailText || `Manual charge — ${config.property_name}`).slice(0, 300);
 
   const stripe = await getStripe();
@@ -942,7 +943,7 @@ async function manualClientCharge(body: any, res: VercelResponse) {
       confirm: true,
       off_session: true,
       description: chargeDescription,
-      metadata: { property_id: propertyId, type: supplies ? 'supplies_charge' : 'manual_charge' },
+      metadata: { property_id: propertyId, type: itemised ? `${chargeKind}_charge` : 'manual_charge' },
     }, { idempotencyKey: `manual_charge_${requestId || randomUUID()}` });
 
     chargedAt = new Date().toISOString();
@@ -958,10 +959,10 @@ async function manualClientCharge(body: any, res: VercelResponse) {
       charged_at: chargedAt,
       stripe_charge_id: paymentIntent.id,
       charge_status: 'charged',
-      // Marks the row as a supplies charge rather than a clean, so the
-      // dashboard doesn't count it as a job.
-      ...(supplies ? { job_type: 'supplies' } : {}),
-      notes: supplies ? `Supplies: ${detailText}` : (detailText || 'Manual charge'),
+      // Marks what the charge was for, so the dashboard doesn't count it as a
+      // clean and the Jobs list can label it.
+      ...(itemised ? { job_type: chargeKind } : {}),
+      notes: itemised ? `${label}: ${detailText}` : (detailText || 'Manual charge'),
       source: 'manual',
       created_at: chargedAt,
       updated_at: chargedAt,
@@ -976,23 +977,27 @@ async function manualClientCharge(body: any, res: VercelResponse) {
   let emailError: string | undefined;
   if (notify !== false) {
     const mail = {
+      kind: chargeKind,
       clientName: config.client_name, clientEmail: config.client_email,
       propertyName: config.property_name, amount: Number(amount),
-      details: detailText || label, chargedAt, label: supplies ? 'Supplies' : 'Extra charge',
+      details: detailText || label, chargedAt,
     };
+    const emailType = chargeKind === 'supplies' ? 'cleaning-supply-charge'
+      : chargeKind === 'lawncare' ? 'cleaning-lawncare-charge'
+      : 'cleaning-manual-charge';
     if (config.client_email) {
       try {
-        const sent = await sendSupplyChargeEmail(await getResend(), { ...mail, to: config.client_email, audience: 'client' });
+        const sent = await sendChargeReceiptEmail(await getResend(), { ...mail, to: config.client_email, audience: 'client' });
         emailedClient = true;
-        if (sent.id) await logEmail(sent.id, supplies ? 'cleaning-supply-charge' : 'cleaning-manual-charge', config.client_email, sent.subject, jobId, config.client_name ?? undefined);
+        if (sent.id) await logEmail(sent.id, emailType, config.client_email, sent.subject, jobId, config.client_name ?? undefined);
       } catch (e: any) {
         emailError = `Client receipt failed: ${e?.message ?? 'unknown error'}`;
       }
     }
     try {
-      const sent = await sendSupplyChargeEmail(await getResend(), { ...mail, to: ADMIN_EMAIL, audience: 'admin' });
+      const sent = await sendChargeReceiptEmail(await getResend(), { ...mail, to: ADMIN_EMAIL, audience: 'admin' });
       emailedAdmin = true;
-      if (sent.id) await logEmail(sent.id, supplies ? 'cleaning-supply-charge' : 'cleaning-manual-charge', ADMIN_EMAIL, sent.subject, jobId, 'Admin');
+      if (sent.id) await logEmail(sent.id, emailType, ADMIN_EMAIL, sent.subject, jobId, 'Admin');
     } catch (e: any) {
       emailError = [emailError, `Office copy failed: ${e?.message ?? 'unknown error'}`].filter(Boolean).join(' · ');
     }
