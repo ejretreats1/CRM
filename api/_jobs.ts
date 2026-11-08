@@ -55,6 +55,8 @@ export interface BookingLike {
   checkOut: string;  // YYYY-MM-DD = cleaning day
   guestName?: string | null;
   cancelled: boolean;
+  /** Earliest checkout this booking's feed should create jobs for (the day it was connected) */
+  startFrom?: string | null;
 }
 
 export interface ReconcileResult { created: number; updated: number; cancelled: number; rebound: number; errors: string[] }
@@ -66,6 +68,8 @@ interface ReconcileOpts {
   lookbackDays?: number;
   resend?: Resend;
   today?: string;
+  /** The day this property came under management; its calendar's older stays aren't ours to clean */
+  enrolledOn?: string | null;
 }
 
 /** Next check-in after each booking's checkout, within the same unit. */
@@ -87,6 +91,13 @@ export function withNextCheckIn(bookings: BookingLike[]): Map<string, { nextChec
     }
   }
   return out;
+}
+
+/** The later of two YYYY-MM-DD dates, ignoring blanks. */
+function laterOf(a?: string | null, b?: string | null): string | null {
+  const dates = [a, b].filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d));
+  if (!dates.length) return null;
+  return dates.sort().at(-1) ?? null;
 }
 
 export async function reconcileJobs(db: Db, config: Row, bookings: BookingLike[], opts: ReconcileOpts): Promise<ReconcileResult> {
@@ -123,6 +134,13 @@ export async function reconcileJobs(db: Db, config: Row, bookings: BookingLike[]
     const propertyName = b.unitName ? `${config.property_name} — ${b.unitName}` : config.property_name;
 
     if (!job) {
+      // A calendar carries the stays from before we were hired too. Those were
+      // cleaned by somebody else, so they are not jobs and not our revenue:
+      // only create from the day the feed was connected (or the property was
+      // enrolled) onward. Feeds connected before this was recorded keep the
+      // old rolling lookback.
+      const startFrom = laterOf(b.startFrom, opts.enrolledOn);
+      if (startFrom && b.checkOut < startFrom) continue;
       // Held back: it may be a stay this CRM already has under an id the feed
       // has since re-issued. Rebinding is settled below, then the rest insert.
       fresh.push({ booking: b, info, propertyName });
@@ -358,7 +376,10 @@ export async function syncUplistingJobs(db: Db, resend: Resend | undefined, apiK
         summary.errors.push(`${config.property_name}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
-    const r = await reconcileJobs(db, config, bookings, { source: 'uplisting', complete, resend, today });
+    const r = await reconcileJobs(db, config, bookings, {
+      source: 'uplisting', complete, resend, today,
+      enrolledOn: config.enrolled_at ? String(config.enrolled_at).slice(0, 10) : null,
+    });
     summary.created += r.created; summary.updated += r.updated; summary.cancelled += r.cancelled; summary.rebound += r.rebound; summary.errors.push(...r.errors.map(e => `${config.property_name}: ${e}`));
   }
   return summary;

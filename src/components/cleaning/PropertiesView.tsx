@@ -448,7 +448,9 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
     const raw = form.icalUrlInput.trim();
     if (!raw) return;
     const url = raw.replace(/^webcal:\/\//i, 'https://');
-    const entry: IcalUrl = { platform: form.icalPlatform, url };
+    // Stamp the day it was connected: the sync imports stays from here on, not
+    // the history the calendar also carries.
+    const entry: IcalUrl = { platform: form.icalPlatform, url, addedAt: new Date().toLocaleDateString('en-CA') };
     if (form.icalUnitName.trim()) entry.unitName = form.icalUnitName.trim();
     setForm(f => ({ ...f, icalUrls: [...f.icalUrls, entry], icalUrlInput: '', icalUnitName: '' }));
     setFeedTest(null);
@@ -1386,9 +1388,17 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                           <span className="text-[10px] font-semibold text-[#d0954a] bg-[#2a1a05] px-1.5 py-0.5 rounded flex-shrink-0">{u.unitName}</span>
                         )}
                         <span className="text-[10px] text-[#3a5070] truncate flex-1 font-mono">{u.url}</span>
+                        {u.addedAt && (
+                          <span
+                            className="text-[10px] text-[#2a4060] flex-shrink-0 whitespace-nowrap"
+                            title={`Jobs are created for checkouts from ${u.addedAt} onward — earlier stays in this calendar aren't imported.`}
+                          >
+                            from {new Date(u.addedAt + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
                         {u.lastSyncedAt && (
                           <span className="text-[10px] text-[#2a4060] flex-shrink-0 whitespace-nowrap">
-                            {new Date(u.lastSyncedAt).toLocaleDateString()}
+                            synced {new Date(u.lastSyncedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
                         )}
                         <button

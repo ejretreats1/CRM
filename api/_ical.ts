@@ -17,6 +17,8 @@ export interface IcalUrl {
   url: string;
   lastSyncedAt?: string;
   unitName?: string;
+  /** Day this feed was connected (YYYY-MM-DD). Stays that ended earlier were somebody else's to clean. */
+  addedAt?: string;
 }
 
 /**
@@ -87,7 +89,7 @@ export async function fetchIcalBookings(icalUrls: IcalUrl[], parentPropertyId: s
         if (!ev.uid || !ev.end) continue;
         if (isBlock(ev.summary)) continue;
         const guestName = ev.summary && ev.summary !== 'Reserved' && !/^reserved/i.test(ev.summary) ? ev.summary : null;
-        bookings.push({ reservationId: ev.uid, unitKey, unitName: entry.unitName ?? null, checkIn: ev.start, checkOut: ev.end, guestName, cancelled: ev.status === 'CANCELLED' });
+        bookings.push({ reservationId: ev.uid, unitKey, unitName: entry.unitName ?? null, checkIn: ev.start, checkOut: ev.end, guestName, cancelled: ev.status === 'CANCELLED', startFrom: entry.addedAt ?? null });
       }
     } catch (e) {
       errors.push(`${entry.platform}: ${e instanceof Error ? e.message : String(e)}`);
@@ -102,12 +104,16 @@ export async function fetchIcalBookings(icalUrls: IcalUrl[], parentPropertyId: s
 export async function syncPropertyIcal(supabase: any, config: {
   id: string; property_id: string; property_name: string; cleaning_fee: number; ical_urls: IcalUrl[];
   linked_property_ids?: string[] | null;
+  enrolled_at?: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }, resend?: any): Promise<ReconcileResult> {
   const icalUrls: IcalUrl[] = config.ical_urls ?? [];
   if (!icalUrls.length) return { created: 0, updated: 0, cancelled: 0, rebound: 0, errors: [] };
   const fetched = await fetchIcalBookings(icalUrls, config.property_id);
-  const result = await reconcileJobs(supabase, config, fetched.bookings, { source: 'ical', complete: fetched.complete, resend });
+  const result = await reconcileJobs(supabase, config, fetched.bookings, {
+    source: 'ical', complete: fetched.complete, resend,
+    enrolledOn: config.enrolled_at ? String(config.enrolled_at).slice(0, 10) : null,
+  });
   result.errors.push(...fetched.errors);
   const now = new Date().toISOString();
   const stamped = icalUrls.map(u => ({ ...u, lastSyncedAt: now }));
