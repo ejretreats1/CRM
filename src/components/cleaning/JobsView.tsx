@@ -95,7 +95,7 @@ interface ManualJobForm {
   clientCharge: string;
 }
 
-export default function JobsView({ jobs, configs, cleaners, uplistingProperties, onSyncJobs, onUpdateJob, onCleanupOrphans, autoSyncing }: Props) {
+export default function JobsView({ jobs, configs, cleaners, uplistingProperties, onSyncJobs, onUpdateJob, onDeleteJob, onCleanupOrphans, autoSyncing }: Props) {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [dispatching, setDispatching] = useState<string | null>(null);
@@ -109,6 +109,10 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
   });
   const [savingManual, setSavingManual] = useState(false);
   const [cleaningUp, setCleaningUp] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkNote, setBulkNote] = useState<string | null>(null);
   const todayMarkerRef = useRef<HTMLDivElement | null>(null);
   const hasScrolled = useRef(false);
 
@@ -171,6 +175,57 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
     : jobs.filter(j => j.status === filter);
   const sortedJobs = [...filtered].sort((a, b) => a.checkoutDate.localeCompare(b.checkoutDate));
   const todayJobId = sortedJobs.find(j => j.checkoutDate >= todayStr)?.id ?? null;
+
+  // The list runs in date order, so a day's jobs sit together: give each day a
+  // heading with its count, which is how a pile-up on one date becomes obvious.
+  const dayCounts = new Map<string, number>();
+  for (const j of sortedJobs) dayCounts.set(j.checkoutDate, (dayCounts.get(j.checkoutDate) ?? 0) + 1);
+
+  // Charged or paid-out jobs are a money record — bulk delete leaves them alone.
+  const settled = (j: CleaningJob) => !!(j.chargedAt || j.payoutSentAt);
+  const selectedJobs = sortedJobs.filter(j => selected.has(j.id));
+  const deletable = selectedJobs.filter(j => !settled(j));
+  const keptBack = selectedJobs.length - deletable.length;
+
+  function toggleOne(id: string) {
+    setBulkNote(null);
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function selectDay(date: string) {
+    setBulkNote(null);
+    const ids = sortedJobs.filter(j => j.checkoutDate === date).map(j => j.id);
+    setSelected(prev => {
+      const next = new Set(prev);
+      const allOn = ids.every(id => next.has(id));
+      for (const id of ids) { if (allOn) next.delete(id); else next.add(id); }
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    if (!onDeleteJob || deletable.length === 0) return;
+    const summary = `Delete ${deletable.length} job${deletable.length === 1 ? '' : 's'}? They disappear from the CRM and the cleaners' portals, and no payouts are sent. This cannot be undone.`;
+    if (!confirm(summary)) return;
+    setBulkDeleting(true);
+    setBulkNote(null);
+    let gone = 0;
+    const failed: string[] = [];
+    for (const job of deletable) {
+      try { await onDeleteJob(job.id); gone++; } catch (e) { failed.push(e instanceof Error ? e.message : 'failed'); }
+    }
+    setSelected(new Set());
+    setBulkDeleting(false);
+    setBulkNote([
+      `${gone} job${gone === 1 ? '' : 's'} deleted`,
+      keptBack > 0 ? `${keptBack} kept — already charged or paid out, delete those from Payments` : null,
+      failed.length ? `${failed.length} failed (${failed[0]})` : null,
+    ].filter(Boolean).join(' · '));
+  }
 
   useEffect(() => {
     if (!hasScrolled.current && todayMarkerRef.current) {
@@ -487,6 +542,19 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
               Syncing…
             </span>
           )}
+          {onDeleteJob && sortedJobs.length > 0 && (
+            <button
+              onClick={() => { setSelecting(v => !v); setSelected(new Set()); setBulkNote(null); }}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border transition-colors ${
+                selecting
+                  ? 'bg-[#0d1e35] border-[#4a90d9] text-white'
+                  : 'bg-[#1a2335] border-[#1e2d45] text-[#b8d4f0] hover:bg-[#22304a]'
+              }`}
+            >
+              <CheckCircle size={12} />
+              {selecting ? 'Done selecting' : 'Select'}
+            </button>
+          )}
           <button
             onClick={() => setShowManual(true)}
             className="flex items-center gap-2 px-3 py-2 bg-[#4a90d9] hover:bg-[#5aa0e9] text-white text-sm font-semibold rounded-xl transition-colors"
@@ -541,6 +609,45 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
         </div>
       )}
 
+      {(selecting || bulkNote) && (
+        <div className="bg-[#0d1e35] border border-[#1e3a5a] rounded-2xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+          {bulkNote && !selecting ? (
+            <p className="text-sm text-[#5ce0a0]">{bulkNote}</p>
+          ) : (
+            <>
+              <div className="text-sm text-[#b8d4f0]">
+                <span className="font-semibold text-white">{selected.size}</span> selected
+                {keptBack > 0 && <span className="text-[#d0954a]"> · {keptBack} already charged or paid out and will be kept</span>}
+                {bulkNote && <span className="text-[#5ce0a0]"> · {bulkNote}</span>}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => { setBulkNote(null); setSelected(new Set(sortedJobs.map(j => j.id))); }}
+                  className="px-3 py-1.5 bg-[#1a2335] border border-[#1e2d45] text-[#b8d4f0] text-xs font-semibold rounded-lg hover:bg-[#22304a] transition-colors"
+                >
+                  Select all {sortedJobs.length} shown
+                </button>
+                <button
+                  onClick={() => { setBulkNote(null); setSelected(new Set()); }}
+                  disabled={selected.size === 0}
+                  className="px-3 py-1.5 bg-[#1a2335] border border-[#1e2d45] text-[#b8d4f0] text-xs font-semibold rounded-lg hover:bg-[#22304a] disabled:opacity-40 transition-colors"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting || deletable.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a0e0e] border border-[#3a1a1a] text-[#e05c5c] text-xs font-semibold rounded-lg hover:bg-[#240e0e] disabled:opacity-40 transition-colors"
+                >
+                  <XCircle size={12} />
+                  {bulkDeleting ? 'Deleting…' : `Delete ${deletable.length}`}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Job list */}
       {sortedJobs.length === 0 ? (
         <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-10 flex flex-col items-center gap-3 text-center">
@@ -559,14 +666,47 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
         </div>
       ) : (
         <div className="space-y-3">
-          {sortedJobs.map(job => {
+          {sortedJobs.map((job, i) => {
             const config = configMap.get(job.propertyId);
             const assignedCleaner = job.assignedCleanerId ? cleaners.find(c => c.id === job.assignedCleanerId) : null;
             const profit = jobProfit(job, config);
+            const startsDay = i === 0 || sortedJobs[i - 1].checkoutDate !== job.checkoutDate;
+            const dayCount = dayCounts.get(job.checkoutDate) ?? 1;
+            const dayIds = startsDay ? sortedJobs.filter(j => j.checkoutDate === job.checkoutDate).map(j => j.id) : [];
+            const dayAllSelected = startsDay && dayIds.every(id => selected.has(id));
 
             return (
-              <div key={job.id} ref={job.id === todayJobId ? todayMarkerRef : null} className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-4">
+              <div key={job.id} ref={job.id === todayJobId ? todayMarkerRef : null}>
+                {startsDay && (
+                  <div className="flex items-center gap-2 px-1 pt-2 pb-1.5">
+                    <span className="text-xs font-semibold text-[#7a94b8]">
+                      {new Date(job.checkoutDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </span>
+                    <span className={`text-[11px] ${dayCount > 4 ? 'text-[#d0954a] font-semibold' : 'text-[#3a5070]'}`}>
+                      {dayCount} job{dayCount === 1 ? '' : 's'}
+                    </span>
+                    {selecting && (
+                      <button
+                        onClick={() => selectDay(job.checkoutDate)}
+                        className="text-[11px] font-semibold text-[#4a90d9] hover:text-[#6ab0f9] transition-colors"
+                      >
+                        {dayAllSelected ? 'deselect day' : 'select day'}
+                      </button>
+                    )}
+                    <div className="flex-1 border-b border-[#1e2d45]" />
+                  </div>
+                )}
+                <div className={`bg-[#1a2335] border rounded-2xl p-4 transition-colors ${selected.has(job.id) ? 'border-[#4a90d9]' : 'border-[#1e2d45]'}`}>
                 <div className="flex items-start justify-between gap-3">
+                  {selecting && (
+                    <input
+                      type="checkbox"
+                      checked={selected.has(job.id)}
+                      onChange={() => toggleOne(job.id)}
+                      aria-label={`Select ${displayName(job.propertyId, job.propertyName, uplistingProperties)} on ${job.checkoutDate}`}
+                      className="mt-1 accent-[#4a90d9] flex-shrink-0"
+                    />
+                  )}
                   <div className="flex-1 min-w-0 space-y-2">
                     {/* Row 1: property + status */}
                     <div className="flex items-center gap-2 flex-wrap">
@@ -958,6 +1098,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                     </div>
                   );
                 })()}
+                </div>
               </div>
             );
           })}

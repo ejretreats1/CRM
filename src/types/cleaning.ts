@@ -30,6 +30,8 @@ export interface IcalUrl {
   url: string;
   lastSyncedAt?: string;
   unitName?: string;
+  /** Day this feed was connected. Stays that ended earlier aren't imported — they were somebody else's to clean. */
+  addedAt?: string;
 }
 
 export interface CleaningPropertyConfig {
