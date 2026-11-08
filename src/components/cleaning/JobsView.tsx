@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   Plus, Send, CheckCircle, XCircle, Clock, AlertCircle, Home, User, DollarSign, Calendar, CreditCard,
-  ChevronDown, ChevronUp, Image, FileText,
+  ChevronDown, ChevronUp, Image, FileText, TrendingUp,
 } from 'lucide-react';
 import type { CleaningJob, CleaningJobType, CleaningPropertyConfig, Cleaner } from '../../types/cleaning';
 import type { UplistingProperty } from '../../services/uplisting';
@@ -18,6 +18,34 @@ interface Props {
   onDeleteJob?: (id: string) => Promise<void>;
   onCleanupOrphans?: () => Promise<void>;
   autoSyncing?: boolean;
+}
+
+/** Trim the trailing cents on whole amounts: 70 -> $70, 72.5 -> $72.50 */
+function money(n: number): string {
+  return `$${Math.abs(n).toFixed(2).replace(/\.00$/, '')}`;
+}
+
+/**
+ * What a clean leaves us: the client charge minus the cleaner's payout.
+ *
+ * Until a cleaner takes the job its payout is 0, so fall back to the rate this
+ * property pays — the assigned cleaner's if there is one, otherwise the first
+ * on the dispatch roster — and mark the figure as an estimate. Supplies and
+ * lawn-care charges carry no payout to subtract (what they cost us sits in
+ * Expenses), so they get no profit line at all.
+ */
+function jobProfit(
+  job: CleaningJob,
+  config?: CleaningPropertyConfig,
+): { amount: number; estimated: boolean } | null {
+  if (job.cleaningFee <= 0) return null;
+  if (job.cleanerPayout > 0) return { amount: job.cleaningFee - job.cleanerPayout, estimated: false };
+  if ((job.jobType ?? 'cleaning') !== 'cleaning') return null;
+  const roster = config?.assignedCleaners ?? [];
+  const rate = (job.assignedCleanerId ? roster.find(c => c.id === job.assignedCleanerId) : undefined)
+    ?? roster.find(c => c.payout > 0);
+  if (!rate || rate.payout <= 0) return null;
+  return { amount: job.cleaningFee - rate.payout, estimated: true };
 }
 
 type StatusFilter = 'all' | 'pending' | 'dispatched' | 'accepted' | 'in_progress' | 'completed' | 'cancelled' | 'duplicates';
@@ -534,6 +562,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
           {sortedJobs.map(job => {
             const config = configMap.get(job.propertyId);
             const assignedCleaner = job.assignedCleanerId ? cleaners.find(c => c.id === job.assignedCleanerId) : null;
+            const profit = jobProfit(job, config);
 
             return (
               <div key={job.id} ref={job.id === todayJobId ? todayMarkerRef : null} className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-4">
@@ -624,6 +653,20 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                           <DollarSign size={12} className="text-[#d07af5]" />
                           <span className="text-[#3a5070]">Payout:</span>
                           <span className="text-[#d07af5] font-semibold">${job.cleanerPayout}</span>
+                        </div>
+                      )}
+                      {profit && (
+                        <div
+                          className="flex items-center gap-1.5 text-xs"
+                          title={profit.estimated
+                            ? `Estimated: ${money(job.cleaningFee)} charge less this property's cleaner rate. No cleaner has taken the job yet.`
+                            : `${money(job.cleaningFee)} charge less ${money(job.cleanerPayout)} payout.`}
+                        >
+                          <TrendingUp size={12} className={profit.amount < 0 ? 'text-[#e05c5c]' : 'text-[#d0954a]'} />
+                          <span className="text-[#3a5070]">Profit:</span>
+                          <span className={`font-semibold ${profit.amount < 0 ? 'text-[#e05c5c]' : 'text-[#d0954a]'}`}>
+                            {profit.estimated ? '~' : ''}{profit.amount < 0 ? '−' : ''}{money(profit.amount)}
+                          </span>
                         </div>
                       )}
                       {assignedCleaner && (
