@@ -9,6 +9,7 @@ import type { CleaningJob, Cleaner, CleaningPropertyConfig } from '../../types/c
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 import { syncCleaningJobsNow } from '../../services/cleaningApi';
 import { displayName, renamedJobName } from './propertyName';
+import { configIndex, isExternalJob, monthRows } from './dashboardTotals';
 
 import {
   type CleaningLead,
@@ -58,35 +59,15 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
   const weekStr  = weekStart.toISOString().slice(0,10);
   const weekEndStr = weekEnd.toISOString().slice(0,10);
 
-  // Fee for a job: its own fee, else the property's current fee (older rows were created before fees were copied onto jobs).
-  const configByProperty = new Map<string, CleaningPropertyConfig>();
-  for (const c of configs) { configByProperty.set(c.propertyId, c); for (const sub of c.linkedPropertyIds ?? []) if (!configByProperty.has(sub)) configByProperty.set(sub, c); }
-  const feeOf = (j: CleaningJob) => j.cleaningFee > 0 ? j.cleaningFee : (configByProperty.get(j.propertyId)?.cleaningFee ?? 0);
-
-  // ── Month by month: every completed clean counts at its fee, whether the client
-  // paid through Stripe or outside it. (The Payments tab tracks actual Stripe movement.)
-  interface MonthRow { key: string; label: string; cleans: number; revenue: number; payouts: number; expenses: number; profit: number; scheduled: number; viaStripe: number; outside: number }
-  const months: MonthRow[] = [];
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const done = jobs.filter(j => j.checkoutDate.startsWith(key) && j.status === 'completed');
-    // Supplies, lawn care and handyman work are billed, not cleaned — they
-    // count toward revenue only.
-    const cleans = done.filter(j => (j.jobType ?? 'cleaning') === 'cleaning');
-    const scheduled = jobs.filter(j => j.checkoutDate.startsWith(key) && j.status !== 'completed' && j.status !== 'cancelled' && j.checkoutDate >= todayStr).length;
-    const revenue = done.reduce((s, j) => s + feeOf(j), 0);
-    const payouts = done.reduce((s, j) => s + (j.cleanerPayout || 0), 0);
-    const exp = expenses.filter(e => e.date.startsWith(key)).reduce((s, e) => s + e.amount, 0);
-    const viaStripe = cleans.filter(j => !!j.chargedAt).length;
-    months.push({ key, label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }), cleans: cleans.length, revenue, payouts, expenses: exp, profit: revenue - payouts - exp, scheduled, viaStripe, outside: cleans.length - viaStripe });
-  }
+  const configByProperty = configIndex(configs);
+  const isExternal = (j: CleaningJob) => isExternalJob(j, configByProperty);
+  const months = monthRows(jobs, configs, expenses, now, todayStr);
   const thisMonth = months[0];
   const lastMonth = months[1];
 
   const jobsThisWeek = jobs.filter(j => j.checkoutDate >= weekStr && j.checkoutDate < weekEndStr && j.status !== 'cancelled').length;
   const activeCleaners = cleaners.filter(c => c.status === 'active').length;
-  const awaitingCharge = jobs.filter(j => j.status === 'completed' && !j.chargedAt && j.chargeStatus !== 'external' && configByProperty.get(j.propertyId)?.billingMode !== 'external');
+  const awaitingCharge = jobs.filter(j => j.status === 'completed' && !j.chargedAt && !isExternal(j));
 
   const stats = [
     { label: 'Cleans This Month',    value: String(thisMonth.cleans), sub: thisMonth.scheduled ? `${thisMonth.scheduled} more scheduled` : `${jobsThisWeek} this week`, icon: Briefcase,   color: 'text-[#4a90d9]', bg: 'bg-[#0d1e35]' },
@@ -126,7 +107,7 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
       <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-[#1e2d45]">
           <h2 className="text-sm font-bold text-white">Month by Month</h2>
-          <p className="text-[11px] text-[#3a5070] mt-0.5">Every completed clean counts at its fee, whether the client paid through Stripe or outside it. Supplies, lawn care and handyman charges count toward revenue but aren't counted as cleans. Profit = revenue − cleaner payouts − expenses. The Payments tab tracks what actually moved through Stripe.</p>
+          <p className="text-[11px] text-[#3a5070] mt-0.5">Every completed clean counts at its fee — charged through Stripe, billed outside the CRM, or not collected yet. Supplies, lawn care and handyman charges count toward revenue but aren't counted as cleans. Profit = revenue − cleaner payouts − expenses. The Payments tab tracks what actually moved through Stripe.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -149,7 +130,10 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
                     {m.scheduled > 0 && <p className="text-[11px] text-[#3a5070]">{m.scheduled} more scheduled</p>}
                   </td>
                   <td className="px-4 py-3 text-right text-white font-semibold">{m.cleans}</td>
-                  <td className="px-4 py-3 text-right text-[#7a94b8] hidden md:table-cell">{m.cleans ? `${m.viaStripe} / ${m.outside}` : '—'}</td>
+                  <td className="px-4 py-3 text-right hidden md:table-cell" title={m.cleans ? `${m.viaStripe} charged through Stripe · ${m.outside} billed outside the CRM${m.unpaid ? ` · ${m.unpaid} completed but not charged yet` : ''}` : undefined}>
+                    <span className="text-[#7a94b8]">{m.cleans ? `${m.viaStripe} / ${m.outside}` : '—'}</span>
+                    {m.unpaid > 0 && <span className="text-[#d0954a]"> · {m.unpaid} unpaid</span>}
+                  </td>
                   <td className="px-4 py-3 text-right text-[#5ce0a0] font-semibold">{m.revenue ? fmtCurrency(m.revenue) : '—'}</td>
                   <td className="px-4 py-3 text-right text-[#d07af5] hidden sm:table-cell">{m.payouts ? fmtCurrency(m.payouts) : '—'}</td>
                   <td className="px-4 py-3 text-right text-[#e05c5c] hidden sm:table-cell">{m.expenses ? fmtCurrency(m.expenses) : '—'}</td>
