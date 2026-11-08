@@ -96,11 +96,12 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
 
   // Two jobs for the same unit of the same property on the same day are the
   // same clean booked twice — usually one stay reaching the CRM through two
-  // calendar feeds, or a hand-added job the sync then created as well. Supplies
-  // charges and manual payouts aren't cleans, so they never pair up.
+  // calendar feeds, or a hand-added job the sync then created as well. Only
+  // cleans pair up: supplies and lawn care charges, handyman visits and manual
+  // payouts can all share a property and a day quite legitimately.
   function duplicateKey(job: CleaningJob): string | null {
     if (job.status === 'cancelled') return null;
-    if (job.jobType === 'supplies') return null;
+    if ((job.jobType ?? 'cleaning') !== 'cleaning') return null;
     if (job.propertyId.startsWith('manual_payout_')) return null;
     return `${job.propertyId}|${job.unitId ?? ''}|${job.checkoutDate}`;
   }

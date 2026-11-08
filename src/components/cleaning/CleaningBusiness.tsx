@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Briefcase, Users, CreditCard,
   CheckCircle, TrendingUp, DollarSign, AlertCircle, RefreshCw,
-  ChevronUp, ChevronDown, Trash2, Package, Mail,
+  ChevronUp, ChevronDown, Trash2, Package, Mail, Sprout,
 } from 'lucide-react';
 import type { View } from '../../types';
 import type { CleaningJob, Cleaner, CleaningPropertyConfig } from '../../types/cleaning';
@@ -71,8 +71,9 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const done = jobs.filter(j => j.checkoutDate.startsWith(key) && j.status === 'completed');
-    // Supplies charges are billed work, not cleans — they count toward revenue only.
-    const cleans = done.filter(j => j.jobType !== 'supplies');
+    // Supplies, lawn care and handyman work are billed, not cleaned — they
+    // count toward revenue only.
+    const cleans = done.filter(j => (j.jobType ?? 'cleaning') === 'cleaning');
     const scheduled = jobs.filter(j => j.checkoutDate.startsWith(key) && j.status !== 'completed' && j.status !== 'cancelled' && j.checkoutDate >= todayStr).length;
     const revenue = done.reduce((s, j) => s + feeOf(j), 0);
     const payouts = done.reduce((s, j) => s + (j.cleanerPayout || 0), 0);
@@ -125,7 +126,7 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
       <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-[#1e2d45]">
           <h2 className="text-sm font-bold text-white">Month by Month</h2>
-          <p className="text-[11px] text-[#3a5070] mt-0.5">Every completed clean counts at its fee, whether the client paid through Stripe or outside it. Supplies charges count toward revenue but aren't counted as cleans. Profit = revenue − cleaner payouts − expenses. The Payments tab tracks what actually moved through Stripe.</p>
+          <p className="text-[11px] text-[#3a5070] mt-0.5">Every completed clean counts at its fee, whether the client paid through Stripe or outside it. Supplies, lawn care and handyman charges count toward revenue but aren't counted as cleans. Profit = revenue − cleaner payouts − expenses. The Payments tab tracks what actually moved through Stripe.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -213,7 +214,29 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
 
 type PaymentFilter = 'all' | 'charged' | 'not_charged' | 'awaiting_payout' | 'payout_sent';
 
-type ChargeKind = 'supplies' | 'other';
+type ChargeKind = 'supplies' | 'lawncare' | 'other';
+
+/** What each kind of one-off charge is called, and what its note asks for. */
+const CHARGE_KINDS: Record<ChargeKind, {
+  label: string; button: string; icon: typeof Package;
+  noteLabel: string; notePlaceholder: string; itemised: boolean;
+}> = {
+  supplies: {
+    label: 'Supplies', button: 'Charge Supplies', icon: Package, itemised: true,
+    noteLabel: 'What was ordered *',
+    notePlaceholder: '2 cases toilet paper — $38\n4 gal laundry detergent — $42\nShipping — $9',
+  },
+  lawncare: {
+    label: 'Lawn care', button: 'Charge Lawn Care', icon: Sprout, itemised: true,
+    noteLabel: 'What was done *',
+    notePlaceholder: 'Mow, edge & blow — $65\nHedge trim — $40\nClippings hauled away — $15',
+  },
+  other: {
+    label: 'Other charge', button: 'Charge Client', icon: DollarSign, itemised: false,
+    noteLabel: 'Description (optional)',
+    notePlaceholder: 'Extra charge, late checkout clean, etc.',
+  },
+};
 
 function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyConfig[]; onRefresh: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
@@ -226,9 +249,10 @@ function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyCo
   const [result, setResult] = useState<{ ok: true; msg: string } | { ok: false; msg: string } | null>(null);
 
   const selected = configs.find(c => c.propertyId === propertyId);
-  const supplies = kind === 'supplies';
-  // Supplies charges must say what was ordered — it's what the receipt lists.
-  const detailsMissing = supplies && !description.trim();
+  const meta = CHARGE_KINDS[kind];
+  // Supplies and lawn care must say what was ordered or done — it's what the
+  // receipt lists.
+  const detailsMissing = meta.itemised && !description.trim();
   const canCharge = !!propertyId && !!amount && Number(amount) > 0 && !detailsMissing && !!selected?.stripePaymentMethodId;
 
   function reset() { setAmount(''); setDescription(''); }
@@ -282,22 +306,22 @@ function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyCo
       {open && (
         <div className="mt-3 bg-[#1a2335] border border-[#1e2d45] rounded-2xl p-5 space-y-4">
           <div className="flex gap-2">
-            {([
-              { id: 'supplies' as const, label: 'Supplies', icon: Package },
-              { id: 'other' as const,    label: 'Other charge', icon: DollarSign },
-            ]).map(t => (
-              <button
-                key={t.id}
-                onClick={() => { setKind(t.id); setResult(null); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-                  kind === t.id
-                    ? 'bg-[#0d1e35] border-[#4a90d9] text-white'
-                    : 'bg-[#0f1923] border-[#1e2d45] text-[#7a94b8] hover:text-[#b8d4f0]'
-                }`}
-              >
-                <t.icon size={12} /> {t.label}
-              </button>
-            ))}
+            {(Object.keys(CHARGE_KINDS) as ChargeKind[]).map(id => {
+              const t = CHARGE_KINDS[id];
+              return (
+                <button
+                  key={id}
+                  onClick={() => { setKind(id); setResult(null); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                    kind === id
+                      ? 'bg-[#0d1e35] border-[#4a90d9] text-white'
+                      : 'bg-[#0f1923] border-[#1e2d45] text-[#7a94b8] hover:text-[#b8d4f0]'
+                  }`}
+                >
+                  <t.icon size={12} /> {t.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -318,7 +342,7 @@ function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyCo
             </div>
             <div>
               <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">
-                {supplies ? 'Total charged ($)' : 'Amount ($)'}
+                {meta.itemised ? 'Total charged ($)' : 'Amount ($)'}
               </label>
               <input
                 type="number" min="0.01" step="0.01" placeholder="0.00"
@@ -331,18 +355,16 @@ function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyCo
 
           <div>
             <label className="block text-xs font-semibold text-[#3a5070] mb-1.5">
-              {supplies ? 'What was ordered *' : 'Description (optional)'}
+              {meta.noteLabel}
             </label>
             <textarea
-              rows={supplies ? 3 : 2}
-              placeholder={supplies
-                ? '2 cases toilet paper — $38\n4 gal laundry detergent — $42\nShipping — $9'
-                : 'Extra charge, late checkout clean, etc.'}
+              rows={meta.itemised ? 3 : 2}
+              placeholder={meta.notePlaceholder}
               className="w-full bg-[#0f1923] border border-[#1e2d45] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#3a5070] focus:outline-none focus:border-[#4a90d9] resize-none"
               value={description}
               onChange={e => { setDescription(e.target.value); setResult(null); }}
             />
-            {supplies && (
+            {meta.itemised && (
               <p className="text-[11px] text-[#3a5070] mt-1">One item per line — each line is listed on the receipt.</p>
             )}
           </div>
@@ -375,11 +397,13 @@ function ManualChargePanel({ configs, onRefresh }: { configs: CleaningPropertyCo
               disabled={charging || !canCharge}
               className="flex items-center gap-2 px-4 py-2.5 bg-[#5ce0a0] text-[#0a2518] text-sm font-semibold rounded-xl hover:bg-[#6cf0b0] transition-colors disabled:opacity-50"
             >
-              {supplies ? <Package size={14} /> : <DollarSign size={14} />}
-              {charging ? 'Charging…' : supplies ? 'Charge Supplies' : 'Charge Client'}
+              <meta.icon size={14} />
+              {charging ? 'Charging…' : meta.button}
             </button>
             {detailsMissing && propertyId && !!amount && (
-              <p className="text-xs text-[#d0954a]">Add what was ordered before charging.</p>
+              <p className="text-xs text-[#d0954a]">
+                {kind === 'supplies' ? 'Add what was ordered before charging.' : 'Add what was done before charging.'}
+              </p>
             )}
             {result && (
               <p className={`text-xs font-medium ${result.ok ? 'text-[#5ce0a0]' : 'text-[#e05c5c]'}`}>{result.msg}</p>

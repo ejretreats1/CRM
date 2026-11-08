@@ -274,10 +274,32 @@ export async function sendPayoutSentEmail(resend: Resend, opts: { to: string; na
   return { id: emailIdOrThrow(result), subject };
 }
 
-// ── Supplies / extra charges ─────────────────────────────────────────────────
+// ── One-off charges: supplies, lawn care, anything else ──────────────────────
+
+export type ChargeKind = 'supplies' | 'lawncare' | 'other';
+
+/** How each kind of charge names and introduces itself on the receipt. */
+const CHARGE_KINDS: Record<ChargeKind, { label: string; emoji: string; clientIntro: (property: string) => string }> = {
+  supplies: {
+    label: 'Supplies', emoji: '📦',
+    clientIntro: p => `We picked up supplies for <strong>${p}</strong> and charged the card on file. Here's what was ordered:`,
+  },
+  lawncare: {
+    label: 'Lawn care', emoji: '🌿',
+    clientIntro: p => `We took care of the lawn at <strong>${p}</strong> and charged the card on file. Here's what was done:`,
+  },
+  other: {
+    label: 'Extra charge', emoji: '💳',
+    clientIntro: p => `We've charged the card on file for <strong>${p}</strong>. Here's what it covers:`,
+  },
+};
+
+export function chargeKindLabel(kind: ChargeKind): string {
+  return CHARGE_KINDS[kind].label;
+}
 
 /** Split "2 cases toilet paper — $38\n4 gal detergent — $42" into one row per item. */
-export function supplyLines(details: string): string[] {
+export function chargeLines(details: string): string[] {
   return String(details ?? '')
     .split(/\r?\n/)
     .map(l => l.replace(/^[-•*\s]+/, '').trim())
@@ -285,30 +307,27 @@ export function supplyLines(details: string): string[] {
 }
 
 /**
- * Receipt for supplies (or another one-off extra) charged to a client's card.
- * Sent to the client, and as a copy to the office, so both sides have a record
- * of what was ordered and what it cost.
+ * Receipt for a one-off charge against the card on file. Sent to the client,
+ * and as a copy to the office, so both sides have a record of what was done
+ * and what it cost.
  */
-export async function sendSupplyChargeEmail(resend: Resend, opts: {
+export async function sendChargeReceiptEmail(resend: Resend, opts: {
   to: string;
   /** client = receipt wording; admin = internal copy for the office */
   audience: 'client' | 'admin';
+  kind: ChargeKind;
   clientName?: string | null;
   clientEmail?: string | null;
   propertyName: string;
   amount: number;
-  /** What was ordered — one item per line */
+  /** What was ordered or done — one item per line */
   details: string;
   /** ISO timestamp of the charge */
   chargedAt: string;
-  /** "Supplies" (default), or another label for a one-off charge */
-  label?: string;
 }) {
-  const label = opts.label?.trim() || 'Supplies';
-  const supplies = /suppl/i.test(label);
-  const emoji = supplies ? '📦' : '💳';
+  const { label, emoji, clientIntro } = CHARGE_KINDS[opts.kind] ?? CHARGE_KINDS.other;
   const client = opts.audience === 'client';
-  const items = supplyLines(opts.details);
+  const items = chargeLines(opts.details);
   const amount = Number(opts.amount) || 0;
   const when = new Date(opts.chargedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const subject = client
@@ -316,9 +335,7 @@ export async function sendSupplyChargeEmail(resend: Resend, opts: {
     : `${emoji} ${label}: ${opts.propertyName} — $${amount.toFixed(2)} charged`;
   const intro = client
     ? `<p style="color:#334155">Hi ${escapeHtml(opts.clientName ?? 'there')},</p>
-       <p style="color:#334155">${supplies
-         ? `We picked up supplies for <strong>${escapeHtml(opts.propertyName)}</strong> and charged the card on file. Here's what was ordered:`
-         : `We've charged the card on file for <strong>${escapeHtml(opts.propertyName)}</strong>. Here's what it covers:`}</p>`
+       <p style="color:#334155">${clientIntro(escapeHtml(opts.propertyName))}</p>`
     : `<p style="color:#334155">${escapeHtml(opts.clientName ?? 'Client')}${opts.clientEmail ? ` (${escapeHtml(opts.clientEmail)})` : ''} was charged for ${escapeHtml(label.toLowerCase())} at <strong>${escapeHtml(opts.propertyName)}</strong>.</p>`;
   const result = await resend.emails.send({
     from: CLEANING_FROM,
