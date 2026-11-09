@@ -20,6 +20,12 @@ By adding a payment method, you agree to the following terms:
 
 6. DAMAGE — Cleaner-caused damage will be reported immediately and covered. Guest-caused damage is subject to Airbnb/VRBO host guarantees and is not covered by this agreement.`;
 
+const PROMO_CLAUSE = (paid: number, free: number) => `
+
+7. NEW CLIENT WELCOME DEAL — Your first ${paid} completed turnover cleans are charged at the agreed fee. The next ${free} completed turnover cleans (cleans ${paid + 1} through ${paid + free}) are free of charge and will show as $0 on your statement. The deal applies automatically, is counted across all of your properties enrolled together, covers turnover cleans only (not supplies, handyman or lawn care), and is limited to one per new client.`;
+
+interface PromoInfo { type: string; paidCleans: number; freeCleans: number }
+
 interface OnboardingData {
   propertyConfigId: string;
   propertyConfigIds: string[];
@@ -29,11 +35,13 @@ interface OnboardingData {
   status: string;
   /** Per-property cleaning fee as currently set in the CRM (0 = not set yet) */
   properties?: { id: string; name: string; fee: number }[];
+  /** New-client welcome deal, when E&J granted it */
+  promo?: PromoInfo | null;
 }
 
 type PageState = 'loading' | 'error' | 'form' | 'payment' | 'done';
 
-function CardForm({ token, fees, onSuccess }: { token: string; fees: { name: string; fee: number }[]; onSuccess: () => void }) {
+function CardForm({ token, fees, promo, onSuccess }: { token: string; fees: { name: string; fee: number }[]; promo?: PromoInfo | null; onSuccess: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const [agreed, setAgreed] = useState(false);
@@ -59,7 +67,7 @@ function CardForm({ token, fees, onSuccess }: { token: string; fees: { name: str
         const r = await fetch('/api/documents', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ flow: 'cleaning-client', action: 'confirm', token, setupIntentId: setupIntent.id, consent: { agreedAt: new Date().toISOString(), feesShown: fees, userAgent: navigator.userAgent } }),
+          body: JSON.stringify({ flow: 'cleaning-client', action: 'confirm', token, setupIntentId: setupIntent.id, consent: { agreedAt: new Date().toISOString(), feesShown: fees, promoShown: promo ?? null, userAgent: navigator.userAgent } }),
         });
         const d = await r.json();
         if (!r.ok) { setCardError(d.error ?? 'Confirmation failed.'); return; }
@@ -82,7 +90,7 @@ function CardForm({ token, fees, onSuccess }: { token: string; fees: { name: str
           <h3 className="font-semibold text-gray-800 text-sm">Service Agreement</h3>
         </div>
         <div className="px-4 py-3 max-h-48 overflow-y-auto">
-          <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">{SERVICE_AGREEMENT}</pre>
+          <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">{SERVICE_AGREEMENT}{promo ? PROMO_CLAUSE(promo.paidCleans, promo.freeCleans) : ''}</pre>
         </div>
         <div className="px-4 py-3 border-t border-gray-200 bg-white">
           <label className="flex items-start gap-3 cursor-pointer">
@@ -144,7 +152,7 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
           if (qs.get('redirect_status') === 'succeeded') {
             const rc = await fetch('/api/documents', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ flow: 'cleaning-client', action: 'confirm', token, setupIntentId: returnedIntent, consent: { agreedAt: new Date().toISOString(), feesShown: d.properties ?? [], userAgent: navigator.userAgent } }),
+              body: JSON.stringify({ flow: 'cleaning-client', action: 'confirm', token, setupIntentId: returnedIntent, consent: { agreedAt: new Date().toISOString(), feesShown: d.properties ?? [], promoShown: d.promo ?? null, userAgent: navigator.userAgent } }),
             });
             if (rc.ok) { setPageState('done'); return; }
             const dc = await rc.json().catch(() => ({}));
@@ -232,6 +240,7 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
                 : <>Your cleaning service for <strong>{data?.propertyName ?? 'your property'}</strong> is active.</>
               }{' '}
               Your card is on file and will only be charged after each completed cleaning.
+              {data?.promo && <> Your welcome deal is active: your first {data.promo.paidCleans} cleans are charged as normal and cleans {data.promo.paidCleans + 1} and {data.promo.paidCleans + data.promo.freeCleans} are free.</>}
             </p>
           </div>
         </div>
@@ -259,6 +268,31 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* Welcome deal */}
+        {data?.promo && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 shadow-sm p-5 mb-5">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl leading-none">🎁</div>
+              <div>
+                <h2 className="font-semibold text-amber-900">Your welcome deal: pay for {data.promo.paidCleans} cleans, get {data.promo.freeCleans} free</h2>
+                <p className="text-sm text-amber-800 mt-1">
+                  Your first {data.promo.paidCleans} completed cleans are charged at your normal fee. Cleans {data.promo.paidCleans + 1} and {data.promo.paidCleans + data.promo.freeCleans} are on us and will show as $0. It applies automatically, nothing to redeem.
+                </p>
+                <div className="flex gap-1.5 mt-3 flex-wrap">
+                  {Array.from({ length: data.promo.paidCleans + data.promo.freeCleans }, (_, i) => {
+                    const free = i >= data.promo!.paidCleans;
+                    return (
+                      <span key={i} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border ${free ? 'bg-white border-amber-400 text-amber-700' : 'bg-amber-200/60 border-amber-300 text-amber-900'}`} title={free ? 'Free clean' : 'Paid clean'}>
+                        {free ? '🎁' : i + 1}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -314,7 +348,7 @@ export default function CleaningClientOnboardingPage({ token }: { token: string 
               },
             }}
           >
-            <CardForm token={token} fees={(data?.properties ?? []).map(p => ({ name: p.name, fee: p.fee }))} onSuccess={() => setPageState('done')} />
+            <CardForm token={token} fees={(data?.properties ?? []).map(p => ({ name: p.name, fee: p.fee }))} promo={data?.promo ?? null} onSuccess={() => setPageState('done')} />
           </Elements>
         )}
       </div>

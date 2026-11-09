@@ -42,7 +42,7 @@ import { execSync } from 'node:child_process';
 import { unlinkSync } from 'node:fs';
 const bundle = process.cwd() + '/_billing.test-bundle.mjs';
 execSync(`npx esbuild api/_billing.ts --bundle --platform=node --format=esm --packages=external --log-level=error --outfile=${bundle}`, { stdio: 'inherit' });
-const { chargeJob, payoutJob, markPayoutPaid, findChargeableJobs, findPayableJobs } = await import(bundle);
+const { chargeJob, payoutJob, markPayoutPaid, findChargeableJobs, findPayableJobs, promoProgress } = await import(bundle);
 try { unlinkSync(bundle); } catch { /* ignore */ }
 const base = () => ({
   cleaning_jobs: [
@@ -132,6 +132,55 @@ const results: Record<string, boolean> = {};
   results.externalManualDue = r.reason === 'external_billing' && (await payoutJob(db, st as any, 'j1')).status === 'manual_due' && job.payout_status === 'manual_due' && job.charge_status === 'external';
   results.externalInPayQueue = (await findPayableJobs(db)).some((j: any) => j.id === 'j1');
   const mp = await markPayoutPaid(db, 'j1', { method: 'Zelle' }); results.externalMarkPaid = mp.ok && !(await findPayableJobs(db)).some((j: any) => j.id === 'j1'); }
+
+// 8. welcome deal: pay for 5 turnover cleans, cleans 6 and 7 free; cleaner still paid
+const promoCfg = (extra: Row = {}) => ({ id: 'cpcP', property_id: 'pp', property_name: 'Promo House', cleaning_fee: 100, stripe_customer_id: 'cus_p', stripe_payment_method_id: 'pm_p', client_email: 'p@x.com', promo_type: 'welcome_5_2', promo_paid_cleans: 5, promo_free_cleans: 2, promo_group: 'grpP', promo_started_at: '2026-09-01T00:00:00Z', ...extra });
+const doneJob = (id: string, date: string, extra: Row = {}) => ({ id, property_id: 'pp', property_name: 'Promo House', checkout_date: date, status: 'completed', cleaning_fee: 100, cleaner_payout: 60, assigned_cleaner_id: 'c1', portal_data: { submittedAt: 'x' }, charged_at: null, charge_status: null, charge_attempts: 0, updated_at: '2026-10-01T00:00:00Z', ...extra });
+const paidJobs = (n: number, prefix = 'pd', pid = 'pp') => Array.from({ length: n }, (_, i) => doneJob(`${prefix}${i + 1}`, `2026-09-${String(10 + i).padStart(2, '0')}`, { property_id: pid, charged_at: '2026-09-20T00:00:00Z', charge_status: 'charged', stripe_charge_id: `pi_old_${i}` }));
+{ const db = new FakeDb({ cleaning_jobs: [...paidJobs(5), doneJob('p6', '2026-10-06'), doneJob('p7', '2026-10-07'), doneJob('p8', '2026-10-08')], cleaning_property_configs: [promoCfg()], cleaners: [{ id: 'c1', name: 'Pat', stripe_account_id: 'acct_1', stripe_connect_status: 'active' }] }); const st = new FakeStripe();
+  const before = await promoProgress(db, db.tables.cleaning_property_configs[0]);
+  results.promoProgressCounts = before.paidDone === 5 && before.freeUsed === 0 && before.nextIsFree === true && before.complete === false;
+  const r6 = await chargeJob(db, st as any, 'p6', { trigger: 'submit' }); const j6 = db.tables.cleaning_jobs.find(j => j.id === 'p6')!;
+  results.sixthCleanFree = r6.ok && r6.skipped === true && r6.reason === 'promo_free' && r6.amount === 100 && r6.promo?.freeIndex === 1 && r6.promo?.freeTotal === 2 && st.createCalls === 0 && j6.promo_free === true && j6.promo_free_index === 1 && j6.charge_status === 'promo_free' && !j6.charged_at;
+  j6.payout_due_at = '2000-01-01T00:00:00Z'; const pay6 = await payoutJob(db, st as any, 'p6');
+  results.freeCleanStillPaysCleaner = pay6.status === 'sent' && st.transferLog.length === 1 && st.transferLog[0].amount === 6000 && st.transferLog[0].params.source_transaction === undefined;
+  results.freeRepeatIsNoop = (await chargeJob(db, st as any, 'p6', { trigger: 'cron' })).reason === 'promo_free' && st.createCalls === 0;
+  results.freeNotInChargeQueue = !(await findChargeableJobs(db)).some((j: any) => j.id === 'p6');
+  const r7 = await chargeJob(db, st as any, 'p7', { trigger: 'cron' }); const j7 = db.tables.cleaning_jobs.find(j => j.id === 'p7')!;
+  results.seventhCleanFree = r7.reason === 'promo_free' && r7.promo?.freeIndex === 2 && j7.promo_free_index === 2 && st.createCalls === 0;
+  const r8 = await chargeJob(db, st as any, 'p8', { trigger: 'cron' }); const j8 = db.tables.cleaning_jobs.find(j => j.id === 'p8')!;
+  results.eighthCleanCharged = r8.ok && !r8.skipped && st.createCalls === 1 && st.piLog[0].amount === 10000 && j8.charge_status === 'charged' && !j8.promo_free;
+  const after = await promoProgress(db, db.tables.cleaning_property_configs[0]);
+  results.promoCompleteAfterTwoFree = after.freeUsed === 2 && after.complete === true && after.nextIsFree === false && after.paidDone === 6; }
+// not yet 5 paid → charged; supplies never free; cleans before the deal started don't count
+{ const db = new FakeDb({ cleaning_jobs: [...paidJobs(4), doneJob('p5', '2026-10-05')], cleaning_property_configs: [promoCfg()], cleaners: [] }); const st = new FakeStripe();
+  const r = await chargeJob(db, st as any, 'p5', { trigger: 'cron' });
+  results.fifthCleanStillCharged = r.ok && !r.skipped && st.createCalls === 1 && !db.tables.cleaning_jobs.find(j => j.id === 'p5')!.promo_free; }
+{ const db = new FakeDb({ cleaning_jobs: [...paidJobs(5), doneJob('sup', '2026-10-06', { job_type: 'supplies', cleaning_fee: 40 }), doneJob('p6', '2026-10-07')], cleaning_property_configs: [promoCfg()], cleaners: [] }); const st = new FakeStripe();
+  const rs = await chargeJob(db, st as any, 'sup', { trigger: 'cron' }); const r6 = await chargeJob(db, st as any, 'p6', { trigger: 'cron' });
+  results.suppliesNeverFree = rs.ok && !rs.skipped && st.piLog[0].amount === 4000 && r6.reason === 'promo_free'; }
+{ const old = paidJobs(5).map(j => ({ ...j, checkout_date: j.checkout_date.replace('2026-09', '2026-08') })); // all before promo_started_at
+  const db = new FakeDb({ cleaning_jobs: [...old, doneJob('p6', '2026-10-06')], cleaning_property_configs: [promoCfg()], cleaners: [] }); const st = new FakeStripe();
+  const r = await chargeJob(db, st as any, 'p6', { trigger: 'cron' });
+  results.cleansBeforeDealDontCount = r.ok && !r.skipped && st.createCalls === 1; }
+// one deal shared across an owner's properties (promo_group)
+{ const db = new FakeDb({ cleaning_jobs: [...paidJobs(3, 'a', 'pp'), ...paidJobs(2, 'b', 'pq'), doneJob('q6', '2026-10-06', { property_id: 'pq', property_name: 'Promo Condo' })], cleaning_property_configs: [promoCfg(), promoCfg({ id: 'cpcQ', property_id: 'pq', property_name: 'Promo Condo' })], cleaners: [] }); const st = new FakeStripe();
+  const r = await chargeJob(db, st as any, 'q6', { trigger: 'cron' });
+  results.groupCountsAcrossProperties = r.reason === 'promo_free' && st.createCalls === 0 && db.tables.cleaning_jobs.find(j => j.id === 'q6')!.promo_free === true; }
+// externally billed client: the free clean is marked free, not "invoice the client"
+{ const paid = paidJobs(5).map(j => ({ ...j, charged_at: null, charge_status: 'external' }));
+  const db = new FakeDb({ cleaning_jobs: [...paid, doneJob('p6', '2026-10-06')], cleaning_property_configs: [promoCfg({ billing_mode: 'external', stripe_payment_method_id: null })], cleaners: [] }); const st = new FakeStripe();
+  const r = await chargeJob(db, st as any, 'p6', { trigger: 'submit' }); const j6 = db.tables.cleaning_jobs.find(j => j.id === 'p6')!;
+  results.externalClientGetsFreeClean = r.reason === 'promo_free' && j6.charge_status === 'promo_free' && j6.promo_free === true && st.createCalls === 0; }
+// race: two cleans finish together with one free slot left → exactly one is free, the other is charged
+{ const db = new FakeDb({ cleaning_jobs: [...paidJobs(5), doneJob('f1', '2026-10-01', { promo_free: true, promo_free_index: 1, charge_status: 'promo_free' }), doneJob('p7', '2026-10-07'), doneJob('p8', '2026-10-08')], cleaning_property_configs: [promoCfg()], cleaners: [] }); const st = new FakeStripe();
+  const [a, b] = await Promise.all([chargeJob(db, st as any, 'p7', { trigger: 'submit' }), chargeJob(db, st as any, 'p8', { trigger: 'submit' })]);
+  const free = db.tables.cleaning_jobs.filter(j => j.promo_free).map(j => j.id).sort().join();
+  results.raceGivesExactlyOneFree = free === 'f1,p7' && [a, b].filter(x => x.reason === 'promo_free').length === 1 && st.createCalls === 1 && db.tables.cleaning_jobs.find(j => j.id === 'p8')!.charge_status === 'charged'; }
+// no deal → nothing changes
+{ const db = new FakeDb({ cleaning_jobs: [...paidJobs(5), doneJob('p6', '2026-10-06')], cleaning_property_configs: [promoCfg({ promo_type: null })], cleaners: [] }); const st = new FakeStripe();
+  const r = await chargeJob(db, st as any, 'p6', { trigger: 'cron' });
+  results.noDealChargesNormally = r.ok && !r.skipped && st.createCalls === 1 && (await promoProgress(db, db.tables.cleaning_property_configs[0])) === null; }
 
 const failed = Object.entries(results).filter(([, v]) => !v).map(([k]) => k);
 console.log(`${Object.keys(results).length - failed.length}/${Object.keys(results).length} billing checks passed${failed.length ? ' — FAILED: ' + failed.join(', ') : ''}`);

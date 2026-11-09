@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Briefcase, Users, CreditCard,
   CheckCircle, TrendingUp, DollarSign, AlertCircle, RefreshCw,
-  ChevronUp, ChevronDown, Trash2, Package, Mail, Sprout,
+  ChevronUp, ChevronDown, Trash2, Package, Mail, Sprout, Gift,
 } from 'lucide-react';
 import type { View } from '../../types';
 import type { CleaningJob, Cleaner, CleaningPropertyConfig } from '../../types/cleaning';
@@ -67,7 +67,7 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
 
   const jobsThisWeek = jobs.filter(j => j.checkoutDate >= weekStr && j.checkoutDate < weekEndStr && j.status !== 'cancelled').length;
   const activeCleaners = cleaners.filter(c => c.status === 'active').length;
-  const awaitingCharge = jobs.filter(j => j.status === 'completed' && !j.chargedAt && !isExternal(j));
+  const awaitingCharge = jobs.filter(j => j.status === 'completed' && !j.chargedAt && !isExternal(j) && !isFreeClean(j));
 
   const stats = [
     { label: 'Cleans This Month',    value: String(thisMonth.cleans), sub: thisMonth.scheduled ? `${thisMonth.scheduled} more scheduled` : `${jobsThisWeek} this week`, icon: Briefcase,   color: 'text-[#4a90d9]', bg: 'bg-[#0d1e35]' },
@@ -107,7 +107,7 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
       <div className="bg-[#1a2335] border border-[#1e2d45] rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-[#1e2d45]">
           <h2 className="text-sm font-bold text-white">Month by Month</h2>
-          <p className="text-[11px] text-[#3a5070] mt-0.5">Every completed clean counts at its fee — charged through Stripe, billed outside the CRM, or not collected yet. Supplies, lawn care and handyman charges count toward revenue but aren't counted as cleans. Profit = revenue − cleaner payouts − expenses. The Payments tab tracks what actually moved through Stripe.</p>
+          <p className="text-[11px] text-[#3a5070] mt-0.5">Every completed clean counts at its fee — charged through Stripe, billed outside the CRM, or not collected yet. Free welcome-deal cleans count as cleans but add no revenue. Supplies, lawn care and handyman charges count toward revenue but aren't counted as cleans. Profit = revenue − cleaner payouts − expenses. The Payments tab tracks what actually moved through Stripe.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -130,8 +130,9 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
                     {m.scheduled > 0 && <p className="text-[11px] text-[#3a5070]">{m.scheduled} more scheduled</p>}
                   </td>
                   <td className="px-4 py-3 text-right text-white font-semibold">{m.cleans}</td>
-                  <td className="px-4 py-3 text-right hidden md:table-cell" title={m.cleans ? `${m.viaStripe} charged through Stripe · ${m.outside} billed outside the CRM${m.unpaid ? ` · ${m.unpaid} completed but not charged yet` : ''}` : undefined}>
+                  <td className="px-4 py-3 text-right hidden md:table-cell" title={m.cleans ? `${m.viaStripe} charged through Stripe · ${m.outside} billed outside the CRM${m.free ? ` · ${m.free} free (welcome deal, ${fmtCurrency(m.freeValue)} waived)` : ''}${m.unpaid ? ` · ${m.unpaid} completed but not charged yet` : ''}` : undefined}>
                     <span className="text-[#7a94b8]">{m.cleans ? `${m.viaStripe} / ${m.outside}` : '—'}</span>
+                    {m.free > 0 && <span className="text-[#e8b86a]"> · {m.free} free</span>}
                     {m.unpaid > 0 && <span className="text-[#d0954a]"> · {m.unpaid} unpaid</span>}
                   </td>
                   <td className="px-4 py-3 text-right text-[#5ce0a0] font-semibold">{m.revenue ? fmtCurrency(m.revenue) : '—'}</td>
@@ -196,7 +197,8 @@ function CleaningDashboard({ jobs, cleaners, configs, uplistingProperties, expen
   );
 }
 
-type PaymentFilter = 'all' | 'charged' | 'not_charged' | 'awaiting_payout' | 'payout_sent';
+type PaymentFilter = 'all' | 'charged' | 'not_charged' | 'promo_free' | 'awaiting_payout' | 'payout_sent';
+const isFreeClean = (j: CleaningJob) => !!j.promoFree || j.chargeStatus === 'promo_free';
 
 type ChargeKind = 'supplies' | 'lawncare' | 'other';
 
@@ -546,8 +548,10 @@ function CleaningPayments({
   const totalPayouts = completed.filter(j => j.payoutSentAt).reduce((s, j) => s + j.cleanerPayout, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const netProfit = totalCharged - totalPayouts - totalExpenses;
-  const awaitingChargeDollars = completed.filter(j => !j.chargedAt).reduce((s, j) => s + j.cleaningFee, 0);
-  const pendingCount = completed.filter(j => !j.chargedAt).length;
+  const freeCleans = completed.filter(j => !j.chargedAt && isFreeClean(j));
+  const freeCleanDollars = freeCleans.reduce((s, j) => s + j.cleaningFee, 0);
+  const awaitingChargeDollars = completed.filter(j => !j.chargedAt && !isFreeClean(j)).reduce((s, j) => s + j.cleaningFee, 0);
+  const pendingCount = completed.filter(j => !j.chargedAt && !isFreeClean(j)).length;
   // Payouts no longer depend on the client charge: every completed job with an unpaid cleaner counts.
   const awaitingPayoutDollars = completed.filter(j => !j.payoutSentAt && j.cleanerPayout > 0 && !!j.assignedCleanerId).reduce((s, j) => s + j.cleanerPayout, 0);
 
@@ -562,6 +566,7 @@ function CleaningPayments({
     { label: 'Net Profit',      value: fmtCurrency(netProfit),             icon: TrendingUp,  color: 'text-[#d0954a]', bg: 'bg-[#1a1000]',  filter: 'all' },
     { label: 'Awaiting Charge', value: fmtCurrency(awaitingChargeDollars), sub: `${pendingCount} job${pendingCount !== 1 ? 's' : ''}`, icon: AlertCircle, color: pendingCount > 0 ? 'text-[#e05c5c]' : 'text-[#3a5070]', bg: pendingCount > 0 ? 'bg-[#1a0e0e]' : 'bg-[#0d1e35]', filter: 'not_charged' },
     { label: 'Awaiting Payout', value: fmtCurrency(awaitingPayoutDollars), icon: CreditCard,  color: awaitingPayoutDollars > 0 ? 'text-[#d0954a]' : 'text-[#3a5070]', bg: awaitingPayoutDollars > 0 ? 'bg-[#1a1200]' : 'bg-[#0d1e35]', filter: 'awaiting_payout' },
+    { label: 'Free Cleans (deal)', value: String(freeCleans.length), sub: freeCleans.length ? `${fmtCurrency(freeCleanDollars)} waived · not charged` : 'welcome deal 5 + 2', icon: Gift, color: freeCleans.length > 0 ? 'text-[#e8b86a]' : 'text-[#3a5070]', bg: freeCleans.length > 0 ? 'bg-[#1a1200]' : 'bg-[#0d1e35]', filter: 'promo_free' },
   ];
 
   async function handleAddExpense() {
@@ -595,13 +600,15 @@ function CleaningPayments({
     { id: 'all', label: 'All Completed' },
     { id: 'not_charged', label: 'Awaiting Charge' },
     { id: 'charged', label: 'Charged' },
+    { id: 'promo_free', label: '🎁 Free Cleans' },
     { id: 'awaiting_payout', label: 'Awaiting Payout' },
     { id: 'payout_sent', label: 'Payout Sent' },
   ];
 
   let filtered = completed;
   if (filter === 'charged') filtered = filtered.filter(j => j.chargedAt);
-  if (filter === 'not_charged') filtered = filtered.filter(j => !j.chargedAt);
+  if (filter === 'not_charged') filtered = filtered.filter(j => !j.chargedAt && !isFreeClean(j));
+  if (filter === 'promo_free') filtered = filtered.filter(j => !j.chargedAt && isFreeClean(j));
   if (filter === 'awaiting_payout') filtered = filtered.filter(j => j.status === 'completed' && !j.payoutSentAt && j.cleanerPayout > 0 && !!j.assignedCleanerId);
   if (filter === 'payout_sent') filtered = filtered.filter(j => j.payoutSentAt);
   filtered = [...filtered].sort((a, b) => b.checkoutDate.localeCompare(a.checkoutDate));
@@ -673,7 +680,7 @@ function CleaningPayments({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         {summary.map((s, i) => (
           <button
             key={s.label}
@@ -855,6 +862,11 @@ function CleaningPayments({
                             </span>
                             <span className="text-xs text-[#3a5070]">{fmtDate(job.chargedAt)}</span>
                           </span>
+                        ) : isFreeClean(job) ? (
+                          <span className="flex flex-col gap-0.5">
+                            <span className="flex items-center gap-1 text-xs text-[#e8b86a] font-medium" title="Free clean under the client's welcome deal (pay for 5, cleans 6 and 7 free). Nothing was charged; the cleaner is still paid.">🎁 Free clean{job.promoFreeIndex ? ` ${job.promoFreeIndex} of 2` : ''}</span>
+                            <span className="text-xs text-[#3a5070]">${job.cleaningFee} waived · welcome deal</span>
+                          </span>
                         ) : job.chargeStatus === 'external' ? (
                           <span className="flex flex-col gap-0.5">
                             <span className="flex items-center gap-1 text-xs text-[#7ab8e8] font-medium" title="This client is invoiced outside Stripe">🧾 Billed outside Stripe</span>
@@ -895,7 +907,7 @@ function CleaningPayments({
                       )}
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center gap-1.5 justify-end">
-                          {!job.chargedAt && job.propertyName !== 'Manual Payout' && (
+                          {!job.chargedAt && !isFreeClean(job) && job.propertyName !== 'Manual Payout' && (
                             <button
                               onClick={() => handleRetry(job)}
                               disabled={retrying === job.id || deletingJobId === job.id}
@@ -1222,6 +1234,8 @@ export default function CleaningBusiness({ currentView, onNavigate, reservations
     const d = await r.json();
     if (!r.ok) throw new Error(d.error ?? 'Charge failed.');
     const now = new Date().toISOString();
+    if (d.promoFree) { await handleUpdateJob({ ...job, chargeStatus: 'promo_free', promoFree: true, promoFreeIndex: d.promoFreeIndex ?? undefined, updatedAt: now }); return; }
+    if (d.external) { await handleUpdateJob({ ...job, chargeStatus: 'external', updatedAt: now }); return; }
     await handleUpdateJob({ ...job, chargedAt: now, updatedAt: now });
   }
 
@@ -1369,6 +1383,7 @@ CREATE POLICY "authenticated_all" ON cleaning_jobs FOR ALL TO authenticated USIN
             <PropertiesView
               configs={configs}
               cleaners={cleaners}
+              jobs={jobs}
               uplistingProperties={uplistingProperties}
               reservations={reservations}
               onSave={handleSaveConfig}

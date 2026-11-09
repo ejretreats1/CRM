@@ -60,6 +60,18 @@ export interface CleaningPropertyConfig {
   clientNotes?: string;
   /** stripe (default): charge the card on file after each clean. external: client pays E&J outside Stripe; the cleaner is still paid via Stripe after each report. */
   billingMode?: 'stripe' | 'external';
+  /** New-client welcome deal: pay for `paidCleans`, the next `freeCleans` are free. Properties onboarded together share a `group` so one owner gets one deal. null = explicitly switched off (clears it in the DB); undefined = leave as is. */
+  promo?: CleaningPromo | null;
+}
+
+export interface CleaningPromo {
+  type: 'welcome_5_2';
+  paidCleans: number;
+  freeCleans: number;
+  /** Onboarding id shared by every property in the same deal */
+  group?: string;
+  /** Only cleans on/after this date count toward the deal */
+  startedAt?: string;
 }
 
 /** A link sent to a client so they can enroll their own property details. */
@@ -125,7 +137,12 @@ export interface CleaningJob {
   stripeTransferId?: string;
   /** processing | charged | failed — set by the server billing flow */
   /** external = client is invoiced outside Stripe; nothing was charged in the CRM */
-  chargeStatus?: 'processing' | 'charged' | 'failed' | 'external';
+  /** promo_free = free clean under the welcome deal; nothing was charged, by design */
+  chargeStatus?: 'processing' | 'charged' | 'failed' | 'external' | 'promo_free';
+  /** This clean was free under the client's welcome deal (server-set) */
+  promoFree?: boolean;
+  /** 1 = first free clean, 2 = second */
+  promoFreeIndex?: number;
   chargeAttempts?: number;
   lastChargeError?: string;
   nextChargeAttemptAt?: string;

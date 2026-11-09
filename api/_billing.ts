@@ -16,8 +16,13 @@
 //     Cleaners without an active Stripe account are marked `manual_due` until the
 //     admin records the payment.
 //   • Charging never changes a job's status.
+//   • Welcome deal (promo): once a client has paid for `promo_paid_cleans`
+//     turnover cleans, the next `promo_free_cleans` completed cleans are marked
+//     promo_free and nothing is charged. Properties onboarded together share a
+//     promo_group so the deal counts across all of them. Cleaners are still paid.
 //
-// Requires the columns added by supabase-cleaning-billing-migration.sql.
+// Requires the columns added by supabase-cleaning-billing-migration.sql and
+// supabase-cleaning-welcome-promo-migration.sql.
 
 import type Stripe from 'stripe';
 import { sendPayoutSentEmail } from './_emails.js';
@@ -77,7 +82,7 @@ export interface ChargeOutcome {
   ok: boolean;
   /** true when nothing was attempted (already charged, not eligible, claimed elsewhere) */
   skipped?: boolean;
-  reason?: 'already_charged' | 'cancelled' | 'not_completed' | 'no_report' | 'claimed_elsewhere' | 'not_found' | 'external_billing';
+  reason?: 'already_charged' | 'cancelled' | 'not_completed' | 'no_report' | 'claimed_elsewhere' | 'not_found' | 'external_billing' | 'promo_free';
   error?: string;
   errorCode?: string;
   paymentIntentId?: string;
@@ -85,6 +90,89 @@ export interface ChargeOutcome {
   attempt?: number;
   willRetryAt?: string | null;
   payout?: PayoutOutcome;
+  /** Set when the job was a free clean under the welcome deal */
+  promo?: { freeIndex: number; freeTotal: number; paidRequired: number };
+}
+
+// ── Welcome deal (pay for N cleans, next M free) ─────────────────────────────
+
+export const PROMO_WELCOME = 'welcome_5_2';
+
+export interface PromoProgress {
+  /** Turnover cleans the client has paid for (charged, or invoiced for external billing) since the deal started */
+  paidDone: number;
+  paidRequired: number;
+  /** Free cleans already granted */
+  freeUsed: number;
+  freeTotal: number;
+  /** The next completed turnover clean should be free */
+  nextIsFree: boolean;
+  /** Every free clean has been used */
+  complete: boolean;
+  /** Property ids whose jobs count toward this deal */
+  propertyIds: string[];
+  /** Jobs marked free so far, earliest checkout first (ties by id) — used to settle concurrent claims */
+  freeJobIds: string[];
+}
+
+/** True for jobs that count as a turnover clean (supplies, handyman and lawn care never do). */
+export function isTurnoverClean(job: JobRow): boolean {
+  return (job.job_type ?? 'cleaning') === 'cleaning';
+}
+
+/** Counts a job as paid for by the client: charged on the card, or invoiced outside Stripe. */
+export function isPaidClean(job: JobRow): boolean {
+  return !!job.charged_at || job.charge_status === 'external';
+}
+
+/**
+ * Where a client stands on their welcome deal. Pure, so the CRM can mirror it:
+ * pass the configs in the deal (one, or all sharing a promo_group) and every job
+ * for those properties.
+ */
+export function promoProgressFrom(configs: JobRow[], jobs: JobRow[]): PromoProgress | null {
+  const withPromo = configs.filter(c => c?.promo_type);
+  const lead = withPromo[0];
+  if (!lead) return null;
+  const paidRequired = Math.max(0, Number(lead.promo_paid_cleans ?? 5));
+  const freeTotal = Math.max(0, Number(lead.promo_free_cleans ?? 2));
+  const startedAt = String(lead.promo_started_at ?? '').slice(0, 10);
+  const propertyIds = new Set<string>();
+  for (const c of withPromo) {
+    propertyIds.add(c.property_id);
+    for (const sub of (c.linked_property_ids ?? []) as string[]) propertyIds.add(sub);
+  }
+  const counted = jobs.filter(j =>
+    propertyIds.has(j.property_id) && j.status !== 'cancelled' && isTurnoverClean(j) && (!startedAt || String(j.checkout_date) >= startedAt),
+  );
+  const paidDone = counted.filter(isPaidClean).length;
+  const freeJobs = counted.filter(j => !!j.promo_free).sort((a, b) => String(a.checkout_date).localeCompare(String(b.checkout_date)) || String(a.id).localeCompare(String(b.id)));
+  const freeUsed = freeJobs.length;
+  return {
+    paidDone, paidRequired, freeUsed, freeTotal,
+    nextIsFree: paidDone >= paidRequired && freeUsed < freeTotal,
+    complete: freeUsed >= freeTotal,
+    propertyIds: [...propertyIds],
+    freeJobIds: freeJobs.map(j => String(j.id)),
+  };
+}
+
+/** Loads the configs and jobs that make up a config's welcome deal and returns the progress (null = no deal). */
+export async function promoProgress(db: Db, config: JobRow): Promise<PromoProgress | null> {
+  if (!config?.promo_type) return null;
+  let configs: JobRow[] = [config];
+  if (config.promo_group) {
+    const { data } = await db.from('cleaning_property_configs').select('*').eq('promo_group', config.promo_group);
+    if (data?.length) configs = data;
+  }
+  const propertyIds = new Set<string>();
+  for (const c of configs) {
+    if (!c.promo_type) continue;
+    propertyIds.add(c.property_id);
+    for (const sub of (c.linked_property_ids ?? []) as string[]) propertyIds.add(sub);
+  }
+  const { data: jobs } = await db.from('cleaning_jobs').select('id, property_id, status, job_type, checkout_date, charged_at, charge_status, promo_free').in('property_id', [...propertyIds]);
+  return promoProgressFrom(configs, jobs ?? []);
 }
 
 /** Days until the next automatic retry after the Nth failed attempt; null = stop retrying. */
@@ -138,6 +226,7 @@ export async function chargeJob(
   if (!job) return { ok: false, skipped: true, reason: 'not_found', error: 'Job not found.' };
   if (job.status === 'cancelled') return { ok: false, skipped: true, reason: 'cancelled', error: 'Job is cancelled.' };
   if (job.charged_at) return { ok: true, skipped: true, reason: 'already_charged', paymentIntentId: job.stripe_charge_id ?? undefined, amount: Number(job.cleaning_fee) };
+  if (job.promo_free || job.charge_status === 'promo_free') return { ok: true, skipped: true, reason: 'promo_free', amount: Number(job.cleaning_fee), promo: { freeIndex: Number(job.promo_free_index ?? 0), freeTotal: 0, paidRequired: 0 } };
   if (job.status !== 'completed') return { ok: false, skipped: true, reason: 'not_completed', error: 'Job is not completed yet.' };
   const hasReport = !!job.portal_data?.submittedAt;
   if (!hasReport && !opts.allowWithoutReport) {
@@ -147,6 +236,33 @@ export async function chargeJob(
   const config = await loadConfig(db, job.property_id);
   if (!config) return { ok: false, error: 'Property is not enrolled in cleaning (no config).' };
   const fee = billableFee(job, config);
+
+  // Welcome deal: the client has paid for enough cleans, so this one is free.
+  // Works the same for card-on-file and externally billed clients. The free
+  // clean is claimed on the row first so two jobs finishing at the same moment
+  // can't both take the last free slot; if they do, the loser is charged.
+  if (config.promo_type && isTurnoverClean(job)) {
+    const progress = await promoProgress(db, config);
+    if (progress?.nextIsFree) {
+      const freeIndex = progress.freeUsed + 1;
+      const { data: marked } = await db.from('cleaning_jobs')
+        .update({ promo_free: true, promo_free_index: freeIndex, charge_status: 'promo_free', last_charge_error: null, next_charge_attempt_at: null, updated_at: nowIso() })
+        .eq('id', jobId).is('charged_at', null).neq('promo_free', true)
+        .select('id');
+      if (marked?.length) {
+        // Settle a race: if more jobs are marked free than the deal allows, the
+        // earliest checkouts keep their free slot and this one is charged instead.
+        const after = await promoProgress(db, config);
+        const rank = after ? after.freeJobIds.indexOf(jobId) : 0;
+        if (after && (rank === -1 || rank < after.freeTotal)) {
+          const idx = rank === -1 ? freeIndex : rank + 1;
+          if (idx !== freeIndex) await db.from('cleaning_jobs').update({ promo_free_index: idx, updated_at: nowIso() }).eq('id', jobId);
+          return { ok: true, skipped: true, reason: 'promo_free', amount: fee, promo: { freeIndex: idx, freeTotal: after.freeTotal, paidRequired: after.paidRequired } };
+        }
+        await db.from('cleaning_jobs').update({ promo_free: false, promo_free_index: null, charge_status: job.charge_status ?? null, updated_at: nowIso() }).eq('id', jobId);
+      }
+    }
+  }
 
   // Client is invoiced outside Stripe (not on card billing yet): nothing to
   // charge here, but the cleaner is still paid now. Mark the job so the cron

@@ -7,6 +7,7 @@ import type { CleaningJob, CleaningJobType, CleaningPropertyConfig, Cleaner } fr
 import type { UplistingProperty } from '../../services/uplisting';
 import { dispatchCleaningJob } from '../../services/cleaningApi';
 import { displayName } from './propertyName';
+import { promoProgressFor, isTurnoverClean } from './promo';
 
 interface Props {
   jobs: CleaningJob[];
@@ -441,7 +442,10 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? 'Charge failed.');
       const now = new Date().toISOString();
-      if (d.external) {
+      if (d.promoFree) {
+        alert(d.message);
+        await onUpdateJob({ ...job, chargeStatus: 'promo_free', promoFree: true, promoFreeIndex: d.promoFreeIndex ?? undefined, updatedAt: now });
+      } else if (d.external) {
         alert(d.message);
         await onUpdateJob({ ...job, chargeStatus: 'external', updatedAt: now });
       } else {
@@ -880,13 +884,28 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         </span>
                       </div>
                     )}
+                    {(job.promoFree || job.chargeStatus === 'promo_free') && !job.chargedAt && (
+                      <div className="flex items-center gap-1.5 text-xs text-[#e8b86a]" title="Welcome deal: pay for 5 cleans, cleans 6 and 7 free. Nothing was charged; the cleaner is still paid on schedule.">
+                        <CreditCard size={12} />
+                        <span>🎁 Free clean{job.promoFreeIndex ? ` ${job.promoFreeIndex} of 2` : ''} under the welcome deal — ${job.cleaningFee} waived, not charged</span>
+                      </div>
+                    )}
+                    {config?.promo && !job.chargedAt && !job.promoFree && job.chargeStatus !== 'promo_free' && job.status !== 'cancelled' && isTurnoverClean(job) && (() => {
+                      const p = promoProgressFor(config, configs, jobs);
+                      if (!p || p.complete) return null;
+                      return (
+                        <div className="flex items-center gap-1.5 text-xs text-[#3a5070]" title="Where this client stands on the welcome deal (pay for 5, cleans 6 and 7 free). The server marks the free cleans when they're charged.">
+                          <span>🎁 Welcome deal: {p.nextIsFree ? <span className="text-[#e8b86a] font-semibold">next completed clean is free ({p.freeUsed + 1} of {p.freeTotal})</span> : `${Math.min(p.paidDone, p.paidRequired)}/${p.paidRequired} paid cleans so far · then ${p.freeTotal - p.freeUsed} free`}</span>
+                        </div>
+                      );
+                    })()}
                     {job.chargeStatus === 'external' && !job.chargedAt && (
                       <div className="flex items-center gap-1.5 text-xs text-[#7ab8e8]">
                         <CreditCard size={12} />
                         <span>🧾 Billed outside Stripe — invoice the client ${job.cleaningFee}</span>
                       </div>
                     )}
-                    {job.status === 'completed' && !job.chargedAt && !job.portalData && job.chargeStatus !== 'failed' && job.chargeStatus !== 'external' && (
+                    {job.status === 'completed' && !job.chargedAt && !job.portalData && job.chargeStatus !== 'failed' && job.chargeStatus !== 'external' && job.chargeStatus !== 'promo_free' && !job.promoFree && (
                       <div className="flex items-center gap-2 flex-wrap text-xs text-[#d0954a]">
                         <span>📋 No cleaner report on file. Use <strong>Charge now</strong> to bill anyway, or waive the report so the daily run bills it{config && config.billingMode !== 'external' && !config.stripePaymentMethodId ? ' (this property has no card on file yet — send the payment-setup link first)' : ''}.</span>
                         <button onClick={() => handleWaiveReport(job)} disabled={waiving === job.id}
@@ -966,7 +985,7 @@ export default function JobsView({ jobs, configs, cleaners, uplistingProperties,
                         {undoing === job.id ? 'Undoing…' : 'Undo Complete'}
                       </button>
                     )}
-                    {job.status === 'completed' && !job.chargedAt && job.chargeStatus !== 'external' && config?.billingMode !== 'external' && (
+                    {job.status === 'completed' && !job.chargedAt && job.chargeStatus !== 'external' && job.chargeStatus !== 'promo_free' && !job.promoFree && config?.billingMode !== 'external' && (
                       <button
                         onClick={() => handleCharge(job)}
                         disabled={charging === job.id}

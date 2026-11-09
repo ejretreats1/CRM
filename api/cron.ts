@@ -511,6 +511,7 @@ async function runBilling(res: VercelResponse) {
     awaitingReport: [] as { jobId: string; property: string; cleaner: string; date: string }[],
     gaveUp: [] as { jobId: string; property: string; error: string }[],
     externalBilled: [] as { jobId: string; property: string; date: string; amount: number; payout: string }[],
+    promoFree: [] as { jobId: string; property: string; date: string; amount: number; freeIndex: number; freeTotal: number }[],
     payoutsScheduled: [] as { jobId: string; property: string; cleaner: string; amount: number; dueAt: string }[],
     errors: [] as string[],
   };
@@ -522,7 +523,8 @@ async function runBilling(res: VercelResponse) {
     results.chargesAttempted++;
     try {
       const r = await chargeJob(supabase, stripe, job.id, { trigger: 'cron' });
-      if (r.skipped && r.reason === 'external_billing') results.externalBilled.push({ jobId: job.id, property: job.property_name, date: job.checkout_date, amount: Number(r.amount ?? job.cleaning_fee ?? 0), payout: job.payout_sent_at ? 'paid' : 'scheduled' });
+      if (r.skipped && r.reason === 'promo_free') results.promoFree.push({ jobId: job.id, property: job.property_name, date: job.checkout_date, amount: Number(r.amount ?? job.cleaning_fee ?? 0), freeIndex: r.promo?.freeIndex ?? 0, freeTotal: r.promo?.freeTotal ?? 2 });
+      else if (r.skipped && r.reason === 'external_billing') results.externalBilled.push({ jobId: job.id, property: job.property_name, date: job.checkout_date, amount: Number(r.amount ?? job.cleaning_fee ?? 0), payout: job.payout_sent_at ? 'paid' : 'scheduled' });
       else if (r.ok && !r.skipped) results.chargesSucceeded++;
       else if (!r.ok && !r.skipped) results.chargeFailed.push({ jobId: job.id, property: job.property_name, error: r.error ?? 'unknown', retry: r.willRetryAt ?? null });
     } catch (e) {
@@ -573,7 +575,7 @@ async function runBilling(res: VercelResponse) {
 
   // ── Daily summary ─────────────────────────────────────────────────────────
   const attention = results.chargeFailed.length + results.payoutFailed.length + results.manualPayoutsDue.length + results.awaitingReport.length + results.gaveUp.length + results.externalBilled.length;
-  const total = results.chargesAttempted + results.payoutsAttempted + attention + results.errors.length + (results.payoutsScheduled.length ? 1 : 0);
+  const total = results.chargesAttempted + results.payoutsAttempted + attention + results.errors.length + (results.payoutsScheduled.length ? 1 : 0) + results.promoFree.length;
   if (total > 0) {
     const hasErrors = results.chargeFailed.length > 0 || results.payoutFailed.length > 0 || results.gaveUp.length > 0 || results.errors.length > 0;
     const subject = hasErrors
@@ -609,6 +611,7 @@ async function runBilling(res: VercelResponse) {
             ${section('Charges failed (will retry automatically)', '#dc2626', results.chargeFailed.map(e => row([escapeHtml(e.property), escapeHtml(e.error), e.retry ? `retry ${e.retry.slice(0, 10)}` : 'no more retries'])))}
             ${section('Charges given up — fix the card or charge manually', '#dc2626', results.gaveUp.map(e => row([escapeHtml(e.property), escapeHtml(e.error)])))}
             ${section('Billed outside Stripe — invoice the client', '#0369a1', results.externalBilled.map(x => row([escapeHtml(x.property), x.date, `$${x.amount}`, `cleaner payout: ${escapeHtml(x.payout)}`])))}
+            ${section('🎁 Free cleans under the welcome deal (nothing charged, cleaner still paid)', '#b45309', results.promoFree.map(x => row([escapeHtml(x.property), x.date, `$${x.amount} waived`, `free clean ${x.freeIndex} of ${x.freeTotal}`])))}
             ${section('Payouts failed', '#dc2626', results.payoutFailed.map(e => row([escapeHtml(e.property), escapeHtml(e.error)])))}
             ${section('Cleaner payouts scheduled (sent automatically on the date)', '#64748b', results.payoutsScheduled.map(p => row([escapeHtml(p.cleaner), `$${p.amount}`, escapeHtml(p.property), p.dueAt])))}
             ${section('Manual payouts due — pay the cleaner, then click “Mark paid” in the CRM', '#b45309', results.manualPayoutsDue.map(m => row([m.cleaner, `$${m.amount}`, m.property, m.date])))}
