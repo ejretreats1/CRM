@@ -80,6 +80,13 @@ function rowToConfig(r: any): CleaningPropertyConfig {
     clientPhone: r.client_phone ?? undefined,
     clientNotes: r.client_notes ?? undefined,
     billingMode: r.billing_mode === 'external' ? 'external' : 'stripe',
+    promo: r.promo_type ? {
+      type: 'welcome_5_2',
+      paidCleans: Number(r.promo_paid_cleans ?? 5),
+      freeCleans: Number(r.promo_free_cleans ?? 2),
+      group: r.promo_group ?? undefined,
+      startedAt: r.promo_started_at ?? undefined,
+    } : undefined,
   };
 }
 
@@ -103,6 +110,14 @@ function configToRow(c: CleaningPropertyConfig) {
     ...(c.clientPhone !== undefined && { client_phone: c.clientPhone || null }),
     client_notes: c.clientNotes?.trim() || null,
     billing_mode: c.billingMode ?? 'stripe',
+    // Only written when the deal was set or cleared, so saves keep working before the promo migration has run.
+    ...(c.promo !== undefined && {
+      promo_type: c.promo ? c.promo.type : null,
+      promo_paid_cleans: c.promo?.paidCleans ?? 5,
+      promo_free_cleans: c.promo?.freeCleans ?? 2,
+      promo_group: c.promo?.group ?? null,
+      promo_started_at: c.promo?.startedAt ?? null,
+    }),
   };
 }
 
@@ -185,6 +200,8 @@ function rowToJob(r: any): CleaningJob {
     payoutSentAt: r.payout_sent_at ?? undefined,
     stripeTransferId: r.stripe_transfer_id ?? undefined,
     chargeStatus: r.charge_status ?? undefined,
+    promoFree: !!r.promo_free,
+    promoFreeIndex: r.promo_free_index ?? undefined,
     chargeAttempts: r.charge_attempts ?? undefined,
     lastChargeError: r.last_charge_error ?? undefined,
     nextChargeAttemptAt: r.next_charge_attempt_at ?? undefined,

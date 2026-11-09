@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { Plus, Edit2, Trash2, Home, DollarSign, Users, Zap, CheckCircle2, Copy, Check, Mail, CalendarDays, RefreshCw, ChevronUp, ChevronDown, Download, ImagePlus, Link2, AlertTriangle } from 'lucide-react';
-import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl, CleaningEnrollmentLink } from '../../types/cleaning';
+import type { CleaningPropertyConfig, AssignedCleaner, Cleaner, IcalUrl, CleaningEnrollmentLink, CleaningJob } from '../../types/cleaning';
+import { promoProgressFor, promoLabel, newPromo } from './promo';
 import { fetchEnrollmentLinks, deleteEnrollmentLink } from '../../services/cleaningDb';
 import type { UplistingProperty, UplistingReservation } from '../../services/uplisting';
 import { fetchPropertyAllPhotos, fetchPropertyDetails, formatPropertyAddress } from '../../services/uplisting';
@@ -11,6 +12,8 @@ import { displayName, listingName } from './propertyName';
 interface Props {
   configs: CleaningPropertyConfig[];
   cleaners: Cleaner[];
+  /** All jobs — used to show where each client stands on the welcome deal */
+  jobs?: CleaningJob[];
   uplistingProperties: UplistingProperty[];
   reservations: UplistingReservation[];
   onSave: (c: CleaningPropertyConfig) => Promise<void>;
@@ -26,6 +29,8 @@ interface FormState {
   cleaningFee: string;
   feeAutoFilled: boolean;
   billingMode: 'stripe' | 'external';
+  /** New-client welcome deal: pay for 5 cleans, cleans 6 and 7 free */
+  promoEnabled: boolean;
   assignedCleaners: AssignedCleaner[];
   doorCode: string;
   address: string;
@@ -45,7 +50,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  propertyId: '', propertyName: '', cleaningFee: '', feeAutoFilled: false, billingMode: 'stripe', assignedCleaners: [],
+  propertyId: '', propertyName: '', cleaningFee: '', feeAutoFilled: false, billingMode: 'stripe', promoEnabled: false, assignedCleaners: [],
   doorCode: '', address: '', checkoutTime: '', checkinTime: '',
   photoUrl: '', stagingPhotoUrls: [], stagingUrlInput: '',
   icalUrls: [], icalUrlInput: '', icalPlatform: 'Airbnb', icalUnitName: '',
@@ -153,7 +158,7 @@ function SubUnitSection({
   );
 }
 
-export default function PropertiesView({ configs, cleaners, uplistingProperties, reservations, onSave, onDelete, onSyncIcal, onSyncAllIcal, uplistingApiKey }: Props) {
+export default function PropertiesView({ configs, cleaners, jobs = [], uplistingProperties, reservations, onSave, onDelete, onSyncIcal, onSyncAllIcal, uplistingApiKey }: Props) {
   // --- Edit modal state ---
   const [editing, setEditing] = useState<CleaningPropertyConfig | null | 'new'>(null);
   const [form, setForm] = useState<FormState>({ ...EMPTY });
@@ -197,6 +202,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
   const [batchError, setBatchError] = useState<string | null>(null);
   const [batchCopied, setBatchCopied] = useState(false);
   const [batchEmailSent, setBatchEmailSent] = useState(false);
+  const [batchPromo, setBatchPromo] = useState(false);
 
   // --- Client enrollment link state (client fills in property details themselves) ---
   const [enrollModalOpen, setEnrollModalOpen] = useState(false);
@@ -306,6 +312,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
     const firstConfig = configs.find(c => c.id === firstId);
     setBatchClientName(firstConfig?.clientName ?? '');
     setBatchClientEmail(firstConfig?.clientEmail ?? '');
+    setBatchPromo(configs.filter(c => selectedForOnboard.has(c.id)).some(c => !!c.promo));
     setBatchLink(null);
     setBatchError(null);
     setBatchCopied(false);
@@ -332,6 +339,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
           propertyNames: selectedConfigs.map(c => c.propertyName),
           clientName: batchClientName.trim() || null,
           clientEmail: batchClientEmail.trim(),
+          promo: batchPromo,
           copyOnly,
           appUrl: window.location.origin,
         }),
@@ -340,6 +348,15 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       if (!r.ok) throw new Error(d.error ?? 'Failed.');
       const link: string = d.link;
       setBatchLink(link);
+      // The server stamped (or cleared) the deal on these properties; mirror it locally so the list updates without a reload.
+      const groupId: string | undefined = typeof d.id === 'string' ? d.id : undefined;
+      const existingGroup = selectedConfigs.find(c => c.promo?.group)?.promo?.group;
+      for (const c of selectedConfigs) {
+        const next: CleaningPropertyConfig = batchPromo
+          ? { ...c, promo: c.promo ?? { ...newPromo(), group: existingGroup ?? groupId } }
+          : { ...c, promo: c.promo ? null : undefined };
+        if (!!next.promo !== !!c.promo) await onSave(next).catch(() => {});
+      }
       if (copyOnly) {
         try { await navigator.clipboard.writeText(link); } catch {}
         setBatchCopied(true);
@@ -373,6 +390,7 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
       cleaningFee: String(config.cleaningFee),
       feeAutoFilled: false,
       billingMode: config.billingMode ?? 'stripe',
+      promoEnabled: !!config.promo,
       assignedCleaners: [...config.assignedCleaners],
       doorCode: config.doorCode ?? '',
       address: config.address ?? '',
@@ -573,6 +591,8 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
         stripeCustomerId: existing?.stripeCustomerId,
         stripePaymentMethodId: existing?.stripePaymentMethodId,
         billingMode: form.billingMode,
+        // Keep the existing deal (its group + start date) when it stays on; start a fresh one when switched on.
+        promo: form.promoEnabled ? (existing?.promo ?? newPromo(now)) : (existing?.promo ? null : undefined),
       };
       await onSave(config);
       setEditing(null);
@@ -736,6 +756,14 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                             <span className="text-xs font-semibold text-[#d0954a]">No card on file — not auto-dispatched</span>
                           </div>
                         )}
+                        {c.promo && (() => {
+                          const p = promoProgressFor(c, configs, jobs);
+                          return p ? (
+                            <div className="flex items-center gap-1.5" title={`Welcome deal: pay for ${p.paidRequired} cleans, the next ${p.freeTotal} are free.${p.propertyIds.length > 1 ? ' Counted across all properties in this client\'s deal.' : ''}`}>
+                              <span className={`text-xs font-semibold ${p.complete ? 'text-[#3a5070]' : p.nextIsFree ? 'text-[#d0954a]' : 'text-[#e8b86a]'}`}>🎁 {promoLabel(p)}</span>
+                            </div>
+                          ) : null;
+                        })()}
                         {profit !== null && (
                           <div className="flex items-center gap-1.5">
                             <DollarSign size={13} className="text-[#d0954a]" />
@@ -879,6 +907,20 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                   placeholder="owner@example.com"
                 />
               </div>
+
+              {/* Welcome deal */}
+              <button type="button" onClick={() => setBatchPromo(v => !v)}
+                className={`w-full text-left rounded-xl border px-3 py-2.5 transition-colors ${batchPromo ? 'border-[#d0954a] bg-[#1a1200]' : 'border-[#1e2d45] bg-[#0f1923] hover:border-[#2a4060]'}`}>
+                <div className="flex items-start gap-2.5">
+                  <span className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${batchPromo ? 'bg-[#d0954a] border-[#d0954a] text-black' : 'border-[#3a5070] text-transparent'}`}>✓</span>
+                  <div>
+                    <p className={`text-xs font-semibold ${batchPromo ? 'text-white' : 'text-[#b8d4f0]'}`}>🎁 New client welcome deal — pay for 5 cleans, cleans 6 &amp; 7 free</p>
+                    <p className="text-[11px] text-[#3a5070] mt-0.5 leading-snug">
+                      {selectedConfigs.length > 1 ? 'One deal shared across these properties: ' : ''}after 5 charged turnover cleans the next 2 are marked free and not charged. Shown on the signup page and in the client's agreement.
+                    </p>
+                  </div>
+                </div>
+              </button>
 
               {batchError && (
                 <p className="text-xs text-[#e05c5c] bg-[#2a0e0e] border border-[#5a1a1a] rounded-lg px-3 py-2">{batchError}</p>
@@ -1197,6 +1239,30 @@ export default function PropertiesView({ configs, cleaners, uplistingProperties,
                     </button>
                   ))}
                 </div>
+                {/* Welcome deal */}
+                {(() => {
+                  const existing = editing !== 'new' && editing ? editing : null;
+                  const progress = existing?.promo ? promoProgressFor(existing, configs, jobs) : null;
+                  const groupSize = existing?.promo?.group ? configs.filter(c => c.promo?.group === existing.promo!.group).length : 1;
+                  return (
+                    <button type="button" onClick={() => setForm(f => ({ ...f, promoEnabled: !f.promoEnabled }))}
+                      className={`mt-2 w-full text-left rounded-xl border px-3 py-2.5 transition-colors ${form.promoEnabled ? 'border-[#d0954a] bg-[#1a1200]' : 'border-[#1e2d45] bg-[#0f1923] hover:border-[#2a4060]'}`}>
+                      <div className="flex items-start gap-2.5">
+                        <span className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${form.promoEnabled ? 'bg-[#d0954a] border-[#d0954a] text-black' : 'border-[#3a5070] text-transparent'}`}>✓</span>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-semibold ${form.promoEnabled ? 'text-white' : 'text-[#b8d4f0]'}`}>🎁 Welcome deal — pay for 5 cleans, cleans 6 &amp; 7 free</p>
+                          <p className="text-[11px] text-[#3a5070] mt-0.5 leading-snug">
+                            {form.promoEnabled && progress
+                              ? <>{promoLabel(progress)}{groupSize > 1 ? ` · shared across ${groupSize} properties` : ''}{existing?.promo?.startedAt ? ` · counting cleans since ${new Date(existing.promo.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</>
+                              : form.promoEnabled
+                                ? 'Starts counting from today. The 6th and 7th completed turnover cleans are marked free and not charged; the cleaner is still paid.'
+                                : 'Off. Turn on for new clients who came in on the 5 + 2 ad. Also available when sending the onboarding link.'}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })()}
               </div>
 
               {/* Address */}

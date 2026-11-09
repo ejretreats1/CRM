@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { requireAdmin, APP_URL, ADMIN_EMAIL, escapeHtml } from './_auth.js';
-import { chargeJob, payoutJob, markPayoutPaid, payoutDueFrom } from './_billing.js';
+import { chargeJob, payoutJob, markPayoutPaid, payoutDueFrom, PROMO_WELCOME } from './_billing.js';
 
 
 import { syncPropertyIcal, previewIcalFeed } from './_ical.js';
@@ -1386,7 +1386,9 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
   const payoutNote = row.payout_sent_at
     ? 'Cleaner already paid'
     : `Cleaner payout scheduled for ${new Date(row.payout_due_at ?? payoutDueAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} (sends automatically)`;
-  const paymentLine = charge.reason === 'external_billing'
+  const paymentLine = charge.reason === 'promo_free'
+    ? `🎁 <strong>Free clean</strong> under the welcome deal (free clean ${charge.promo?.freeIndex ?? '?'} of ${charge.promo?.freeTotal ?? 2}) — nothing charged${payoutNote ? ` · ${payoutNote}` : ''}`
+    : charge.reason === 'external_billing'
     ? `🧾 <strong>Client billed outside Stripe</strong> — invoice them $${charge.amount ?? row.cleaning_fee}${payoutNote ? ` · ${payoutNote}` : ''}`
     : charge.ok
       ? `💳 <strong>$${charge.amount ?? row.cleaning_fee} charged</strong> to client automatically${payoutNote ? ` · ${payoutNote}` : ''}`
@@ -1403,7 +1405,8 @@ async function cleaningSubmit(body: any, res: VercelResponse) {
     let config = (await supabase.from('cleaning_property_configs').select('*').eq('property_id', row.property_id).maybeSingle()).data;
     if (!config) config = (await supabase.from('cleaning_property_configs').select('*').contains('linked_property_ids', [row.property_id]).maybeSingle()).data;
     if (config?.client_email) {
-      const paymentNote = charge.reason === 'external_billing' ? 'This clean will appear on your next invoice from E&J Retreats.'
+      const paymentNote = charge.reason === 'promo_free' ? `This clean is on us as part of your welcome deal (free clean ${charge.promo?.freeIndex ?? ''} of ${charge.promo?.freeTotal ?? 2}). Nothing was charged.`
+        : charge.reason === 'external_billing' ? 'This clean will appear on your next invoice from E&J Retreats.'
         : charge.ok ? null
         : charge.willRetryAt ? 'Your card on file could not be charged yet; we will retry automatically.'
         : charge.reason === 'already_charged' ? null
@@ -1871,11 +1874,14 @@ async function cleaningClientGet(token: string, res: VercelResponse) {
   if (error || !data) return res.status(404).json({ error: 'Invalid or expired link.' });
   if (new Date(data.expires_at) < new Date()) return res.status(410).json({ error: 'This onboarding link has expired.' });
   const configIds: string[] = data.property_config_ids ?? (data.property_config_id ? [data.property_config_id] : []);
-  const { data: cfgs } = configIds.length ? await supabase.from('cleaning_property_configs').select('id, property_name, cleaning_fee').in('id', configIds) : { data: [] };
+  const { data: cfgs } = configIds.length ? await supabase.from('cleaning_property_configs').select('id, property_name, cleaning_fee, promo_type, promo_paid_cleans, promo_free_cleans').in('id', configIds) : { data: [] };
   const properties = configIds.map((id: string) => {
     const c = (cfgs ?? []).find((x: any) => x.id === id);
     return { id, name: c?.property_name ?? '', fee: Number(c?.cleaning_fee ?? 0) };
   });
+  // Welcome deal, if any of the properties carry it (they're onboarded as one deal)
+  const promoCfg = (cfgs ?? []).find((x: any) => x.promo_type);
+  const promo = promoCfg ? { type: promoCfg.promo_type, paidCleans: Number(promoCfg.promo_paid_cleans ?? 5), freeCleans: Number(promoCfg.promo_free_cleans ?? 2) } : null;
   return res.status(200).json({
     id: data.id,
     propertyConfigId: configIds[0] ?? data.property_config_id,
@@ -1885,6 +1891,7 @@ async function cleaningClientGet(token: string, res: VercelResponse) {
     clientEmail: data.client_email,
     status: data.status,
     properties,
+    promo,
   });
 }
 
@@ -1897,6 +1904,9 @@ async function cleaningClientSend(body: any, res: VercelResponse) {
     const propertyNames: string[] = body.propertyNames ??
       (body.propertyName ? [body.propertyName] : []);
     const { clientName, clientEmail, appUrl, copyOnly } = body;
+    // Welcome deal toggle from the CRM: true = give these properties the deal (one deal shared
+    // across the batch), false = make sure they don't have it. Omitted = leave as is.
+    const promoFlag: boolean | undefined = typeof body.promo === 'boolean' ? body.promo : undefined;
 
     if (!clientEmail || !propertyConfigIds.length) {
       return res.status(400).json({ error: 'clientEmail and propertyConfigIds are required.' });
@@ -1908,6 +1918,22 @@ async function cleaningClientSend(body: any, res: VercelResponse) {
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const propertyNamesStr = propertyNames.join(', ');
 
+    const { data: existingCfgs } = await supabase.from('cleaning_property_configs').select('id, promo_type, promo_group, promo_started_at').in('id', propertyConfigIds);
+    const alreadyGroup = (existingCfgs ?? []).find((c: any) => c.promo_type && c.promo_group)?.promo_group as string | undefined;
+    if (promoFlag === true) {
+      const group = alreadyGroup ?? id;
+      for (const c of existingCfgs ?? []) {
+        await supabase.from('cleaning_property_configs').update({
+          promo_type: PROMO_WELCOME, promo_paid_cleans: 5, promo_free_cleans: 2, promo_group: group,
+          promo_started_at: c.promo_started_at ?? new Date().toISOString(),
+        }).eq('id', c.id);
+      }
+    } else if (promoFlag === false) {
+      await supabase.from('cleaning_property_configs').update({ promo_type: null, promo_group: null }).in('id', propertyConfigIds);
+    }
+    const hasPromo = promoFlag ?? (existingCfgs ?? []).some((c: any) => c.promo_type);
+    const promoShown = hasPromo ? { type: PROMO_WELCOME, paidCleans: 5, freeCleans: 2 } : null;
+
     const { error } = await supabase.from('cleaning_client_onboarding').insert({
       id, token,
       property_config_id: propertyConfigIds[0],
@@ -1918,6 +1944,7 @@ async function cleaningClientSend(body: any, res: VercelResponse) {
       status: 'pending',
       created_at: new Date().toISOString(),
       expires_at: expiresAt,
+      ...(promoShown ? { promo: promoShown } : {}),
     });
     if (error) return res.status(500).json({ error: error.message });
 
@@ -1951,6 +1978,7 @@ async function cleaningClientSend(body: any, res: VercelResponse) {
                 <li>Charged automatically — only after each completed cleaning</li>
                 <li>Photo report submitted by cleaner after every job</li>
               </ul>
+              ${promoShown ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;margin:16px 0"><p style="margin:0;color:#92400e;font-weight:700">🎁 Welcome deal: pay for your first ${promoShown.paidCleans} cleans, your next ${promoShown.freeCleans} are free.</p><p style="margin:6px 0 0;color:#92400e;font-size:13px">It applies automatically. Cleans ${promoShown.paidCleans + 1} and ${promoShown.paidCleans + promoShown.freeCleans} will show as $0 on your statement.</p></div>` : ''}
               <p style="margin:28px 0;text-align:center">
                 <a href="${link}" style="background:#1e40af;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">
                   Complete Setup
@@ -2060,14 +2088,16 @@ async function cleaningClientConfirm(body: any, res: VercelResponse) {
       feesShown: Array.isArray(consent?.feesShown) ? consent.feesShown.slice(0, 50) : null,
       userAgent: typeof consent?.userAgent === 'string' ? consent.userAgent.slice(0, 300) : null,
       setupIntentId,
+      promoShown: record.promo ?? null,
     },
   }).eq('token', token);
 
+  const promoLine = record.promo ? ` They are on the <strong>welcome deal</strong>: pay for ${record.promo.paidCleans ?? 5} cleans, the next ${record.promo.freeCleans ?? 2} are free (applied automatically at charge time).` : '';
   await (await getResend()).emails.send({
     from: 'E&J Retreats Cleaning <cleaning@ejretreats.com>',
     to: ADMIN_EMAIL,
     subject: `✅ Client onboarded: ${record.property_name}`,
-    html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${record.client_name ?? record.client_email}</strong> completed onboarding for <strong>${record.property_name}</strong>. Card is on file and ready to charge after each cleaning.</p></div>`,
+    html: `<div style="font-family:sans-serif;padding:24px"><p><strong>${record.client_name ?? record.client_email}</strong> completed onboarding for <strong>${record.property_name}</strong>. Card is on file and ready to charge after each cleaning.${promoLine}</p></div>`,
   }).catch(() => {});
 
   return res.status(200).json({ success: true });
@@ -2319,6 +2349,10 @@ async function cleaningChargeAndPayout(body: any, res: VercelResponse) {
   const outcome = await chargeJob(getSupabase(), await getStripe(), jobId, { trigger: 'manual', allowWithoutReport: true });
   if (outcome.skipped && outcome.reason === 'external_billing') {
     return res.status(200).json({ charged: false, external: true, amount: outcome.amount, message: 'This property is billed outside Stripe — nothing was charged. The cleaner payout goes out on its scheduled date (or use Pay cleaner now).' });
+  }
+  if (outcome.skipped && outcome.reason === 'promo_free') {
+    const idx = outcome.promo?.freeIndex ? ` (free clean ${outcome.promo.freeIndex} of ${outcome.promo.freeTotal || 2})` : '';
+    return res.status(200).json({ charged: false, promoFree: true, promoFreeIndex: outcome.promo?.freeIndex ?? null, amount: outcome.amount, message: `This clean is free under the client's welcome deal${idx} — nothing was charged. The cleaner is still paid on schedule.` });
   }
   if (outcome.skipped && outcome.reason === 'already_charged') return res.status(400).json({ error: 'This job has already been charged.' });
   if (outcome.skipped) return res.status(400).json({ error: outcome.error ?? 'Job cannot be charged right now.' });
